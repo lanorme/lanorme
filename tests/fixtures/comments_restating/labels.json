@@ -156,5 +156,66 @@
     {"line": 31, "label": "ok", "note": "shares 'angle' but adds the radians unit"},
     {"line": 37, "label": "ok", "note": "shares 'amount' but adds the cents unit"},
     {"line": 43, "label": "ok", "note": "shares 'retries' but adds the cap of 5"}
+  ],
+  "positives/pos_half_useful_qualifier.py": [
+    {"line": 13, "label": "restating", "note": "category=half_useful_qualifier; qualifier 'to skip the header' is encoded as rows[1:]"},
+    {"line": 20, "label": "restating", "note": "category=half_useful_qualifier; qualifier 'keep just the interior slice' is tautological with [1:-1]"},
+    {"line": 25, "label": "restating", "note": "category=half_useful_qualifier; qualifier 'falling back to zero when missing' is exactly .get(key, 0)"},
+    {"line": 30, "label": "restating", "note": "category=half_useful_qualifier; qualifier 'fit the first 1024 bytes' is exactly [:1024]"},
+    {"line": 35, "label": "restating", "note": "category=half_useful_qualifier; qualifier 'removing duplicates via a set' is exactly set(...) | set(...)"},
+    {"line": 40, "label": "restating", "note": "category=half_useful_qualifier; qualifier 'after stripping the surrounding whitespace' is exactly the chained .strip()"}
+  ],
+  "negatives/neg_half_useful_qualifier.py": [
+    {"line": 13, "label": "ok", "note": "category=half_useful_qualifier; adds downstream-consumer contract not in code"},
+    {"line": 20, "label": "ok", "note": "category=half_useful_qualifier; adds upstream-sentinel-padding contract not in code"},
+    {"line": 25, "label": "ok", "note": "category=half_useful_qualifier; adds 'documented absent sentinel' API contract"},
+    {"line": 30, "label": "ok", "note": "category=half_useful_qualifier; adds the kernel-MTU rationale for the literal 1024"},
+    {"line": 35, "label": "ok", "note": "category=half_useful_qualifier; adds the unspecified-order public-contract guarantee"},
+    {"line": 40, "label": "ok", "note": "category=half_useful_qualifier; adds the RFC 4518 reference for the normalization"}
+  ],
+  "positives/pos_stale_comment.py": [
+    {"line": 13, "label": "restating", "note": "category=stale; stale: true — comment claims increment, code only wraps in dict"},
+    {"line": 18, "label": "restating", "note": "category=stale; stale: true — comment says multiply, code sums"},
+    {"line": 23, "label": "restating", "note": "category=stale; stale: true — comment says uppercase, code lowercases"},
+    {"line": 28, "label": "restating", "note": "category=stale; stale: true — comment says last item, code returns first"},
+    {"line": 33, "label": "restating", "note": "category=stale; stale: true — comment says UDP, code formats tcp:// URL"},
+    {"line": 38, "label": "restating", "note": "category=stale; stale: true — comment says hex, code parses base 10"}
+  ],
+  "positives/pos_type_in_prose.py": [
+    {"line": 12, "label": "restating", "note": "category=type_in_prose; restates -> list[str]"},
+    {"line": 17, "label": "restating", "note": "category=type_in_prose; restates -> int | None"},
+    {"line": 22, "label": "restating", "note": "category=type_in_prose; restates -> dict[str, str]"},
+    {"line": 27, "label": "restating", "note": "category=type_in_prose; restates -> tuple[float, float]"},
+    {"line": 32, "label": "restating", "note": "category=type_in_prose; restates -> set[str]"},
+    {"line": 37, "label": "restating", "note": "category=type_in_prose; restates -> str | None"}
+  ],
+  "negatives/neg_type_in_prose.py": [
+    {"line": 13, "label": "ok", "note": "category=type_in_prose; adds sort order beyond list[str]"},
+    {"line": 18, "label": "ok", "note": "category=type_in_prose; adds the 'years' unit and the meaning of None"},
+    {"line": 23, "label": "ok", "note": "category=type_in_prose; adds key-lowercasing and first-value-only semantics"},
+    {"line": 28, "label": "ok", "note": "category=type_in_prose; adds field meaning (lat/lon) and the WGS84 unit/datum"},
+    {"line": 33, "label": "ok", "note": "category=type_in_prose; adds the fresh-copy ownership contract"},
+    {"line": 38, "label": "ok", "note": "category=type_in_prose; adds interning + identity-comparison-safe runtime guarantee"}
+  ],
+  "positives/pos_multiline_restatement.py": [
+    {"line": 12, "label": "restating", "note": "category=multiline; comment narrates the 2-line square-then-sum block"},
+    {"line": 18, "label": "restating", "note": "category=multiline; comment narrates the open/read/close block"},
+    {"line": 26, "label": "restating", "note": "category=multiline; comment narrates the lower+strip loop"},
+    {"line": 34, "label": "restating", "note": "category=multiline; comment narrates the double-then-filter pair of comprehensions"},
+    {"line": 40, "label": "restating", "note": "category=multiline; comment narrates the dict-copy-then-update block"}
+  ],
+  "negatives/neg_multiline_restatement.py": [
+    {"line": 12, "label": "ok", "note": "category=multiline; 'normalize/bucket/count' is emergent intent not named in the code"},
+    {"line": 22, "label": "ok", "note": "category=multiline; cites the SEC-2024-014 homoglyph threat the block defends against"},
+    {"line": 30, "label": "ok", "note": "category=multiline; names the LWW+soft-delete policy implemented by the block"},
+    {"line": 40, "label": "ok", "note": "category=multiline; gives external context (finance CSV formats) not in the parsing code"},
+    {"line": 48, "label": "ok", "note": "category=multiline; names the scheduling discipline (round-robin then FIFO) the block enacts"}
+  ],
+  "positives/pos_docstring_dup.py": [
+    {"line": 13, "label": "restating", "note": "category=docstring_dup; paraphrases the function's docstring"},
+    {"line": 22, "label": "restating", "note": "category=docstring_dup; verbatim copy of the docstring's first sentence"},
+    {"line": 28, "label": "restating", "note": "category=docstring_dup; paraphrases the function's docstring"},
+    {"line": 36, "label": "restating", "note": "category=docstring_dup; restates the enclosing class docstring inside __init__"},
+    {"line": 42, "label": "restating", "note": "category=docstring_dup; paraphrases the docstring including the raised-exception clause"}
   ]
 }

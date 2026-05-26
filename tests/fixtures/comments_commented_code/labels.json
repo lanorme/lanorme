@@ -1,0 +1,203 @@
+{
+  "positives/pos_disabled_imports.py": [
+    {"line": 8, "label": "commented_code", "note": "disabled import statement"},
+    {"line": 9, "label": "commented_code", "note": "disabled from-import"},
+    {"line": 10, "label": "commented_code", "note": "disabled import with alias"},
+    {"line": 11, "label": "commented_code", "note": "disabled third-party import"},
+    {"line": 12, "label": "commented_code", "note": "disabled relative import"},
+    {"line": 13, "label": "commented_code", "note": "disabled multi-name from-import"},
+    {"line": 21, "label": "commented_code", "note": "disabled import below body"},
+    {"line": 22, "label": "commented_code", "note": "disabled stdlib import"}
+  ],
+  "positives/pos_disabled_assignments.py": [
+    {"line": 9, "label": "commented_code", "note": "disabled assignment"},
+    {"line": 10, "label": "commented_code", "note": "disabled assignment with generator expression"},
+    {"line": 11, "label": "commented_code", "note": "disabled constant assignment"},
+    {"line": 14, "label": "commented_code", "note": "disabled augmented assignment inside loop"},
+    {"line": 15, "label": "commented_code", "note": "disabled assignment"},
+    {"line": 16, "label": "commented_code", "note": "disabled augmented assignment"},
+    {"line": 20, "label": "commented_code", "note": "disabled module-level constant"},
+    {"line": 21, "label": "commented_code", "note": "disabled module-level constant"},
+    {"line": 22, "label": "commented_code", "note": "disabled module-level constant containing URL string"},
+    {"line": 30, "label": "commented_code", "note": "disabled attribute assignment"},
+    {"line": 31, "label": "commented_code", "note": "disabled attribute assignment with call"}
+  ],
+  "positives/pos_disabled_calls.py": [
+    {"line": 9, "label": "commented_code", "note": "disabled logger call"},
+    {"line": 10, "label": "commented_code", "note": "disabled metrics call"},
+    {"line": 12, "label": "commented_code", "note": "disabled cache write"},
+    {"line": 13, "label": "commented_code", "note": "disabled notifier call"},
+    {"line": 15, "label": "commented_code", "note": "disabled audit call"},
+    {"line": 30, "label": "commented_code", "note": "disabled debug print"},
+    {"line": 31, "label": "commented_code", "note": "disabled breakpoint call"},
+    {"line": 32, "label": "commented_code", "note": "disabled pdb call"}
+  ],
+  "positives/pos_disabled_control_flow.py": [
+    {"line": 8, "label": "commented_code", "note": "disabled if header"},
+    {"line": 9, "label": "commented_code", "note": "disabled return inside if body"},
+    {"line": 10, "label": "commented_code", "note": "disabled for header"},
+    {"line": 11, "label": "commented_code", "note": "disabled call inside for body"},
+    {"line": 13, "label": "commented_code", "note": "disabled while header"},
+    {"line": 14, "label": "commented_code", "note": "disabled augmented assignment inside while"},
+    {"line": 15, "label": "commented_code", "note": "disabled return statement"},
+    {"line": 20, "label": "commented_code", "note": "disabled if header"},
+    {"line": 21, "label": "commented_code", "note": "disabled raise inside if body"},
+    {"line": 22, "label": "commented_code", "note": "disabled elif header"},
+    {"line": 23, "label": "commented_code", "note": "disabled raise inside elif body"},
+    {"line": 27, "label": "commented_code", "note": "disabled try header"},
+    {"line": 28, "label": "commented_code", "note": "disabled call inside try"},
+    {"line": 29, "label": "commented_code", "note": "disabled except header"},
+    {"line": 30, "label": "commented_code", "note": "disabled call inside except"},
+    {"line": 31, "label": "commented_code", "note": "disabled bare raise"}
+  ],
+  "positives/pos_disabled_definitions.py": [
+    {"line": 6, "label": "commented_code", "note": "disabled decorator line"},
+    {"line": 7, "label": "commented_code", "note": "disabled built-in decorator"},
+    {"line": 8, "label": "commented_code", "note": "disabled framework decorator with arguments"},
+    {"line": 13, "label": "commented_code", "note": "disabled function def header"},
+    {"line": 14, "label": "commented_code", "note": "disabled return inside function body"},
+    {"line": 17, "label": "commented_code", "note": "disabled class header"},
+    {"line": 18, "label": "commented_code", "note": "disabled __init__ header"},
+    {"line": 19, "label": "commented_code", "note": "disabled attribute assignment in __init__"},
+    {"line": 20, "label": "ok", "note": "blank '#' separator inside a disabled block, not itself an executable statement"},
+    {"line": 21, "label": "commented_code", "note": "disabled method header"},
+    {"line": 22, "label": "commented_code", "note": "disabled method-call statement"},
+    {"line": 28, "label": "commented_code", "note": "disabled @property decorator"},
+    {"line": 29, "label": "commented_code", "note": "disabled method header"},
+    {"line": 30, "label": "commented_code", "note": "disabled return statement"}
+  ],
+  "positives/pos_disabled_block.py": [
+    {"line": 8, "label": "commented_code", "note": "disabled assignment opening a multi-line block"},
+    {"line": 9, "label": "commented_code", "note": "disabled list-construction assignment"},
+    {"line": 10, "label": "commented_code", "note": "disabled for-loop header"},
+    {"line": 11, "label": "commented_code", "note": "disabled assignment inside for body"},
+    {"line": 12, "label": "commented_code", "note": "disabled method-call statement inside for body"},
+    {"line": 13, "label": "commented_code", "note": "disabled return statement"}
+  ],
+  "positives/pos_inline_disabled.py": [
+    {"line": 10, "label": "commented_code", "note": "inline disabled alternative assignment"},
+    {"line": 11, "label": "commented_code", "note": "inline disabled alternative assignment"},
+    {"line": 12, "label": "commented_code", "note": "inline disabled alternative assignment"},
+    {"line": 17, "label": "commented_code", "note": "inline disabled alternative call"}
+  ],
+  "negatives/neg_todo_fixme.py": [
+    {"line": 8, "label": "ok", "note": "TODO tag; references a call but primary purpose is the task marker"},
+    {"line": 9, "label": "ok", "note": "FIXME tag describing observed behaviour of validate(req)"},
+    {"line": 10, "label": "ok", "note": "XXX tag describing cache.get behaviour"},
+    {"line": 11, "label": "ok", "note": "HACK tag describing a workaround"},
+    {"line": 12, "label": "ok", "note": "TODO with assignee referencing itertools.chain"},
+    {"line": 13, "label": "ok", "note": "FIXME with issue number describing handler failure"},
+    {"line": 14, "label": "ok", "note": "NOTE tag marking deprecation"},
+    {"line": 18, "label": "ok", "note": "TODO tag referencing constant rename"},
+    {"line": 19, "label": "ok", "note": "FIXME tag about identifier rename"}
+  ],
+  "negatives/neg_urls_refs.py": [
+    {"line": 5, "label": "ok", "note": "documentation URL reference"},
+    {"line": 6, "label": "ok", "note": "algorithm citation with URL"},
+    {"line": 7, "label": "ok", "note": "tracking issue URL"},
+    {"line": 8, "label": "ok", "note": "RFC citation with URL"},
+    {"line": 9, "label": "ok", "note": "paper citation with arXiv id"},
+    {"line": 14, "label": "ok", "note": "RFC reference prose"},
+    {"line": 15, "label": "ok", "note": "reference-implementation URL"},
+    {"line": 19, "label": "ok", "note": "bug-tracker URL"},
+    {"line": 20, "label": "ok", "note": "Slack thread URL"},
+    {"line": 21, "label": "ok", "note": "design-doc URL"}
+  ],
+  "negatives/neg_type_contracts.py": [
+    {"line": 7, "label": "ok", "note": "parameter shape/type documentation"},
+    {"line": 8, "label": "ok", "note": "parameter shape/type documentation"},
+    {"line": 9, "label": "ok", "note": "return-type contract"},
+    {"line": 10, "label": "ok", "note": "exception contract"},
+    {"line": 19, "label": "ok", "note": "grammar/BNF description, contains := which is not Python"},
+    {"line": 20, "label": "ok", "note": "tuple-shaped return-type description"},
+    {"line": 25, "label": "ok", "note": "callable signature description"},
+    {"line": 26, "label": "ok", "note": "invariant prose about callable contract"}
+  ],
+  "negatives/neg_copyright_headers.py": [
+    {"line": 3, "label": "ok", "note": "copyright header"},
+    {"line": 4, "label": "ok", "note": "license header"},
+    {"line": 5, "label": "ok", "note": "license header prose"},
+    {"line": 6, "label": "ok", "note": "license header prose"},
+    {"line": 7, "label": "ok", "note": "license header blank separator"},
+    {"line": 8, "label": "ok", "note": "license URL inside header"},
+    {"line": 9, "label": "ok", "note": "license header blank separator"},
+    {"line": 10, "label": "ok", "note": "license header prose"},
+    {"line": 11, "label": "ok", "note": "license header prose"},
+    {"line": 12, "label": "ok", "note": "license header prose"}
+  ],
+  "negatives/neg_shebang_encoding.py": [
+    {"line": 1, "label": "ok", "note": "shebang line"},
+    {"line": 2, "label": "ok", "note": "PEP 263 source-encoding declaration"},
+    {"line": 3, "label": "ok", "note": "vim modeline"}
+  ],
+  "negatives/neg_section_banners.py": [
+    {"line": 5, "label": "ok", "note": "banner rule"},
+    {"line": 6, "label": "ok", "note": "section title"},
+    {"line": 7, "label": "ok", "note": "banner rule"},
+    {"line": 11, "label": "ok", "note": "banner rule"},
+    {"line": 12, "label": "ok", "note": "section title"},
+    {"line": 13, "label": "ok", "note": "banner rule"},
+    {"line": 20, "label": "ok", "note": "inline section header"},
+    {"line": 27, "label": "ok", "note": "short section marker"},
+    {"line": 28, "label": "ok", "note": "short section marker"},
+    {"line": 29, "label": "ok", "note": "decorative section marker"}
+  ],
+  "negatives/neg_math_units.py": [
+    {"line": 7, "label": "ok", "note": "unit annotation prose"},
+    {"line": 8, "label": "ok", "note": "unit annotation prose"},
+    {"line": 9, "label": "ok", "note": "unit annotation prose"},
+    {"line": 10, "label": "ok", "note": "physics constant note with unit"},
+    {"line": 11, "label": "ok", "note": "astronomy unit note"},
+    {"line": 16, "label": "ok", "note": "parameter-unit annotation"},
+    {"line": 17, "label": "ok", "note": "delta annotation with unit"},
+    {"line": 18, "label": "ok", "note": "formula annotation with units"},
+    {"line": 22, "label": "ok", "note": "constant annotation prose"},
+    {"line": 23, "label": "ok", "note": "tolerance annotation with unit"}
+  ],
+  "negatives/neg_prose.py": [
+    {"line": 7, "label": "ok", "note": "explanatory sentence ending in period"},
+    {"line": 8, "label": "ok", "note": "explanatory sentence"},
+    {"line": 9, "label": "ok", "note": "question/answer prose"},
+    {"line": 10, "label": "ok", "note": "warning prose ending in exclamation"},
+    {"line": 20, "label": "ok", "note": "explanatory prose"},
+    {"line": 21, "label": "ok", "note": "explanatory prose"}
+  ],
+  "negatives/neg_colon_annotations.py": [
+    {"line": 7, "label": "ok", "note": "prose using 'key: value' phrasing"},
+    {"line": 8, "label": "ok", "note": "field documentation prose"},
+    {"line": 9, "label": "ok", "note": "field documentation prose"},
+    {"line": 10, "label": "ok", "note": "field documentation prose"},
+    {"line": 15, "label": "ok", "note": "input contract prose"},
+    {"line": 16, "label": "ok", "note": "output contract prose"},
+    {"line": 17, "label": "ok", "note": "side-effects contract prose"},
+    {"line": 21, "label": "ok", "note": "module-level environment annotation"},
+    {"line": 22, "label": "ok", "note": "module-level region annotation"},
+    {"line": 23, "label": "ok", "note": "module-level tier annotation"}
+  ],
+  "negatives/neg_pragmas.py": [
+    {"line": 5, "label": "ok", "note": "Pyflakes noqa pragma attached to import"},
+    {"line": 6, "label": "ok", "note": "Pyflakes noqa pragma attached to import"},
+    {"line": 10, "label": "ok", "note": "mypy type-ignore pragma"},
+    {"line": 13, "label": "ok", "note": "PEP 484 function type comment (tool pragma form)"},
+    {"line": 18, "label": "ok", "note": "bandit nosec pragma"},
+    {"line": 19, "label": "ok", "note": "pylint disable pragma"},
+    {"line": 20, "label": "ok", "note": "mypy file-level pragma"},
+    {"line": 21, "label": "ok", "note": "ruff noqa pragma"},
+    {"line": 22, "label": "ok", "note": "black fmt pragma"},
+    {"line": 23, "label": "ok", "note": "black fmt pragma"},
+    {"line": 24, "label": "ok", "note": "coverage pragma"},
+    {"line": 25, "label": "ok", "note": "coverage pragma"}
+  ],
+  "negatives/neg_call_signatures.py": [
+    {"line": 7, "label": "ok", "note": "usage-section header label"},
+    {"line": 8, "label": "ok", "note": "illustrative call signature with ellipsis placeholders"},
+    {"line": 9, "label": "ok", "note": "concrete usage example following a 'Typical usage:' header"},
+    {"line": 14, "label": "ok", "note": "Signature: prefix documenting an API shape with ellipsis placeholders"},
+    {"line": 15, "label": "ok", "note": "Equivalent-to prose containing a list comprehension as illustration"},
+    {"line": 16, "label": "ok", "note": "callback-signature description with trailing ellipsis"},
+    {"line": 20, "label": "ok", "note": "Public surface: header label"},
+    {"line": 21, "label": "ok", "note": "indented illustrative call signature with ellipsis"},
+    {"line": 22, "label": "ok", "note": "indented illustrative call signature with ellipsis"},
+    {"line": 23, "label": "ok", "note": "indented illustrative call signature with ellipsis"}
+  ]
+}
