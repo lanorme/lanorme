@@ -1,4 +1,4 @@
-"""NAMED-001: Enforce named arguments (bare ``*`` separator) on multi-parameter functions.
+"""KWARG-001: Enforce named arguments (bare ``*`` separator) on multi-parameter functions.
 
 Every function or method with more than one non-self/cls parameter must use a
 bare ``*`` separator so callers are forced to use keyword arguments.
@@ -8,7 +8,7 @@ Exceptions (skipped silently):
     - Dependency-injection markers (``Depends()`` parameters)
     - Test files (filenames starting with ``test_``)
     - Lambda expressions
-    - Functions suppressed with ``# noqa: NAMED-001``
+    - Functions suppressed with ``# noqa: KWARG-001``
 
 Run:
     lanorme check . --check=named_args
@@ -116,11 +116,11 @@ def _has_bare_star(*, node: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
 
 
 def _line_has_noqa(*, source_lines: list[str], lineno: int) -> bool:
-    """Return True if the function definition line contains ``# noqa: NAMED-001``."""
+    """Return True if the function definition line contains ``# noqa: KWARG-001``."""
     # lineno is 1-based; also check continuation lines for decorators.
     if 1 <= lineno <= len(source_lines):
         line = source_lines[lineno - 1]
-        if "# noqa: NAMED-001" in line:
+        if "# noqa: KWARG-001" in line:
             return True
     return False
 
@@ -131,7 +131,7 @@ def _check_function(
     source_lines: list[str],
     relative_file: str,
 ) -> Violation | None:
-    """Check a single function node for NAMED-001 compliance."""
+    """Check a single function node for KWARG-001 compliance."""
     # Skip dunder methods entirely.
     if _is_dunder(name=node.name):
         return None
@@ -153,7 +153,7 @@ def _check_function(
     return Violation(
         file=relative_file,
         line=node.lineno,
-        rule="NAMED-001: Functions with >1 parameter must use bare * separator",
+        rule="KWARG-001: Functions with >1 parameter must use bare * separator",
         message=f"Function '{node.name}' has {real_positional} positional params without bare *",
         fix="Add a bare * separator: def foo(self, *, param1: str, param2: int)",
     )
@@ -167,7 +167,7 @@ class NamedArgsCheck:
     description: str = "Named arguments enforcement (bare * separator)"
     rules: list[str] = field(
         default_factory=lambda: [
-            "NAMED-001: Functions with >1 parameter must use bare * separator",
+            "KWARG-001: Functions with >1 parameter must use bare * separator",
         ],
     )
 
@@ -192,7 +192,7 @@ class NamedArgsCheck:
                     Violation(
                         file=relative_file,
                         line=0,
-                        rule="NAMED-001: parse error",
+                        rule="KWARG-001: parse error",
                         message=f"Could not parse {py_file.name} — skipping",
                         fix="Fix the syntax error first",
                     ),
