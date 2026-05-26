@@ -1,7 +1,7 @@
-# SEC-002 corpus design — raw-SQL evaluation
+# SQL-001 corpus design — raw-SQL evaluation
 
 This document records the design of the labeled evaluation corpus for the
-SEC-002 ("No raw SQL — use an ORM or parameterized queries") rule and
+SQL-001 ("No raw SQL — use an ORM or parameterized queries") rule and
 reports the current detector's performance against it. Labels are derived
 from a working definition that is intentionally independent of any specific
 detection implementation.

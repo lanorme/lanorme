@@ -1,4 +1,4 @@
-"""ART-001 / ART-002: Stray artifact detection.
+"""JUNK-001 / JUNK-002: Stray artifact detection.
 
 Flags files that tend to accumulate as clutter, screenshots, scratch scripts,
 editor backups, OS junk, build leftovers, and stray images/binaries dropped
@@ -7,17 +7,17 @@ outside an asset directory. The goal is to surface them in a normal
 than quietly polluting the tree, whether or not they are tracked by git.
 
 Rules:
-    ART-001  A file matches a scratch/temp/OS/build junk pattern
+    JUNK-001  A file matches a scratch/temp/OS/build junk pattern
              (``screenshot*``, ``*~``, ``*.bak``, ``.DS_Store``, ``*.pyc`` …).
-    ART-002  An image/binary file sits outside any asset directory
+    JUNK-002  An image/binary file sits outside any asset directory
              (``docs/``, ``assets/``, ``static/`` …).
 
 This check is on by default with conservative patterns. Tune it in
 ``[tool.lanorme.stray_artifacts]``::
 
     [tool.lanorme.stray_artifacts]
-    patterns   = ["*.heic"]            # extra name globs flagged as ART-001
-    extensions = [".zip", ".pdf"]      # extra extensions flagged as ART-002
+    patterns   = ["*.heic"]            # extra name globs flagged as JUNK-001
+    extensions = [".zip", ".pdf"]      # extra extensions flagged as JUNK-002
     assets     = ["screenshots"]       # extra dirs where binaries are allowed
     allow      = ["docs/diagram.png"]  # globs (path or name) never flagged
     exclude    = ["sandbox"]           # extra directories to skip entirely
@@ -55,10 +55,10 @@ _VENDOR_DIRS = frozenset(
     }
 )
 
-# Directories where images/binaries are expected and therefore not ART-002.
+# Directories where images/binaries are expected and therefore not JUNK-002.
 _DEFAULT_ASSET_DIRS = ("assets", "static", "images", "img", "media", "public", "docs", ".github")
 
-# Name globs that are almost always clutter (ART-001), matched on the basename.
+# Name globs that are almost always clutter (JUNK-001), matched on the basename.
 _DEFAULT_NAME_GLOBS = (
     "screenshot*",
     "Screenshot*",
@@ -88,7 +88,7 @@ _DEFAULT_NAME_GLOBS = (
     "core.*",
 )
 
-# Image/binary extensions flagged (ART-002) when outside an asset directory.
+# Image/binary extensions flagged (JUNK-002) when outside an asset directory.
 _DEFAULT_BINARY_EXTS = (".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp")
 
 
@@ -109,8 +109,8 @@ class StrayArtifactsCheck:
     asset_dirs: tuple[str, ...] = _DEFAULT_ASSET_DIRS
     rules: list[str] = field(
         default_factory=lambda: [
-            "ART-001: Scratch/temp/screenshot/OS/build artifacts must not pollute the tree",
-            "ART-002: Images/binaries outside an asset directory are flagged as stray",
+            "JUNK-001: Scratch/temp/screenshot/OS/build artifacts must not pollute the tree",
+            "JUNK-002: Images/binaries outside an asset directory are flagged as stray",
         ]
     )
 
@@ -132,13 +132,13 @@ class StrayArtifactsCheck:
             return None
 
         if _matches_any(name=rel.name, globs=_DEFAULT_NAME_GLOBS + self.extra_patterns):
-            return "ART-001"
+            return "JUNK-001"
 
         if any(part in self.asset_dirs for part in rel.parts[:-1]):
             return None
 
         if rel.suffix.lower() in (*_DEFAULT_BINARY_EXTS, *self.extra_extensions):
-            return "ART-002"
+            return "JUNK-002"
 
         return None
 
@@ -161,7 +161,7 @@ class StrayArtifactsCheck:
 
 
 def _build_violation(*, code: str, rel: Path) -> Violation:
-    if code == "ART-001":
+    if code == "JUNK-001":
         message = f"Stray artifact '{rel.as_posix()}' matches a scratch/temp/OS-junk pattern"
     else:
         message = f"Stray image/binary '{rel.as_posix()}' sits outside an asset directory"

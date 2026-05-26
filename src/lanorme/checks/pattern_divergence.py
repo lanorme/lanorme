@@ -1,11 +1,9 @@
-"""PATTERN-001, PATTERN-004: Pattern divergence detection.
+"""IMPORT-001, TYPING-001, ENDPOINT-001: Pattern divergence detection.
 
 Rules:
-    PATTERN-001  No inline imports inside functions, all imports at module level
-    PATTERN-004  Endpoint functions should not exceed nesting depth of 4 (warning)
-
-(PATTERN-002 and PATTERN-003 are intentionally unused; their numbers are kept
-reserved so existing rule references stay stable.)
+    IMPORT-001    No inline imports inside functions, all imports at module level
+    TYPING-001    No ``if TYPE_CHECKING:`` guards in non-model files
+    ENDPOINT-001  Endpoint functions should not exceed nesting depth of 4 (warning)
 
 Run:
     lanorme check . --check=pattern_divergence
@@ -20,7 +18,7 @@ from pathlib import Path
 from lanorme import CheckResult, Status, Violation, register
 
 # ---------------------------------------------------------------------------
-# PATTERN-001: No inline imports inside functions
+# IMPORT-001: No inline imports inside functions
 # ---------------------------------------------------------------------------
 
 # ORM models commonly live under infrastructure/repositories/; TYPE_CHECKING
@@ -92,7 +90,7 @@ def _check_inline_imports(
     source_lines: list[str],
     relative_file: str,
 ) -> list[Violation]:
-    """PATTERN-001: Find import statements inside function bodies."""
+    """IMPORT-001: Find import statements inside function bodies."""
     # Exempt paths where conditional imports are legitimate.
     normalized = relative_file.replace("\\", "/")
     for exempt in _PATTERN_001_EXEMPT_PATHS:
@@ -116,7 +114,7 @@ def _check_inline_imports(
         if _line_has_noqa(
             source_lines=source_lines,
             lineno=node.lineno,
-            rule="PATTERN-001",
+            rule="IMPORT-001",
         ):
             continue
 
@@ -130,7 +128,7 @@ def _check_inline_imports(
             Violation(
                 file=relative_file,
                 line=node.lineno,
-                rule="PATTERN-001: No inline imports inside functions",
+                rule="IMPORT-001: No inline imports inside functions",
                 message=f"Import '{module_name}' found inside a function body",
                 fix="Move this import to the top of the file, at module level",
             ),
@@ -140,7 +138,7 @@ def _check_inline_imports(
 
 
 # ---------------------------------------------------------------------------
-# PATTERN-002: No TYPE_CHECKING guards in non-model files
+# TYPING-001: No TYPE_CHECKING guards in non-model files
 # ---------------------------------------------------------------------------
 
 
@@ -150,7 +148,7 @@ def _check_type_checking_guards(
     source_lines: list[str],
     relative_file: str,
 ) -> list[Violation]:
-    """PATTERN-002: Find ``if TYPE_CHECKING:`` blocks outside models/observability dirs."""
+    """TYPING-001: Find ``if TYPE_CHECKING:`` blocks outside models/observability dirs."""
     # Exempt files under infrastructure/db/models/ (ORM forward refs)
     # and infrastructure/observability/ (conditional OTel type imports).
     normalized = relative_file.replace("\\", "/")
@@ -180,7 +178,7 @@ def _check_type_checking_guards(
         if _line_has_noqa(
             source_lines=source_lines,
             lineno=node.lineno,
-            rule="PATTERN-002",
+            rule="TYPING-001",
         ):
             continue
 
@@ -188,7 +186,7 @@ def _check_type_checking_guards(
             Violation(
                 file=relative_file,
                 line=node.lineno,
-                rule="PATTERN-002: No TYPE_CHECKING guards in non-model files",
+                rule="TYPING-001: No TYPE_CHECKING guards in non-model files",
                 message="if TYPE_CHECKING: block found — import types directly at the top",
                 fix=(
                     "Remove the TYPE_CHECKING guard and import the type directly. "
@@ -207,7 +205,7 @@ def _check_type_checking_guards(
 
 
 # ---------------------------------------------------------------------------
-# PATTERN-004: Endpoint functions should not exceed complexity threshold
+# ENDPOINT-001: Endpoint functions should not exceed complexity threshold
 # ---------------------------------------------------------------------------
 
 _ENDPOINTS_DIR = "api/v1/endpoints"
@@ -246,7 +244,7 @@ def _check_endpoint_nesting(
     source_lines: list[str],
     relative_file: str,
 ) -> list[Violation]:
-    """PATTERN-004: Flag endpoint functions with nesting > 4 levels."""
+    """ENDPOINT-001: Flag endpoint functions with nesting > 4 levels."""
     normalized = relative_file.replace("\\", "/")
     if not normalized.startswith(_ENDPOINTS_DIR):
         return []
@@ -264,7 +262,7 @@ def _check_endpoint_nesting(
         if _line_has_noqa(
             source_lines=source_lines,
             lineno=node.lineno,
-            rule="PATTERN-004",
+            rule="ENDPOINT-001",
         ):
             continue
 
@@ -272,7 +270,7 @@ def _check_endpoint_nesting(
             Violation(
                 file=relative_file,
                 line=node.lineno,
-                rule="PATTERN-004: Endpoint nesting depth exceeds threshold (warning)",
+                rule="ENDPOINT-001: Endpoint nesting depth exceeds threshold (warning)",
                 message=(
                     f"Function '{node.name}' has nesting depth {depth} "
                     f"(max {_MAX_NESTING_DEPTH}) — consider extracting helper functions"
@@ -302,8 +300,9 @@ class PatternDivergenceCheck:
     )
     rules: list[str] = field(
         default_factory=lambda: [
-            "PATTERN-001: No inline imports inside functions",
-            "PATTERN-004: Endpoint nesting depth exceeds threshold (warning)",
+            "IMPORT-001: No inline imports inside functions",
+            "TYPING-001: No TYPE_CHECKING guards in non-model files",
+            "ENDPOINT-001: Endpoint nesting depth exceeds threshold (warning)",
         ],
     )
 
@@ -337,7 +336,7 @@ class PatternDivergenceCheck:
 
             source_lines = source.splitlines()
 
-            # PATTERN-001: inline imports (violation)
+            # IMPORT-001: inline imports (violation)
             violations.extend(
                 _check_inline_imports(
                     tree=tree,
@@ -346,7 +345,7 @@ class PatternDivergenceCheck:
                 ),
             )
 
-            # PATTERN-004: endpoint nesting depth (warning)
+            # ENDPOINT-001: endpoint nesting depth (warning)
             warnings.extend(
                 _check_endpoint_nesting(
                     tree=tree,

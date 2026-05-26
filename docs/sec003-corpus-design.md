@@ -1,7 +1,7 @@
-# SEC-003 corpus design — hardcoded-secret evaluation
+# SECRET-001 corpus design — hardcoded-secret evaluation
 
 This document records the design of the labeled evaluation corpus for the
-SEC-003 ("No hardcoded secrets in source code") rule and reports the current
+SECRET-001 ("No hardcoded secrets in source code") rule and reports the current
 detector's performance against it. Labels are derived from a working definition
 that is intentionally independent of any specific detection implementation.
 

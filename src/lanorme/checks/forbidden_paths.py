@@ -1,4 +1,4 @@
-"""PROJ-001: Project-level structural invariants, forbidden directories.
+"""PATH-001: Project-level structural invariants, forbidden directories.
 
 Some directories should simply never exist in a project (build artefacts,
 leftover scaffolding, directories that belong to a different layout). This
@@ -51,7 +51,7 @@ class ForbiddenPathsCheck:
     forbidden_dirs: tuple[str, ...] = _FORBIDDEN_DIRS
     rules: list[str] = field(
         default_factory=lambda: [
-            "PROJ-001: Configured forbidden directories must not exist",
+            "PATH-001: Configured forbidden directories must not exist",
         ]
     )
 
@@ -74,7 +74,7 @@ class ForbiddenPathsCheck:
                     Violation(
                         file=relative,
                         line=0,
-                        rule="PROJ-001",
+                        rule="PATH-001",
                         message=f"Forbidden directory '{relative}' exists",
                         fix=f"Delete '{relative}' or remove it from the forbidden list",
                     )

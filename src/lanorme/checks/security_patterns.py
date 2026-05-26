@@ -1,9 +1,9 @@
-"""SEC-001 through SEC-003: Security pattern enforcement.
+"""AUTH-001 through SECRET-001: Security pattern enforcement.
 
 Checks:
-    SEC-001  Mutation endpoints must have auth dependencies
-    SEC-002  No raw SQL string literals, use an ORM or parameterized queries
-    SEC-003  No hardcoded secrets in source code
+    AUTH-001  Mutation endpoints must have auth dependencies
+    SQL-001  No raw SQL string literals, use an ORM or parameterized queries
+    SECRET-001  No hardcoded secrets in source code
 
 Run:
     lanorme check . --check=security_patterns
@@ -24,7 +24,7 @@ MUTATION_METHODS = {"post", "put", "patch", "delete"}
 # Auth dependency detection: any Depends() arg matching these prefixes counts as auth.
 AUTH_DEPENDENCY_PREFIXES = ("get_current_user", "require_")
 
-# Endpoints that are exempt from SEC-001, they ARE the auth boundary,
+# Endpoints that are exempt from AUTH-001, they ARE the auth boundary,
 # so they cannot themselves require auth. Common auth-issuance and public
 # discovery endpoints go here.
 AUTH_EXEMPT_ENDPOINTS = {
@@ -104,7 +104,7 @@ def _check_auth_on_mutations(
     tree: ast.AST,
     relative_file: str,
 ) -> list[Violation]:
-    """SEC-001: Every mutation endpoint must have an auth dependency."""
+    """AUTH-001: Every mutation endpoint must have an auth dependency."""
     violations = []
 
     for node in ast.walk(tree):
@@ -124,7 +124,7 @@ def _check_auth_on_mutations(
                 Violation(
                     file=relative_file,
                     line=node.lineno,
-                    rule="SEC-001: Mutation endpoints must have auth dependency",
+                    rule="AUTH-001: Mutation endpoints must have auth dependency",
                     message=f"@router.{method} endpoint '{node.name}' has no auth dependency",
                     fix=(
                         "Add a parameter like: "
@@ -141,7 +141,7 @@ def _check_raw_sql(
     source: str,
     relative_file: str,
 ) -> list[Violation]:
-    """SEC-002: No raw SQL strings."""
+    """SQL-001: No raw SQL strings."""
     violations = []
 
     # Exclude alembic migrations and test files entirely.
@@ -170,7 +170,7 @@ def _check_raw_sql(
                     Violation(
                         file=relative_file,
                         line=line_num,
-                        rule="SEC-002: No raw SQL — use an ORM or parameterized queries",
+                        rule="SQL-001: No raw SQL — use an ORM or parameterized queries",
                         message=f"Possible raw SQL: {stripped[:80]}",
                         fix="Use an ORM or parameterized queries instead of raw SQL strings",
                     )
@@ -185,7 +185,7 @@ def _check_hardcoded_secrets(
     source: str,
     relative_file: str,
 ) -> list[Violation]:
-    """SEC-003: No hardcoded secrets in source code."""
+    """SECRET-001: No hardcoded secrets in source code."""
     violations = []
 
     # Skip excluded files.
@@ -218,7 +218,7 @@ def _check_hardcoded_secrets(
                     Violation(
                         file=relative_file,
                         line=line_num,
-                        rule="SEC-003: No hardcoded secrets in source code",
+                        rule="SECRET-001: No hardcoded secrets in source code",
                         message=f"Possible hardcoded secret: {stripped[:60]}...",
                         fix="Use environment variables or a secrets manager instead",
                     )
@@ -236,9 +236,9 @@ class SecurityPatternsCheck:
     description: str = "Security pattern enforcement (auth, SQL, secrets)"
     rules: list[str] = field(
         default_factory=lambda: [
-            "SEC-001: Mutation endpoints must have auth dependency",
-            "SEC-002: No raw SQL — use an ORM or parameterized queries",
-            "SEC-003: No hardcoded secrets in source code",
+            "AUTH-001: Mutation endpoints must have auth dependency",
+            "SQL-001: No raw SQL — use an ORM or parameterized queries",
+            "SECRET-001: No hardcoded secrets in source code",
         ]
     )
 
@@ -257,14 +257,14 @@ class SecurityPatternsCheck:
             except (OSError, UnicodeDecodeError, SyntaxError):
                 continue
 
-            # SEC-001: Only check endpoint files (api/ layer).
+            # AUTH-001: Only check endpoint files (api/ layer).
             if relative_file.startswith("api/"):
                 violations.extend(_check_auth_on_mutations(tree=tree, relative_file=relative_file))
 
-            # SEC-002: Check all files for raw SQL (except alembic).
+            # SQL-001: Check all files for raw SQL (except alembic).
             violations.extend(_check_raw_sql(source=source, relative_file=relative_file))
 
-            # SEC-003: Check all files for hardcoded secrets.
+            # SECRET-001: Check all files for hardcoded secrets.
             violations.extend(_check_hardcoded_secrets(source=source, relative_file=relative_file))
 
         status = Status.FAIL if violations else (Status.WARN if warnings else Status.PASS)

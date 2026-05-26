@@ -1,11 +1,11 @@
-"""SIZE-001 through SIZE-005: File size, function length, complexity, and parameter enforcement.
+"""SIZE-001 through PARAM-001: File size, function length, complexity, and parameter enforcement.
 
 Checks:
     SIZE-001  Python files warn at 300 effective lines, error at 500
     SIZE-002  Functions/methods warn at 50 lines, error at 80
     SIZE-003  Classes with >10 methods are a warning (decomposition candidate)
-    SIZE-004  Cyclomatic complexity warn at 10, error at 15
-    SIZE-005  Parameter count warn at 5, error at 8 (excluding self/cls)
+    COMPLEXITY-001  Cyclomatic complexity warn at 10, error at 15
+    PARAM-001  Parameter count warn at 5, error at 8 (excluding self/cls)
 
 Effective lines = non-blank, non-comment lines.
 
@@ -35,11 +35,11 @@ FUNC_ERROR_LINES = 80
 # SIZE-003 threshold (methods per class).
 CLASS_METHOD_WARN = 10
 
-# SIZE-004 thresholds (cyclomatic complexity per function).
+# COMPLEXITY-001 thresholds (cyclomatic complexity per function).
 COMPLEXITY_WARN = 10
 COMPLEXITY_ERROR = 15
 
-# SIZE-005 thresholds (parameters per function, excluding self/cls).
+# PARAM-001 thresholds (parameters per function, excluding self/cls).
 PARAM_WARN = 5
 PARAM_ERROR = 8
 
@@ -285,8 +285,8 @@ _COMPLEXITY_SPEC = _MetricSpec(
     metric=_cyclomatic_complexity,
     warn=COMPLEXITY_WARN,
     error=COMPLEXITY_ERROR,
-    error_rule="SIZE-004: Function exceeds complexity 15",
-    warn_rule="SIZE-004: Function approaching complexity 15",
+    error_rule="COMPLEXITY-001: Function exceeds complexity 15",
+    warn_rule="COMPLEXITY-001: Function approaching complexity 15",
     noun="cyclomatic complexity",
     fix_error="Extract helper functions or simplify branching logic",
     fix_warn="Consider simplifying branching logic before it grows further",
@@ -296,8 +296,8 @@ _PARAM_SPEC = _MetricSpec(
     metric=_count_parameters,
     warn=PARAM_WARN,
     error=PARAM_ERROR,
-    error_rule="SIZE-005: Function exceeds 8 parameters",
-    warn_rule="SIZE-005: Function approaching 8 parameters",
+    error_rule="PARAM-001: Function exceeds 8 parameters",
+    warn_rule="PARAM-001: Function approaching 8 parameters",
     noun="parameter count",
     fix_error="Group related parameters into a dataclass or TypedDict",
     fix_warn="Consider grouping related parameters into a dataclass or TypedDict",
@@ -315,8 +315,8 @@ class FileLimitsCheck:
             "SIZE-001: Python files warn at 300 effective lines, error at 500",
             "SIZE-002: Functions/methods warn at 50 lines, error at 80",
             "SIZE-003: Classes with >10 methods are a warning",
-            "SIZE-004: Cyclomatic complexity warn at 10, error at 15",
-            "SIZE-005: Parameter count warn at 5, error at 8 (excluding self/cls)",
+            "COMPLEXITY-001: Cyclomatic complexity warn at 10, error at 15",
+            "PARAM-001: Parameter count warn at 5, error at 8 (excluding self/cls)",
         ],
     )
 
@@ -368,7 +368,7 @@ class FileLimitsCheck:
                 _check_class_method_count(tree=tree, relative_file=relative_file),
             )
 
-            # SIZE-004: Cyclomatic complexity.
+            # COMPLEXITY-001: Cyclomatic complexity.
             complexity_violations, complexity_warnings = _check_function_metric(
                 tree=tree,
                 relative_file=relative_file,
@@ -377,7 +377,7 @@ class FileLimitsCheck:
             violations.extend(complexity_violations)
             warnings.extend(complexity_warnings)
 
-            # SIZE-005: Parameter count.
+            # PARAM-001: Parameter count.
             param_violations, param_warnings = _check_function_metric(
                 tree=tree,
                 relative_file=relative_file,

@@ -1,23 +1,23 @@
-"""CMT-001 through CMT-005: concise, clean comments in Python source.
+"""CMT-001, CMT-002, CMT-005 (and PROSE-001 / PROSE-003 when enabled).
 
 Selectable rules for the quality of ``#`` comments (and, for the style rules,
 docstrings):
 
-    CMT-001  No commented-out code.
-    CMT-002  No verbose comments (block too long, or line too long).
-    CMT-003  No em dashes in comments or docstrings.
-    CMT-004  No emoji in comments or docstrings.
-    CMT-005  No comments that merely restate the next line of code (EXPERIMENTAL:
-             a robust, well-tested detector is under development; the current
-             heuristic is a placeholder and is off by default).
+    CMT-001    No commented-out code.
+    CMT-002    No verbose comments (block too long, or line too long).
+    CMT-005    No comments that merely restate the next line of code (EXPERIMENTAL).
+    PROSE-001  No em dashes in comments or docstrings (shares the PROSE family
+               with the markdown check; opt-in via ``em_dash = true``).
+    PROSE-003  No emoji in comments or docstrings (shares the PROSE family;
+               opt-in via ``emoji = true``).
 
-CMT-001 and CMT-002 are hygiene and run by default. CMT-003, CMT-004 and
-CMT-005 are stylistic or heuristic and stay off until enabled::
+CMT-001 and CMT-002 are hygiene and run by default. The PROSE rules and
+CMT-005 stay off until enabled::
 
     [tool.lanorme.comments]
-    em_dash = true
-    emoji = true
-    restating = true
+    em_dash = true       # emit PROSE-001 on comments/docstrings
+    emoji = true         # emit PROSE-003 on comments/docstrings
+    restating = true     # emit CMT-005 (experimental)
     max_block_lines = 6
     max_comment_chars = 120
 
@@ -392,9 +392,9 @@ class CommentsCheck:
         default_factory=lambda: [
             "CMT-001: No commented-out code",
             "CMT-002: No verbose comments (block or line too long)",
-            "CMT-003: No em dashes in comments or docstrings",
-            "CMT-004: No emoji in comments or docstrings",
             "CMT-005: No comments that restate the next line of code (experimental)",
+            "PROSE-001: No em dashes in comments or docstrings (opt-in)",
+            "PROSE-003: No emoji in comments or docstrings (opt-in)",
         ]
     )
 
@@ -418,7 +418,7 @@ class CommentsCheck:
                 _violation(
                     relative_file=relative_file,
                     line=line,
-                    code="CMT-003",
+                    code="PROSE-001",
                     message="Em dash in comment/docstring",
                     fix="Rewrite with a comma, parentheses, or a full stop",
                 )
@@ -428,7 +428,7 @@ class CommentsCheck:
                 _violation(
                     relative_file=relative_file,
                     line=line,
-                    code="CMT-004",
+                    code="PROSE-003",
                     message="Emoji in comment/docstring",
                     fix="Remove the emoji",
                 )

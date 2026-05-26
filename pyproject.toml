@@ -36,6 +36,9 @@ exclude = [
     "benchmarks/score_*.py",     # per-check scorers share boilerplate by design
     "docs/cmt005-design.md",     # in-progress design note for the CMT-005 rule
     "docs/cmt005-corpus-audit.md",  # auto-generated bias-audit report (verbatim reviewer prose)
+    "docs/cmt001-corpus-design.md", # auto-generated first-team corpus design (verbatim agent prose)
+    "docs/sec002-corpus-design.md", # auto-generated first-team corpus design (verbatim agent prose)
+    "docs/sec003-corpus-design.md", # auto-generated first-team corpus design (verbatim agent prose)
     ".venv/*",
     "dist/*",
 ]

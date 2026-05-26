@@ -1,13 +1,11 @@
-"""TEST-001 and TEST-002: Test quality enforcement checks.
+"""TEST-001: every production module must have a corresponding test.
 
-TEST-001  Every production module under the source root (endpoints,
-          services, adapters) must have a corresponding test module in
-          tests/.
-TEST-002  Test functions with >5 code lines must follow the AAA
-          (Arrange-Act-Assert) pattern with at least 2 blank-line separators.
+A single advisory (WARNING) rule, surfaced when a file in a configured
+production directory lacks a matching ``test_*.py`` partner under ``tests/``.
 
-Both rules are advisory (WARNING), new modules need time to get tests,
-and the AAA pattern is a style guide rather than a hard requirement.
+Weak blank-line AAA detection used to live here as ``TEST-002``; it was
+dropped on 2026-05-26 in favour of the stronger ``AAA-001`` (comment markers)
+in the ``test_style`` check, which supersedes it.
 
 Run:
     lanorme check . --check=test_coverage
@@ -15,17 +13,10 @@ Run:
 
 from __future__ import annotations
 
-import ast
 from dataclasses import dataclass, field
 from pathlib import Path
 
 from lanorme import CheckResult, Status, Violation, register
-
-# Minimum number of non-blank code lines before AAA enforcement kicks in.
-_AAA_MIN_LINES = 5
-
-# Number of blank-line separators expected in a well-structured AAA test.
-_AAA_MIN_SEPARATORS = 2
 
 
 # ---------------------------------------------------------------------------
@@ -60,12 +51,7 @@ _EXEMPT_MODULES: set[str] = {
 
 
 def _find_production_modules(*, src_root: str) -> list[tuple[str, str, str]]:
-    """Find all testable production modules across src/.
-
-    Returns:
-        List of (relative_path, module_name, import_hint) tuples.
-        import_hint is the dotted path fragment used to search test imports.
-    """
+    """Return testable production modules as (relative_path, name, import_hint)."""
     modules: list[tuple[str, str, str]] = []
     src_path = Path(src_root)
 
@@ -102,25 +88,16 @@ def _module_has_test(
     test_stems: set[str],
     test_file_contents: dict[str, str],
 ) -> bool:
-    """Check if a production module has a corresponding test file.
-
-    Matches by:
-    1. Exact name: test_{module_name}.py
-    2. Shortened name: test_{name_without_last_word}.py (e.g. evals_runner -> evals)
-    3. Any test file that imports from the module (using import_hint).
-    """
-    # Exact match.
+    """True if any test file targets the module by name or by import."""
     if f"test_{module_name}" in test_stems:
         return True
 
-    # Shortened name, strip the last underscore-separated segment.
     parts = module_name.split("_")
     if len(parts) > 1:
         shortened = "_".join(parts[:-1])
         if f"test_{shortened}" in test_stems:
             return True
 
-    # Import-based match, look for any test file importing the module.
     import_patterns = (
         f"{import_hint}.{module_name}",
         f"{import_hint} import {module_name}",
@@ -142,7 +119,6 @@ def _check_module_coverage(
     test_files = _find_test_files(backend_root=backend_root)
     test_stems = {f.stem for f in test_files}
 
-    # Pre-read test file contents for import-based matching.
     test_file_contents: dict[str, str] = {}
     for tf in test_files:
         try:
@@ -174,151 +150,30 @@ def _check_module_coverage(
     return warnings
 
 
-# ---------------------------------------------------------------------------
-# TEST-002 helpers
-# ---------------------------------------------------------------------------
-
-
-def _count_code_lines_and_separators(
-    *,
-    lines: list[str],
-) -> tuple[int, int]:
-    """Count non-blank code lines and blank-line separators in a block.
-
-    Returns:
-        Tuple of (code_line_count, blank_separator_count).
-    """
-    code_lines = 0
-    separators = 0
-    prev_was_blank = False
-
-    for line in lines:
-        stripped = line.strip()
-        is_blank = stripped == ""
-
-        if is_blank:
-            # Only count a separator once per blank region, and only if
-            # we already have at least one code line above.
-            if not prev_was_blank and code_lines > 0:
-                separators += 1
-            prev_was_blank = True
-        else:
-            # Skip comments, they don't count as code but don't break blocks.
-            if stripped.startswith("#"):
-                continue
-            code_lines += 1
-            prev_was_blank = False
-
-    return code_lines, separators
-
-
-def _check_aaa_pattern(*, backend_root: Path) -> list[Violation]:
-    """TEST-002: verify test functions follow the AAA pattern."""
-    warnings: list[Violation] = []
-    tests_dir = backend_root / "tests"
-    if not tests_dir.is_dir():
-        return warnings
-
-    for py_file in sorted(tests_dir.rglob("*.py")):
-        # Skip conftest, __init__, non-test files.
-        if not py_file.stem.startswith("test_"):
-            continue
-
-        try:
-            source = py_file.read_text(encoding="utf-8")
-            source_lines = source.splitlines()
-            tree = ast.parse(source, filename=str(py_file))
-        except (OSError, UnicodeDecodeError, SyntaxError):
-            continue
-
-        relative_path = str(py_file.relative_to(backend_root))
-
-        for node in ast.walk(tree):
-            if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                continue
-            if not node.name.startswith("test_"):
-                continue
-
-            # Determine function body line range.
-            # node.lineno is the 'def' line; first body statement starts later.
-            if not node.body:
-                continue
-
-            body_start = node.body[0].lineno
-            body_end = node.end_lineno
-            if body_end is None:
-                continue
-
-            # Extract body lines (0-indexed slicing, lineno is 1-indexed).
-            body_lines = source_lines[body_start - 1 : body_end]
-
-            code_lines, separators = _count_code_lines_and_separators(
-                lines=body_lines,
-            )
-
-            # Exempt short tests, they're simple enough to be one block.
-            if code_lines <= _AAA_MIN_LINES:
-                continue
-
-            if separators < _AAA_MIN_SEPARATORS:
-                warnings.append(
-                    Violation(
-                        file=relative_path,
-                        line=node.lineno,
-                        rule="TEST-002: Test functions must follow the AAA pattern",
-                        message=(
-                            f"Test '{node.name}' has {code_lines} code lines but only "
-                            f"{separators} blank-line separator(s) (expected >= {_AAA_MIN_SEPARATORS})"
-                        ),
-                        fix=(
-                            "Add blank lines to separate Arrange, Act, and Assert blocks. "
-                            "Example: setup code, then blank line, then the action, then "
-                            "blank line, then assertions."
-                        ),
-                    ),
-                )
-
-    return warnings
-
-
-# ---------------------------------------------------------------------------
-# Check class and registration
-# ---------------------------------------------------------------------------
-
-
 @dataclass
 class TestCoverageCheck:
-    """Validates test quality: endpoint coverage and AAA pattern adherence."""
+    """Validates that every production module has a corresponding test file."""
 
     name: str = "test_coverage"
-    description: str = "Test quality checks: endpoint coverage and AAA pattern"
+    description: str = "Test coverage: every production module has a test"
     rules: list[str] = field(
         default_factory=lambda: [
             "TEST-001: Every production module must have a corresponding test",
-            "TEST-002: Test functions must follow the AAA pattern",
         ],
     )
 
     def run(self, *, src_root: str) -> CheckResult:
-        """Run both test quality checks and return combined results."""
-        # Derive backend_root from src_root (src_root is .../src).
+        """Run the coverage check and return advisory warnings."""
         backend_root = Path(src_root).parent
-
         coverage_warnings = _check_module_coverage(
-            src_root=src_root,
-            backend_root=backend_root,
+            src_root=src_root, backend_root=backend_root
         )
-        aaa_warnings = _check_aaa_pattern(backend_root=backend_root)
-
-        all_warnings = coverage_warnings + aaa_warnings
-
-        status = Status.WARN if all_warnings else Status.PASS
+        status = Status.WARN if coverage_warnings else Status.PASS
         return CheckResult(
             check=self.name,
             status=status,
-            warnings=all_warnings,
+            warnings=coverage_warnings,
         )
 
 
-# Self-register on import.
 register(TestCoverageCheck())

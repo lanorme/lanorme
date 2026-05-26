@@ -30,7 +30,7 @@ Requires Python 3.13+. Zero runtime dependencies (stdlib only).
 ```console
 lanorme check [PATHS...]            # run all enabled checks (default path: .)
 lanorme check . --check=layer_deps  # run a single check by name
-lanorme check . --select TYPE,SEC   # only these rule codes/categories
+lanorme check . --select TYPE,AUTH  # only these rule codes/categories
 lanorme check . --ignore NAMING-003 # skip specific rules
 lanorme check . --output-format json
 lanorme rules                       # list every registered rule
@@ -52,7 +52,7 @@ plugins = ["myproject.checks.house_rules"]  # extra check modules to load
 
 # Per-check configuration (each table is handed to that check):
 [tool.lanorme.stray_artifacts]
-extensions = [".zip", ".pdf"]               # also flag these as stray (ART-002)
+extensions = [".zip", ".pdf"]               # also flag these as stray (JUNK-002)
 allow = ["docs/diagram.png"]                # never flag these (globs)
 
 [tool.lanorme.forbidden_paths]

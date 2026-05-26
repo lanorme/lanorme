@@ -1,8 +1,8 @@
-"""Score SEC-002 (no raw SQL) against the labeled evaluation corpus.
+"""Score SQL-001 (no raw SQL) against the labeled evaluation corpus.
 
 Runs every enabled check over the labeled corpus under
 ``tests/fixtures/security_raw_sql/``, filters to violations whose ``rule``
-starts with ``SEC-002`` (so any future sub-codes are picked up too), and
+starts with ``SQL-001`` (so any future sub-codes are picked up too), and
 compares them against the ground-truth labels in ``labels.json``.
 
 The corpus deliberately mixes seven raw-SQL shapes against twelve adversarial
@@ -42,13 +42,13 @@ def _load_labels() -> dict[tuple[str, int], dict[str, str]]:
 
 
 def _flagged_sec002() -> set[tuple[str, int]]:
-    """Return (file, line) for every violation whose rule starts with SEC-002."""
+    """Return (file, line) for every violation whose rule starts with SQL-001."""
     _load_builtin_checks()
     results = run_all(src_root=str(_CORPUS))
     flagged: set[tuple[str, int]] = set()
     for result in results:
         for v in result.violations:
-            if v.rule.startswith("SEC-002"):
+            if v.rule.startswith("SQL-001"):
                 flagged.add((_relative(v.file), v.line))
     return flagged
 
@@ -78,7 +78,7 @@ def main() -> int:
 
     unlabeled = sorted(flagged - set(labels))
     if unlabeled:
-        print("error: SEC-002 flagged lines that are not in labels.json:", file=sys.stderr)
+        print("error: SQL-001 flagged lines that are not in labels.json:", file=sys.stderr)
         for rel_file, line in unlabeled:
             print(f"  {rel_file}:{line}", file=sys.stderr)
         print(
@@ -96,7 +96,7 @@ def main() -> int:
     recall = _ratio(numerator=tp, denominator=tp + fn)
     f1 = _ratio(numerator=2 * precision * recall, denominator=precision + recall)
 
-    print("SEC-002 raw-SQL detector -- evaluation against labeled corpus")
+    print("SQL-001 raw-SQL detector -- evaluation against labeled corpus")
     print(f"corpus: {_CORPUS}")
     print(
         f"labels: {len(labels)} sites "
