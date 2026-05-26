@@ -27,6 +27,7 @@ import lanorme.checks
 from lanorme import (
     CheckResult,
     Status,
+    Violation,
     __version__,
     get_all_checks,
     get_check,
@@ -173,6 +174,108 @@ def _apply_excludes(*, results: list[CheckResult], exclude: list[str]) -> list[C
     return filtered
 
 
+def _per_file_silences(
+    *, file: str, rule: str, table: dict[str, list[str]]
+) -> bool:
+    """True if *rule* (full code or category) is silenced for *file* by *table*."""
+    code = _rule_code(rule)
+    normalised = file.replace("\\", "/")
+    for pattern, codes in table.items():
+        if not fnmatch.fnmatch(normalised, pattern):
+            continue
+        if _matches(code=code, patterns=codes):
+            return True
+    return False
+
+
+def _apply_per_file_ignores(
+    *,
+    results: list[CheckResult],
+    table: dict[str, list[str]],
+) -> list[CheckResult]:
+    """Drop violations whose ``(file, rule)`` pair is silenced by the per-file-ignores table."""
+    if not table:
+        return results
+
+    filtered: list[CheckResult] = []
+    for result in results:
+        violations = [
+            v for v in result.violations
+            if not _per_file_silences(file=v.file, rule=v.rule, table=table)
+        ]
+        warnings = [
+            w for w in result.warnings
+            if not _per_file_silences(file=w.file, rule=w.rule, table=table)
+        ]
+        status = Status.FAIL if violations else (Status.WARN if warnings else Status.PASS)
+        filtered.append(
+            CheckResult(
+                check=result.check,
+                status=status,
+                violations=violations,
+                warnings=warnings,
+            )
+        )
+    return filtered
+
+
+_NOQA_RE = re.compile(r"#\s*noqa(?:\s*:\s*([A-Za-z0-9_,\-\s]+))?", re.IGNORECASE)
+
+
+def _noqa_silences(*, line: str, rule: str) -> bool:
+    """True if *line* carries a ``# noqa`` comment that covers *rule*."""
+    match = _NOQA_RE.search(line)
+    if match is None:
+        return False
+    if match.group(1) is None:
+        return True  # bare `# noqa` silences any rule on this line
+    codes = [c.strip() for c in match.group(1).split(",") if c.strip()]
+    code = _rule_code(rule)
+    return _matches(code=code, patterns=codes)
+
+
+def _line_at(*, project_root: Path, file: str, line: int, cache: dict[str, list[str]]) -> str:
+    """Read source line *line* from *file*, caching the file's lines for the run."""
+    key = file.replace("\\", "/")
+    lines = cache.get(key)
+    if lines is None:
+        path = project_root / file
+        try:
+            lines = path.read_text(encoding="utf-8").splitlines()
+        except (OSError, UnicodeDecodeError):
+            lines = []
+        cache[key] = lines
+    if not lines or line <= 0 or line > len(lines):
+        return ""
+    return lines[line - 1]
+
+
+def _apply_noqa(*, results: list[CheckResult], project_root: Path) -> list[CheckResult]:
+    """Drop violations/warnings whose source line carries a covering ``# noqa`` comment."""
+    cache: dict[str, list[str]] = {}
+
+    def should_keep(violation: Violation) -> bool:
+        line = _line_at(
+            project_root=project_root, file=violation.file, line=violation.line, cache=cache
+        )
+        return not _noqa_silences(line=line, rule=violation.rule)
+
+    filtered: list[CheckResult] = []
+    for result in results:
+        violations = [v for v in result.violations if should_keep(v)]
+        warnings = [w for w in result.warnings if should_keep(w)]
+        status = Status.FAIL if violations else (Status.WARN if warnings else Status.PASS)
+        filtered.append(
+            CheckResult(
+                check=result.check,
+                status=status,
+                violations=violations,
+                warnings=warnings,
+            )
+        )
+    return filtered
+
+
 # --------------------------------------------------------------------------- #
 # Output
 # --------------------------------------------------------------------------- #
@@ -200,6 +303,20 @@ def _print_rules() -> None:
 
 def _csv(value: str | None) -> list[str]:
     return [item.strip() for item in value.split(",") if item.strip()] if value else []
+
+
+def _parse_per_file_ignores(*, table: object) -> dict[str, list[str]]:
+    """Normalise the ``[tool.lanorme.per-file-ignores]`` TOML table to {glob: [codes]}."""
+    if not isinstance(table, dict):
+        return {}
+    out: dict[str, list[str]] = {}
+    for pattern, codes in table.items():
+        if not isinstance(pattern, str) or not isinstance(codes, list):
+            continue
+        normalised = [c for c in codes if isinstance(c, str)]
+        if normalised:
+            out[pattern] = normalised
+    return out
 
 
 # --------------------------------------------------------------------------- #
@@ -268,6 +385,7 @@ def main(argv: list[str] | None = None) -> None:
     select = _csv(args.select) or list(config.get("select", []))
     ignore = _csv(args.ignore) or list(config.get("ignore", []))
     exclude = _csv(args.exclude) or list(config.get("exclude", []))
+    per_file_ignores = _parse_per_file_ignores(table=config.get("per-file-ignores", {}))
     json_output = args.json or args.output_format == "json"
 
     src_root = str(target)
@@ -287,6 +405,8 @@ def main(argv: list[str] | None = None) -> None:
 
     results = _apply_filters(results=results, select=select, ignore=ignore)
     results = _apply_excludes(results=results, exclude=exclude)
+    results = _apply_per_file_ignores(results=results, table=per_file_ignores)
+    results = _apply_noqa(results=results, project_root=Path(src_root))
     _print_results(results=results, json_output=json_output)
 
     if any(r.status == Status.FAIL for r in results):

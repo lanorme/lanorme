@@ -38,6 +38,20 @@ lanorme rules                       # list every registered rule
 
 Exit code is `1` when any check fails, `0` when clean.
 
+### Inline suppression
+
+A `# noqa` comment at the end of the source line silences every violation
+that lands on that line; `# noqa: CODE1,CODE2` silences only the listed
+codes (full code like `SQL-001` or a category like `SQL`):
+
+```python
+def legacy_handler(req):  # noqa: KWARG-001
+    return req.text  # noqa
+```
+
+`# noqa` is recognised case-insensitively. For broader suppression (whole
+directories, glob-matched paths), use `[tool.lanorme.per-file-ignores]`.
+
 ## Configuration
 
 LaNorme discovers configuration by walking up from the target path: a dedicated
@@ -48,7 +62,17 @@ LaNorme discovers configuration by walking up from the target path: a dedicated
 [tool.lanorme]
 select = ["ALL"]                            # rule codes/categories to run
 ignore = ["NAMING-003"]                     # rule codes/categories to skip
+exclude = ["build/*", "vendor/*"]           # file-path globs to exclude entirely
 plugins = ["myproject.checks.house_rules"]  # extra check modules to load
+
+# Per-file rule suppression. Keys are file-path globs; values are rule
+# codes (full code or category prefix). Codes silenced here never fire
+# for matching paths, but the file is still scanned (use `exclude` to
+# skip the file entirely).
+[tool.lanorme.per-file-ignores]
+"tests/**/*.py"  = ["AAA", "SECRETPY"]
+"alembic/**/*.py" = ["SQL"]
+"notebooks/*.py" = ["KWARG", "DRY"]
 
 # Per-check configuration (each table is handed to that check):
 [tool.lanorme.stray_artifacts]
