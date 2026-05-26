@@ -8,6 +8,8 @@ to flag these; a good detector must not.
 
 from __future__ import annotations
 
+MAX_RETRIES = 5
+
 
 def configure(timeout: int) -> int:
     # timeout in ms
@@ -41,5 +43,5 @@ def price(amount: int) -> int:
 
 def schedule(retries: int) -> int:
     # retries capped at 5
-    retries = min(retries, 5)
+    retries = min(retries, MAX_RETRIES)
     return retries

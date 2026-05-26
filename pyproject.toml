@@ -33,7 +33,9 @@ ignore = ["LAYER", "PORT", "TERM"]
 exclude = [
     "tests/fixtures/*",          # deliberately dirty test inputs
     "benchmarks/.corpora/*",     # downloaded third-party corpora
+    "benchmarks/score_*.py",     # per-check scorers share boilerplate by design
     "docs/cmt005-design.md",     # in-progress design note for the CMT-005 rule
+    "docs/cmt005-corpus-audit.md",  # auto-generated bias-audit report (verbatim reviewer prose)
     ".venv/*",
     "dist/*",
 ]
