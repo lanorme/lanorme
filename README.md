@@ -30,7 +30,7 @@ Requires Python 3.13+. Zero runtime dependencies (stdlib only).
 ```console
 lanorme check [PATHS...]            # run all enabled checks (default path: .)
 lanorme check . --check=layer_deps  # run a single check by name
-lanorme check . --select TYPE,AUTH  # only these rule codes/categories
+lanorme check . --select TYPE,AUTHN # only these rule codes/categories
 lanorme check . --ignore NAMING-003 # skip specific rules
 lanorme check . --output-format json
 lanorme rules                       # list every registered rule
@@ -93,16 +93,41 @@ forbidden = ["Acct", "Acnt"]
 
 ## Checks
 
-**Always on** (universal hygiene, sensible defaults):
-`duplication`, `file_limits`, `named_args`, `naming_consistency`,
-`pattern_divergence`, `security_patterns`, `strong_types`, `test_coverage`,
-`stray_artifacts` (flags screenshots/scratch/OS-junk clutter), and `meta`
-(validates that every check emits well-formed output).
+Run `lanorme rules` for the full, live rule list. The full reference,
+including configuration knobs and where measured the precision/recall
+on the bundled corpora, is in [`docs/RULES.md`](docs/RULES.md).
 
-**Opt-in** (reusable mechanism, inert by default; they surface findings only
-once per-check configuration lands, or where their target layout already
-exists, e.g. `layer_deps` on a project with `domain/ application/ …`):
-`forbidden_paths`, `stale_paths`, `domain_terms`, `layer_deps`, `port_coverage`.
+**Default-on**, fire on any project without configuration:
+
+| Category | What it catches |
+|---|---|
+| `CMT-001/002` | commented-out code, verbose comment blocks |
+| `DRY-001` | near-duplicate function bodies (>=5 statements) |
+| `SIZE-001..003` / `COMPLEXITY-001` / `PARAM-001` | file/function/class size, cyclomatic, parameter count |
+| `IMPORT-001` / `ENDPOINT-001` | inline imports inside functions; over-nested endpoints |
+| `NAMING-003/004` | HTTP-verb-to-handler alignment; boolean-prefix predicates |
+| `TYPE-001..003` | weakly-typed `dict[str, Any]`, bare containers, untyped `**kwargs` |
+| `AUTHN-001` / `SQL-001` / `SECRETPY-001` | auth dependency on mutation endpoints; raw SQL; hardcoded secrets in `.py` |
+| `SHELL-001` / `DESERIAL-001` / `EVAL-001` / `CRYPTO-001` / `TLS-001` / `DEBUG-001` | shell injection; pickle/yaml.load RCE; eval/exec; weak hash; verify=False; debug-mode |
+| `JUNK-001/002` | screenshots, scratch files, OS junk, stray binaries outside asset dirs |
+| `PROSE-001..003` | em-dash / US spelling / emoji in Markdown (off until enabled) |
+| `TESTFILE-001` | every production module under a configured directory has a `test_*.py` partner |
+| `META-001..005` | self-validation that every check emits structured output |
+
+**Opt-in**, inert unless configured or unless the rule is enabled by name:
+
+| Rule | Why opt-in |
+|---|---|
+| `LAYER-001..005` | only fires on a hexagonal/layered layout (`domain/ application/ infrastructure/ api/`) |
+| `PORT-001..003` | only fires on a project with `application/ports/` |
+| `TERM-NNN` | needs a vocabulary configured in `[tool.lanorme.domain_terms]` |
+| `PATH-001` | needs forbidden directories in `[tool.lanorme.forbidden_paths]` |
+| `STALE-001` | needs stale-path tokens in `[tool.lanorme.stale_paths]` |
+| `KWARG-001` | opinionated house style; opt in via `[tool.lanorme.named_args] enabled = true` |
+| `NAMING-001/002` | CRUD prefixes on repositories/services; opt in via `repo_crud = true` / `service_crud = true` |
+| `AAA-001/002` | comment-marker + DRY enforcement on test suites; opt in via `[tool.lanorme.test_style] enabled = true` |
+| `CMT-005` | experimental restating-comment detector; precision-first but recall-limited |
+| `PROSE-001/003` (on comments/docstrings) | opt in via `[tool.lanorme.comments] em_dash = true` / `emoji = true` |
 
 ## Writing a check
 
@@ -131,7 +156,20 @@ Drop the module into `lanorme/checks/` (built-in) or ship it in a package that
 advertises it under the `lanorme.checks` entry-point group, or point at it from
 `[tool.lanorme] plugins = [...]`. LaNorme discovers and runs it automatically.
 
+## Versioning
+
+LaNorme follows semantic versioning, where the public API is the set of
+rule codes that may appear in `select` / `ignore` / `per-file-ignores`
+and the configuration keys under `[tool.lanorme]` / `[tool.lanorme.<check>]`.
+Renaming a rule code, dropping a rule, or flipping a default-on rule to
+default-off is a breaking change. Adding a new rule code, or adding a new
+configuration key with a sensible default, is not.
+
+Below 1.0 (current track), breaking changes land in minor releases and are
+called out in [`CHANGELOG.md`](CHANGELOG.md). After 1.0 they will be reserved
+for major releases.
+
 ## License
 
-MIT
+MIT. See [`LICENSE`](LICENSE).
 
