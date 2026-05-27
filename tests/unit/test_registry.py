@@ -8,8 +8,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-import pytest
-
 from lanorme import (
     CheckResult,
     Status,
@@ -55,10 +53,12 @@ def test_get_all_checks_includes_a_freshly_registered_check():
     assert all_checks["registry_listing_stub"] is check
 
 
-def test_get_check_raises_keyerror_for_unknown_name():
-    # Arrange / Act / Assert
-    with pytest.raises(KeyError):
-        get_check("definitely-not-a-registered-check")
+def test_get_check_returns_none_for_unknown_name():
+    # Arrange / Act
+    result = get_check("definitely-not-a-registered-check")
+
+    # Assert
+    assert result is None
 
 
 def test_violation_to_dict_round_trips_through_check_result():

@@ -16,7 +16,7 @@ def _rule_codes(violations) -> set[str]:
 def test_short_test_function_is_exempt_from_aaa_markers(tmp_path, tmp_py_file):
     # Arrange
     tmp_py_file(name="test_short.py", body="def test_one():\n    x = 1\n    assert x == 1\n")
-    check = TestStyleCheck(min_statements=3)
+    check = TestStyleCheck(enabled=True, min_statements=3)
 
     # Act
     result = check.run(src_root=str(tmp_path))
@@ -31,7 +31,7 @@ def test_long_test_without_markers_triggers_aaa_001(tmp_path, tmp_py_file):
         f"    a{i} = {i}\n" for i in range(8)
     ) + "    assert a0 == 0\n"
     tmp_py_file(name="test_long.py", body=body)
-    check = TestStyleCheck(min_statements=3, required_markers=2)
+    check = TestStyleCheck(enabled=True, min_statements=3, required_markers=2)
 
     # Act
     result = check.run(src_root=str(tmp_path))
@@ -52,7 +52,7 @@ def test_test_with_arrange_and_assert_markers_passes(tmp_path, tmp_py_file):
         "    assert a + b + c == 6\n"
     )
     tmp_py_file(name="test_marked.py", body=body)
-    check = TestStyleCheck(min_statements=3, required_markers=2)
+    check = TestStyleCheck(enabled=True, min_statements=3, required_markers=2)
 
     # Act
     result = check.run(src_root=str(tmp_path))
@@ -77,7 +77,7 @@ def test_duplicate_arrange_prefix_triggers_aaa_002(tmp_path, tmp_py_file):
         "    assert item.owner == user\n"
     )
     tmp_py_file(name="test_dup.py", body=body)
-    check = TestStyleCheck(dry_prefix_statements=3, required_markers=1)
+    check = TestStyleCheck(enabled=True, dry_prefix_statements=3, required_markers=1)
 
     # Act
     result = check.run(src_root=str(tmp_path))
@@ -100,7 +100,7 @@ def test_fixture_function_is_not_treated_as_a_test(tmp_path, tmp_py_file):
         "    d = 5\n"
     )
     tmp_py_file(name="test_fixture.py", body=body)
-    check = TestStyleCheck(min_statements=3, required_markers=2)
+    check = TestStyleCheck(enabled=True, min_statements=3, required_markers=2)
 
     # Act
     result = check.run(src_root=str(tmp_path))

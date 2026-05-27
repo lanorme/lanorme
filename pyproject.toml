@@ -4,17 +4,32 @@ build-backend = "hatchling.build"
 
 [project]
 name = "lanorme"
-version = "0.1.0"
-description = "La norme — a configurable, pluggable architecture & code-quality linter for Python."
+version = "0.2.0"
+description = "La norme: a configurable, pluggable architecture and code-quality linter for Python."
 readme = "README.md"
 requires-python = ">=3.13"
 license = "MIT"
-keywords = ["linter", "architecture", "code-quality", "static-analysis", "checks"]
+keywords = ["linter", "architecture", "code-quality", "static-analysis", "checks", "ddd", "hexagonal"]
 classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3 :: Only",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Software Development :: Quality Assurance",
+    "Topic :: Software Development :: Testing",
+    "Typing :: Typed",
 ]
 dependencies = []
+
+[project.urls]
+Homepage   = "https://github.com/abo-tresol/lanorme"
+Repository = "https://github.com/abo-tresol/lanorme"
+Issues     = "https://github.com/abo-tresol/lanorme/issues"
+Changelog  = "https://github.com/abo-tresol/lanorme/blob/main/CHANGELOG.md"
 
 [project.scripts]
 lanorme = "lanorme.cli:main"
@@ -23,8 +38,27 @@ lanorme = "lanorme.cli:main"
 # [project.entry-points."lanorme.checks"]
 # my-check = "my_package.my_module"
 
+# Runnable as ``uv run --group dev pytest tests/unit``.
+[dependency-groups]
+dev = ["pytest>=8"]
+
 [tool.hatch.build.targets.wheel]
 packages = ["src/lanorme"]
+
+# Bundle docs/RULES.md inside the wheel so ``lanorme rule <CODE>`` works
+# from any install location, not just from the source tree.
+[tool.hatch.build.targets.wheel.force-include]
+"docs/RULES.md" = "lanorme/RULES.md"
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "src/lanorme",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE",
+    "docs/RULES.md",
+    "pyproject.toml",
+]
 
 [tool.lanorme]
 # LaNorme dogfoods its own rules, minus the DDD/architecture-specific ones

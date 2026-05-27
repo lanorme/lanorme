@@ -21,6 +21,7 @@ import re
 import sys
 import tomllib
 from importlib.metadata import entry_points
+from importlib.resources import files as _resource_files
 from pathlib import Path
 
 import lanorme.checks
@@ -301,6 +302,69 @@ def _print_rules() -> None:
             print(f"  {rule}")
 
 
+def _rules_reference_path() -> Path | None:
+    """Locate the rule reference Markdown, preferring the package-bundled copy."""
+    bundled = _resource_files("lanorme").joinpath("RULES.md")
+    if bundled.is_file():
+        return Path(str(bundled))
+    for candidate in (
+        Path(__file__).resolve().parents[2] / "docs" / "RULES.md",
+        Path.cwd() / "docs" / "RULES.md",
+    ):
+        if candidate.is_file():
+            return candidate
+    return None
+
+
+def _rule_reference_section(*, code: str) -> str | None:
+    """Return the ``docs/RULES.md`` section that documents *code*, or None.
+
+    Matches by looking for a Markdown header whose backtick-quoted token
+    starts with the code (e.g. ``### `CMT-001`: ...``) or a category
+    header (e.g. ``## Comments: `CMT-*` ...``) where the code's category
+    appears in a backtick token. The section is everything up to the next
+    same-or-shallower header.
+    """
+    reference = _rules_reference_path()
+    if reference is None:
+        return None
+    text = reference.read_text(encoding="utf-8")
+    code_token = f"`{code}`"
+    category = code.split("-", 1)[0]
+    category_token = f"`{category}-"
+    lines = text.splitlines()
+    exact = [i for i, line in enumerate(lines) if line.startswith("#") and code_token in line]
+    category_only = [
+        i for i, line in enumerate(lines) if line.startswith("#") and category_token in line
+    ]
+    if not exact and not category_only:
+        return None
+    start = exact[0] if exact else category_only[0]
+    header_level = len(lines[start]) - len(lines[start].lstrip("#"))
+    end = len(lines)
+    for index in range(start + 1, len(lines)):
+        if lines[index].startswith("#"):
+            level = len(lines[index]) - len(lines[index].lstrip("#"))
+            if level <= header_level:
+                end = index
+                break
+    return "\n".join(lines[start:end]).rstrip() + "\n"
+
+
+def _print_rule_detail(*, code: str) -> int:
+    """Print the reference section for *code* and return an exit code."""
+    section = _rule_reference_section(code=code.upper())
+    if section is not None:
+        print(section)
+        return 0
+    print(
+        f"No reference section found for {code!r}. Run 'lanorme rules' for the list "
+        "of emitted codes, or browse docs/RULES.md directly.",
+        file=sys.stderr,
+    )
+    return 2
+
+
 def _csv(value: str | None) -> list[str]:
     return [item.strip() for item in value.split(",") if item.strip()] if value else []
 
@@ -348,6 +412,10 @@ def _build_parser() -> argparse.ArgumentParser:
     check.add_argument("--json", action="store_true", help="Alias for --output-format=json.")
 
     sub.add_parser("rules", help="List all registered rules and exit.")
+
+    rule = sub.add_parser("rule", help="Print the reference section for a single rule code.")
+    rule.add_argument("code", help="The rule code to look up (e.g. CMT-001, SQL-001).")
+
     return parser
 
 
@@ -371,6 +439,9 @@ def main(argv: list[str] | None = None) -> None:
     if args.command == "rules":
         _print_rules()
         return
+
+    if args.command == "rule":
+        sys.exit(_print_rule_detail(code=args.code))
 
     # command == "check"
     target = Path(args.paths[0])

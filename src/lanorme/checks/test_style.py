@@ -115,6 +115,10 @@ def _normalize_prefix(*, statements: list[ast.stmt], prefix_len: int) -> str | N
 class TestStyleCheck:
     """Enforce clearly-commented AAA structure and DRY arrange blocks in tests."""
 
+    # pytest's default test collector picks up any class named Test*; this
+    # class is the check implementation, not a test class.
+    __test__ = False
+
     name: str = "test_style"
     description: str = "AAA-style and DRY enforcement for pytest test suites"
     # Ships default-off: the audit flagged AAA-001's comment-marker
