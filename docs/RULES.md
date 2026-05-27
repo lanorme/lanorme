@@ -310,15 +310,20 @@ Each rule has a positive + negative unit test under
   `Depends(get_current_user)` or `Depends(require_*)`). FastAPI-shaped;
   the rule checks for **authentication presence only**, not
   authorisation. Exempt endpoints: `login`, `logout`, `refresh`, `token`.
-- `SQL-001`: default-on. Regex-detects raw SQL string literals
-  (`SELECT ... FROM`, `INSERT INTO`, `UPDATE ... SET`, `DELETE FROM`,
-  `text(...)`, `.execute(...)`). Excludes `alembic/`, files starting
-  with `test_`, and content inside docstrings and comments. Measured
-  against `tests/fixtures/security_raw_sql/`: **P = 0.686 / R = 0.854 /
-  F1 = 0.761**. Known FP-prone on parameterised executes, SQL strings
-  in tests / logs / changelogs, and `.execute` on non-DB receivers (e.g.
-  `HttpClient.execute`). Known FN-prone on multi-line triple-quoted SQL
-  where the opener and `SELECT` keyword sit on different lines.
+- `SQL-001`: default-on. AST-based: only flags SQL string literals that
+  reach a database execution sink (`.execute` / `.executemany` /
+  `.executescript` on a DB-shaped receiver, or `read_sql` /
+  `read_sql_query`). Unwraps `text(...)` constructors, resolves module-
+  level and function-local string constants, and treats `+` /
+  `%`-formatted / `.format`-built SQL as interpolated (always flagged).
+  Static SQL passed alongside a `params=` / `parameters=` kwarg (or a
+  second positional on `.execute`) with placeholder marks (`:name`,
+  `%s`, `?`) is treated as safely parameterised and not flagged.
+  Excludes `alembic/` and `test_*` files. Measured against
+  `tests/fixtures/security_raw_sql/` (120 labels): **P = 1.000 /
+  R = 1.000 / F1 = 1.000**. Known limitations not in the corpus: SQL
+  built across multiple statements with helper functions; lazy-loaded
+  query templates; non-Python query files.
 - `SECRETPY-001`: default-on. Regex-detects hardcoded secrets in
   Python source (`password = "..."`, `api_key = "..."`,
   `aws_access_key_id = "..."`, `Bearer ...`, PEM blocks). Excludes

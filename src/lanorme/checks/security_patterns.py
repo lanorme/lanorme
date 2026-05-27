@@ -35,15 +35,31 @@ AUTH_EXEMPT_ENDPOINTS = {
     "token",
 }
 
-# Patterns that indicate raw SQL usage.
-RAW_SQL_PATTERNS = [
-    re.compile(r'\btext\s*\(\s*["\']', re.MULTILINE),
-    re.compile(r'\.execute\s*\(\s*["\']', re.MULTILINE),
-    re.compile(r"\bSELECT\b.*\bFROM\b", re.IGNORECASE),
-    re.compile(r"\bINSERT\s+INTO\b", re.IGNORECASE),
-    re.compile(r"\bUPDATE\b.*\bSET\b", re.IGNORECASE),
-    re.compile(r"\bDELETE\s+FROM\b", re.IGNORECASE),
-]
+# SQL-001 detector vocabulary.
+# A sink is a function/method call whose first argument is treated as SQL by a
+# database driver. Method-form sinks (``.execute``, ``.executemany``, ...) only
+# count when the receiver looks plausibly DB-shaped (i.e. NOT subprocess or an
+# HTTP client). Function-form sinks (``text``, ``read_sql``, ``read_sql_query``)
+# are unwrapped or treated as the sink depending on context.
+_SQL_SINK_METHODS = frozenset({"execute", "executemany", "executescript"})
+_SQL_READ_SINKS = frozenset({"read_sql", "read_sql_query"})
+
+# Receiver names that mark an ``.execute`` call as non-DB and so out of scope.
+_NON_DB_RECEIVER_HINTS = (
+    "subprocess", "client", "http", "runner", "job", "task", "command",
+    "shell", "process", "executor", "worker", "queue", "pool",
+)
+
+# A string looks like SQL when one of these keyword shapes appears.
+_SQL_KEYWORDS_RE = re.compile(
+    r"\b(SELECT\b.*?\bFROM\b|INSERT\s+INTO\b|UPDATE\b.*?\bSET\b|DELETE\s+FROM\b"
+    r"|CREATE\s+(TABLE|INDEX|VIEW|SCHEMA)\b|DROP\s+(TABLE|INDEX|VIEW|SCHEMA)\b"
+    r"|ALTER\s+TABLE\b|TRUNCATE\s+TABLE\b|MERGE\s+INTO\b|VACUUM\b|REINDEX\b)",
+    re.IGNORECASE | re.DOTALL,
+)
+
+# Placeholder shapes a driver binds; SQL with a placeholder + a params arg is safe.
+_SQL_PLACEHOLDER_RE = re.compile(r":[A-Za-z_]\w*|%s|%\([A-Za-z_]\w*\)s|\?")
 
 # Patterns that indicate hardcoded secrets.
 SECRET_PATTERNS = [
@@ -136,47 +152,226 @@ def _check_auth_on_mutations(
     return violations
 
 
+def _is_text_constructor(node: ast.expr) -> bool:
+    """True if *node* is a ``text(...)`` / ``sa.text(...)`` SQL constructor call."""
+    if not isinstance(node, ast.Call):
+        return False
+    return (
+        (isinstance(node.func, ast.Name) and node.func.id == "text")
+        or (isinstance(node.func, ast.Attribute) and node.func.attr == "text")
+    )
+
+
+def _literal_lineno(
+    node: ast.expr, *, constants: dict[str, "_SqlConst"] | None = None
+) -> int | None:
+    """Return the source line of the SQL-bearing literal at *node*, or ``None``.
+
+    Knows the same shapes as :func:`_sql_string_from`: literals, f-strings,
+    BinOps, ``.format(...)`` calls, ``text(...)`` wrappers, and ``Name``
+    references resolved via *constants*. For a ``Name`` whose binding lives
+    elsewhere, we point at the assignment line in *constants*; otherwise we
+    return ``None`` so the caller falls back to the call site.
+    """
+    if isinstance(node, ast.Constant | ast.JoinedStr | ast.BinOp):
+        return node.lineno
+    if isinstance(node, ast.Name) and constants is not None:
+        entry = constants.get(node.id)
+        return entry.lineno if entry is not None else None
+    if isinstance(node, ast.Call):
+        if _is_text_constructor(node) and node.args:
+            return _literal_lineno(node.args[0], constants=constants)
+        if isinstance(node.func, ast.Attribute) and node.func.attr == "format":
+            return node.lineno
+    return None
+
+
+def _sql_from_binop(
+    node: ast.BinOp, *, constants: dict[str, "_SqlConst"] | None
+) -> tuple[str | None, bool]:
+    """Resolve ``"..." + x`` and ``"..." % x`` SQL-bearing BinOps."""
+    if isinstance(node.op, ast.Add):
+        left_text, _ = _sql_string_from(node.left, constants=constants)
+        right_text, _ = _sql_string_from(node.right, constants=constants)
+        if left_text is None and right_text is None:
+            return None, False
+        return (left_text or "") + (right_text or ""), True
+    if isinstance(node.op, ast.Mod):
+        left_text, _ = _sql_string_from(node.left, constants=constants)
+        if left_text is not None:
+            return left_text, True
+    return None, False
+
+
+def _sql_from_call(
+    node: ast.Call, *, constants: dict[str, "_SqlConst"] | None
+) -> tuple[str | None, bool]:
+    """Resolve ``text(...)`` wrappers and ``"...".format(...)`` SQL-bearing calls."""
+    if _is_text_constructor(node) and node.args:
+        return _sql_string_from(node.args[0], constants=constants)
+    if isinstance(node.func, ast.Attribute) and node.func.attr == "format":
+        base_text, _ = _sql_string_from(node.func.value, constants=constants)
+        if base_text is not None:
+            return base_text, True
+    return None, False
+
+
+def _sql_string_from(
+    node: ast.expr, *, constants: dict[str, "_SqlConst"] | None = None
+) -> tuple[str | None, bool]:
+    """Return ``(text, interpolated)`` for an SQL-argument AST node, or ``(None, False)``.
+
+    Handles every shape that resolves to a SQL string before it reaches a sink:
+
+    - ``"..."`` constant literal (``interpolated=False``).
+    - ``f"... {x} ..."`` f-string (``interpolated=True`` when at least one
+      ``FormattedValue`` is present).
+    - ``"..." + name + "..."`` ``BinOp(Add)`` (``interpolated=True``).
+    - ``"... %s ..." % name`` ``BinOp(Mod)`` (``interpolated=True``).
+    - ``"...".format(name)`` (``interpolated=True``).
+    - ``Name`` looked up in *constants* (preserving the constant's
+      ``interpolated`` flag).
+    - One-deep ``text(<expr>)`` / ``sa.text(<expr>)`` wrapper, unwrapped
+      recursively.
+    """
+    if isinstance(node, ast.Constant) and isinstance(node.value, str):
+        return node.value, False
+    if isinstance(node, ast.JoinedStr):
+        text = "".join(
+            v.value if isinstance(v, ast.Constant) and isinstance(v.value, str) else ""
+            for v in node.values
+        )
+        interp = any(isinstance(v, ast.FormattedValue) for v in node.values)
+        return text, interp
+    if isinstance(node, ast.Name) and constants is not None:
+        entry = constants.get(node.id)
+        if entry is None:
+            return None, False
+        return entry.text, entry.interpolated
+    if isinstance(node, ast.BinOp):
+        return _sql_from_binop(node, constants=constants)
+    if isinstance(node, ast.Call):
+        return _sql_from_call(node, constants=constants)
+    return None, False
+
+
+@dataclass(frozen=True)
+class _SqlConst:
+    text: str
+    interpolated: bool
+    lineno: int
+
+
+def _collect_string_constants(*, tree: ast.AST) -> dict[str, _SqlConst]:
+    """Return ``{NAME: _SqlConst}`` for every ``NAME = "<str>"`` assign in *tree*.
+
+    Walks the whole tree (not just module body), so function-local SQL
+    variables like ``sql = f"..."`` are resolved when later passed to
+    ``execute(text(sql))``. Later assignments overwrite earlier ones; that is
+    acceptable since we only need *some* SQL string to flag the call.
+    """
+    constants: dict[str, _SqlConst] = {}
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Assign) or len(node.targets) != 1:
+            continue
+        target = node.targets[0]
+        if not isinstance(target, ast.Name):
+            continue
+        text, interp = _sql_string_from(node.value)
+        if text is not None:
+            constants[target.id] = _SqlConst(text=text, interpolated=interp, lineno=node.lineno)
+    return constants
+
+
+def _receiver_looks_non_db(call: ast.Call) -> bool:
+    """True if ``call.func.value`` is named like an HTTP / shell / job runner."""
+    if not isinstance(call.func, ast.Attribute):
+        return False
+    receiver = call.func.value
+    name: str | None = None
+    if isinstance(receiver, ast.Name):
+        name = receiver.id.lower()
+    elif isinstance(receiver, ast.Attribute):
+        name = receiver.attr.lower()
+    if name is None:
+        return False
+    return any(hint in name for hint in _NON_DB_RECEIVER_HINTS)
+
+
+def _sink_kind(call: ast.Call) -> str | None:
+    """Return ``"execute"`` / ``"read_sql"`` / ``None`` based on the call shape."""
+    if isinstance(call.func, ast.Attribute):
+        if call.func.attr in _SQL_SINK_METHODS:
+            return None if _receiver_looks_non_db(call) else "execute"
+        if call.func.attr in _SQL_READ_SINKS:
+            return "read_sql"
+    if isinstance(call.func, ast.Name) and call.func.id in _SQL_READ_SINKS:
+        return "read_sql"
+    return None
+
+
+def _is_safely_parameterised(*, call: ast.Call, sql: str, kind: str) -> bool:
+    """True if *sql* has a placeholder and the sink call also receives a params arg."""
+    if not _SQL_PLACEHOLDER_RE.search(sql):
+        return False
+    for kw in call.keywords:
+        if kw.arg in {"params", "parameters", "vars"}:
+            return True
+    # ``.execute(sql, params)``: second positional is the params bag.
+    # ``read_sql(sql, con, params=...)``: second positional is the connection,
+    # so only the explicit kwarg counts for read_sql.
+    if kind == "execute" and len(call.args) >= 2:
+        return True
+    return False
+
+
 def _check_raw_sql(
     *,
-    source: str,
+    tree: ast.AST,
     relative_file: str,
 ) -> list[Violation]:
-    """SQL-001: No raw SQL strings."""
-    violations = []
-
-    # Exclude alembic migrations and test files entirely.
+    """SQL-001: only flag raw SQL that actually reaches a DB execution sink."""
     if "alembic" in relative_file or Path(relative_file).name.startswith("test_"):
-        return violations
-
-    in_docstring = False
-    for line_num, line in enumerate(source.splitlines(), start=1):
-        stripped = line.strip()
-
-        # Track multi-line docstrings to skip their content.
-        docstring_delimiters = stripped.count('"""') + stripped.count("'''")
-        if docstring_delimiters % 2 == 1:
-            in_docstring = not in_docstring
+        return []
+    constants = _collect_string_constants(tree=tree)
+    violations: list[Violation] = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
             continue
-        if in_docstring:
+        kind = _sink_kind(node)
+        if kind is None or not node.args:
             continue
-
-        # Skip comments.
-        if stripped.startswith("#"):
+        first = node.args[0]
+        sql, interp = _sql_string_from(first, constants=constants)
+        if sql is None or not _SQL_KEYWORDS_RE.search(sql):
             continue
-
-        for pattern in RAW_SQL_PATTERNS:
-            if pattern.search(line):
-                violations.append(
-                    Violation(
-                        file=relative_file,
-                        line=line_num,
-                        rule="SQL-001: No raw SQL — use an ORM or parameterized queries",
-                        message=f"Possible raw SQL: {stripped[:80]}",
-                        fix="Use an ORM or parameterized queries instead of raw SQL strings",
-                    )
+        # Report at the literal's line where possible (the SQL text); for
+        # Name references and text(Name) wrappers, point at the assignment
+        # line in the constants map; otherwise fall back to the call site.
+        report_lineno = _literal_lineno(first, constants=constants) or node.lineno
+        if interp:
+            violations.append(
+                Violation(
+                    file=relative_file,
+                    line=report_lineno,
+                    rule="SQL-001: No raw SQL — use an ORM or parameterized queries",
+                    message="f-string interpolation into SQL is an injection vector",
+                    fix="Bind the value as a parameter instead of interpolating it into the SQL text",
                 )
-                break  # One violation per line is enough.
-
+            )
+            continue
+        if _is_safely_parameterised(call=node, sql=sql, kind=kind):
+            continue
+        snippet = " ".join(sql.split())[:80]
+        violations.append(
+            Violation(
+                file=relative_file,
+                line=report_lineno,
+                rule="SQL-001: No raw SQL — use an ORM or parameterized queries",
+                message=f"Raw SQL passed to a database sink: {snippet}",
+                fix="Use an ORM expression, or bind values via parameters instead of inlining them",
+            )
+        )
     return violations
 
 
@@ -262,7 +457,7 @@ class SecurityPatternsCheck:
                 violations.extend(_check_auth_on_mutations(tree=tree, relative_file=relative_file))
 
             # SQL-001: Check all files for raw SQL (except alembic).
-            violations.extend(_check_raw_sql(source=source, relative_file=relative_file))
+            violations.extend(_check_raw_sql(tree=tree, relative_file=relative_file))
 
             # SECRETPY-001: Check all files for hardcoded secrets.
             violations.extend(_check_hardcoded_secrets(source=source, relative_file=relative_file))
