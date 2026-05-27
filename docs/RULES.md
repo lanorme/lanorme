@@ -324,19 +324,27 @@ Each rule has a positive + negative unit test under
   R = 1.000 / F1 = 1.000**. Known limitations not in the corpus: SQL
   built across multiple statements with helper functions; lazy-loaded
   query templates; non-Python query files.
-- `SECRETPY-001`: default-on. Regex-detects hardcoded secrets in
-  Python source (`password = "..."`, `api_key = "..."`,
-  `aws_access_key_id = "..."`, `Bearer ...`, PEM blocks). Excludes
-  `conftest.py`, `seed_dev.py`, `test_*` files, lines with
-  `os.environ` / `os.getenv` / `settings.`, empty-string defaults.
-  Measured against `tests/fixtures/security_hardcoded_secrets/`:
-  **P = 0.758 / R = 0.581 / F1 = 0.658**. Known FP-prone on help-text
-  constants and placeholder variants. Known FN-prone on snake-case
-  credential names (`aws_access_key`), dict-literal / kwarg-borne
-  secrets, and high-entropy keys without a vendor prefix. **Scope
-  warning**: Python-source only; `.env`, `*.yaml`, `*.ipynb`, JWTs in
-  fixtures are out of scope until a future `SECRET-002` / `SECRET-003`
-  lands.
+- `SECRETPY-001`: default-on. Lives in the `secrets` check (was part of
+  `security_patterns`; split out when the detector grew past the
+  single-file size limit). AST-based: flags credential-named assignments
+  (variable, dict key, or call kwarg) whose value looks like a real
+  secret, plus shape-only matches (PEM private-key blocks, JWT-shaped
+  tokens, Bearer headers, DB / cache URLs with embedded `user:pass@host`
+  credentials, and vendor-prefixed credentials: AWS `AKIA` / `ASIA`,
+  GitHub `ghp_` / `gho_` / `github_pat_`, Slack `xox*`, Stripe
+  `sk_live_` / `sk_test_`). Names whose first segment is `help_` /
+  `hint_` / `msg_` / etc. are documentation; names whose last segment
+  is structural (`pattern`, `endpoint`, `header`, `name`, `len`, ...)
+  are not credentials. Placeholder markers (`<your-...>`, `REPLACE_ME`,
+  `example`, ...) skip a value unless it is high-entropy enough (32+
+  chars, mixed case, digits) to defeat the marker (AWS docs-style
+  example secret keys). Excludes `conftest.py`, `seed_dev.py`, and
+  files starting with `test_`. Measured against
+  `tests/fixtures/security_hardcoded_secrets/` (155 labels):
+  **P = 1.000 / R = 1.000 / F1 = 1.000**. **Scope warning**:
+  Python-source only; `.env`, `*.yaml`, `*.ipynb`, `*.tf`, `Dockerfile`,
+  GitHub Actions workflows are out of scope until a separate
+  non-Python rule lands.
 
 ---
 

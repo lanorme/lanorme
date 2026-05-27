@@ -1,9 +1,12 @@
-"""AUTHN-001 through SECRETPY-001: Security pattern enforcement.
+"""AUTHN-001 and SQL-001: web-shaped security checks.
 
 Checks:
-    AUTHN-001  Mutation endpoints must have auth dependencies
-    SQL-001  No raw SQL string literals, use an ORM or parameterized queries
-    SECRETPY-001  No hardcoded secrets in source code
+    AUTHN-001  Mutation endpoints must have an auth dependency
+    SQL-001    No raw SQL string literals; use an ORM or parameterised queries
+
+SECRETPY-001 (hardcoded secrets) lives in ``secrets.py`` as a sibling check;
+the family was split on 2026-05-27 once the secrets detector grew past the
+single-file size limit.
 
 Run:
     lanorme check . --check=security_patterns
@@ -60,25 +63,6 @@ _SQL_KEYWORDS_RE = re.compile(
 
 # Placeholder shapes a driver binds; SQL with a placeholder + a params arg is safe.
 _SQL_PLACEHOLDER_RE = re.compile(r":[A-Za-z_]\w*|%s|%\([A-Za-z_]\w*\)s|\?")
-
-# Patterns that indicate hardcoded secrets.
-SECRET_PATTERNS = [
-    re.compile(
-        r'(?:password|passwd|secret|token|api_key|apikey)\s*=\s*["\'][^"\']{8,}["\']', re.IGNORECASE
-    ),
-    re.compile(
-        r'(?:aws_access_key_id|aws_secret_access_key)\s*=\s*["\'][^"\']+["\']', re.IGNORECASE
-    ),
-    re.compile(r"Bearer\s+[A-Za-z0-9\-._~+/]{20,}=*", re.IGNORECASE),
-    re.compile(r"-----BEGIN (?:RSA )?PRIVATE KEY-----"),
-]
-
-# Files/paths to exclude from secret scanning (test fixtures, docs, etc.).
-SECRET_SCAN_EXCLUDES = {
-    "conftest.py",
-    "seed_dev.py",
-}
-
 
 def _is_mutation_endpoint(node: ast.FunctionDef | ast.AsyncFunctionDef) -> str | None:
     """Check if a function is a mutation endpoint. Return the HTTP method or None."""
@@ -375,65 +359,16 @@ def _check_raw_sql(
     return violations
 
 
-def _check_hardcoded_secrets(
-    *,
-    source: str,
-    relative_file: str,
-) -> list[Violation]:
-    """SECRETPY-001: No hardcoded secrets in source code."""
-    violations = []
-
-    # Skip excluded files.
-    file_name = Path(relative_file).name
-    if any(file_name == exclude for exclude in SECRET_SCAN_EXCLUDES) or file_name.startswith(
-        "test_"
-    ):
-        return violations
-
-    for line_num, line in enumerate(source.splitlines(), start=1):
-        stripped = line.strip()
-
-        # Skip comments.
-        if stripped.startswith("#"):
-            continue
-
-        for pattern in SECRET_PATTERNS:
-            if pattern.search(line):
-                # Exclude environment variable lookups and default placeholders.
-                if "os.environ" in line or "os.getenv" in line or "settings." in line:
-                    continue
-                if '""' in line or "''" in line:
-                    continue
-                # Exclude type hints and docstrings.
-                if "str =" not in line and "password" not in line.lower():
-                    # Only flag if it really looks like an assignment.
-                    pass
-
-                violations.append(
-                    Violation(
-                        file=relative_file,
-                        line=line_num,
-                        rule="SECRETPY-001: No hardcoded secrets in source code",
-                        message=f"Possible hardcoded secret: {stripped[:60]}...",
-                        fix="Use environment variables or a secrets manager instead",
-                    )
-                )
-                break
-
-    return violations
-
-
 @dataclass
 class SecurityPatternsCheck:
-    """Validates security patterns across the backend."""
+    """Validates web-shaped security patterns: auth dependency and raw SQL."""
 
     name: str = "security_patterns"
-    description: str = "Security pattern enforcement (auth, SQL, secrets)"
+    description: str = "Web-security checks: auth dependency and raw SQL"
     rules: list[str] = field(
         default_factory=lambda: [
             "AUTHN-001: Mutation endpoints must have auth dependency",
             "SQL-001: No raw SQL — use an ORM or parameterized queries",
-            "SECRETPY-001: No hardcoded secrets in source code",
         ]
     )
 
@@ -458,9 +393,6 @@ class SecurityPatternsCheck:
 
             # SQL-001: Check all files for raw SQL (except alembic).
             violations.extend(_check_raw_sql(tree=tree, relative_file=relative_file))
-
-            # SECRETPY-001: Check all files for hardcoded secrets.
-            violations.extend(_check_hardcoded_secrets(source=source, relative_file=relative_file))
 
         status = Status.FAIL if violations else (Status.WARN if warnings else Status.PASS)
         return CheckResult(

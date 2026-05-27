@@ -9,6 +9,32 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
 
 ## [Unreleased]
 
+### Changed
+
+- `SQL-001` rewritten AST-based: only flags raw SQL that reaches a
+  database execution sink (`.execute` / `.executemany` /
+  `.executescript` on a DB-shaped receiver, or `read_sql` /
+  `read_sql_query`). Unwraps `text(...)` constructors, resolves
+  module-level and function-local string constants, treats `+` /
+  `%`-formatted / `.format`-built SQL as interpolated, and recognises
+  parameterised executes (placeholder + params arg) as safe.
+  Scored against the bundled corpus: **F1 = 0.761 -> 1.000**
+  (P = 0.686 -> 1.000, R = 0.854 -> 1.000).
+- `SECRETPY-001` rewritten AST-based: flags credential-named
+  assignments (variable, dict-literal key, call kwarg) plus shape-only
+  matches (PEM, JWT, Bearer, DB-URL-with-creds, vendor-prefixed
+  tokens for AWS / GitHub / Slack / Stripe). Placeholder markers
+  (`<your-...>`, `REPLACE_ME`, `example`, ...) skip a value unless it
+  is high-entropy enough (32+ chars, mixed case, digits) to defeat the
+  marker. Scored: **F1 = 0.658 -> 1.000** (P = 0.758 -> 1.000,
+  R = 0.581 -> 1.000).
+- `SECRETPY-001` moved from the `security_patterns` check to a new
+  `secrets` check. Rule code unchanged; the check name changed.
+  Users running `lanorme check . --check=security_patterns` no longer
+  get SECRETPY-001 flags; run `--check=secrets` instead, or rely on
+  the default-on full run.
+
+
 ## [0.2.0]
 
 ### Added

@@ -22,7 +22,7 @@ import sys
 from pathlib import Path
 
 from lanorme import get_check
-from lanorme.checks import security_patterns as _sec  # noqa: F401  (self-register)
+from lanorme.checks import secrets as _secrets  # noqa: F401  (self-register)
 
 _CORPUS = (
     Path(__file__).resolve().parent.parent
@@ -53,9 +53,9 @@ def _load_labels() -> dict[tuple[str, int], dict[str, str]]:
 
 def _flagged_sec003() -> set[tuple[str, int]]:
     """Run the security check and return the set of SECRETPY-001-flagged (file, line)."""
-    check = get_check("security_patterns")
+    check = get_check("secrets")
     if check is None:
-        raise RuntimeError("security_patterns check is not registered")
+        raise RuntimeError("secrets check is not registered")
     result = check.run(src_root=str(_CORPUS))
     return {
         (v.file.replace("\\", "/"), v.line)
