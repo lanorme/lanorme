@@ -11,6 +11,20 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
 
 ### Changed
 
+- `CMT-001` recall pushed from 0.667 to 1.000 by extending the comment-as-
+  code parser with wrapping strategies for the shapes `ast.parse` rejects
+  standalone: block headers (`if x:`, `for x in y:`, `def f():`, `class C:`)
+  are tried with a `pass` body; `try:` adds a synthetic `except`; `elif` /
+  `else` / `except` / `finally` are tried inside their parent block; bare
+  `return` / `yield` / `raise` are tried inside a synthetic `def _():`; and
+  decorator lines (`@foo`) are tried followed by `def _(): pass`. Also
+  added `ast.If` / `ast.Try` / `ast.Match` / `ast.Return` to the code-node
+  whitelist. Scored: **F1 = 0.793 -> 0.992** (P = 0.978 -> 0.985,
+  R = 0.667 -> 1.000).
+- `CMT-005` moved from the `comments` check to a new `restating` check.
+  Same rule code, same precision-funnel detector (P = 1.000, R = 0.418,
+  F1 = 0.589). Configuration key changed from `[tool.lanorme.comments]
+  restating = true` to `[tool.lanorme.restating] enabled = true`.
 - `SQL-001` rewritten AST-based: only flags raw SQL that reaches a
   database execution sink (`.execute` / `.executemany` /
   `.executescript` on a DB-shaped receiver, or `read_sql` /

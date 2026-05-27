@@ -1,25 +1,27 @@
-"""CMT-001, CMT-002, CMT-005 (and PROSE-001 / PROSE-003 when enabled).
+"""CMT-001 and CMT-002 (and PROSE-001 / PROSE-003 when enabled).
 
 Selectable rules for the quality of ``#`` comments (and, for the style rules,
 docstrings):
 
     CMT-001    No commented-out code.
     CMT-002    No verbose comments (block too long, or line too long).
-    CMT-005    No comments that merely restate the next line of code (EXPERIMENTAL).
     PROSE-001  No em dashes in comments or docstrings (shares the PROSE family
                with the markdown check; opt-in via ``em_dash = true``).
     PROSE-003  No emoji in comments or docstrings (shares the PROSE family;
                opt-in via ``emoji = true``).
 
-CMT-001 and CMT-002 are hygiene and run by default. The PROSE rules and
-CMT-005 stay off until enabled::
+CMT-001 and CMT-002 are hygiene and run by default. The PROSE rules stay off
+until enabled::
 
     [tool.lanorme.comments]
     em_dash = true       # emit PROSE-001 on comments/docstrings
     emoji = true         # emit PROSE-003 on comments/docstrings
-    restating = true     # emit CMT-005 (experimental)
     max_block_lines = 6
     max_comment_chars = 120
+
+CMT-005 (restating-comment detector) lives in its own ``restating`` check
+since the precision-funnel vocabulary outgrew this module; opt in via
+``[tool.lanorme.restating] enabled = true``.
 
 Run:
     lanorme check . --check=comments
@@ -31,7 +33,6 @@ import ast
 import io
 import re
 import tokenize
-from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -80,231 +81,18 @@ _CODE_NODES = (
     ast.AsyncFunctionDef,
     ast.ClassDef,
     ast.For,
+    ast.AsyncFor,
     ast.While,
+    ast.If,
+    ast.Try,
+    ast.Match,
     ast.With,
+    ast.AsyncWith,
     ast.Delete,
     ast.Raise,
     ast.Assert,
+    ast.Return,
 )
-
-_STOPWORDS = frozenset(
-    {
-        "the", "a", "an", "to", "of", "and", "or", "for", "in", "on", "is", "be",
-        "this", "that", "it", "with", "by", "as", "at", "from", "into", "are",
-        "was", "were", "we", "you", "they", "its", "any", "all", "some",
-    }
-)
-_WORD = re.compile(r"[A-Za-z]+")
-
-
-# --- CMT-005: restating-comment detector (see docs/cmt005-design.md) ---
-
-MAX_CONTENT_WORDS = 4
-MIN_STEM_LEN = 4
-COVERAGE_FLOOR = 1.0
-ALLOW_TRAILING = True
-
-# Allowlist: any of these signals exempts a comment from CMT-005 scoring.
-_ALLOWLIST_TAGS = frozenset(
-    {"todo", "fixme", "xxx", "hack", "note", "bug", "review", "warning", "optimize", "deprecated"}
-)
-# Phrases: entries with spaces or non-word chars; safe to match via `in`.
-_ALLOWLIST_PHRASES: tuple[str, ...] = (
-    "so that", "so we", "in order to", "to avoid", "to prevent", "on purpose",
-    "due to", "caused by", "that's why", "which is why", "work around",
-    "do not", "don't", "must ", "must not", "not thread", "side effect", "in place",
-    "(c)", "all rights reserved", "mit license",
-    "http://", "https://", "www.", "see ", "see:", "cf.", "ref:", "ref ", "refs ",
-    "per ", "pep ", "pep-", "bug #", "issue #", "gh-",
-    "e.g.", "i.e.", "eg.", "for example", "for instance", "example:", "examples:", "such as",
-    ":param", ":type", ":returns", ":return:", ":rtype", ":raises",
-    "args:", "returns:", "raises:", "yields:", "params:", "usage:",
-    "public:", "internal:",
-    "0-based", "1-based", "zero-based", "one-based", "null-terminated",
-)
-# Single words: must match as whole words, never as substrings (a literal "ms"
-# inside "items" must not exempt the comment).
-_ALLOWLIST_WORD_RE = re.compile(
-    r"\b(?:"
-    "because|since|otherwise|prevent|ensure|workaround|reason|intentionally|"
-    "careful|caution|danger|gotcha|never|always|beware|unsafe|mutate|assumes|"
-    "assumption|requires|precondition|invariant|"
-    "copyright|license|licence|spdx|gnu|apache|bsd|gpl|"
-    "rfc|deprecated|inclusive|exclusive|utc|seconds|ms|bytes|index|offset|nul"
-    r")\b",
-    re.IGNORECASE,
-)
-_SECTION_HEADER_DASH = re.compile(r"^[-=#*~ ]{2,}$")
-_NUMERIC_REF = re.compile(r"#\d+")
-_CAMEL_SPLIT = re.compile(r"[A-Z]+(?=[A-Z][a-z])|[A-Z]?[a-z]+|[A-Z]+|[0-9]+")
-
-# Hard keyword introduced by each simple-statement node type.
-_STMT_KEYWORD: dict[type, str] = {
-    ast.Return: "return", ast.Delete: "del", ast.Assert: "assert", ast.Raise: "raise",
-    ast.Import: "import", ast.ImportFrom: "import",
-    ast.For: "for", ast.AsyncFor: "for", ast.While: "while",
-}
-
-
-def _split_identifier(*, name: str) -> list[str]:
-    """Split snake_case / camelCase / PascalCase into lowercase word tokens."""
-    out: list[str] = []
-    for part in re.split(r"_+", name):
-        out.extend(_CAMEL_SPLIT.findall(part))
-    return [token.lower() for token in out if token]
-
-
-def _stem(*, word: str) -> str:
-    """Trim one common English suffix iff the residue is long enough; never below MIN_STEM_LEN."""
-    for suffix in ("ing", "tion", "ies", "es", "ed", "er", "s"):
-        if word.endswith(suffix) and len(word) - len(suffix) >= MIN_STEM_LEN:
-            return word[: -len(suffix)]
-    return word
-
-
-def _is_augassign(*, op_type: type) -> Callable[[ast.stmt], bool]:
-    return lambda s: isinstance(s, ast.AugAssign) and isinstance(s.op, op_type)
-
-
-def _is_node_type(*, types: tuple[type, ...]) -> Callable[[ast.stmt], bool]:
-    return lambda s: isinstance(s, types)
-
-
-def _contains_yield(s: ast.stmt) -> bool:
-    return any(isinstance(node, (ast.Yield, ast.YieldFrom)) for node in ast.walk(s))
-
-
-def _is_expr_call(s: ast.stmt) -> bool:
-    return isinstance(s, ast.Expr) and isinstance(s.value, ast.Call)
-
-
-def _is_print_like(s: ast.stmt) -> bool:
-    if not isinstance(s, ast.Expr) or not isinstance(s.value, ast.Call):
-        return False
-    func = s.value.func
-    name = func.id if isinstance(func, ast.Name) else (func.attr if isinstance(func, ast.Attribute) else "")
-    return name == "print" or name.startswith("log")
-
-
-# Verb -> predicate on the adjacent statement node. Hand-curated; small on purpose.
-_VERB_TABLE: dict[str, Callable[[ast.stmt], bool]] = {
-    **dict.fromkeys(("increment", "inc", "bump"), _is_augassign(op_type=ast.Add)),
-    **dict.fromkeys(("decrement", "dec", "subtract"), _is_augassign(op_type=ast.Sub)),
-    **dict.fromkeys(("return", "returns"), _is_node_type(types=(ast.Return,))),
-    **dict.fromkeys(("yield", "yields"), _contains_yield),
-    **dict.fromkeys(("raise", "throw", "throws"), _is_node_type(types=(ast.Raise,))),
-    **dict.fromkeys(("import", "imports"), _is_node_type(types=(ast.Import, ast.ImportFrom))),
-    **dict.fromkeys(("loop", "iterate", "iterates", "iterating"), _is_node_type(types=(ast.For, ast.AsyncFor, ast.While))),
-    **dict.fromkeys(("assign", "set", "store"), _is_node_type(types=(ast.Assign, ast.AnnAssign))),
-    **dict.fromkeys(("delete", "del", "remove"), _is_node_type(types=(ast.Delete,))),
-    **dict.fromkeys(("assert", "check", "verify"), _is_node_type(types=(ast.Assert,))),
-    **dict.fromkeys(("call", "invoke"), _is_expr_call),
-    **dict.fromkeys(("print", "log"), _is_print_like),
-}
-
-
-def _is_section_header(text: str) -> bool:
-    stripped = text.strip()
-    if _SECTION_HEADER_DASH.fullmatch(stripped):
-        return True
-    words = stripped.split()
-    return len(words) >= 2 and all(word.isupper() and len(word) >= 2 for word in words)
-
-
-def _is_allowlisted(*, text: str, low: str) -> bool:
-    if low.startswith(_PRAGMA_PREFIXES):
-        return True
-    first = (low.split() or [""])[0].rstrip(":")
-    if first in _ALLOWLIST_TAGS:
-        return True
-    if any(phrase in low for phrase in _ALLOWLIST_PHRASES):
-        return True
-    if _ALLOWLIST_WORD_RE.search(low):
-        return True
-    if _is_section_header(text):
-        return True
-    return bool(_NUMERIC_REF.search(low))
-
-
-def _build_stmt_index(*, tree: ast.Module) -> dict[int, ast.stmt]:
-    """First top-level statement starting at each line number."""
-    index: dict[int, ast.stmt] = {}
-    for node in ast.walk(tree):
-        if isinstance(node, ast.stmt):
-            index.setdefault(node.lineno, node)
-    return index
-
-
-def _is_simple_statement(*, s: ast.stmt) -> bool:
-    """Statements that a one-line restating comment could plausibly paraphrase."""
-    if isinstance(s, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
-        return False
-    if getattr(s, "decorator_list", None):
-        return False
-    return isinstance(
-        s,
-        (
-            ast.Assign, ast.AnnAssign, ast.AugAssign, ast.Return, ast.Delete,
-            ast.Raise, ast.Assert, ast.Import, ast.ImportFrom,
-            ast.For, ast.AsyncFor, ast.While, ast.Expr,
-        ),
-    )
-
-
-def _code_tokens(*, s: ast.stmt) -> set[str]:
-    """Stemmed identifier + keyword tokens from a statement. Literals excluded on purpose."""
-    raw: set[str] = set()
-    for node in ast.walk(s):
-        if isinstance(node, ast.Name):
-            raw.update(_split_identifier(name=node.id))
-        elif isinstance(node, ast.Attribute):
-            raw.update(_split_identifier(name=node.attr))
-        elif isinstance(node, ast.arg):
-            raw.update(_split_identifier(name=node.arg))
-        elif isinstance(node, ast.keyword) and node.arg:
-            raw.update(_split_identifier(name=node.arg))
-    keyword = _STMT_KEYWORD.get(type(s))
-    if keyword:
-        raw.add(keyword)
-    return {_stem(word=token) for token in raw if token}
-
-
-@dataclass(frozen=True)
-class _RestatingContext:
-    stmt_index: dict[int, ast.stmt]
-    stmt_lines: list[int]
-    standalone_lines: set[int]
-
-
-def _adjacent_statement(*, comment: "_Comment", ctx: _RestatingContext) -> ast.stmt | None:
-    if comment.standalone:
-        for line in ctx.stmt_lines:
-            if line > comment.line:
-                return ctx.stmt_index[line]
-        return None
-    return ctx.stmt_index.get(comment.line)
-
-
-def _in_comment_block(*, comment: "_Comment", standalone_lines: set[int]) -> bool:
-    return (comment.line - 1) in standalone_lines or (comment.line + 1) in standalone_lines
-
-
-def _restates_v2(*, comment: "_Comment", s: ast.stmt) -> bool:
-    text = comment.text
-    low = text.lower()
-    if _is_allowlisted(text=text, low=low):
-        return False
-    words = [w for w in _WORD.findall(low) if w not in _STOPWORDS]
-    if not words or len(words) > MAX_CONTENT_WORDS:
-        return False
-    verbs = [w for w in words if w in _VERB_TABLE]
-    content = [w for w in words if w not in _VERB_TABLE]
-    code_tokens = _code_tokens(s=s)
-    covered_w = sum(1 for w in content if _stem(word=w) in code_tokens)
-    covered_v = sum(1 for v in verbs if _VERB_TABLE[v](s))
-    total = len(content) + len(verbs)
-    return total > 0 and (covered_w + covered_v) / total >= COVERAGE_FLOOR
-
 
 @dataclass(frozen=True)
 class _Comment:
@@ -349,26 +137,75 @@ def _has_ellipsis_arg(*, call: ast.Call) -> bool:
     return any(isinstance(arg, ast.Constant) and arg.value is Ellipsis for arg in call.args)
 
 
+def _is_code_statement(node: ast.stmt) -> bool:
+    """True if *node* is a statement type we treat as commented-out code."""
+    # 'label: type' without a value reads as documentation, not an assignment.
+    if isinstance(node, ast.AnnAssign) and node.value is None:
+        return False
+    # 'foo(...)' with a literal ellipsis is illustrative, not dead code.
+    if isinstance(node, ast.Expr) and isinstance(node.value, ast.Call):
+        return not _has_ellipsis_arg(call=node.value)
+    return isinstance(node, _CODE_NODES)
+
+
+# Block-header keywords whose comments don't parse standalone (they require a
+# body). We try wrapping with ``pass`` to make them syntactically complete.
+_BLOCK_HEADER_KEYWORDS = (
+    "if ", "elif ", "else:", "for ", "while ", "try:", "except", "finally:",
+    "with ", "match ", "case ", "def ", "async def ", "class ",
+)
+# Bare keyword statements that need an enclosing function to parse.
+_SCOPE_BOUND_KEYWORDS = ("return", "yield", "raise", "await ")
+
+
+def _parsing_candidates(text: str) -> list[str]:
+    """Variants of *text* to try, covering Python shapes that don't parse standalone."""
+    stripped = text.strip()
+    candidates: list[str] = [text]
+    if stripped.endswith(":") and stripped.startswith(_BLOCK_HEADER_KEYWORDS):
+        candidates.append(text + "\n    pass")
+    # ``try:`` alone is invalid; it needs an ``except`` or ``finally`` clause.
+    if stripped == "try:" or (stripped.startswith("try ") and stripped.endswith(":")):
+        candidates.append(text + "\n    pass\nexcept Exception:\n    pass")
+    # ``elif`` / ``else`` and ``except`` / ``finally`` need a preceding parent.
+    if stripped.startswith(("elif ", "else:")):
+        candidates.append(f"if True:\n    pass\n{text}\n    pass")
+    if stripped.startswith(("except", "finally:")):
+        candidates.append(f"try:\n    pass\n{text}\n    pass")
+    # Bare ``return`` / ``yield`` / ``raise`` / ``await`` need an enclosing def.
+    first_word = stripped.split(" ", 1)[0] if stripped else ""
+    if first_word in {"return", "yield", "raise"} or any(
+        stripped.startswith(k) for k in _SCOPE_BOUND_KEYWORDS
+    ):
+        candidates.append(f"def _():\n    {text}")
+    # Decorator lines (``@foo`` / ``@app.route(...)``) need a target def.
+    if stripped.startswith("@"):
+        candidates.append(f"{text}\ndef _():\n    pass")
+    return candidates
+
+
+def _comment_parses_as_code(text: str) -> bool:
+    """Return True if the comment text resolves to a code statement."""
+    for candidate in _parsing_candidates(text):
+        try:
+            tree = ast.parse(candidate)
+        except (SyntaxError, ValueError):
+            continue
+        for node in tree.body:
+            if _is_code_statement(node):
+                return True
+            # Unwrap the synthetic ``def _():`` used for scope-bound text.
+            if isinstance(node, ast.FunctionDef) and node.name == "_":
+                if any(_is_code_statement(child) for child in node.body):
+                    return True
+    return False
+
+
 def _looks_like_code(*, text: str) -> bool:
     """True if a comment body parses as a code statement rather than prose."""
-    if not text or text.startswith(_PRAGMA_PREFIXES) or text.endswith((".", "?", "!", ":")):
+    if not text or text.startswith(_PRAGMA_PREFIXES) or text.endswith((".", "?", "!")):
         return False
-    try:
-        tree = ast.parse(text)
-    except (SyntaxError, ValueError):
-        return False
-    for node in tree.body:
-        # 'label: type' without a value reads as documentation, not an assignment.
-        if isinstance(node, ast.AnnAssign) and node.value is None:
-            continue
-        # 'foo(...)' with a literal ellipsis is illustrative, not dead code.
-        if isinstance(node, ast.Expr) and isinstance(node.value, ast.Call):
-            if not _has_ellipsis_arg(call=node.value):
-                return True
-            continue
-        if isinstance(node, _CODE_NODES):
-            return True
-    return False
+    return _comment_parses_as_code(text)
 
 
 def _violation(*, relative_file: str, line: int, code: str, message: str, fix: str) -> Violation:
@@ -385,14 +222,12 @@ class CommentsCheck:
     flag_verbose: bool = True
     flag_em_dash: bool = False
     flag_emoji: bool = False
-    flag_restating: bool = False
     max_block_lines: int = 6
     max_comment_chars: int = 120
     rules: list[str] = field(
         default_factory=lambda: [
             "CMT-001: No commented-out code",
             "CMT-002: No verbose comments (block or line too long)",
-            "CMT-005: No comments that restate the next line of code (experimental)",
             "PROSE-001: No em dashes in comments or docstrings (opt-in)",
             "PROSE-003: No emoji in comments or docstrings (opt-in)",
         ]
@@ -404,7 +239,7 @@ class CommentsCheck:
             short = key.removeprefix("flag_")
             if short in settings:
                 setattr(self, key, bool(settings[short]))
-        for short in ("em_dash", "emoji", "restating"):
+        for short in ("em_dash", "emoji"):
             if short in settings:
                 setattr(self, f"flag_{short}", bool(settings[short]))
         for key in ("max_block_lines", "max_comment_chars"):
@@ -503,42 +338,6 @@ class CommentsCheck:
                 )
             for line, text in _docstring_lines(tree=tree):
                 found.extend(self._style_violations(text=text, line=line, relative_file=relative_file))
-        if self.flag_restating:
-            found.extend(self._restating_violations(comments=comments, tree=tree, relative_file=relative_file))
-        return found
-
-    def _restating_violations(
-        self,
-        *,
-        comments: list[_Comment],
-        tree: ast.Module,
-        relative_file: str,
-    ) -> list[Violation]:
-        stmt_index = _build_stmt_index(tree=tree)
-        ctx = _RestatingContext(
-            stmt_index=stmt_index,
-            stmt_lines=sorted(stmt_index),
-            standalone_lines={c.line for c in comments if c.standalone},
-        )
-        found: list[Violation] = []
-        for comment in comments:
-            if comment.standalone and _in_comment_block(comment=comment, standalone_lines=ctx.standalone_lines):
-                continue
-            if not comment.standalone and not ALLOW_TRAILING:
-                continue
-            s = _adjacent_statement(comment=comment, ctx=ctx)
-            if s is None or not _is_simple_statement(s=s):
-                continue
-            if _restates_v2(comment=comment, s=s):
-                found.append(
-                    _violation(
-                        relative_file=relative_file,
-                        line=comment.line,
-                        code="CMT-005",
-                        message=f"Comment restates the code: {comment.text[:50]}",
-                        fix="Remove it, or explain the why rather than the what",
-                    )
-                )
         return found
 
     def run(self, *, src_root: str) -> CheckResult:

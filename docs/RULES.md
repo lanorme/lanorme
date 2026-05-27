@@ -17,19 +17,26 @@ The rules are grouped by category in the same order as `lanorme rules`.
 ### `CMT-001`: No commented-out code
 
 Default-on. Walks every `#` comment and parses its text as Python; if the
-result is a `Import` / `ImportFrom` / `Assign` / `AnnAssign` / `AugAssign`
-/ `FunctionDef` / `AsyncFunctionDef` / `ClassDef` / `For` / `While` /
-`With` / `Delete` / `Raise` / `Assert` / `Expr(Call(...))`, the comment is
-treated as disabled code. Guards: comments ending in `.` / `?` / `!` / `:`
-are prose; `foo(...)` (literal `...`) is illustrative; `label: type` with
-no value is documentation.
+result is one of `_CODE_NODES` (imports, assigns, defs, control flow,
+returns / raises / asserts, ...), the comment is treated as disabled code.
+Guards: comments ending in `.` / `?` / `!` are prose; `foo(...)` (literal
+`...`) is illustrative; `label: type` with no value is documentation.
+
+To recover the shapes `ast.parse` rejects standalone, the comment text is
+tried in several wrapping strategies before being declared prose:
+
+- Block headers ending in `:` are tried with a `pass` body.
+- `try:` is tried with a `pass` body plus a synthetic `except Exception`.
+- `elif` / `else` are tried inside an `if True: pass` prefix.
+- `except` / `finally` are tried inside a `try: pass` prefix.
+- Bare `return` / `yield` / `raise` are tried inside `def _(): ...`.
+- Decorator lines (`@foo`) are tried followed by `def _(): pass`.
 
 Measured against the 165-comment corpus under
 `tests/fixtures/comments_commented_code/` with `benchmarks/score_cmt001.py`:
-**P = 0.978 / R = 0.667 / F1 = 0.793** (TP = 44, FP = 1, FN = 22). The
-single FP is an illustrative call signature. The 22 FNs are dominated by
-standalone block headers (`if x:`, `def f():`, decorator lines, bare
-`return`) which `ast.parse` rejects without their body.
+**P = 0.985 / R = 1.000 / F1 = 0.992** (TP = 66, FP = 1, FN = 0). The
+single FP is an illustrative call signature following a `Typical usage:`
+header.
 
 Config: none.
 
@@ -48,23 +55,24 @@ max_block_lines   = 6
 
 ### `CMT-005`: No comments that restate the next line of code
 
-Default-off. **Experimental.** Precision-funnel detector: AST adjacency
-+ 11-category allowlist + stem-equality + verb-to-AST-node table +
-asymmetric coverage floor. Designed precision-first; expects to miss
-synonym paraphrases.
+Default-off. **Experimental.** Lives in its own `restating` check (was
+part of `comments`; split out when the precision-funnel vocabulary grew
+past the single-file size limit). Detector: AST adjacency + 11-category
+allowlist + stem-equality + 12-entry verb-to-AST-node table + asymmetric
+coverage floor of 1.0 + 4-content-word cap. Designed precision-first;
+expects to miss synonym paraphrases.
 
 Measured against the 167-comment corpus under
 `tests/fixtures/comments_restating/` with `benchmarks/score_cmt005.py`,
 post audit-broadening: **P = 1.000 / R = 0.418 / F1 = 0.589** (TP = 33,
-FP = 0, FN = 46, TN = 88). The recall drop versus an earlier 0.647 came
-from extending the corpus into categories the design said it would miss
-(stale comments, half-useful-qualifier, type-in-prose, multi-line
-restatement, docstring duplication); precision held at 1.000.
+FP = 0, FN = 46, TN = 88). The 0.418 recall is bounded by the design's
+refusal to chase synonym paraphrases without losing precision; the metric
+is the headline.
 
 Config:
 ```toml
-[tool.lanorme.comments]
-restating = true
+[tool.lanorme.restating]
+enabled = true
 ```
 
 ### `PROSE-001` / `PROSE-003` on comments and docstrings

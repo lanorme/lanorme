@@ -20,7 +20,7 @@ import json
 import sys
 from pathlib import Path
 
-from lanorme.checks.comments import CommentsCheck
+from lanorme.checks.restating import RestatingCheck
 
 _CORPUS = Path(__file__).resolve().parent.parent / "tests" / "fixtures" / "comments_restating"
 _LABELS = _CORPUS / "labels.json"
@@ -41,9 +41,8 @@ def _load_labels() -> dict[tuple[str, int], dict[str, str]]:
 
 
 def _flagged_cmt005() -> set[tuple[str, int]]:
-    """Run the check with restating enabled; return the set of CMT-005 (file, line)."""
-    check = CommentsCheck()
-    check.configure(settings={"restating": True})
+    """Run the ``restating`` check; return the set of CMT-005 (file, line)."""
+    check = RestatingCheck(enabled=True)
     result = check.run(src_root=str(_CORPUS))
     return {
         (v.file.replace("\\", "/"), v.line)
