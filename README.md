@@ -13,17 +13,26 @@ $ lanorme check .
 
 ## Install
 
-```console
-uv tool install lanorme
-```
-
-Or run it once without installing:
+Install straight from GitHub with `uv`:
 
 ```console
-uvx lanorme check .
+uv tool install git+https://github.com/Antonio-Tresol/lanorme
 ```
 
-It also installs with `pip` / `pipx` the usual way.
+Pin a released version by tag:
+
+```console
+uv tool install "git+https://github.com/Antonio-Tresol/lanorme@v0.2.0"
+```
+
+Or run it once without installing anything:
+
+```console
+uvx --from git+https://github.com/Antonio-Tresol/lanorme lanorme check .
+```
+
+`pipx install git+https://github.com/Antonio-Tresol/lanorme` works the same way.
+Releases are tagged `vX.Y.Z`; see the [releases page](https://github.com/Antonio-Tresol/lanorme/releases) for the wheel and notes.
 
 ## Usage
 
