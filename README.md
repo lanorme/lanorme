@@ -1,11 +1,11 @@
 # LaNorme
 
-> *La norme*: the standard.
+A linter for Python. It checks the usual things, dead code, file and function
+size, complexity, weak types, hardcoded secrets, dangerous calls, and a few
+things most linters do not: hexagonal layer boundaries, ports-and-adapters
+wiring, and a project's own naming vocabulary.
 
-A configurable, pluggable architecture & code-quality linter for Python.
-Point it at any project and it enforces a floor of structural and hygiene
-rules; opt in to stricter, project-specific rules through configuration; and
-extend it with your own checks.
+Standard library only. No runtime dependencies. Python 3.13+.
 
 ```console
 $ lanorme check .
@@ -14,76 +14,80 @@ $ lanorme check .
 ## Install
 
 ```console
-# run without installing, straight from a built wheel
-uv build
-uvx --from dist/lanorme-*.whl lanorme check .
-
-# or install as a tool
-uv tool install .
-lanorme check .
+uv tool install lanorme
 ```
 
-Requires Python 3.13+. Zero runtime dependencies (stdlib only).
+Or run it once without installing:
+
+```console
+uvx lanorme check .
+```
+
+It also installs with `pip` / `pipx` the usual way.
 
 ## Usage
 
 ```console
-lanorme check [PATHS...]            # run all enabled checks (default path: .)
-lanorme check . --check=layer_deps  # run a single check by name
-lanorme check . --select TYPE,AUTHN # only these rule codes/categories
+lanorme check [PATHS...]            # run every enabled check (default path: .)
+lanorme check . --check=secrets     # run one check by name
+lanorme check . --select TYPE,AUTHN # only these rule codes or categories
 lanorme check . --ignore NAMING-003 # skip specific rules
 lanorme check . --output-format json
 lanorme rules                       # list every registered rule
+lanorme rule  SQL-001               # show the reference for one rule
 ```
 
-Exit code is `1` when any check fails, `0` when clean.
+Exit code is `1` when any check fails, `0` when the tree is clean.
 
-### Inline suppression
+A run looks like this:
 
-A `# noqa` comment at the end of the source line silences every violation
-that lands on that line; `# noqa: CODE1,CODE2` silences only the listed
-codes (full code like `SQL-001` or a category like `SQL`):
+```console
+$ lanorme check src/
+[FAIL] secrets
+  VIOLATION: app.py:8 — Hardcoded credential value bound to 'API_KEY'
+    Rule: SECRETPY-001: No hardcoded secrets in source code
+    Fix: Read the value from an environment variable, secrets manager, or settings module
+```
+
+### Suppressing a finding
+
+A `# noqa` at the end of a line silences every rule on that line; `# noqa: CODE`
+silences only the listed codes (a full code like `SQL-001` or a category like
+`SQL`):
 
 ```python
 def legacy_handler(req):  # noqa: KWARG-001
     return req.text  # noqa
 ```
 
-`# noqa` is recognised case-insensitively. For broader suppression (whole
-directories, glob-matched paths), use `[tool.lanorme.per-file-ignores]`.
+For whole directories, use the per-file table in your config (below).
 
 ## Configuration
 
-LaNorme discovers configuration by walking up from the target path: a dedicated
-`lanorme.toml` takes precedence, otherwise a `[tool.lanorme]` table in
-`pyproject.toml`. CLI flags override config.
+LaNorme walks up from the target path looking for config: a dedicated
+`lanorme.toml`, otherwise a `[tool.lanorme]` table in `pyproject.toml`. Command
+line flags win over both.
 
 ```toml
 [tool.lanorme]
-select = ["ALL"]                            # rule codes/categories to run
-ignore = ["NAMING-003"]                     # rule codes/categories to skip
-exclude = ["build/*", "vendor/*"]           # file-path globs to exclude entirely
+select = ["ALL"]                            # rule codes or categories to run
+ignore = ["NAMING-003"]                     # rule codes or categories to skip
+exclude = ["build/*", "vendor/*"]           # path globs to skip entirely
 plugins = ["myproject.checks.house_rules"]  # extra check modules to load
 
-# Per-file rule suppression. Keys are file-path globs; values are rule
-# codes (full code or category prefix). Codes silenced here never fire
-# for matching paths, but the file is still scanned (use `exclude` to
-# skip the file entirely).
+# Silence specific rules for matching paths (the file is still scanned).
 [tool.lanorme.per-file-ignores]
-"tests/**/*.py"  = ["AAA", "SECRETPY"]
+"tests/**/*.py"   = ["AAA", "SECRETPY"]
 "alembic/**/*.py" = ["SQL"]
-"notebooks/*.py" = ["KWARG", "DRY"]
+"notebooks/*.py"  = ["KWARG", "DRY"]
 
-# Per-check configuration (each table is handed to that check):
+# Each per-check table is handed to that check.
 [tool.lanorme.stray_artifacts]
-extensions = [".zip", ".pdf"]               # also flag these as stray (JUNK-002)
+extensions = [".zip", ".pdf"]               # also flag these (JUNK-002)
 allow = ["docs/diagram.png"]                # never flag these (globs)
 
 [tool.lanorme.forbidden_paths]
 dirs = ["legacy_src", "build_artifacts"]    # these directories must not exist
-
-[tool.lanorme.stale_paths]
-tokens = ["src/", "old_pkg/"]               # flag references to these path tokens
 
 [[tool.lanorme.domain_terms.rules]]
 id = "TERM-001"
@@ -91,47 +95,45 @@ canonical = "Account"
 forbidden = ["Acct", "Acnt"]
 ```
 
-## Checks
+## What it checks
 
-Run `lanorme rules` for the full, live rule list. The full reference,
-including configuration knobs and where measured the precision/recall
-on the bundled corpora, is in [`docs/RULES.md`](docs/RULES.md).
+`lanorme rules` prints the live list. Each rule, what it catches and does not,
+its config, and where measured its precision and recall on the bundled test
+corpora, is in [`docs/RULES.md`](docs/RULES.md).
 
-**Default-on**, fire on any project without configuration:
+On by default, on any project, no config needed:
 
-| Category | What it catches |
+| Rule | Catches |
 |---|---|
-| `CMT-001/002` | commented-out code, verbose comment blocks |
-| `DRY-001` | near-duplicate function bodies (>=5 statements) |
-| `SIZE-001..003` / `COMPLEXITY-001` / `PARAM-001` | file/function/class size, cyclomatic, parameter count |
-| `IMPORT-001` / `ENDPOINT-001` | inline imports inside functions; over-nested endpoints |
-| `NAMING-003/004` | HTTP-verb-to-handler alignment; boolean-prefix predicates |
-| `TYPE-001..003` | weakly-typed `dict[str, Any]`, bare containers, untyped `**kwargs` |
-| `AUTHN-001` / `SQL-001` / `SECRETPY-001` | auth dependency on mutation endpoints; raw SQL; hardcoded secrets in `.py` |
-| `SHELL-001` / `DESERIAL-001` / `EVAL-001` / `CRYPTO-001` / `TLS-001` / `DEBUG-001` | shell injection; pickle/yaml.load RCE; eval/exec; weak hash; verify=False; debug-mode |
-| `JUNK-001/002` | screenshots, scratch files, OS junk, stray binaries outside asset dirs |
-| `PROSE-001..003` | em-dash / US spelling / emoji in Markdown (off until enabled) |
-| `TESTFILE-001` | every production module under a configured directory has a `test_*.py` partner |
-| `META-001..005` | self-validation that every check emits structured output |
+| `CMT-001/002` | commented-out code, over-long comment blocks |
+| `DRY-001` | near-duplicate function bodies |
+| `SIZE-001..003` / `COMPLEXITY-001` / `PARAM-001` | file, function and class size; cyclomatic complexity; parameter count |
+| `IMPORT-001` / `ENDPOINT-001` | imports inside function bodies; deeply nested endpoints |
+| `NAMING-003/004` | HTTP-verb-to-handler match; boolean-prefix predicates |
+| `TYPE-001..003` | `dict[str, Any]`, bare containers, untyped `**kwargs` |
+| `AUTHN-001` / `SQL-001` / `SECRETPY-001` | mutation endpoints without an auth dependency; raw SQL at a database call; hardcoded secrets in `.py` |
+| `SHELL-001` / `DESERIAL-001` / `EVAL-001` / `CRYPTO-001` / `TLS-001` / `DEBUG-001` | shell injection, unsafe deserialisation, `eval`/`exec`, weak hashes, disabled TLS, debug mode |
+| `JUNK-001/002` | screenshots, scratch files, OS junk, stray binaries |
+| `TESTFILE-001` | a production module with no `test_*.py` partner |
+| `META-001..005` | the checks themselves emit well-formed output |
 
-**Opt-in**, inert unless configured or unless the rule is enabled by name:
+Off until you turn them on:
 
-| Rule | Why opt-in |
+| Rule | Why |
 |---|---|
-| `LAYER-001..005` | only fires on a hexagonal/layered layout (`domain/ application/ infrastructure/ api/`) |
-| `PORT-001..003` | only fires on a project with `application/ports/` |
-| `TERM-NNN` | needs a vocabulary configured in `[tool.lanorme.domain_terms]` |
-| `PATH-001` | needs forbidden directories in `[tool.lanorme.forbidden_paths]` |
-| `STALE-001` | needs stale-path tokens in `[tool.lanorme.stale_paths]` |
-| `KWARG-001` | opinionated house style; opt in via `[tool.lanorme.named_args] enabled = true` |
-| `NAMING-001/002` | CRUD prefixes on repositories/services; opt in via `repo_crud = true` / `service_crud = true` |
-| `AAA-001/002` | comment-marker + DRY enforcement on test suites; opt in via `[tool.lanorme.test_style] enabled = true` |
-| `CMT-005` | experimental restating-comment detector; precision-first but recall-limited |
-| `PROSE-001/003` (on comments/docstrings) | opt in via `[tool.lanorme.comments] em_dash = true` / `emoji = true` |
+| `LAYER-001..005` | needs a layered layout (`domain/ application/ infrastructure/ api/`) |
+| `PORT-001..003` | needs an `application/ports/` directory |
+| `TERM-NNN` | needs a vocabulary in `[tool.lanorme.domain_terms]` |
+| `PATH-001` / `STALE-001` | need forbidden dirs / stale tokens configured |
+| `KWARG-001` | keyword-only call sites; a strong house style |
+| `NAMING-001/002` | CRUD method prefixes; conflicts with domain naming |
+| `AAA-001/002` | Arrange-Act-Assert markers and DRY in tests |
+| `CMT-005` | restating-comment detector; experimental, precision-first |
+| `PROSE-001..003` | em dashes, US spelling and emoji in Markdown or comments |
 
 ## Writing a check
 
-A check is any object implementing the `Check` protocol:
+A check is any object with `name`, `description`, `rules`, and a `run` method:
 
 ```python
 from lanorme import CheckResult, Status, Violation, register
@@ -144,7 +146,7 @@ class MyCheck:
 
     def run(self, *, src_root: str) -> CheckResult:
         violations: list[Violation] = []
-        # ... inspect files under src_root ...
+        # inspect files under src_root
         status = Status.FAIL if violations else Status.PASS
         return CheckResult(check=self.name, status=status, violations=violations)
 
@@ -152,24 +154,19 @@ class MyCheck:
 register(MyCheck())
 ```
 
-Drop the module into `lanorme/checks/` (built-in) or ship it in a package that
-advertises it under the `lanorme.checks` entry-point group, or point at it from
-`[tool.lanorme] plugins = [...]`. LaNorme discovers and runs it automatically.
+Drop it in `lanorme/checks/`, ship it under the `lanorme.checks` entry-point
+group, or point at it with `[tool.lanorme] plugins = [...]`. LaNorme finds it
+and runs it.
 
 ## Versioning
 
-LaNorme follows semantic versioning, where the public API is the set of
-rule codes that may appear in `select` / `ignore` / `per-file-ignores`
-and the configuration keys under `[tool.lanorme]` / `[tool.lanorme.<check>]`.
-Renaming a rule code, dropping a rule, or flipping a default-on rule to
-default-off is a breaking change. Adding a new rule code, or adding a new
-configuration key with a sensible default, is not.
-
-Below 1.0 (current track), breaking changes land in minor releases and are
-called out in [`CHANGELOG.md`](CHANGELOG.md). After 1.0 they will be reserved
-for major releases.
+The public surface is the rule codes you put in `select` / `ignore` /
+`per-file-ignores` and the config keys under `[tool.lanorme]`. Renaming a rule,
+dropping one, or turning a default-on rule off is a breaking change; adding a
+rule or a new config key with a sensible default is not. Before 1.0, breaking
+changes land in minor releases and are listed in
+[`CHANGELOG.md`](CHANGELOG.md).
 
 ## License
 
 MIT. See [`LICENSE`](LICENSE).
-
