@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "lanorme"
-version = "0.4.0"
+version = "0.5.0"
 description = "La norme: a configurable, pluggable architecture and code-quality linter for Python."
 readme = "README.md"
 requires-python = ">=3.13"
@@ -91,4 +91,8 @@ emoji = true
 enabled = true
 
 [tool.lanorme.test_style]
+enabled = true
+
+# Dogfood the opt-in attribute-access smell check on LaNorme itself.
+[tool.lanorme.attribute_access]
 enabled = true

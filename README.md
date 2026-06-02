@@ -152,6 +152,7 @@ Off until you turn them on:
 | `NAMING-001/002` | CRUD method prefixes; conflicts with domain naming |
 | `AAA-001/002` | Arrange-Act-Assert markers and DRY in tests |
 | `CMT-005` | restating-comment detector; experimental, precision-first |
+| `ATTR-001/002` | `hasattr`/`getattr`/`setattr` with a literal attribute name; a missing-type smell |
 | `PROSE-001..003` | em dashes, US spelling and emoji in Markdown or comments |
 
 ## Writing a check

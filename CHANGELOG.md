@@ -9,6 +9,28 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
 
 ## [Unreleased]
 
+## [0.5.0]
+
+### Added
+
+- `attribute_access` check, opt-in (default-off), advisory warnings:
+  - `ATTR-001`: `hasattr(x, "name")` with a literal identifier name (duck
+    typing; prefer a `runtime_checkable` Protocol with `isinstance`, or
+    EAFP).
+  - `ATTR-002`: `getattr(x, "name")` (no default), `setattr(x, "name", v)`,
+    or `delattr(x, "name")` with a literal identifier name (use direct
+    attribute access `x.name`).
+  - High-confidence cases only: three-argument `getattr` with a default,
+    dunder names, non-identifier names, and files under `tests/` are exempt.
+    Dynamic (non-literal) names are exempt unless `flag_dynamic = true`.
+    Enable via `[tool.lanorme.attribute_access] enabled = true`. The default
+    was chosen by measuring the rule against the Python standard library,
+    where `hasattr` is dominated by legitimate platform/feature detection
+    (no Protocol fix), so the check ships off.
+- `Configurable` protocol in the public API: a `runtime_checkable` Protocol
+  for checks that accept a `[tool.lanorme.<name>]` settings table. The CLI
+  now selects configurable checks with `isinstance(check, Configurable)`.
+
 ## [0.4.0]
 
 ### Added

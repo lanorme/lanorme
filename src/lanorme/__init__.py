@@ -21,9 +21,9 @@ from __future__ import annotations
 
 import enum
 from dataclasses import dataclass, field
-from typing import Protocol
+from typing import Protocol, runtime_checkable
 
-__version__ = "0.4.0"
+__version__ = "0.5.0"
 
 
 class Status(enum.Enum):
@@ -99,6 +99,15 @@ class Check(Protocol):
 
     def run(self, *, src_root: str) -> CheckResult:
         """Run the check against the given source root and return results."""
+        ...
+
+
+@runtime_checkable
+class Configurable(Protocol):
+    """A check that accepts a ``[tool.lanorme.<name>]`` settings table."""
+
+    def configure(self, *, settings: dict[str, object]) -> None:
+        """Apply configuration to the check before it runs."""
         ...
 
 

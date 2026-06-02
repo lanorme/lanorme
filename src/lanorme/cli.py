@@ -29,6 +29,7 @@ from pathlib import Path
 import lanorme.checks
 from lanorme import (
     CheckResult,
+    Configurable,
     Status,
     Violation,
     __version__,
@@ -78,7 +79,7 @@ def _apply_check_config(*, config: dict[str, object]) -> None:
     """
     source_root = config.get("source_root")
     for name, check in get_all_checks().items():
-        if not hasattr(check, "configure"):
+        if not isinstance(check, Configurable):
             continue
         section = config.get(name)
         settings = dict(section) if isinstance(section, dict) else {}

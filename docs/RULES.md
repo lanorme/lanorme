@@ -12,6 +12,35 @@ The rules are grouped by category in the same order as `lanorme rules`.
 
 ---
 
+## Attribute access: `ATTR-001` / `ATTR-002`
+
+Opt-in (default-off); both are advisory warnings. Enable with
+`[tool.lanorme.attribute_access] enabled = true`. The premise: when an
+attribute name is a constant at the call site, the type is known too, so the
+dynamic form only hides the attribute from the type checker.
+
+- `ATTR-001`: `hasattr(x, "name")` with a literal identifier name. Branching
+  on structure is duck typing; prefer a `runtime_checkable` `Protocol` with
+  `isinstance`, or EAFP (`try: ... except AttributeError`).
+- `ATTR-002`: `getattr(x, "name")` (no default), `setattr(x, "name", v)`, or
+  `delattr(x, "name")` with a literal identifier name. Use direct attribute
+  access (`x.name`).
+
+High-confidence cases only. Exempt: three-argument `getattr(x, "name",
+default)` (the safe-access idiom); dunder names (`__class__`, `__name__`, ...);
+names that are not valid identifiers (cannot be written as `x.name`); and files
+under `tests/`. Dynamic names (`getattr(x, name)`) are reflection and exempt
+unless `flag_dynamic` is set.
+
+Config:
+```toml
+[tool.lanorme.attribute_access]
+enabled      = true
+flag_dynamic = false   # also flag non-literal (reflective) attribute names
+```
+
+---
+
 ## Comments: `CMT-*` and `PROSE-*` on .py
 
 ### `CMT-001`: No commented-out code
