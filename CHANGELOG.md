@@ -9,6 +9,41 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
 
 ## [Unreleased]
 
+## [0.3.0]
+
+### Added
+
+- `layer_deps` and `port_coverage` are now configurable via
+  `[tool.lanorme.layer_deps]` and `[tool.lanorme.port_coverage]`. All keys
+  are optional and the built-in defaults reproduce the previous behaviour.
+  - `layer_deps`: `composition_root` (path globs), `layers`, and a nested
+    `[tool.lanorme.layer_deps.allowed]` table mapping each layer to the
+    layers it may import.
+  - `port_coverage`: `ports_dir`, `adapter_roots`, `composition_root`
+    (path globs), `skip_files`, `ports_without_impl`.
+
+### Changed
+
+- The composition root is now matched with `fnmatch` globs against the
+  source-relative path, in both `layer_deps` (LAYER-005) and
+  `port_coverage` (PORT-003), instead of a directory `startswith` /
+  substring test. A module **file** such as `api/dependencies.py` can now
+  be a composition root; previously only an `api/dependencies/` **directory**
+  was recognised. The defaults match the same paths as before, so projects
+  that do not set the new keys see no change.
+- LAYER-005 rule text changed from "only `api/dependencies/` may import
+  from infrastructure" to "only the composition root may import from
+  infrastructure" (it is now configurable).
+- `port_coverage` now scans each adapter root **recursively** (`rglob`),
+  where it previously scanned only the top level of
+  `infrastructure/services/`. A project with adapter files in
+  subdirectories of an adapter root may now see those files evaluated by
+  PORT-001 and contribute to PORT-002 coverage. For a flat
+  `infrastructure/services/*.py` layout there is no change. This is the one
+  behaviour change not gated behind a config key.
+
+## [0.2.0]
+
 ### Changed
 
 - `CMT-001` recall pushed from 0.667 to 1.000 by extending the comment-as-
@@ -47,9 +82,6 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
   Users running `lanorme check . --check=security_patterns` no longer
   get SECRETPY-001 flags; run `--check=secrets` instead, or rely on
   the default-on full run.
-
-
-## [0.2.0]
 
 ### Added
 

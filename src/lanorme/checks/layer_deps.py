@@ -5,15 +5,32 @@ Each file's layer is determined by its path under the source root. A file's
 top-level package prefix (``mypkg.domain.models``) is stripped before the layer
 is classified, so the check is package-name agnostic.
 
-Dependency rules (inward only):
-    domain/           → nothing else in the source tree (pure Python + stdlib)
-    application/      → domain/ only
-    infrastructure/   → domain/ + application/ only
-    api/              → domain/ + application/ only
-    api/dependencies/ → EXCEPTION: also allowed infrastructure/ (composition root)
+Dependency rules (inward only), with the default layer set:
+    domain/           -> nothing else in the source tree (pure Python + stdlib)
+    application/      -> domain/ only
+    infrastructure/   -> domain/ + application/ only
+    api/              -> domain/ + application/ only
+    composition root  -> EXCEPTION: api files matching a composition-root glob
+                         may also import infrastructure/ (binds ports to adapters)
 
-Projects that do not use these layer directories produce no findings, the
-check is naturally inert outside a four-layer hexagonal layout.
+Projects that do not use these layer directories produce no findings: the
+check is naturally inert outside a layered layout.
+
+Configure it in ``[tool.lanorme.layer_deps]`` (all keys optional; the defaults
+reproduce the behaviour above):
+
+    [tool.lanorme.layer_deps]
+    # Files allowed to import the infrastructure layer (the composition root).
+    # Glob-matched (fnmatch) against the source-root-relative path, so a module
+    # FILE such as api/dependencies.py is recognised, not only a directory.
+    composition_root = ["api/dependencies.py", "api/app.py"]
+
+    # For layouts whose hexagon differs. Defaults shown.
+    layers  = ["domain", "application", "infrastructure", "api"]
+    [tool.lanorme.layer_deps.allowed]
+    application    = ["domain"]
+    infrastructure = ["domain", "application"]
+    api            = ["domain", "application"]
 
 Run:
     lanorme check . --check=layer_deps
@@ -22,15 +39,16 @@ Run:
 from __future__ import annotations
 
 import ast
+import fnmatch
 from dataclasses import dataclass, field
 from pathlib import Path
 
 from lanorme import CheckResult, Status, Violation, register
 
-# The architectural layers in a hexagonal backend.
+# The architectural layers in a hexagonal backend (default).
 LAYERS = ("domain", "application", "infrastructure", "api")
 
-# What each layer is ALLOWED to import from within the source tree.
+# What each layer is ALLOWED to import from within the source tree (default).
 # Empty set = no inter-layer imports allowed.
 ALLOWED_IMPORTS: dict[str, set[str]] = {
     "domain": set(),
@@ -39,11 +57,12 @@ ALLOWED_IMPORTS: dict[str, set[str]] = {
     "api": {"domain", "application"},
 }
 
-# Composition root exception: files under api/dependencies/ (DI wiring) and the
-# application factory may import from infrastructure/ to bind ports to adapters.
-COMPOSITION_ROOT_PATTERNS = (
-    "api/dependencies/",
-    "api/v1/dependencies/",
+# Composition-root exception (default): files matching these globs (DI wiring
+# and the application factory) may import from infrastructure/ to bind ports to
+# adapters. Glob-matched so both directories and single module files work.
+COMPOSITION_ROOT_GLOBS = (
+    "api/dependencies/**",
+    "api/v1/dependencies/**",
     "api/v1/main.py",
 )
 
@@ -52,83 +71,138 @@ RULE_MAP = {
     "application": "LAYER-002: application/ can only import from domain/",
     "infrastructure": "LAYER-003: infrastructure/ can only import from domain/ and application/",
     "api": "LAYER-004: api/ can only import from domain/ and application/",
-    "api_composition": "LAYER-005: only api/dependencies/ may import from infrastructure/ (composition root)",
+    "api_composition": "LAYER-005: only the composition root may import from infrastructure/",
 }
 
 
-def _classify_layer(*, file_path: str, src_root: str) -> str | None:
-    """Determine which architectural layer a file belongs to."""
-    relative = str(Path(file_path).relative_to(src_root))
-    for layer in LAYERS:
-        if relative.startswith(f"{layer}/") or relative.startswith(f"{layer}\\"):
+def _matches_glob(*, relative: str, patterns: tuple[str, ...]) -> bool:
+    """True if the forward-slash relative path matches any fnmatch glob."""
+    rel = relative.replace("\\", "/")
+    return any(fnmatch.fnmatch(rel, pattern) for pattern in patterns)
+
+
+def _classify_layer(*, relative: str, layers: tuple[str, ...]) -> str | None:
+    """Determine which architectural layer a relative path belongs to."""
+    rel = relative.replace("\\", "/")
+    for layer in layers:
+        if rel.startswith(f"{layer}/"):
             return layer
     return None
 
 
-def _is_composition_root(*, file_path: str, src_root: str) -> bool:
-    """Check if a file is in the DI composition root (api/dependencies/)."""
-    relative = str(Path(file_path).relative_to(src_root)).replace("\\", "/")
-    return any(relative.startswith(pattern) for pattern in COMPOSITION_ROOT_PATTERNS)
-
-
-def _extract_src_imports(*, tree: ast.AST) -> list[tuple[str, int]]:
+def _extract_src_imports(*, tree: ast.AST, layers: tuple[str, ...]) -> list[tuple[str, int]]:
     """Extract imports that reference architectural layers, as (target_layer, line)."""
     imports: list[tuple[str, int]] = []
-
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
             for alias in node.names:
-                _check_module(module=alias.name, line=node.lineno, imports=imports)
+                _record_layer_import(module=alias.name, line=node.lineno, imports=imports, layers=layers)
         elif isinstance(node, ast.ImportFrom) and node.module:
-            _check_module(module=node.module, line=node.lineno, imports=imports)
-
+            _record_layer_import(module=node.module, line=node.lineno, imports=imports, layers=layers)
     return imports
 
 
-def _check_module(
+def _record_layer_import(
     *,
     module: str,
     line: int,
     imports: list[tuple[str, int]],
+    layers: tuple[str, ...],
 ) -> None:
     """If a module path references one of the architectural layers, record it."""
-    # Imports look like: mypkg.domain.models or domain.models. Strip an optional
+    # Imports look like mypkg.domain.models or domain.models. Strip an optional
     # top-level package prefix (anything that is not itself a layer name) before
     # classifying, so the check does not depend on the package's name.
     parts = module.split(".")
-    target = parts[1] if parts[0] not in LAYERS and len(parts) > 1 else parts[0]
-
-    if target in LAYERS:
+    target = parts[1] if parts[0] not in layers and len(parts) > 1 else parts[0]
+    if target in layers:
         imports.append((target, line))
 
 
-def _get_allowed_for_file(*, file_path: str, src_root: str, layer: str) -> set[str]:
-    """Get the allowed import targets for a specific file, including exceptions."""
-    allowed = ALLOWED_IMPORTS[layer].copy()
-
-    # Composition root exception: api/dependencies/ may import infrastructure/
-    # for DI wiring (binding ports to adapters at the composition root).
-    if layer == "api" and _is_composition_root(file_path=file_path, src_root=src_root):
-        allowed.add("infrastructure")
-
-    return allowed
+def _suggest_fix(
+    *,
+    source_layer: str,
+    target_layer: str,
+    allowed_imports: dict[str, set[str]],
+) -> str:
+    """Generate a human-readable fix suggestion for a layer violation."""
+    suggestions = {
+        ("domain", "application"): "Domain must be pure: move the needed type to domain/",
+        ("domain", "infrastructure"): "Domain must be pure: define a port in application/ports/ instead",
+        ("domain", "api"): "Domain must be pure: this dependency is inverted",
+        ("application", "infrastructure"): "Depend on a port (Protocol) in application/ports/, not the concrete implementation",
+        ("application", "api"): "Application must not know about the API layer: invert the dependency",
+        ("api", "infrastructure"): "Use dependency injection via the composition root instead of direct imports",
+    }
+    return suggestions.get(
+        (source_layer, target_layer),
+        f"Remove the import from {target_layer}/: only allowed: {', '.join(sorted(allowed_imports.get(source_layer, set())))}",
+    )
 
 
 @dataclass
 class LayerDepsCheck:
-    """Validates hexagonal layer dependency rules."""
+    """Validates hexagonal layer dependency rules (configurable layout)."""
 
     name: str = "layer_deps"
     description: str = "Hexagonal architecture layer dependency validation"
+    layers: tuple[str, ...] = LAYERS
+    allowed_imports: dict[str, set[str]] = field(
+        default_factory=lambda: {layer: set(targets) for layer, targets in ALLOWED_IMPORTS.items()}
+    )
+    composition_root: tuple[str, ...] = COMPOSITION_ROOT_GLOBS
     rules: list[str] = field(
         default_factory=lambda: [
             "LAYER-001: domain/ must not import from any other layer (pure Python only)",
             "LAYER-002: application/ can only import from domain/",
             "LAYER-003: infrastructure/ can only import from domain/ and application/",
             "LAYER-004: api/ can only import from domain/ and application/",
-            "LAYER-005: only api/dependencies/ may import from infrastructure/ (composition root)",
+            "LAYER-005: only the composition root may import from infrastructure/",
         ]
     )
+
+    def configure(self, *, settings: dict[str, object]) -> None:
+        """Apply ``[tool.lanorme.layer_deps]`` configuration. Defaults reproduce today's behaviour."""
+        comp = settings.get("composition_root")
+        if isinstance(comp, list):
+            self.composition_root = tuple(str(pattern) for pattern in comp)
+        layers = settings.get("layers")
+        if isinstance(layers, list) and layers:
+            self.layers = tuple(str(layer) for layer in layers)
+        allowed = settings.get("allowed")
+        if isinstance(allowed, dict):
+            self.allowed_imports = {
+                str(layer): {str(target) for target in targets}
+                for layer, targets in allowed.items()
+                if isinstance(targets, list)
+            }
+
+    def _allowed_for_file(self, *, relative: str, layer: str) -> set[str]:
+        """Allowed import targets for a file, adding the composition-root exception."""
+        allowed = set(self.allowed_imports.get(layer, set()))
+        if layer == "api" and _matches_glob(relative=relative, patterns=self.composition_root):
+            allowed.add("infrastructure")
+        return allowed
+
+    def _violation_for(
+        self, *, layer: str, target_layer: str, relative: str, line: int, is_comp_root: bool
+    ) -> Violation:
+        if layer == "api" and target_layer == "infrastructure" and not is_comp_root:
+            rule = RULE_MAP["api_composition"]
+            fix = (
+                "Move this import to the composition root, or depend on the port "
+                "in application/ports/ instead"
+            )
+        else:
+            rule = RULE_MAP.get(layer, f"LAYER: {layer}/ cannot import {target_layer}/")
+            fix = _suggest_fix(source_layer=layer, target_layer=target_layer, allowed_imports=self.allowed_imports)
+        return Violation(
+            file=relative,
+            line=line,
+            rule=rule,
+            message=f"{layer}/ imports from {target_layer}/",
+            fix=fix,
+        )
 
     def run(self, *, src_root: str) -> CheckResult:
         """Scan all Python files under the source root and validate import directions."""
@@ -137,18 +211,18 @@ class LayerDepsCheck:
         src_path = Path(src_root)
 
         for py_file in sorted(src_path.rglob("*.py")):
-            file_str = str(py_file)
-            layer = _classify_layer(file_path=file_str, src_root=src_root)
+            relative = str(py_file.relative_to(src_path))
+            layer = _classify_layer(relative=relative, layers=self.layers)
             if layer is None:
                 continue
 
             try:
                 source = py_file.read_text(encoding="utf-8")
-                tree = ast.parse(source, filename=file_str)
+                tree = ast.parse(source, filename=str(py_file))
             except (OSError, UnicodeDecodeError, SyntaxError):
                 warnings.append(
                     Violation(
-                        file=str(py_file.relative_to(src_path)),
+                        file=relative,
                         line=0,
                         rule="LAYER-000: parse error",
                         message=f"Could not parse {py_file.name} — skipping",
@@ -157,36 +231,22 @@ class LayerDepsCheck:
                 )
                 continue
 
-            imports = _extract_src_imports(tree=tree)
-            allowed = _get_allowed_for_file(file_path=file_str, src_root=src_root, layer=layer)
-            is_comp_root = _is_composition_root(file_path=file_str, src_root=src_root)
+            imports = _extract_src_imports(tree=tree, layers=self.layers)
+            allowed = self._allowed_for_file(relative=relative, layer=layer)
+            is_comp_root = _matches_glob(relative=relative, patterns=self.composition_root)
 
             for target_layer, line in imports:
-                if target_layer == layer:
+                if target_layer == layer or target_layer in allowed:
                     continue
-
-                if target_layer not in allowed:
-                    relative_file = str(py_file.relative_to(src_path))
-
-                    if layer == "api" and target_layer == "infrastructure" and not is_comp_root:
-                        rule = RULE_MAP["api_composition"]
-                        fix = (
-                            "Move this import to api/dependencies/ (the composition root) "
-                            "or depend on the port in application/ports/ instead"
-                        )
-                    else:
-                        rule = RULE_MAP.get(layer, f"LAYER: {layer}/ cannot import {target_layer}/")
-                        fix = _suggest_fix(source_layer=layer, target_layer=target_layer)
-
-                    violations.append(
-                        Violation(
-                            file=relative_file,
-                            line=line,
-                            rule=rule,
-                            message=f"{layer}/ imports from {target_layer}/",
-                            fix=fix,
-                        )
+                violations.append(
+                    self._violation_for(
+                        layer=layer,
+                        target_layer=target_layer,
+                        relative=relative,
+                        line=line,
+                        is_comp_root=is_comp_root,
                     )
+                )
 
         status = Status.FAIL if violations else (Status.WARN if warnings else Status.PASS)
         return CheckResult(
@@ -195,34 +255,6 @@ class LayerDepsCheck:
             violations=violations,
             warnings=warnings,
         )
-
-
-def _suggest_fix(*, source_layer: str, target_layer: str) -> str:
-    """Generate a human-readable fix suggestion for a layer violation."""
-    suggestions = {
-        ("domain", "application"): "Domain must be pure — move the needed type to domain/",
-        (
-            "domain",
-            "infrastructure",
-        ): "Domain must be pure — define a port in application/ports/ instead",
-        ("domain", "api"): "Domain must be pure — this dependency is inverted",
-        (
-            "application",
-            "infrastructure",
-        ): "Depend on a port (Protocol) in application/ports/, not the concrete implementation",
-        (
-            "application",
-            "api",
-        ): "Application must not know about the API layer — invert the dependency",
-        (
-            "api",
-            "infrastructure",
-        ): "Use dependency injection via api/dependencies/ instead of direct imports",
-    }
-    return suggestions.get(
-        (source_layer, target_layer),
-        f"Remove the import from {target_layer}/ — only allowed: {', '.join(ALLOWED_IMPORTS.get(source_layer, set()))}",
-    )
 
 
 # Self-register on import.

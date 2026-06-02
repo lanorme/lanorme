@@ -1,17 +1,27 @@
 """PORT-001 through PORT-003: Port coverage enforcement for hexagonal architecture.
 
-Verifies that infrastructure services implement port Protocols, that every
+Verifies that infrastructure adapters implement port Protocols, that every
 Protocol has at least one implementation, and that the API layer does not
-directly instantiate infrastructure service classes.
+directly import or instantiate infrastructure adapter classes.
 
 Rules:
-    PORT-001  Every non-utility file in infrastructure/services/ must
-              import from application/ports/ (structural subtyping link)
-    PORT-002  Every Protocol in application/ports/ (excluding repositories,
-              unit_of_work, and otel) must be referenced by at
-              least one infrastructure service file
-    PORT-003  No direct import of infrastructure service classes in the
-              api/ layer outside the composition root (api/*/dependencies/)
+    PORT-001  Every non-utility adapter file (under the adapter roots) must
+              import from the ports directory (structural subtyping link)
+    PORT-002  Every Protocol in the ports directory (excluding the
+              ``ports_without_impl`` files) must be referenced by at least one
+              adapter file
+    PORT-003  No direct import/instantiation of infrastructure adapter classes
+              in the api/ layer outside the composition root
+
+Configure it in ``[tool.lanorme.port_coverage]`` (all keys optional; the
+defaults reproduce today's behaviour):
+
+    [tool.lanorme.port_coverage]
+    ports_dir        = "application/ports"     # where port Protocols live
+    adapter_roots    = ["infrastructure"]      # dirs scanned for adapters (recursive)
+    composition_root = ["api/dependencies.py", "api/app.py"]  # PORT-003 exemption (globs)
+    skip_files       = ["__init__.py"]         # adapter files that are not adapters
+    ports_without_impl = ["repositories.py", "unit_of_work.py"]  # ports backed elsewhere
 
 Run:
     lanorme check . --check=port_coverage
@@ -20,40 +30,46 @@ Run:
 from __future__ import annotations
 
 import ast
+import fnmatch
 from dataclasses import dataclass, field
 from pathlib import Path
 
 from lanorme import CheckResult, Status, Violation, register
 
-# Files under each infrastructure adapter directory that are pure utilities
-# or re-exports (not concrete port implementations).
-INFRA_SERVICE_SKIP_FILES = {
-    "__init__.py",
-}
+# Adapter files that are pure utilities or re-exports, not port implementations.
+INFRA_SERVICE_SKIP_FILES = ("__init__.py",)
 
-# Port files whose Protocols are implemented in infrastructure/repositories/,
-# infrastructure/db/, or infrastructure/observability/ rather than infrastructure/services/.
-PORT_FILES_WITHOUT_SERVICE_IMPL = {
+# Port files whose Protocols are implemented outside the adapter roots
+# (repositories, unit-of-work, observability), so PORT-002 should not expect a
+# matching adapter import for them.
+PORT_FILES_WITHOUT_SERVICE_IMPL = (
     "repositories.py",
     "unit_of_work.py",
     "otel.py",
     "metrics.py",
-}
+)
 
-# The composition root patterns, api/ files matching these are exempt from
-# PORT-003 because DI wiring legitimately references infrastructure.
-COMPOSITION_ROOT_PATTERNS = ("dependencies/", "v1/main.py")
+# Default adapter roots and ports directory.
+DEFAULT_ADAPTER_ROOTS = ("infrastructure/services",)
+DEFAULT_PORTS_DIR = "application/ports"
+
+# Default composition-root globs for PORT-003. The glob equivalents of the
+# previous substring patterns ("dependencies/", "v1/main.py"); fnmatch is a
+# full-path match, so the leading/trailing ``*`` reproduce the old behaviour
+# and let a module file (api/dependencies.py) be added explicitly.
+DEFAULT_COMPOSITION_ROOT = ("*dependencies/*", "*v1/main.py")
 
 
 # ---- AST helpers -----------------------------------------------------------
 
 
-def _extract_protocol_names(*, tree: ast.AST) -> list[tuple[str, int]]:
-    """Find all ``class Foo(Protocol): ...`` definitions in an AST.
+def _matches_glob(*, relative: str, patterns: tuple[str, ...]) -> bool:
+    rel = relative.replace("\\", "/")
+    return any(fnmatch.fnmatch(rel, pattern) for pattern in patterns)
 
-    Returns:
-        List of (class_name, line_number) tuples.
-    """
+
+def _extract_protocol_names(*, tree: ast.AST) -> list[tuple[str, int]]:
+    """Find all ``class Foo(Protocol): ...`` definitions, as (name, line)."""
     protocols: list[tuple[str, int]] = []
     for node in ast.walk(tree):
         if not isinstance(node, ast.ClassDef):
@@ -71,11 +87,7 @@ def _extract_protocol_names(*, tree: ast.AST) -> list[tuple[str, int]]:
 
 
 def _extract_import_modules(*, tree: ast.AST) -> list[tuple[str, int]]:
-    """Extract all import source modules as (dotted_module, line) pairs.
-
-    For ``from x.y import z`` this yields ``("x.y", line)``.
-    For ``import x.y`` this yields ``("x.y", line)``.
-    """
+    """Extract import source modules as (dotted_module, line) pairs."""
     modules: list[tuple[str, int]] = []
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
@@ -112,34 +124,30 @@ def _extract_call_names(*, tree: ast.AST) -> list[tuple[str, int]]:
 
 
 def _extract_top_level_class_names(*, tree: ast.AST) -> list[str]:
-    """Get top-level class names from an AST (non-nested)."""
+    """Get top-level (non-nested) class names from an AST."""
     return [node.name for node in ast.iter_child_nodes(tree) if isinstance(node, ast.ClassDef)]
 
 
-def _imports_from_ports(*, import_modules: list[tuple[str, int]]) -> bool:
-    """Return True if any import comes from ``application.ports`` or ``src.application.ports``."""
-    return any("application.ports" in module for module, _line in import_modules)
+def _imports_from_ports(*, import_modules: list[tuple[str, int]], ports_dotted: str) -> bool:
+    """True if any import comes from the ports package (``application.ports`` by default)."""
+    return any(ports_dotted in module for module, _line in import_modules)
 
 
-def _port_module_stem(*, module: str) -> str | None:
-    """Extract the port module filename stem from a dotted import path.
+def _port_module_stem(*, module: str, ports_parts: list[str]) -> str | None:
+    """Return the port module filename stem from a dotted import path, or None.
 
-    ``src.application.ports.registry`` → ``registry``
-    ``application.ports.services`` → ``services``
-    Returns None if the module is not a ports import.
+    With ``ports_parts == ["application", "ports"]``:
+    ``src.application.ports.registry`` -> ``registry``.
     """
     parts = module.split(".")
-    # Match both src.application.ports.X and application.ports.X
-    for i, part in enumerate(parts):
-        if part == "ports" and i >= 1 and parts[i - 1] == "application":
-            if i + 1 < len(parts):
-                return parts[i + 1]
-            return None
+    span = len(ports_parts)
+    for i in range(len(parts) - span + 1):
+        if parts[i : i + span] == ports_parts:
+            return parts[i + span] if i + span < len(parts) else None
     return None
 
 
 def _parse_file(*, py_file: Path) -> ast.AST | None:
-    """Parse a Python file, returning None on syntax errors."""
     try:
         source = py_file.read_text(encoding="utf-8")
         return ast.parse(source, filename=str(py_file))
@@ -153,62 +161,49 @@ def _parse_file(*, py_file: Path) -> ast.AST | None:
 def _collect_port_protocols(
     *,
     src_path: Path,
+    ports_dir: str,
+    ports_without_impl: frozenset[str],
 ) -> dict[str, tuple[str, int, str]]:
-    """Scan ``application/ports/`` and return Protocol metadata.
-
-    Returns:
-        {ProtocolName: (relative_file, line, port_module_stem)}
-    """
+    """Scan the ports directory and return {ProtocolName: (relative_file, line, stem)}."""
     protocols: dict[str, tuple[str, int, str]] = {}
-    ports_dir = src_path / "application" / "ports"
-    if not ports_dir.is_dir():
+    ports_path = src_path / ports_dir
+    if not ports_path.is_dir():
         return protocols
 
-    for py_file in sorted(ports_dir.glob("*.py")):
-        if py_file.name == "__init__.py":
+    for py_file in sorted(ports_path.glob("*.py")):
+        if py_file.name == "__init__.py" or py_file.name in ports_without_impl:
             continue
-        if py_file.name in PORT_FILES_WITHOUT_SERVICE_IMPL:
-            continue
-
         tree = _parse_file(py_file=py_file)
         if tree is None:
             continue
-
         relative = str(py_file.relative_to(src_path))
-        stem = py_file.stem
-
         for name, line in _extract_protocol_names(tree=tree):
-            protocols[name] = (relative, line, stem)
-
+            protocols[name] = (relative, line, py_file.stem)
     return protocols
 
 
-def _scan_infra_service_files(
+def _scan_adapter_files(
     *,
     src_path: Path,
+    adapter_roots: tuple[str, ...],
+    skip_files: frozenset[str],
 ) -> list[tuple[str, ast.AST, list[tuple[str, int]]]]:
-    """Scan ``infrastructure/services/`` and return parsed file data.
-
-    Returns:
-        List of (relative_file, ast_tree, import_modules).
-    """
+    """Scan the adapter roots recursively and return (relative_file, tree, imports)."""
     results: list[tuple[str, ast.AST, list[tuple[str, int]]]] = []
-    services_dir = src_path / "infrastructure" / "services"
-    if not services_dir.is_dir():
-        return results
-
-    for py_file in sorted(services_dir.glob("*.py")):
-        if py_file.name in INFRA_SERVICE_SKIP_FILES:
+    seen: set[Path] = set()
+    for root in adapter_roots:
+        root_path = src_path / root
+        if not root_path.is_dir():
             continue
-
-        tree = _parse_file(py_file=py_file)
-        if tree is None:
-            continue
-
-        relative = str(py_file.relative_to(src_path))
-        imports = _extract_import_modules(tree=tree)
-        results.append((relative, tree, imports))
-
+        for py_file in sorted(root_path.rglob("*.py")):
+            if py_file in seen or py_file.name in skip_files:
+                continue
+            seen.add(py_file)
+            tree = _parse_file(py_file=py_file)
+            if tree is None:
+                continue
+            relative = str(py_file.relative_to(src_path))
+            results.append((relative, tree, _extract_import_modules(tree=tree)))
     return results
 
 
@@ -217,67 +212,63 @@ def _scan_infra_service_files(
 
 def _check_port001(
     *,
-    infra_files: list[tuple[str, ast.AST, list[tuple[str, int]]]],
+    adapter_files: list[tuple[str, ast.AST, list[tuple[str, int]]]],
+    ports_dotted: str,
+    ports_dir: str,
 ) -> list[Violation]:
-    """PORT-001: Every infra service file must import from application/ports/."""
+    """PORT-001: every adapter file must import from the ports directory."""
     violations: list[Violation] = []
-
-    for relative_file, _tree, import_modules in infra_files:
-        if _imports_from_ports(import_modules=import_modules):
+    for relative_file, _tree, import_modules in adapter_files:
+        if _imports_from_ports(import_modules=import_modules, ports_dotted=ports_dotted):
             continue
-
         violations.append(
             Violation(
                 file=relative_file,
                 line=1,
                 rule="PORT-001: Infrastructure service must implement a port Protocol",
-                message=(f"File '{relative_file}' has no imports from application/ports/"),
+                message=f"File '{relative_file}' has no imports from {ports_dir}/",
                 fix=(
-                    "Import and implement the corresponding Protocol from application/ports/, "
-                    "or add the file to INFRA_SERVICE_SKIP_FILES if it is a pure utility"
+                    f"Import and implement the corresponding Protocol from {ports_dir}/, "
+                    "or add the file to skip_files if it is a pure utility"
                 ),
-            ),
+            )
         )
-
     return violations
 
 
 def _check_port002(
     *,
     port_protocols: dict[str, tuple[str, int, str]],
-    infra_files: list[tuple[str, ast.AST, list[tuple[str, int]]]],
+    adapter_files: list[tuple[str, ast.AST, list[tuple[str, int]]]],
+    ports_parts: list[str],
 ) -> list[Violation]:
-    """PORT-002: Every port Protocol must be backed by an infra service file."""
-    violations: list[Violation] = []
-
-    # Build a set of port module stems imported by any infrastructure service file.
+    """PORT-002: every port Protocol must be referenced by an adapter file."""
     referenced_port_stems: set[str] = set()
-    for _relative, _tree, import_modules in infra_files:
+    for _relative, _tree, import_modules in adapter_files:
         for module, _line in import_modules:
-            stem = _port_module_stem(module=module)
+            stem = _port_module_stem(module=module, ports_parts=ports_parts)
             if stem is not None:
                 referenced_port_stems.add(stem)
 
+    violations: list[Violation] = []
     for proto_name, (relative_file, line, port_stem) in sorted(port_protocols.items()):
         if port_stem in referenced_port_stems:
             continue
-
         violations.append(
             Violation(
                 file=relative_file,
                 line=line,
                 rule="PORT-002: Port Protocol has no infrastructure implementation",
                 message=(
-                    f"Protocol '{proto_name}' (in ports/{port_stem}.py) "
-                    "is not imported by any infrastructure service"
+                    f"Protocol '{proto_name}' (in {port_stem}.py) "
+                    "is not imported by any adapter file"
                 ),
                 fix=(
-                    "Create an implementation in infrastructure/services/ that imports "
-                    "from this port module, or add the port file to PORT_FILES_WITHOUT_SERVICE_IMPL"
+                    "Create an adapter that imports from this port module, "
+                    "or add the port file to ports_without_impl"
                 ),
-            ),
+            )
         )
-
     return violations
 
 
@@ -286,21 +277,22 @@ def _direct_import_violation(
     relative: str,
     import_modules: list[tuple[str, int]],
     imported_infra: set[str],
+    adapter_dotted: tuple[str, ...],
 ) -> Violation | None:
-    """Report an api/ file importing infra service classes outside the composition root."""
+    """Report an api/ file importing adapter classes outside the composition root."""
     for module, line in import_modules:
-        if "infrastructure.services" in module:
+        if any(dotted in module for dotted in adapter_dotted):
             return Violation(
                 file=relative,
                 line=line,
                 rule="PORT-003: Direct import of infra service in api/ layer",
                 message=(
-                    f"Imports infrastructure service class(es) "
+                    f"Imports infrastructure adapter class(es) "
                     f"{sorted(imported_infra)} outside composition root"
                 ),
                 fix=(
-                    "Depend on the port Protocol from application/ports/ instead, "
-                    "or move the import to api/v1/dependencies/"
+                    "Depend on the port Protocol from the ports directory instead, "
+                    "or move the import to the composition root"
                 ),
             )
     return None
@@ -310,42 +302,32 @@ def _check_port003(
     *,
     src_path: Path,
     infra_class_names: set[str],
+    adapter_dotted: tuple[str, ...],
+    composition_root: tuple[str, ...],
 ) -> list[Violation]:
-    """PORT-003: No direct import of infra service classes in api/ layer."""
+    """PORT-003: no direct import/instantiation of adapter classes in the api/ layer."""
     violations: list[Violation] = []
-
     api_dir = src_path / "api"
     if not api_dir.is_dir():
         return violations
 
     for py_file in sorted(api_dir.rglob("*.py")):
         relative = str(py_file.relative_to(src_path)).replace("\\", "/")
-
-        # Skip composition root, DI wiring is allowed there.
-        if any(pattern in relative for pattern in COMPOSITION_ROOT_PATTERNS):
+        if _matches_glob(relative=relative, patterns=composition_root):
             continue
 
         tree = _parse_file(py_file=py_file)
         if tree is None:
             continue
 
-        # Check: does this file import from infrastructure.services?
         import_modules = _extract_import_modules(tree=tree)
-        imports_infra = any(
-            "infrastructure.services" in module or "infrastructure/services" in module
-            for module, _line in import_modules
-        )
-        if not imports_infra:
+        if not any(dotted in module for module, _line in import_modules for dotted in adapter_dotted):
             continue
 
-        # Which infra class names does this file actually import?
-        imported_names = _extract_imported_names(tree=tree)
-        imported_infra = imported_names & infra_class_names
-
+        imported_infra = _extract_imported_names(tree=tree) & infra_class_names
         if not imported_infra:
             continue
 
-        # Report each direct instantiation of an infra class.
         found_instantiation = False
         for call_name, call_line in _extract_call_names(tree=tree):
             if call_name in imported_infra:
@@ -355,21 +337,17 @@ def _check_port003(
                         line=call_line,
                         rule="PORT-003: Direct instantiation of infra service in api/ layer",
                         message=f"'{call_name}(...)' instantiated directly — use dependency injection",
-                        fix=(
-                            "Move the construction to api/dependencies/ and inject "
-                            "it through your dependency-injection layer"
-                        ),
-                    ),
+                        fix="Move the construction to the composition root and inject it",
+                    )
                 )
                 found_instantiation = True
 
-        # Even if not instantiated, importing infra service classes in api/
-        # (outside composition root) is a smell, report the import itself.
         if not found_instantiation:
             import_violation = _direct_import_violation(
                 relative=relative,
                 import_modules=import_modules,
                 imported_infra=imported_infra,
+                adapter_dotted=adapter_dotted,
             )
             if import_violation is not None:
                 violations.append(import_violation)
@@ -382,10 +360,17 @@ def _check_port003(
 
 @dataclass
 class PortCoverageCheck:
-    """Validates port/adapter coverage in the hexagonal architecture."""
+    """Validates port/adapter coverage in the hexagonal architecture (configurable)."""
 
     name: str = "port_coverage"
     description: str = "Port coverage enforcement (Protocol / infrastructure alignment)"
+    ports_dir: str = DEFAULT_PORTS_DIR
+    adapter_roots: tuple[str, ...] = DEFAULT_ADAPTER_ROOTS
+    composition_root: tuple[str, ...] = DEFAULT_COMPOSITION_ROOT
+    skip_files: frozenset[str] = field(default_factory=lambda: frozenset(INFRA_SERVICE_SKIP_FILES))
+    ports_without_impl: frozenset[str] = field(
+        default_factory=lambda: frozenset(PORT_FILES_WITHOUT_SERVICE_IMPL)
+    )
     rules: list[str] = field(
         default_factory=lambda: [
             "PORT-001: Every infrastructure service file must import from application/ports/",
@@ -394,48 +379,60 @@ class PortCoverageCheck:
         ],
     )
 
+    def configure(self, *, settings: dict[str, object]) -> None:
+        """Apply ``[tool.lanorme.port_coverage]`` configuration. Defaults reproduce today's behaviour."""
+        ports_dir = settings.get("ports_dir")
+        if isinstance(ports_dir, str) and ports_dir:
+            self.ports_dir = ports_dir.replace("\\", "/").strip("/")
+        for key in ("adapter_roots", "composition_root"):
+            value = settings.get(key)
+            if isinstance(value, list) and value:
+                setattr(self, key, tuple(str(item) for item in value))
+        for key in ("skip_files", "ports_without_impl"):
+            value = settings.get(key)
+            if isinstance(value, list):
+                setattr(self, key, frozenset(str(item) for item in value))
+
     def run(self, *, src_root: str) -> CheckResult:
-        """Scan ports and infrastructure services and validate coverage."""
+        """Scan ports and adapters and validate coverage."""
         violations: list[Violation] = []
-        warnings: list[Violation] = []
         src_path = Path(src_root)
 
-        # Collect data from both sides of the hexagonal boundary.
-        port_protocols = _collect_port_protocols(src_path=src_path)
-        infra_files = _scan_infra_service_files(src_path=src_path)
+        ports_parts = self.ports_dir.split("/")
+        ports_dotted = ".".join(ports_parts)
+        adapter_dotted = tuple(root.replace("/", ".") for root in self.adapter_roots)
 
-        # PORT-001: Every infra service file imports from application/ports/.
-        violations.extend(
-            _check_port001(infra_files=infra_files),
+        port_protocols = _collect_port_protocols(
+            src_path=src_path, ports_dir=self.ports_dir, ports_without_impl=self.ports_without_impl
+        )
+        adapter_files = _scan_adapter_files(
+            src_path=src_path, adapter_roots=self.adapter_roots, skip_files=self.skip_files
         )
 
-        # PORT-002: Every port Protocol has an infra implementation.
+        violations.extend(
+            _check_port001(adapter_files=adapter_files, ports_dotted=ports_dotted, ports_dir=self.ports_dir)
+        )
         violations.extend(
             _check_port002(
-                port_protocols=port_protocols,
-                infra_files=infra_files,
-            ),
+                port_protocols=port_protocols, adapter_files=adapter_files, ports_parts=ports_parts
+            )
         )
 
-        # PORT-003: No direct import/instantiation in api/ layer.
         infra_class_names: set[str] = set()
-        for _relative, tree, _imports in infra_files:
+        for _relative, tree, _imports in adapter_files:
             infra_class_names.update(_extract_top_level_class_names(tree=tree))
 
         violations.extend(
             _check_port003(
                 src_path=src_path,
                 infra_class_names=infra_class_names,
-            ),
+                adapter_dotted=adapter_dotted,
+                composition_root=self.composition_root,
+            )
         )
 
-        status = Status.FAIL if violations else (Status.WARN if warnings else Status.PASS)
-        return CheckResult(
-            check=self.name,
-            status=status,
-            violations=violations,
-            warnings=warnings,
-        )
+        status = Status.FAIL if violations else Status.PASS
+        return CheckResult(check=self.name, status=status, violations=violations)
 
 
 # Self-register on import.

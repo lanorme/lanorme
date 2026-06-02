@@ -157,8 +157,8 @@ dirs = ["legacy_src", "build_artifacts"]
 
 ## Layer dependencies: `LAYER-001..005`
 
-For hexagonal / layered codebases with the exact layout `domain/`,
-`application/`, `infrastructure/`, `api/`. Inert in their absence.
+For hexagonal / layered codebases with a `domain/`, `application/`,
+`infrastructure/`, `api/` layout. Inert in their absence.
 
 - `LAYER-001`: `domain/` must not import any other layer.
 - `LAYER-002`: `application/` may only import from `domain/`.
@@ -166,11 +166,32 @@ For hexagonal / layered codebases with the exact layout `domain/`,
   `application/`.
 - `LAYER-004`: `api/` may only import from `domain/` and
   `application/`.
-- `LAYER-005`: only `api/dependencies/` may import from
-  `infrastructure/` (the composition root).
+- `LAYER-005`: only the composition root may import from
+  `infrastructure/`.
 
 These rules track Cockburn's hexagonal architecture and Seemann's
 composition-root pattern.
+
+Config (all keys optional; defaults reproduce the behaviour above):
+
+```toml
+[tool.lanorme.layer_deps]
+# Files allowed to import infrastructure (the composition root).
+# fnmatch globs against the source-relative path, so a module FILE
+# (api/dependencies.py) is recognised, not only a directory.
+composition_root = ["api/dependencies.py", "api/app.py"]
+
+# For layouts whose layers differ. Defaults shown.
+layers = ["domain", "application", "infrastructure", "api"]
+[tool.lanorme.layer_deps.allowed]
+application    = ["domain"]
+infrastructure = ["domain", "application"]
+api            = ["domain", "application"]
+```
+
+The default `composition_root` is
+`["api/dependencies/**", "api/v1/dependencies/**", "api/v1/main.py"]`,
+the glob equivalent of the previous `startswith` directory prefixes.
 
 ---
 
@@ -248,13 +269,30 @@ in the audit pass; see CHANGELOG.)
 
 For hexagonal codebases with `application/ports/`.
 
-- `PORT-001`: every infrastructure service file must import from
-  `application/ports/`.
-- `PORT-002`: every `Protocol` declared under `application/ports/` must
-  have at least one infrastructure implementation. Treat as advisory:
-  ports realised only by test doubles or sibling plugins are legitimate.
+- `PORT-001`: every adapter file (under the adapter roots) must import
+  from the ports directory.
+- `PORT-002`: every `Protocol` declared in the ports directory must
+  have at least one implementation. Treat as advisory: ports realised
+  only by test doubles or sibling plugins are legitimate.
 - `PORT-003`: no direct import or instantiation of an infrastructure
-  service from the `api/` layer outside the composition root.
+  adapter from the `api/` layer outside the composition root.
+
+Config (all keys optional; defaults reproduce the behaviour above):
+
+```toml
+[tool.lanorme.port_coverage]
+ports_dir        = "application/ports"     # where port Protocols live
+adapter_roots    = ["infrastructure"]      # dirs scanned for adapters (recursive)
+composition_root = ["api/dependencies.py", "api/app.py"]  # PORT-003 exemption (globs)
+skip_files         = ["__init__.py"]
+ports_without_impl = ["repositories.py", "unit_of_work.py"]
+```
+
+The default `adapter_roots` is `["infrastructure/services"]` and the
+default PORT-003 `composition_root` is `["*dependencies/*", "*v1/main.py"]`
+(glob equivalents of the previous substring patterns). Adapter roots are
+scanned recursively, so widening to `["infrastructure"]` picks up adapters
+in per-integration subdirectories.
 
 ---
 
