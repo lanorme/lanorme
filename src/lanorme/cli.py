@@ -15,6 +15,7 @@ Configuration is discovered by walking up from the target path: a dedicated
 from __future__ import annotations
 
 import argparse
+import dataclasses
 import fnmatch
 import importlib
 import json
@@ -99,15 +100,15 @@ def _apply_check_config(*, config: dict[str, object]) -> None:
 # --------------------------------------------------------------------------- #
 
 
-def _discover_config(*, start: Path) -> tuple[dict, Path]:
-    """Walk up from *start* looking for lanorme config. Return (config, project_root)."""
+def _discover_config(*, start: Path) -> tuple[dict, Path, str | None]:
+    """Walk up from *start* for lanorme config. Return (config, project_root, source)."""
     start = start.resolve()
     search_dir = start if start.is_dir() else start.parent
     for directory in (search_dir, *search_dir.parents):
         dedicated = directory / "lanorme.toml"
         if dedicated.is_file():
             with dedicated.open("rb") as fh:
-                return tomllib.load(fh), directory
+                return tomllib.load(fh), directory, str(dedicated)
 
         pyproject = directory / "pyproject.toml"
         if pyproject.is_file():
@@ -115,9 +116,9 @@ def _discover_config(*, start: Path) -> tuple[dict, Path]:
                 data = tomllib.load(fh)
             tool_cfg = data.get("tool", {}).get("lanorme")
             if tool_cfg is not None:
-                return tool_cfg, directory
+                return tool_cfg, directory, f"{pyproject} [tool.lanorme]"
 
-    return {}, search_dir
+    return {}, search_dir, None
 
 
 # --------------------------------------------------------------------------- #
@@ -390,6 +391,48 @@ def _print_rule_detail(*, code: str) -> int:
     return 2
 
 
+def _settings_repr(check: object) -> str:
+    """One-line summary of a check's effective settings after configuration."""
+    if not dataclasses.is_dataclass(check):
+        return ""
+    parts: list[str] = []
+    if hasattr(check, "enabled"):
+        parts.append(f"enabled={check.enabled}")
+    for field in dataclasses.fields(check):
+        if field.name in {"name", "description", "rules", "enabled"}:
+            continue
+        value = getattr(check, field.name)
+        text = repr(value)
+        if len(text) > 48:
+            if isinstance(value, (list, tuple, set, frozenset)):
+                text = f"<{len(value)} items>"
+            elif isinstance(value, dict):
+                text = f"<{len(value)} keys>"
+            else:
+                text = text[:45] + "..."
+        parts.append(f"{field.name}={text}")
+    summary = " ".join(parts)
+    if hasattr(check, "enabled") and not check.enabled:
+        summary += "   (opt-in, not enabled)"
+    return summary
+
+
+def _print_config(*, config: dict[str, object], source: str | None, project_root: Path) -> None:
+    """Print the discovered config file and the effective settings for every check."""
+    print(f"config file:  {source or 'none (built-in defaults)'}")
+    print(f"project root: {project_root}")
+    top = [k for k in ("select", "ignore", "exclude", "source_root", "plugins") if k in config]
+    if top or config.get("per-file-ignores"):
+        print("\n[tool.lanorme]")
+        for key in top:
+            print(f"  {key} = {config[key]!r}")
+        if config.get("per-file-ignores"):
+            print(f"  per-file-ignores = {config['per-file-ignores']!r}")
+    print("\nchecks (effective settings):")
+    for name, check in sorted(get_all_checks().items()):
+        print(f"  {name:<18} {_settings_repr(check)}")
+
+
 def _csv(value: str | None) -> list[str]:
     return [item.strip() for item in value.split(",") if item.strip()] if value else []
 
@@ -427,6 +470,11 @@ def _build_parser() -> argparse.ArgumentParser:
     check.add_argument("--select", default=None, help="Comma-separated rule codes/categories to run.")
     check.add_argument("--ignore", default=None, help="Comma-separated rule codes/categories to skip.")
     check.add_argument("--exclude", default=None, help="Comma-separated file-path globs to exclude.")
+    check.add_argument(
+        "--show-config",
+        action="store_true",
+        help="Print the discovered config and effective per-check settings, then exit.",
+    )
     check.add_argument("--plugin", action="append", default=[], help="Plugin module to load (repeatable).")
     check.add_argument(
         "--output-format",
@@ -449,35 +497,8 @@ def _build_parser() -> argparse.ArgumentParser:
 # --------------------------------------------------------------------------- #
 
 
-def main(argv: list[str] | None = None) -> None:
-    parser = _build_parser()
-    args = parser.parse_args(argv)
-
-    if args.command is None:
-        parser.print_help()
-        sys.exit(2)
-
-    # `rules` needs the registry but no target.
-    _load_builtin_checks()
-    _load_entry_point_checks()
-
-    if args.command == "rules":
-        _print_rules()
-        return
-
-    if args.command == "rule":
-        sys.exit(_print_rule_detail(code=args.code))
-
-    # command == "check"
-    target = Path(args.paths[0])
-    if not target.exists():
-        print(f"ERROR: path '{target}' does not exist.", file=sys.stderr)
-        sys.exit(2)
-
-    config, _project_root = _discover_config(start=target)
-    _load_plugin_modules([*config.get("plugins", []), *args.plugin])
-    _apply_check_config(config=config)
-
+def _run_and_report(*, args: argparse.Namespace, config: dict[str, object], src_root: str) -> None:
+    """Run the selected checks, apply the filters, print, and set the exit code."""
     select = _csv(args.select) or list(config.get("select", []))
     ignore = _csv(args.ignore) or list(config.get("ignore", []))
     exclude = _csv(args.exclude) or list(config.get("exclude", []))
@@ -489,7 +510,6 @@ def main(argv: list[str] | None = None) -> None:
     # a previous in-process run's value does not leak.
     set_excludes(exclude)
 
-    src_root = str(target)
     if args.single:
         check = get_check(args.single)
         if check is None:
@@ -512,6 +532,46 @@ def main(argv: list[str] | None = None) -> None:
 
     if any(r.status == Status.FAIL for r in results):
         sys.exit(1)
+
+
+def _command_check(*, args: argparse.Namespace) -> None:
+    """Handle the ``check`` subcommand: discover config, then report or run."""
+    target = Path(args.paths[0])
+    if not target.exists():
+        print(f"ERROR: path '{target}' does not exist.", file=sys.stderr)
+        sys.exit(2)
+
+    config, project_root, config_source = _discover_config(start=target)
+    _load_plugin_modules([*config.get("plugins", []), *args.plugin])
+    _apply_check_config(config=config)
+
+    if args.show_config:
+        _print_config(config=config, source=config_source, project_root=project_root)
+        return
+
+    _run_and_report(args=args, config=config, src_root=str(target))
+
+
+def main(argv: list[str] | None = None) -> None:
+    parser = _build_parser()
+    args = parser.parse_args(argv)
+
+    if args.command is None:
+        parser.print_help()
+        sys.exit(2)
+
+    # `rules` needs the registry but no target.
+    _load_builtin_checks()
+    _load_entry_point_checks()
+
+    if args.command == "rules":
+        _print_rules()
+        return
+
+    if args.command == "rule":
+        sys.exit(_print_rule_detail(code=args.code))
+
+    _command_check(args=args)
 
 
 if __name__ == "__main__":

@@ -41,6 +41,7 @@ lanorme check . --check=secrets     # run one check by name
 lanorme check . --select TYPE,AUTHN # only these rule codes or categories
 lanorme check . --ignore NAMING-003 # skip specific rules
 lanorme check . --output-format json
+lanorme check . --show-config       # print discovered config + effective settings
 lanorme rules                       # list every registered rule
 lanorme rule  SQL-001               # show the reference for one rule
 ```

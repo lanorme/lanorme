@@ -9,6 +9,20 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
 
 ## [Unreleased]
 
+## [0.6.0]
+
+### Added
+
+- `lanorme check --show-config`: prints the discovered config file (so you can
+  see whether a `lanorme.toml` or `[tool.lanorme]` table actually loaded) and
+  the effective settings for every registered check, then exits without running
+  anything. Opt-in checks are listed with their state (for example
+  `restating   enabled=False   (opt-in, not enabled)`), which makes it obvious
+  that a default-off check is not silently active. The fast way to debug a
+  config that loaded empty (the most common cause being the
+  `[tool.lanorme.<check>]` vs dedicated-`lanorme.toml` `[<check>]` table-prefix
+  difference).
+
 ## [0.5.1]
 
 ### Changed

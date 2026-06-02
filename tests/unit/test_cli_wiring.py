@@ -65,3 +65,17 @@ def test_main_publishes_configured_excludes_to_discovery(tmp_path: Path, capsys)
 
     # Assert: the configured glob reached the discovery layer, not just output.
     assert "vendor/*" in discovery.active_excludes()
+
+
+def test_show_config_reports_source_and_opt_in_state(tmp_path: Path, capsys):
+    # Arrange: a project with no config (built-in defaults).
+    (tmp_path / "mod.py").write_text("x = 1\n", encoding="utf-8")
+
+    # Act: --show-config prints and returns without running checks.
+    main(["check", str(tmp_path), "--show-config"])
+    out = capsys.readouterr().out
+
+    # Assert: it names the config source and flags an opt-in check as not enabled.
+    assert "config file:" in out
+    assert "attribute_access" in out
+    assert "(opt-in, not enabled)" in out
