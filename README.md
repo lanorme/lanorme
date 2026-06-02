@@ -13,26 +13,25 @@ $ lanorme check .
 
 ## Install
 
-Install straight from GitHub with `uv`:
+From PyPI:
 
 ```console
-uv tool install git+https://github.com/Antonio-Tresol/lanorme
+uv tool install lanorme       # or: pipx install lanorme, pip install lanorme
 ```
 
-Pin a released version by tag:
+Run it once without installing anything:
 
 ```console
-uv tool install "git+https://github.com/Antonio-Tresol/lanorme@v0.4.0"
+uvx lanorme check .
 ```
 
-Or run it once without installing anything:
+Or install straight from source:
 
 ```console
-uvx --from git+https://github.com/Antonio-Tresol/lanorme lanorme check .
+uv tool install "git+https://github.com/lanorme/lanorme@v0.5.1"
 ```
 
-`pipx install git+https://github.com/Antonio-Tresol/lanorme` works the same way.
-Releases are tagged `vX.Y.Z`; see the [releases page](https://github.com/Antonio-Tresol/lanorme/releases) for the wheel and notes.
+Releases are tagged `vX.Y.Z`; see the [releases page](https://github.com/lanorme/lanorme/releases) for notes.
 
 ## Usage
 

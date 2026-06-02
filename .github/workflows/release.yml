@@ -1,0 +1,36 @@
+name: Publish to PyPI
+
+# Publishes the package to PyPI on every published GitHub Release, using
+# PyPI Trusted Publishing (OIDC). No API token is stored anywhere: the
+# `id-token: write` permission lets GitHub mint a short-lived identity that
+# PyPI verifies against its registered trusted publisher for this repo.
+#
+# workflow_dispatch is kept so the first release (which claims the project
+# name) can be triggered manually once the trusted publisher is configured.
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Build the sdist and wheel
+        run: uv build
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1

@@ -9,6 +9,17 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
 
 ## [Unreleased]
 
+## [0.5.1]
+
+### Changed
+
+- First release published to PyPI: `uv tool install lanorme` (or
+  `pipx install lanorme` / `pip install lanorme`). Publishing runs through
+  PyPI Trusted Publishing from GitHub Actions on each GitHub Release, so no
+  API token is stored.
+- The project moved to the `lanorme` GitHub organisation; all project URLs
+  now point to `github.com/lanorme/lanorme` (the old paths redirect).
+
 ## [0.5.0]
 
 ### Added
