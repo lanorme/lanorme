@@ -1,8 +1,13 @@
 """NAMING-001 through NAMING-004: Naming convention enforcement.
 
 Checks:
-    NAMING-001  Repository methods must use get_/create_/update_/delete_/list_ prefixes
-    NAMING-002  Service methods must use get_/create_/update_/delete_/list_ prefixes
+    NAMING-001  Repository methods (files under infrastructure/repositories/ or
+                infrastructure/persistence/) that use a synonym prefix
+                (fetch_/retrieve_/find_/remove_/add_) are steered to the CRUD
+                equivalent get_/create_/update_/delete_/list_ (opt-in:
+                [tool.lanorme.naming_consistency] repo_crud = true)
+    NAMING-002  Service methods (files under application/services/) likewise
+                steered off synonym prefixes (opt-in: service_crud = true)
     NAMING-003  Endpoint handlers should match HTTP verb (warning only)
     NAMING-004  Boolean functions should use is_/has_/can_/should_ prefixes (warning only)
 
@@ -17,6 +22,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from lanorme import CheckResult, Status, Violation, register
+from lanorme.discovery import iter_py_files
 
 # Allowed public method prefixes for repositories and services.
 ALLOWED_PREFIXES = ("get_", "create_", "update_", "delete_", "list_")
@@ -278,7 +284,7 @@ class NamingConsistencyCheck:
         warnings: list[Violation] = []
         src_path = Path(src_root)
 
-        for py_file in sorted(src_path.rglob("*.py")):
+        for py_file in iter_py_files(src_path):
             relative_file = str(py_file.relative_to(src_path))
 
             try:

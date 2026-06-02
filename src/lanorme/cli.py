@@ -1,8 +1,10 @@
 """Command-line entry point for LaNorme.
 
     lanorme check [PATHS...] [--check NAME] [--select ...] [--ignore ...]
-                  [--output-format {full,json}] [--plugin MODULE]
+                  [--exclude ...] [--output-format {full,json}] [--json]
+                  [--plugin MODULE]
     lanorme rules
+    lanorme rule CODE
     lanorme --version
 
 Configuration is discovered by walking up from the target path: a dedicated
@@ -34,8 +36,13 @@ from lanorme import (
     get_check,
     run_all,
 )
+from lanorme.discovery import set_excludes
 
 _CODE_RE = re.compile(r"^([A-Z]+)-\d+")
+
+# Top-level ``source_root`` is injected into these two layout-aware checks only;
+# every other check scans the full target tree.
+_SOURCE_ROOT_CHECKS = frozenset({"layer_deps", "port_coverage"})
 
 
 # --------------------------------------------------------------------------- #
@@ -62,11 +69,28 @@ def _load_plugin_modules(modules: list[str]) -> None:
 
 
 def _apply_check_config(*, config: dict[str, object]) -> None:
-    """Pass each ``[tool.lanorme.<check>]`` sub-table to that check's configure()."""
+    """Pass each ``[tool.lanorme.<check>]`` sub-table to that check's configure().
+
+    The top-level ``source_root`` is merged into the settings of the two
+    layout-aware checks (``layer_deps`` / ``port_coverage``) so a single
+    ``lanorme check .`` from the repo root can classify layers under a nested
+    package directory while every other check keeps scanning the whole tree.
+    """
+    source_root = config.get("source_root")
     for name, check in get_all_checks().items():
+        if not hasattr(check, "configure"):
+            continue
         section = config.get(name)
-        if isinstance(section, dict) and hasattr(check, "configure"):
-            check.configure(settings=section)
+        settings = dict(section) if isinstance(section, dict) else {}
+        if (
+            name in _SOURCE_ROOT_CHECKS
+            and isinstance(source_root, str)
+            and source_root
+            and "source_root" not in settings
+        ):
+            settings["source_root"] = source_root
+        if settings:
+            check.configure(settings=settings)
 
 
 # --------------------------------------------------------------------------- #
@@ -458,6 +482,11 @@ def main(argv: list[str] | None = None) -> None:
     exclude = _csv(args.exclude) or list(config.get("exclude", []))
     per_file_ignores = _parse_per_file_ignores(table=config.get("per-file-ignores", {}))
     json_output = args.json or args.output_format == "json"
+
+    # Publish excludes so checks prune them (plus the built-in junk dirs) at
+    # walk time, not just in the post-filter below. Always set, even to (), so
+    # a previous in-process run's value does not leak.
+    set_excludes(exclude)
 
     src_root = str(target)
     if args.single:

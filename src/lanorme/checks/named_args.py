@@ -1,7 +1,8 @@
 """KWARG-001: Enforce named arguments (bare ``*`` separator) on multi-parameter functions.
 
 Every function or method with more than one non-self/cls parameter must use a
-bare ``*`` separator so callers are forced to use keyword arguments.
+bare ``*`` separator so callers are forced to use keyword arguments. Opt-in
+(default-off); enable via ``[tool.lanorme.named_args] enabled = true``.
 
 Exceptions (skipped silently):
     - Dunder methods (__init__ with ≤1 extra param, __str__, __eq__, etc.)
@@ -21,6 +22,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from lanorme import CheckResult, Status, Violation, register
+from lanorme.discovery import iter_py_files
 
 # Parameters that are implicit receiver, never counted.
 SELF_CLS_NAMES = {"self", "cls"}
@@ -189,7 +191,7 @@ class NamedArgsCheck:
         warnings: list[Violation] = []
         src_path = Path(src_root)
 
-        for py_file in sorted(src_path.rglob("*.py")):
+        for py_file in iter_py_files(src_path):
             relative_file = str(py_file.relative_to(src_path))
 
             # Skip test files entirely.

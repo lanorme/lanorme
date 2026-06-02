@@ -4,12 +4,6 @@ Rules:
     IMPORT-001    No inline imports inside functions, all imports at module level
     ENDPOINT-001  Endpoint functions should not exceed nesting depth of 4 (warning)
 
-The earlier TYPING-001 (no ``if TYPE_CHECKING:`` outside model files) was
-dropped on 2026-05-26: the multi-reviewer audit found that the rule inverted
-the community typing consensus (ruff's TCH family actively *promotes*
-``TYPE_CHECKING`` guards to keep runtime import graphs lean). It can come back
-later as an explicit opt-in with the premise inverted (encourage, not forbid).
-
 Run:
     lanorme check . --check=pattern_divergence
 """
@@ -21,6 +15,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from lanorme import CheckResult, Status, Violation, register
+from lanorme.discovery import iter_py_files
 
 # ---------------------------------------------------------------------------
 # IMPORT-001: No inline imports inside functions
@@ -143,11 +138,6 @@ def _check_inline_imports(
 
 
 # ---------------------------------------------------------------------------
-# (TYPING-001 was removed on 2026-05-26; see the module docstring.)
-# ---------------------------------------------------------------------------
-
-
-# ---------------------------------------------------------------------------
 # ENDPOINT-001: Endpoint functions should not exceed complexity threshold
 # ---------------------------------------------------------------------------
 
@@ -254,7 +244,7 @@ class PatternDivergenceCheck:
         warnings: list[Violation] = []
         src_path = Path(src_root)
 
-        for py_file in sorted(src_path.rglob("*.py")):
+        for py_file in iter_py_files(src_path):
             relative_file = str(py_file.relative_to(src_path))
 
             # Skip test files.

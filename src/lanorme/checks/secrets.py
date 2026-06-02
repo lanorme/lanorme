@@ -36,6 +36,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from lanorme import CheckResult, Status, Violation, register
+from lanorme.discovery import iter_py_files
 
 # A name suggests a credential when (i) it matches one of these multi-segment
 # phrases as the whole name or as a ``_``-anchored suffix, OR (ii) one of its
@@ -259,7 +260,7 @@ class SecretsCheck:
     def run(self, *, src_root: str) -> CheckResult:
         violations: list[Violation] = []
         root = Path(src_root)
-        for path in sorted(root.rglob("*.py")):
+        for path in iter_py_files(root):
             if any(part in _SKIP_DIRS for part in path.parts):
                 continue
             file_name = path.name

@@ -33,6 +33,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from lanorme import CheckResult, Status, Violation, register
+from lanorme.discovery import iter_files
 
 _EM_DASH = "—"
 
@@ -231,7 +232,7 @@ class ProseCheck:
         spell_re = _compile_spellings(self.spellings)
         root = Path(src_root)
 
-        for path in sorted(root.rglob("*")):
+        for path in iter_files(root):
             if path.suffix.lower() not in self.extensions or not path.is_file():
                 continue
             if any(part in _SKIP_PARTS for part in path.parts):

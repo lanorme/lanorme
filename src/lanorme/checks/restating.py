@@ -32,6 +32,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from lanorme import CheckResult, Status, Violation, register
+from lanorme.discovery import iter_py_files
 
 MAX_CONTENT_WORDS = 4
 MIN_STEM_LEN = 4
@@ -316,7 +317,7 @@ class RestatingCheck:
             return CheckResult(check=self.name, status=Status.PASS, violations=[])
         violations: list[Violation] = []
         root = Path(src_root)
-        for path in sorted(root.rglob("*.py")):
+        for path in iter_py_files(root):
             if any(part in _SKIP_DIRS for part in path.parts):
                 continue
             try:

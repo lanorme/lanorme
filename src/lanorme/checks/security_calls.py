@@ -30,6 +30,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from lanorme import CheckResult, Status, Violation, register
+from lanorme.discovery import iter_py_files
 
 _SKIP_DIRS = frozenset({".git", ".venv", "venv", "node_modules", "__pycache__", "dist", "build"})
 
@@ -379,7 +380,7 @@ class SecurityCallsCheck:
     def run(self, *, src_root: str) -> CheckResult:
         violations: list[Violation] = []
         root = Path(src_root)
-        for path in sorted(root.rglob("*.py")):
+        for path in iter_py_files(root):
             if any(part in _SKIP_DIRS for part in path.parts):
                 continue
             try:

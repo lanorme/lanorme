@@ -55,16 +55,14 @@ max_block_lines   = 6
 
 ### `CMT-005`: No comments that restate the next line of code
 
-Default-off. **Experimental.** Lives in its own `restating` check (was
-part of `comments`; split out when the precision-funnel vocabulary grew
-past the single-file size limit). Detector: AST adjacency + 11-category
-allowlist + stem-equality + 12-entry verb-to-AST-node table + asymmetric
-coverage floor of 1.0 + 4-content-word cap. Designed precision-first;
-expects to miss synonym paraphrases.
+Default-off. **Experimental.** Lives in its own `restating` check.
+Detector: AST adjacency + 11-category allowlist + stem-equality + 12-entry
+verb-to-AST-node table + asymmetric coverage floor of 1.0 + 4-content-word
+cap. Designed precision-first; expects to miss synonym paraphrases.
 
 Measured against the 167-comment corpus under
-`tests/fixtures/comments_restating/` with `benchmarks/score_cmt005.py`,
-post audit-broadening: **P = 1.000 / R = 0.418 / F1 = 0.589** (TP = 33,
+`tests/fixtures/comments_restating/` with `benchmarks/score_cmt005.py`:
+**P = 1.000 / R = 0.418 / F1 = 0.589** (TP = 33,
 FP = 0, FN = 46, TN = 88). The 0.418 recall is bounded by the design's
 refusal to chase synonym paraphrases without losing precision; the metric
 is the headline.
@@ -114,8 +112,8 @@ forbidden = ["Cust", "Client"]
 
 Default-on. Functions with identical normalised AST bodies and at least
 five statements are flagged as duplicates. AST normalisation strips
-variable names so that two functions that differ only in identifier
-spelling are still detected.
+variable names and string literals so that two functions differing only in
+identifier spelling or string-constant content are still detected.
 
 Config: none currently. False positives on intentionally parallel
 adapters across bounded contexts are a known limit; suppress them with
@@ -160,6 +158,12 @@ dirs = ["legacy_src", "build_artifacts"]
 For hexagonal / layered codebases with a `domain/`, `application/`,
 `infrastructure/`, `api/` layout. Inert in their absence.
 
+If the layers live under a nested package directory, set the top-level
+`[tool.lanorme] source_root` (e.g. `"src/myproject"`) so they are classified
+relative to it. Files outside `source_root` are layer-exempt;
+`composition_root` is then read relative to `source_root` too. Reported paths
+stay relative to the scan target.
+
 - `LAYER-001`: `domain/` must not import any other layer.
 - `LAYER-002`: `application/` may only import from `domain/`.
 - `LAYER-003`: `infrastructure/` may only import from `domain/` and
@@ -172,7 +176,7 @@ For hexagonal / layered codebases with a `domain/`, `application/`,
 These rules track Cockburn's hexagonal architecture and Seemann's
 composition-root pattern.
 
-Config (all keys optional; defaults reproduce the behaviour above):
+Config (all keys optional; the defaults are shown):
 
 ```toml
 [tool.lanorme.layer_deps]
@@ -190,8 +194,7 @@ api            = ["domain", "application"]
 ```
 
 The default `composition_root` is
-`["api/dependencies/**", "api/v1/dependencies/**", "api/v1/main.py"]`,
-the glob equivalent of the previous `startswith` directory prefixes.
+`["api/dependencies/**", "api/v1/dependencies/**", "api/v1/main.py"]`.
 
 ---
 
@@ -226,13 +229,16 @@ enabled = true
 
 ## Naming conventions: `NAMING-001..004`
 
-- `NAMING-001`: opt-in. Repository methods (files under `repositories/`)
-  must use the CRUD prefix set `get_` / `create_` / `update_` / `delete_`
-  / `list_`. Conflicts with the DDD ubiquitous-language convention
-  (`add`, `of_id`, `for_customer`); off by default.
-- `NAMING-002`: opt-in. Service methods under `services/` must use the
-  same CRUD prefix set. Conflicts with domain-named operations
-  (`approve_loan`, `transfer_funds`); off by default.
+- `NAMING-001`: opt-in. Repository methods (files under
+  `infrastructure/repositories/` or `infrastructure/persistence/`) that use
+  a non-canonical synonym prefix (`fetch_` / `retrieve_` / `find_` /
+  `remove_` / `add_`) are flagged and steered to the CRUD equivalent
+  (`get_` / `create_` / `update_` / `delete_` / `list_`). Conflicts with the
+  DDD ubiquitous-language convention; off by default.
+- `NAMING-002`: opt-in. Service methods (files under `application/services/`)
+  that use the same synonym prefixes are flagged and steered to the CRUD
+  equivalent. Conflicts with domain-named operations (`approve_loan`,
+  `transfer_funds`); off by default.
 - `NAMING-003`: default-on warning. Endpoint handler names should
   match their HTTP verb (`get_user` on `@router.get`, `delete_user` on
   `@router.delete`).
@@ -254,20 +260,20 @@ service_crud = true   # enable NAMING-002
 - `IMPORT-001`: default-on. Imports must live at the top of the module
   (`import` / `from x import y` statements must not be nested inside a
   function or method body). Equivalent to ruff `PLC0415` with a different
-  default.
-- `ENDPOINT-001`: default-on warning. Endpoint functions
-  (`@router.get` / `@router.post` / ...) must not exceed nesting depth
-  4. Deep endpoints correlate with missed branches in auth and
-  validation paths.
-
-(`TYPING-001`, no `TYPE_CHECKING` outside model files, was removed
-in the audit pass; see CHANGELOG.)
+  default. Imports inside an `if TYPE_CHECKING:` guard are exempt, as are
+  files under `infrastructure/observability/` and `api/v1/main.py`
+  (conditional startup wiring); `test_*` files are skipped.
+- `ENDPOINT-001`: default-on warning. Functions defined in files under
+  `api/v1/endpoints/` must not exceed nesting depth 4. Deep endpoints
+  correlate with missed branches in auth and validation paths.
 
 ---
 
 ## Port coverage: `PORT-001..003`
 
-For hexagonal codebases with `application/ports/`.
+For hexagonal codebases with `application/ports/`. As with `layer_deps`, the
+top-level `[tool.lanorme] source_root` anchors `ports_dir`, `adapter_roots`,
+and `composition_root` under a nested package directory when set.
 
 - `PORT-001`: every adapter file (under the adapter roots) must import
   from the ports directory.
@@ -277,22 +283,19 @@ For hexagonal codebases with `application/ports/`.
 - `PORT-003`: no direct import or instantiation of an infrastructure
   adapter from the `api/` layer outside the composition root.
 
-Config (all keys optional; defaults reproduce the behaviour above):
+Config (all keys optional; the defaults are shown):
 
 ```toml
 [tool.lanorme.port_coverage]
 ports_dir        = "application/ports"     # where port Protocols live
-adapter_roots    = ["infrastructure"]      # dirs scanned for adapters (recursive)
-composition_root = ["api/dependencies.py", "api/app.py"]  # PORT-003 exemption (globs)
+adapter_roots    = ["infrastructure/services"]  # dirs scanned for adapters (recursive)
+composition_root = ["*dependencies/*", "*v1/main.py"]  # PORT-003 exemption (globs)
 skip_files         = ["__init__.py"]
-ports_without_impl = ["repositories.py", "unit_of_work.py"]
+ports_without_impl = ["repositories.py", "unit_of_work.py", "otel.py", "metrics.py"]
 ```
 
-The default `adapter_roots` is `["infrastructure/services"]` and the
-default PORT-003 `composition_root` is `["*dependencies/*", "*v1/main.py"]`
-(glob equivalents of the previous substring patterns). Adapter roots are
-scanned recursively, so widening to `["infrastructure"]` picks up adapters
-in per-integration subdirectories.
+Adapter roots are scanned recursively, so widening `adapter_roots` to
+`["infrastructure"]` picks up adapters in per-integration subdirectories.
 
 ---
 
@@ -370,9 +373,8 @@ Each rule has a positive + negative unit test under
   R = 1.000 / F1 = 1.000**. Known limitations not in the corpus: SQL
   built across multiple statements with helper functions; lazy-loaded
   query templates; non-Python query files.
-- `SECRETPY-001`: default-on. Lives in the `secrets` check (was part of
-  `security_patterns`; split out when the detector grew past the
-  single-file size limit). AST-based: flags credential-named assignments
+- `SECRETPY-001`: default-on. Lives in the `secrets` check. AST-based:
+  flags credential-named assignments
   (variable, dict key, or call kwarg) whose value looks like a real
   secret, plus shape-only matches (PEM private-key blocks, JWT-shaped
   tokens, Bearer headers, DB / cache URLs with embedded `user:pass@host`
@@ -413,12 +415,15 @@ Default-on. Surface tree clutter, including the privacy-relevant cases
 of screenshots and editor backups that frequently contain secrets or
 PII.
 
-- `JUNK-001`: files matching name patterns: `screenshot*`, `scratch*`,
-  `untitled*`, `*~`, `*.bak`, `*.swp`, `*.tmp`, `.DS_Store`,
-  `Thumbs.db`, `*.pyc`, `*.pyo`.
+- `JUNK-001`: files matching scratch / temp / OS / build name globs such
+  as `screenshot*`, `scratch*`, `untitled*`, `*~`, `*.bak`, `*.orig`,
+  `*.rej`, `*.swp`, `*.swo`, `*.tmp`, `tmp.*`, `temp.*`, `.DS_Store`,
+  `Thumbs.db`, `desktop.ini`, `nohup.out`, `core.*`, `*.pyc`, `*.pyo`,
+  `.coverage`, `coverage.xml`.
 - `JUNK-002`: image / binary extensions outside an asset directory.
   Default extensions: `.png`, `.jpg`, `.jpeg`, `.gif`, `.bmp`, `.webp`.
-  Default asset directories: `docs/`, `assets/`, `static/`, `media/`.
+  Default asset directories: `assets/`, `static/`, `images/`, `img/`,
+  `media/`, `public/`, `docs/`, `.github/`.
 
 Config:
 ```toml
@@ -434,7 +439,7 @@ exclude    = ["sandbox"]           # extra directories to skip entirely
 
 ## Strong types: `TYPE-001..003`
 
-All default-on.
+All default-on. Skips files under `tests/` and `migrations/`.
 
 - `TYPE-001`: `dict[str, Any]` (and other weakly-typed dict containers)
   in function signatures or return annotations. Pushes toward DTOs,
@@ -448,20 +453,17 @@ All default-on.
 
 ## Test coverage: `TESTFILE-001`
 
-Default-on warning. For each Python file under a configured production
-directory, verify that a `test_*.py` partner exists under `tests/`.
-Note this is **file presence**, not coverage; it cannot tell you whether
-the test actually exercises the module.
+Default-on warning. For each Python file under one of the hardwired
+production directories, verify that a matching `test_*.py` partner (by name
+or by import reference) exists under `tests/integration/`. Note this is
+**file presence**, not coverage; it cannot tell you whether the test
+actually exercises the module.
 
-Config (the production directories scanned default to the DDD layout):
-```toml
-[tool.lanorme.test_coverage]
-testable_dirs = [
-    ["api/v1/endpoints", "endpoints"],
-    ["application/services", "services"],
-]
-exempt_modules = ["main", "dependencies", "logging"]
-```
+Config: none. The scanned production directories (`api/v1/endpoints`,
+`application/services`, `application/commands`, `application/queries`,
+`infrastructure/repositories`, `infrastructure/signing`,
+`infrastructure/secrets`) and the exempt modules (`dependencies`, `main`,
+`logging`, `session`) are hardwired.
 
 ---
 

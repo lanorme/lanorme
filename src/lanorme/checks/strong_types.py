@@ -33,6 +33,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from lanorme import CheckResult, Status, Violation, register
+from lanorme.discovery import iter_py_files
 
 _BARE_CONTAINERS = frozenset(
     {"dict", "list", "tuple", "set", "frozenset", "Dict", "List", "Tuple", "Set", "FrozenSet"}
@@ -237,7 +238,7 @@ class StrongTypesCheck:
         warnings: list[Violation] = []
         src_path = Path(src_root)
 
-        for py_file in sorted(src_path.rglob("*.py")):
+        for py_file in iter_py_files(src_path):
             relative_file = str(py_file.relative_to(src_path))
             if _is_exempt_path(relative_path=relative_file):
                 continue

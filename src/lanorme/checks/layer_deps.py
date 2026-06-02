@@ -16,8 +16,14 @@ Dependency rules (inward only), with the default layer set:
 Projects that do not use these layer directories produce no findings: the
 check is naturally inert outside a layered layout.
 
+If the architectural layers live under a nested package directory, set the
+top-level ``[tool.lanorme] source_root`` so layers are classified relative to
+it (``source_root/domain/``, ``source_root/api/`` ...). Files outside
+``source_root`` are layer-exempt. ``composition_root`` is then interpreted
+relative to ``source_root`` too.
+
 Configure it in ``[tool.lanorme.layer_deps]`` (all keys optional; the defaults
-reproduce the behaviour above):
+are shown):
 
     [tool.lanorme.layer_deps]
     # Files allowed to import the infrastructure layer (the composition root).
@@ -44,6 +50,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from lanorme import CheckResult, Status, Violation, register
+from lanorme.discovery import iter_py_files
 
 # The architectural layers in a hexagonal backend (default).
 LAYERS = ("domain", "application", "infrastructure", "api")
@@ -146,6 +153,7 @@ class LayerDepsCheck:
 
     name: str = "layer_deps"
     description: str = "Hexagonal architecture layer dependency validation"
+    source_root: str = ""
     layers: tuple[str, ...] = LAYERS
     allowed_imports: dict[str, set[str]] = field(
         default_factory=lambda: {layer: set(targets) for layer, targets in ALLOWED_IMPORTS.items()}
@@ -162,7 +170,10 @@ class LayerDepsCheck:
     )
 
     def configure(self, *, settings: dict[str, object]) -> None:
-        """Apply ``[tool.lanorme.layer_deps]`` configuration. Defaults reproduce today's behaviour."""
+        """Apply ``[tool.lanorme.layer_deps]`` configuration."""
+        source_root = settings.get("source_root")
+        if isinstance(source_root, str):
+            self.source_root = source_root.replace("\\", "/").strip("/")
         comp = settings.get("composition_root")
         if isinstance(comp, list):
             self.composition_root = tuple(str(pattern) for pattern in comp)
@@ -209,10 +220,18 @@ class LayerDepsCheck:
         violations: list[Violation] = []
         warnings: list[Violation] = []
         src_path = Path(src_root)
+        # The architectural root. Layer classification and composition-root
+        # globs are anchored here; Violation paths stay anchored at src_path so
+        # they line up with --exclude / per-file-ignores / # noqa.
+        base = src_path / self.source_root if self.source_root else src_path
 
-        for py_file in sorted(src_path.rglob("*.py")):
-            relative = str(py_file.relative_to(src_path))
-            layer = _classify_layer(relative=relative, layers=self.layers)
+        for py_file in iter_py_files(src_path):
+            relative = py_file.relative_to(src_path).as_posix()
+            try:
+                classify_rel = py_file.relative_to(base).as_posix()
+            except ValueError:
+                continue  # outside the source root → layer-exempt
+            layer = _classify_layer(relative=classify_rel, layers=self.layers)
             if layer is None:
                 continue
 
@@ -232,8 +251,8 @@ class LayerDepsCheck:
                 continue
 
             imports = _extract_src_imports(tree=tree, layers=self.layers)
-            allowed = self._allowed_for_file(relative=relative, layer=layer)
-            is_comp_root = _matches_glob(relative=relative, patterns=self.composition_root)
+            allowed = self._allowed_for_file(relative=classify_rel, layer=layer)
+            is_comp_root = _matches_glob(relative=classify_rel, patterns=self.composition_root)
 
             for target_layer, line in imports:
                 if target_layer == layer or target_layer in allowed:

@@ -27,6 +27,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from lanorme import CheckResult, Status, Violation, register
+from lanorme.discovery import iter_py_files
 
 # Default is empty → the check is inert until configured.
 _STALE_TOKENS: tuple[str, ...] = ()
@@ -149,7 +150,7 @@ class StalePathsCheck:
             return CheckResult(check=self.name, status=Status.PASS, violations=[])
 
         src_path = Path(src_root)
-        for py_file in sorted(src_path.rglob("*.py")):
+        for py_file in iter_py_files(src_path):
             relative_file = str(py_file.relative_to(src_path))
             if _is_exempt(relative_path=relative_file):
                 continue

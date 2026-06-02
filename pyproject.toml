@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "lanorme"
-version = "0.3.0"
+version = "0.4.0"
 description = "La norme: a configurable, pluggable architecture and code-quality linter for Python."
 readme = "README.md"
 requires-python = ">=3.13"

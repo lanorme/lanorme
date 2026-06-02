@@ -22,6 +22,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from lanorme import CheckResult, Status, Violation, register
+from lanorme.discovery import iter_py_files
 
 # Minimum number of statements in a function body to consider for duplication.
 MIN_BODY_STATEMENTS = 5
@@ -194,7 +195,7 @@ class DuplicationCheck:
         # Map normalized body hash -> list of locations.
         body_groups: dict[str, list[_FunctionLocation]] = defaultdict(list)
 
-        for py_file in sorted(src_path.rglob("*.py")):
+        for py_file in iter_py_files(src_path):
             if _should_exclude(file_path=py_file):
                 continue
 

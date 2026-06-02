@@ -19,9 +19,8 @@ until enabled::
     max_block_lines = 6
     max_comment_chars = 120
 
-CMT-005 (restating-comment detector) lives in its own ``restating`` check
-since the precision-funnel vocabulary outgrew this module; opt in via
-``[tool.lanorme.restating] enabled = true``.
+CMT-005 (restating-comment detector) lives in its own ``restating`` check;
+opt in via ``[tool.lanorme.restating] enabled = true``.
 
 Run:
     lanorme check . --check=comments
@@ -37,6 +36,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from lanorme import CheckResult, Status, Violation, register
+from lanorme.discovery import iter_py_files
 
 _EM_DASH = "—"
 
@@ -343,7 +343,7 @@ class CommentsCheck:
     def run(self, *, src_root: str) -> CheckResult:
         violations: list[Violation] = []
         root = Path(src_root)
-        for py_file in sorted(root.rglob("*.py")):
+        for py_file in iter_py_files(root):
             if any(part in _SKIP_DIRS for part in py_file.parts):
                 continue
             try:

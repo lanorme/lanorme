@@ -13,8 +13,12 @@ Rules:
     PORT-003  No direct import/instantiation of infrastructure adapter classes
               in the api/ layer outside the composition root
 
+If ports/adapters/api live under a nested package directory, set the top-level
+``[tool.lanorme] source_root``; ``ports_dir``, ``adapter_roots``, and
+``composition_root`` are then interpreted relative to it.
+
 Configure it in ``[tool.lanorme.port_coverage]`` (all keys optional; the
-defaults reproduce today's behaviour):
+defaults are shown):
 
     [tool.lanorme.port_coverage]
     ports_dir        = "application/ports"     # where port Protocols live
@@ -53,10 +57,9 @@ PORT_FILES_WITHOUT_SERVICE_IMPL = (
 DEFAULT_ADAPTER_ROOTS = ("infrastructure/services",)
 DEFAULT_PORTS_DIR = "application/ports"
 
-# Default composition-root globs for PORT-003. The glob equivalents of the
-# previous substring patterns ("dependencies/", "v1/main.py"); fnmatch is a
-# full-path match, so the leading/trailing ``*`` reproduce the old behaviour
-# and let a module file (api/dependencies.py) be added explicitly.
+# Default composition-root globs for PORT-003. fnmatch is a full-path match,
+# so the leading/trailing ``*`` match any DI-wiring or app-factory module; a
+# single module file (api/dependencies.py) can also be named explicitly.
 DEFAULT_COMPOSITION_ROOT = ("*dependencies/*", "*v1/main.py")
 
 
@@ -160,13 +163,14 @@ def _parse_file(*, py_file: Path) -> ast.AST | None:
 
 def _collect_port_protocols(
     *,
-    src_path: Path,
+    base: Path,
+    report_root: Path,
     ports_dir: str,
     ports_without_impl: frozenset[str],
 ) -> dict[str, tuple[str, int, str]]:
     """Scan the ports directory and return {ProtocolName: (relative_file, line, stem)}."""
     protocols: dict[str, tuple[str, int, str]] = {}
-    ports_path = src_path / ports_dir
+    ports_path = base / ports_dir
     if not ports_path.is_dir():
         return protocols
 
@@ -176,7 +180,7 @@ def _collect_port_protocols(
         tree = _parse_file(py_file=py_file)
         if tree is None:
             continue
-        relative = str(py_file.relative_to(src_path))
+        relative = py_file.relative_to(report_root).as_posix()
         for name, line in _extract_protocol_names(tree=tree):
             protocols[name] = (relative, line, py_file.stem)
     return protocols
@@ -184,7 +188,8 @@ def _collect_port_protocols(
 
 def _scan_adapter_files(
     *,
-    src_path: Path,
+    base: Path,
+    report_root: Path,
     adapter_roots: tuple[str, ...],
     skip_files: frozenset[str],
 ) -> list[tuple[str, ast.AST, list[tuple[str, int]]]]:
@@ -192,7 +197,7 @@ def _scan_adapter_files(
     results: list[tuple[str, ast.AST, list[tuple[str, int]]]] = []
     seen: set[Path] = set()
     for root in adapter_roots:
-        root_path = src_path / root
+        root_path = base / root
         if not root_path.is_dir():
             continue
         for py_file in sorted(root_path.rglob("*.py")):
@@ -202,7 +207,7 @@ def _scan_adapter_files(
             tree = _parse_file(py_file=py_file)
             if tree is None:
                 continue
-            relative = str(py_file.relative_to(src_path))
+            relative = py_file.relative_to(report_root).as_posix()
             results.append((relative, tree, _extract_import_modules(tree=tree)))
     return results
 
@@ -300,20 +305,24 @@ def _direct_import_violation(
 
 def _check_port003(
     *,
-    src_path: Path,
+    base: Path,
+    report_root: Path,
     infra_class_names: set[str],
     adapter_dotted: tuple[str, ...],
     composition_root: tuple[str, ...],
 ) -> list[Violation]:
     """PORT-003: no direct import/instantiation of adapter classes in the api/ layer."""
     violations: list[Violation] = []
-    api_dir = src_path / "api"
+    api_dir = base / "api"
     if not api_dir.is_dir():
         return violations
 
     for py_file in sorted(api_dir.rglob("*.py")):
-        relative = str(py_file.relative_to(src_path)).replace("\\", "/")
-        if _matches_glob(relative=relative, patterns=composition_root):
+        # Composition-root globs match the source-root-relative path; the
+        # reported path stays anchored at the scan target.
+        match_rel = py_file.relative_to(base).as_posix()
+        relative = py_file.relative_to(report_root).as_posix()
+        if _matches_glob(relative=match_rel, patterns=composition_root):
             continue
 
         tree = _parse_file(py_file=py_file)
@@ -364,6 +373,7 @@ class PortCoverageCheck:
 
     name: str = "port_coverage"
     description: str = "Port coverage enforcement (Protocol / infrastructure alignment)"
+    source_root: str = ""
     ports_dir: str = DEFAULT_PORTS_DIR
     adapter_roots: tuple[str, ...] = DEFAULT_ADAPTER_ROOTS
     composition_root: tuple[str, ...] = DEFAULT_COMPOSITION_ROOT
@@ -380,7 +390,10 @@ class PortCoverageCheck:
     )
 
     def configure(self, *, settings: dict[str, object]) -> None:
-        """Apply ``[tool.lanorme.port_coverage]`` configuration. Defaults reproduce today's behaviour."""
+        """Apply ``[tool.lanorme.port_coverage]`` configuration."""
+        source_root = settings.get("source_root")
+        if isinstance(source_root, str):
+            self.source_root = source_root.replace("\\", "/").strip("/")
         ports_dir = settings.get("ports_dir")
         if isinstance(ports_dir, str) and ports_dir:
             self.ports_dir = ports_dir.replace("\\", "/").strip("/")
@@ -397,16 +410,25 @@ class PortCoverageCheck:
         """Scan ports and adapters and validate coverage."""
         violations: list[Violation] = []
         src_path = Path(src_root)
+        # Ports/adapters/api are located under the architectural root; reported
+        # paths stay anchored at the scan target (so --exclude / # noqa line up).
+        base = src_path / self.source_root if self.source_root else src_path
 
         ports_parts = self.ports_dir.split("/")
         ports_dotted = ".".join(ports_parts)
         adapter_dotted = tuple(root.replace("/", ".") for root in self.adapter_roots)
 
         port_protocols = _collect_port_protocols(
-            src_path=src_path, ports_dir=self.ports_dir, ports_without_impl=self.ports_without_impl
+            base=base,
+            report_root=src_path,
+            ports_dir=self.ports_dir,
+            ports_without_impl=self.ports_without_impl,
         )
         adapter_files = _scan_adapter_files(
-            src_path=src_path, adapter_roots=self.adapter_roots, skip_files=self.skip_files
+            base=base,
+            report_root=src_path,
+            adapter_roots=self.adapter_roots,
+            skip_files=self.skip_files,
         )
 
         violations.extend(
@@ -424,7 +446,8 @@ class PortCoverageCheck:
 
         violations.extend(
             _check_port003(
-                src_path=src_path,
+                base=base,
+                report_root=src_path,
                 infra_class_names=infra_class_names,
                 adapter_dotted=adapter_dotted,
                 composition_root=self.composition_root,

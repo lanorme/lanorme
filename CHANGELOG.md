@@ -9,6 +9,40 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
 
 ## [Unreleased]
 
+## [0.4.0]
+
+### Added
+
+- Top-level `[tool.lanorme] source_root` key. It decouples the architectural
+  root from the scan target for the two layout-aware checks (`layer_deps` and
+  `port_coverage`) only. With `source_root = "src/pkg"`, a single
+  `lanorme check .` from the repo root classifies layers under
+  `src/pkg/domain/`, `src/pkg/api/`, etc., while every other check keeps
+  scanning the whole tree. `composition_root`, `ports_dir`, and
+  `adapter_roots` are interpreted relative to `source_root`. A scanned file
+  that is not under `source_root` is layer-exempt (skipped by `layer_deps` /
+  `port_coverage`, never flagged), but is still seen by every other check.
+  Reported violation paths stay relative to the scan target, so `--exclude`,
+  `[tool.lanorme.per-file-ignores]`, and `# noqa` line up unchanged.
+  `source_root` is resolved against the scan target (for the intended
+  `lanorme check .` from the repo root these are the same directory).
+- `exclude` globs are now honoured at file-discovery time, not only in the
+  post-filter. An excluded directory is pruned during the walk, so a large
+  excluded subtree (`postman/**`, `docs/generated/**`, ...) is no longer read.
+  The CLI still post-filters by the same globs as a safety net.
+
+### Changed
+
+- A built-in set of never-source directories is pruned during every check's
+  tree walk regardless of configuration: `.git`, `.venv`, `venv`,
+  `node_modules`, `__pycache__`, `dist`, `build`, `.ruff_cache`,
+  `.pytest_cache`, `.mypy_cache`. This makes `lanorme check .` fast out of the
+  box (it no longer descends into a virtualenv or build tree). This is a
+  behaviour change not gated behind a config key: a project that deliberately
+  kept first-party `.py` files under one of these directory names would no
+  longer have them scanned. The `stray_artifacts` check already pruned the
+  same set, so its `JUNK` rules are unaffected.
+
 ## [0.3.0]
 
 ### Added

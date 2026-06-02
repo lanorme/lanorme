@@ -1,11 +1,8 @@
 """TESTFILE-001: every production module must have a corresponding test.
 
-A single advisory (WARNING) rule, surfaced when a file in a configured
-production directory lacks a matching ``test_*.py`` partner under ``tests/``.
-
-Weak blank-line AAA detection used to live here as ``TEST-002``; it was
-dropped on 2026-05-26 in favour of the stronger ``AAA-001`` (comment markers)
-in the ``test_style`` check, which supersedes it.
+A single advisory (WARNING) rule, surfaced when a file in one of the hardwired
+production directories lacks a matching ``test_*.py`` partner under
+``tests/integration/``. AAA-style test checks live in the ``test_style`` check.
 
 Run:
     lanorme check . --check=test_coverage

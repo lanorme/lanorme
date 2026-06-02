@@ -10,6 +10,27 @@ from pathlib import Path
 
 import pytest
 
+from lanorme import discovery, get_check
+
+
+@pytest.fixture(autouse=True)
+def _reset_global_state():
+    """Reset process-global state around every test.
+
+    Two leaks to guard: the module-global exclude list published by the CLI,
+    and the ``source_root`` field on the registry-singleton checks, which
+    ``_apply_check_config`` mutates in place (the protocol carries no config).
+    Either would otherwise bleed from one test into the next in the same
+    interpreter.
+    """
+    discovery.set_excludes(())
+    yield
+    discovery.set_excludes(())
+    for name in ("layer_deps", "port_coverage"):
+        check = get_check(name)
+        if check is not None:
+            check.source_root = ""
+
 
 @pytest.fixture
 def tmp_py_file(tmp_path: Path):

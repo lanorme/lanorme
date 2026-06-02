@@ -4,9 +4,7 @@ Checks:
     AUTHN-001  Mutation endpoints must have an auth dependency
     SQL-001    No raw SQL string literals; use an ORM or parameterised queries
 
-SECRETPY-001 (hardcoded secrets) lives in ``secrets.py`` as a sibling check;
-the family was split on 2026-05-27 once the secrets detector grew past the
-single-file size limit.
+SECRETPY-001 (hardcoded secrets) lives in ``secrets.py`` as a sibling check.
 
 Run:
     lanorme check . --check=security_patterns
@@ -20,6 +18,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from lanorme import CheckResult, Status, Violation, register
+from lanorme.discovery import iter_py_files
 
 # HTTP methods that mutate data, these MUST have auth.
 MUTATION_METHODS = {"post", "put", "patch", "delete"}
@@ -378,7 +377,7 @@ class SecurityPatternsCheck:
         warnings: list[Violation] = []
         src_path = Path(src_root)
 
-        for py_file in sorted(src_path.rglob("*.py")):
+        for py_file in iter_py_files(src_path):
             relative_file = str(py_file.relative_to(src_path))
 
             try:

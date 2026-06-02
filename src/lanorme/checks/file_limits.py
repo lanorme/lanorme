@@ -23,6 +23,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from lanorme import CheckResult, Status, Violation, register
+from lanorme.discovery import iter_py_files
 
 # SIZE-001 thresholds (effective lines per file).
 FILE_WARN_LINES = 300
@@ -326,7 +327,7 @@ class FileLimitsCheck:
         warnings: list[Violation] = []
         src_path = Path(src_root)
 
-        for py_file in sorted(src_path.rglob("*.py")):
+        for py_file in iter_py_files(src_path):
             if _should_exclude(file_path=py_file):
                 continue
 

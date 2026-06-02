@@ -22,7 +22,7 @@ uv tool install git+https://github.com/Antonio-Tresol/lanorme
 Pin a released version by tag:
 
 ```console
-uv tool install "git+https://github.com/Antonio-Tresol/lanorme@v0.2.0"
+uv tool install "git+https://github.com/Antonio-Tresol/lanorme@v0.4.0"
 ```
 
 Or run it once without installing anything:
@@ -81,7 +81,8 @@ line flags win over both.
 [tool.lanorme]
 select = ["ALL"]                            # rule codes or categories to run
 ignore = ["NAMING-003"]                     # rule codes or categories to skip
-exclude = ["build/*", "vendor/*"]           # path globs to skip entirely
+exclude = ["postman/**", "vendor/*"]        # path globs, pruned at walk time
+source_root = "src/myproject"               # architectural root for layer_deps/port_coverage
 plugins = ["myproject.checks.house_rules"]  # extra check modules to load
 
 # Silence specific rules for matching paths (the file is still scanned).
@@ -103,6 +104,19 @@ id = "TERM-001"
 canonical = "Account"
 forbidden = ["Acct", "Acnt"]
 ```
+
+`exclude` globs are pruned during the walk, not just filtered from output, so a
+large excluded subtree is never read. A built-in set of never-source
+directories (`.git`, `.venv`, `venv`, `node_modules`, `__pycache__`, `dist`,
+`build`, `.ruff_cache`, `.pytest_cache`, `.mypy_cache`) is always pruned, so
+`lanorme check .` is fast out of the box.
+
+`source_root` applies only to the two layout-aware checks (`layer_deps`,
+`port_coverage`). It lets you run `lanorme check .` from the repo root while the
+hexagonal layers live under a nested package: layers are classified relative to
+`source_root`, files outside it are layer-exempt, and `composition_root` /
+`ports_dir` / `adapter_roots` are read relative to it. Every other check still
+scans the whole tree.
 
 ## What it checks
 

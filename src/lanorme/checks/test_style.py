@@ -13,7 +13,7 @@ starts with ``test_`` or ends with ``_test``.
              prefix of statements (the "arrange" block). Repeated setup is
              a DRY violation, extract it into a fixture or helper.
 
-Both rules are on by default; configure with::
+Both rules are opt-in (the check ships default-off). Enable and configure with::
 
     [tool.lanorme.test_style]
     enabled = true
@@ -34,6 +34,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from lanorme import CheckResult, Status, Violation, register
+from lanorme.discovery import iter_py_files
 
 # Default marker vocabulary. AAA + BDD + a few common aliases.
 _DEFAULT_MARKERS = ("arrange", "act", "assert", "given", "when", "then")
@@ -257,7 +258,7 @@ class TestStyleCheck:
         marker_re, alias_to_section = self._build_alias_map()
         violations: list[Violation] = []
         root = Path(src_root)
-        for path in sorted(root.rglob("*.py")):
+        for path in iter_py_files(root):
             if any(part in _SKIP_DIRS for part in path.parts):
                 continue
             if not _is_test_file(path=path):
