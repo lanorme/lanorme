@@ -11,6 +11,7 @@ from pathlib import Path
 import pytest
 
 from lanorme import discovery, get_check
+from lanorme.checks.layer_deps import TRANSPORT_LAYERS
 
 
 @pytest.fixture(autouse=True)
@@ -41,6 +42,11 @@ def _reset_global_state(monkeypatch):
     domain_terms = get_check("domain_terms")
     if domain_terms is not None:
         domain_terms.term_rules = []
+    # ``layer_deps`` likewise carries configured transport layers in place.
+    layer_deps = get_check("layer_deps")
+    if layer_deps is not None:
+        layer_deps.transport_layers = TRANSPORT_LAYERS
+        layer_deps._transport_configured = False
 
 
 @pytest.fixture

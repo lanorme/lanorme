@@ -17,6 +17,16 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
   annotation `title` uses the rule code (`DRY-001`) and the message is escaped, so
   a rule description or a multi-line message cannot corrupt the annotation
   (closes #4).
+- `layer_deps`: a `transport_layers` key under `[tool.lanorme.layer_deps]`.
+  Hexagonal apps often have several peer transport adapters with identical
+  import rules (a REST `api/`, an `mcp_server/`, a `grpc_server/`). Listing them
+  in `transport_layers` extends the composition-root exception, previously
+  hard-wired to `api/`, to each peer, so a non-api transport's wiring file may
+  import `infrastructure/`. Defaults to `["api"]`, so existing projects are
+  unaffected. A peer must also appear in `layers` and be given an `allowed`
+  entry.
+- `LAYER-006`: an advisory **warning** when a `transport_layers` entry is not
+  among the configured `layers` (and therefore has no effect).
 
 ## [0.10.0]
 
