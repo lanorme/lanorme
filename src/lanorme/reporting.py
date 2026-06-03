@@ -66,12 +66,25 @@ def _emit_human(*, results: list[CheckResult], show_passed: bool) -> None:
         print(f"Summary: {len(results)} checks — {passed} passed, {warned} warnings, {failed} failed.")
 
 
+def _emit_github(*, results: list[CheckResult]) -> None:
+    """Emit GitHub Actions workflow commands so findings appear inline on PR diffs."""
+    for result in results:
+        for v in result.violations:
+            msg = v.message.replace("\n", " ")
+            print(f"::error file={v.file},line={v.line},title={v.rule}::{msg}")
+        for w in result.warnings:
+            msg = w.message.replace("\n", " ")
+            print(f"::warning file={w.file},line={w.line},title={w.rule}::{msg}")
+
+
 def emit(*, results: list[CheckResult], output_format: str) -> None:
     """Dispatch results to the requested output format."""
     if output_format == "json":
         print(json.dumps([r.to_dict() for r in results], indent=2))
     elif output_format == "ndjson":
         _emit_ndjson(results=results)
+    elif output_format == "github":
+        _emit_github(results=results)
     else:
         _emit_human(results=results, show_passed=output_format == "full")
 
