@@ -147,7 +147,7 @@ single added statement, a reordering, a changed number, or a renamed attribute
 defeats the match. For the fuzzier "these should share a helper" cases, see
 `SIMILAR-001` below.
 
-Config: none currently. False positives on intentionally parallel
+Config: none. False positives on intentionally parallel
 adapters across bounded contexts are a known limit; suppress them with
 `[tool.lanorme.per-file-ignores]` or `# noqa: DRY-001`.
 
@@ -415,7 +415,7 @@ for broader patches.
   module-level `DEBUG = True` in `*settings.py` / `*config.py`.
 
 Each rule has a positive + negative unit test under
-`tests/unit/test_security_calls.py` locking the AST shape from day one.
+`tests/unit/test_security_calls.py` locking the AST shape.
 
 ---
 
