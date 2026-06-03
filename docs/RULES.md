@@ -505,6 +505,29 @@ exclude    = ["sandbox"]           # extra directories to skip entirely
 
 ---
 
+## Streaming safety: `SSE-001`
+
+Default-on. Flags generator functions that are passed directly to
+``StreamingResponse`` or ``EventSourceResponse`` and that lack both forms of
+client-disconnect handling.
+
+A streaming endpoint leaks a coroutine when the client disconnects if the
+generator does not catch ``asyncio.CancelledError`` or check
+``request.is_disconnected()``. Either form of handling is sufficient to
+suppress the rule.
+
+Precision-first: only the unambiguous shape is flagged -- a locally-defined
+generator called directly at the response-constructor call site. Indirection
+(an imported generator, a generator returned from another call, a generator
+expression) is left unflagged to avoid false positives.
+
+Suppress a deliberate pattern with ``# noqa: SSE-001`` on the generator, or
+use ``[tool.lanorme.per-file-ignores]`` for a whole file.
+
+Config: none.
+
+---
+
 ## Strong types: `TYPE-001..003`
 
 All default-on. Skips files under `tests/` and `migrations/`.

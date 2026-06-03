@@ -9,6 +9,17 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
 
 ## [Unreleased]
 
+### Added
+
+- `streaming_safety` check, `SSE-001`: default-on rule that flags generator
+  functions passed directly to `StreamingResponse` or `EventSourceResponse`
+  when the generator body lacks client-disconnect handling. A disconnecting
+  client leaks the coroutine unless the generator catches
+  `asyncio.CancelledError` or polls `await request.is_disconnected()`.
+  Precision-first: only locally-defined generators called directly at the
+  response-constructor call site are flagged; imported generators and dynamic
+  construction are left unflagged.
+
 ## [0.7.0]
 
 ### Added

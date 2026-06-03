@@ -30,27 +30,10 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from lanorme import CheckResult, Status, Violation, register
+from lanorme.checks._ast_helpers import attr_chain as _attr_chain
 from lanorme.discovery import iter_py_files
 
 _SKIP_DIRS = frozenset({".git", ".venv", "venv", "node_modules", "__pycache__", "dist", "build"})
-
-
-def _attr_chain(node: ast.AST) -> tuple[str, ...]:
-    """Return the dotted attribute chain at *node*, or () if it isn't one.
-
-    ``hashlib.md5`` -> ('hashlib', 'md5'); ``ssl.PROTOCOL_TLSv1`` -> ('ssl',
-    'PROTOCOL_TLSv1'); ``client.x.execute`` -> ('client', 'x', 'execute');
-    anything else (subscripts, calls in the chain, etc.) -> ().
-    """
-    parts: list[str] = []
-    current = node
-    while isinstance(current, ast.Attribute):
-        parts.append(current.attr)
-        current = current.value
-    if isinstance(current, ast.Name):
-        parts.append(current.id)
-        return tuple(reversed(parts))
-    return ()
 
 
 def _kwarg_named(*, call: ast.Call, name: str) -> ast.expr | None:
