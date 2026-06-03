@@ -10,8 +10,12 @@ Run all checks against a path:
 Run a single check:
     lanorme check . --check=layer_deps
 
+Run a single rule code or category:
+    lanorme check . --check=DRY-001
+
 JSON output for tooling/agents:
-    lanorme check . --output-format=json
+    lanorme check . --output-format=json     # one object per check
+    lanorme check . --output-format=ndjson   # one finding per line, jq-friendly
 
 List every registered rule:
     lanorme rules
@@ -23,7 +27,7 @@ import enum
 from dataclasses import dataclass, field
 from typing import Protocol, runtime_checkable
 
-__version__ = "0.7.0"
+__version__ = "0.8.0"
 
 
 class Status(enum.Enum):
@@ -44,10 +48,16 @@ class Violation:
     message: str
     fix: str
 
+    @property
+    def code(self) -> str:
+        """The rule code (e.g. ``DRY-001``) parsed from the rule string."""
+        return self.rule.split(":", 1)[0].strip().split()[0]
+
     def to_dict(self) -> dict[str, str | int]:
         return {
             "file": self.file,
             "line": self.line,
+            "code": self.code,
             "rule": self.rule,
             "message": self.message,
             "fix": self.fix,

@@ -464,6 +464,41 @@ Each rule has a positive + negative unit test under
 
 ---
 
+## Skills: `SKILL-001..006`
+
+On by default. Validates files named `SKILL.md` against the [Agent Skills
+specification](https://agentskills.io/specification). It only fires where a
+`SKILL.md` exists, so it is silent on projects without skills. The frontmatter
+parser is stdlib only and never turns its own uncertainty into a failure: if a
+required value cannot be read cleanly it warns `SKILL-006` rather than reporting
+the value as missing.
+
+Build failing:
+
+- `SKILL-001`: `name` is required; 1 to 64 characters; lowercase `a-z`, digits
+  and hyphens only; no leading, trailing or consecutive hyphen; and it must match
+  the parent directory name.
+- `SKILL-002`: `description` is required, non-empty, and at most 1024 characters.
+- `SKILL-003`: optional fields are well formed: `compatibility` at most 500
+  characters, `metadata` a map of string keys to string values, and
+  `allowed-tools` a single string.
+
+Advisory warnings:
+
+- `SKILL-004`: the `SKILL.md` body stays under 500 lines (progressive disclosure).
+- `SKILL-005`: relative Markdown links resolve to a file that exists. Links in
+  fenced code blocks, external URLs, and `#anchors` are ignored.
+- `SKILL-006`: the frontmatter is present but could not be parsed with confidence.
+
+Config:
+```toml
+[tool.lanorme.skills]
+enabled     = true   # default
+check_links = true   # default; set false to skip SKILL-005
+```
+
+---
+
 ## Stale paths: `STALE-001`
 
 Inert until configured. Flags references to old path tokens in

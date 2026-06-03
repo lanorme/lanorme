@@ -9,6 +9,48 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
 
 ## [Unreleased]
 
+## [0.8.0]
+
+### Added
+
+- `skills` check, `SKILL-001` to `SKILL-006`: validates files named `SKILL.md`
+  against the [Agent Skills specification](https://agentskills.io/specification).
+  `SKILL-001` to `SKILL-003` are build failing (a well-formed `name` that matches
+  its directory, a non-empty `description` within 1024 characters, and well-formed
+  optional fields); `SKILL-004` to `SKILL-006` are advisory warnings (body under
+  500 lines, resolving relative Markdown links, and a frontmatter that parses
+  cleanly). The frontmatter parser is stdlib only and never turns its own
+  uncertainty into a failure.
+- `--output-format ndjson`: one JSON object per finding, newline-delimited, for
+  piping into `jq`, `grep`, or `wc -l`. Each record carries `check`, `severity`
+  (`error` for violations, `warning` for warnings), `code`, `rule`, `file`,
+  `line`, `message`, and `fix`. A clean run emits no lines.
+- `--check` now accepts a rule code or category (for example `DRY-001` or
+  `SIZE`) as well as a check name. The code form runs only the owning check(s)
+  and narrows the output to that code. Resolution is name first, then code or
+  category, and is case-insensitive.
+- A `code` field on every JSON finding (in both the `json` and `ndjson`
+  formats) and on `Violation.to_dict()`, carrying the bare rule code such as
+  `DRY-001`.
+
+### Changed
+
+- The default human output is now the `concise` format: it prints only the
+  checks that found something, then a one-line summary. The previous behaviour,
+  which listed every check including the passing ones, is still available as
+  `--output-format full`. Exit codes are unchanged.
+- The new `skills` check is on by default. It is silent on a project with no
+  `SKILL.md`, but a repository that ships skills will now have them validated, so
+  a non-compliant `SKILL.md` (for example a `name` that does not match its
+  directory) becomes a build-failing finding on upgrade.
+
+### Internal
+
+- Output rendering moved out of `cli.py` into a new `lanorme.reporting` module.
+  No public API change.
+- Added a `docs-audit` skill and workflow that check the docs against the real
+  CLI for accuracy and house style.
+
 ## [0.7.0]
 
 ### Added
