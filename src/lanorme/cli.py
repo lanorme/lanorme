@@ -1,8 +1,8 @@
 """Command-line entry point for LaNorme.
 
-    lanorme check [PATHS...] [--check NAME] [--select ...] [--ignore ...]
-                  [--exclude ...] [--output-format {full,json}] [--json]
-                  [--plugin MODULE]
+    lanorme check [PATHS...] [--check NAME|CODE] [--select ...] [--ignore ...]
+                  [--exclude ...] [--output-format {concise,full,json,ndjson}]
+                  [--json] [--plugin MODULE]
     lanorme rules
     lanorme rule CODE
     lanorme --version
@@ -15,20 +15,19 @@ Configuration is discovered by walking up from the target path: a dedicated
 from __future__ import annotations
 
 import argparse
-import dataclasses
 import fnmatch
 import importlib
-import json
 import pkgutil
 import re
 import sys
 import tomllib
 from importlib.metadata import entry_points
-from importlib.resources import files as _resource_files
 from pathlib import Path
 
 import lanorme.checks
+from lanorme import reporting
 from lanorme import (
+    Check,
     CheckResult,
     Configurable,
     Status,
@@ -135,6 +134,45 @@ def _category(code: str) -> str:
     """The category prefix of a code, e.g. 'LAYER' from 'LAYER-002'."""
     match = _CODE_RE.match(code)
     return match.group(1) if match else code
+
+
+def _checks_for_selector(*, selector: str) -> list[Check]:
+    """Return the checks that own a rule whose code or category matches *selector*."""
+    wanted = selector.upper()
+    matched: list[Check] = []
+    for check in get_all_checks().values():
+        for rule in check.rules:
+            code = _rule_code(rule)
+            if code == wanted or _category(code) == wanted:
+                matched.append(check)
+                break
+    return sorted(matched, key=lambda c: c.name)
+
+
+def _resolve_single(*, selector: str, src_root: str) -> tuple[list[CheckResult], list[str]]:
+    """Run the check(s) named or coded by *selector*.
+
+    Resolution is name-first (an exact check name like ``duplication``), then by
+    rule code or category (``DRY-001`` / ``SIZE``, case-insensitive). When a code
+    or category is given, it is returned as an implicit selector so the output is
+    narrowed to that code, and only the owning check(s) run. Exits 2 if unknown.
+    """
+    by_name = get_check(selector)
+    if by_name is not None:
+        return [by_name.run(src_root=src_root)], []
+
+    matched = _checks_for_selector(selector=selector)
+    if matched:
+        return [check.run(src_root=src_root) for check in matched], [selector.upper()]
+
+    names = ", ".join(sorted(get_all_checks())) or "(none)"
+    print(
+        f"ERROR: '{selector}' is not a known check name, rule code, or category.\n"
+        f"  Checks: {names}\n"
+        f"  Run 'lanorme rules' to see every rule code and category.",
+        file=sys.stderr,
+    )
+    sys.exit(2)
 
 
 def _matches(*, code: str, patterns: list[str]) -> bool:
@@ -304,133 +342,8 @@ def _apply_noqa(*, results: list[CheckResult], project_root: Path) -> list[Check
 
 
 # --------------------------------------------------------------------------- #
-# Output
+# Output helpers
 # --------------------------------------------------------------------------- #
-
-
-def _print_results(*, results: list[CheckResult], json_output: bool) -> None:
-    if json_output:
-        print(json.dumps([r.to_dict() for r in results], indent=2))
-        return
-    for result in results:
-        print(result.format_human())
-        print()
-
-
-def _print_rules() -> None:
-    checks = get_all_checks()
-    if not checks:
-        print("No checks registered.")
-        return
-    for check in sorted(checks.values(), key=lambda c: c.name):
-        print(f"\n## {check.name} — {check.description}")
-        for rule in check.rules:
-            print(f"  {rule}")
-
-
-def _rules_reference_path() -> Path | None:
-    """Locate the rule reference Markdown, preferring the package-bundled copy."""
-    bundled = _resource_files("lanorme").joinpath("RULES.md")
-    if bundled.is_file():
-        return Path(str(bundled))
-    for candidate in (
-        Path(__file__).resolve().parents[2] / "docs" / "RULES.md",
-        Path.cwd() / "docs" / "RULES.md",
-    ):
-        if candidate.is_file():
-            return candidate
-    return None
-
-
-def _rule_reference_section(*, code: str) -> str | None:
-    """Return the ``docs/RULES.md`` section that documents *code*, or None.
-
-    Matches by looking for a Markdown header whose backtick-quoted token
-    starts with the code (e.g. ``### `CMT-001`: ...``) or a category
-    header (e.g. ``## Comments: `CMT-*` ...``) where the code's category
-    appears in a backtick token. The section is everything up to the next
-    same-or-shallower header.
-    """
-    reference = _rules_reference_path()
-    if reference is None:
-        return None
-    text = reference.read_text(encoding="utf-8")
-    code_token = f"`{code}`"
-    category = code.split("-", 1)[0]
-    category_token = f"`{category}-"
-    lines = text.splitlines()
-    exact = [i for i, line in enumerate(lines) if line.startswith("#") and code_token in line]
-    category_only = [
-        i for i, line in enumerate(lines) if line.startswith("#") and category_token in line
-    ]
-    if not exact and not category_only:
-        return None
-    start = exact[0] if exact else category_only[0]
-    header_level = len(lines[start]) - len(lines[start].lstrip("#"))
-    end = len(lines)
-    for index in range(start + 1, len(lines)):
-        if lines[index].startswith("#"):
-            level = len(lines[index]) - len(lines[index].lstrip("#"))
-            if level <= header_level:
-                end = index
-                break
-    return "\n".join(lines[start:end]).rstrip() + "\n"
-
-
-def _print_rule_detail(*, code: str) -> int:
-    """Print the reference section for *code* and return an exit code."""
-    section = _rule_reference_section(code=code.upper())
-    if section is not None:
-        print(section)
-        return 0
-    print(
-        f"No reference section found for {code!r}. Run 'lanorme rules' for the list "
-        "of emitted codes, or browse docs/RULES.md directly.",
-        file=sys.stderr,
-    )
-    return 2
-
-
-def _settings_repr(check: object) -> str:
-    """One-line summary of a check's effective settings after configuration."""
-    if not dataclasses.is_dataclass(check):
-        return ""
-    parts: list[str] = []
-    if hasattr(check, "enabled"):
-        parts.append(f"enabled={check.enabled}")
-    for field in dataclasses.fields(check):
-        if field.name in {"name", "description", "rules", "enabled"}:
-            continue
-        value = getattr(check, field.name)
-        text = repr(value)
-        if len(text) > 48:
-            if isinstance(value, (list, tuple, set, frozenset)):
-                text = f"<{len(value)} items>"
-            elif isinstance(value, dict):
-                text = f"<{len(value)} keys>"
-            else:
-                text = text[:45] + "..."
-        parts.append(f"{field.name}={text}")
-    summary = " ".join(parts)
-    if hasattr(check, "enabled") and not check.enabled:
-        summary += "   (opt-in, not enabled)"
-    return summary
-
-
-def _print_config(*, config: dict[str, object], source: str | None, project_root: Path) -> None:
-    """Print the discovered config file and the effective settings for every check."""
-    print(f"config file:  {source or 'none (built-in defaults)'}")
-    print(f"project root: {project_root}")
-    top = [k for k in ("select", "ignore", "exclude", "source_root", "plugins") if k in config]
-    if top or config.get("per-file-ignores"):
-        print("\n[tool.lanorme]")
-        for key in top:
-            print(f"  {key} = {config[key]!r}")
-        if config.get("per-file-ignores"):
-            print(f"  per-file-ignores = {config['per-file-ignores']!r}")
-    print("\nchecks (effective settings):")
-    for name, check in sorted(get_all_checks().items()):
-        print(f"  {name:<18} {_settings_repr(check)}")
 
 
 def _csv(value: str | None) -> list[str]:
@@ -466,7 +379,12 @@ def _build_parser() -> argparse.ArgumentParser:
 
     check = sub.add_parser("check", help="Run checks against one or more paths.")
     check.add_argument("paths", nargs="*", default=["."], help="Path(s) to check (default: .)")
-    check.add_argument("--check", dest="single", default=None, help="Run a single check by name.")
+    check.add_argument(
+        "--check",
+        dest="single",
+        default=None,
+        help="Run a single check by name (e.g. duplication), or by rule code/category (e.g. DRY-001, SIZE).",
+    )
     check.add_argument("--select", default=None, help="Comma-separated rule codes/categories to run.")
     check.add_argument("--ignore", default=None, help="Comma-separated rule codes/categories to skip.")
     check.add_argument("--exclude", default=None, help="Comma-separated file-path globs to exclude.")
@@ -478,9 +396,13 @@ def _build_parser() -> argparse.ArgumentParser:
     check.add_argument("--plugin", action="append", default=[], help="Plugin module to load (repeatable).")
     check.add_argument(
         "--output-format",
-        choices=["full", "json"],
-        default="full",
-        help="Output format (default: full).",
+        choices=["concise", "full", "json", "ndjson"],
+        default="concise",
+        help=(
+            "Output format (default: concise). 'concise' shows only checks with findings plus a "
+            "summary; 'full' shows every check; 'json' is one object per check; 'ndjson' is one "
+            "finding per line."
+        ),
     )
     check.add_argument("--json", action="store_true", help="Alias for --output-format=json.")
 
@@ -499,11 +421,10 @@ def _build_parser() -> argparse.ArgumentParser:
 
 def _run_and_report(*, args: argparse.Namespace, config: dict[str, object], src_root: str) -> None:
     """Run the selected checks, apply the filters, print, and set the exit code."""
-    select = _csv(args.select) or list(config.get("select", []))
     ignore = _csv(args.ignore) or list(config.get("ignore", []))
     exclude = _csv(args.exclude) or list(config.get("exclude", []))
     per_file_ignores = _parse_per_file_ignores(table=config.get("per-file-ignores", {}))
-    json_output = args.json or args.output_format == "json"
+    output_format = "json" if args.json else args.output_format
 
     # Publish excludes so checks prune them (plus the built-in junk dirs) at
     # walk time, not just in the post-filter below. Always set, even to (), so
@@ -511,24 +432,23 @@ def _run_and_report(*, args: argparse.Namespace, config: dict[str, object], src_
     set_excludes(exclude)
 
     if args.single:
-        check = get_check(args.single)
-        if check is None:
-            available = ", ".join(sorted(get_all_checks())) or "(none)"
-            print(f"ERROR: Unknown check '{args.single}'. Available: {available}", file=sys.stderr)
-            sys.exit(2)
-        results = [check.run(src_root=src_root)]
+        results, implicit_select = _resolve_single(selector=args.single, src_root=src_root)
     else:
-        results = run_all(src_root=src_root)
+        results, implicit_select = run_all(src_root=src_root), []
 
     if not results:
         print("No checks registered.")
         return
 
+    # A code-form ``--check`` (e.g. DRY-001) narrows output to that code; an
+    # explicit ``--select`` is otherwise honoured, then config ``select``.
+    select = implicit_select or _csv(args.select) or list(config.get("select", []))
+
     results = _apply_filters(results=results, select=select, ignore=ignore)
     results = _apply_excludes(results=results, exclude=exclude)
     results = _apply_per_file_ignores(results=results, table=per_file_ignores)
     results = _apply_noqa(results=results, project_root=Path(src_root))
-    _print_results(results=results, json_output=json_output)
+    reporting.emit(results=results, output_format=output_format)
 
     if any(r.status == Status.FAIL for r in results):
         sys.exit(1)
@@ -546,7 +466,7 @@ def _command_check(*, args: argparse.Namespace) -> None:
     _apply_check_config(config=config)
 
     if args.show_config:
-        _print_config(config=config, source=config_source, project_root=project_root)
+        reporting.print_config(config=config, source=config_source, project_root=project_root)
         return
 
     _run_and_report(args=args, config=config, src_root=str(target))
@@ -565,11 +485,11 @@ def main(argv: list[str] | None = None) -> None:
     _load_entry_point_checks()
 
     if args.command == "rules":
-        _print_rules()
+        reporting.print_rules()
         return
 
     if args.command == "rule":
-        sys.exit(_print_rule_detail(code=args.code))
+        sys.exit(reporting.print_rule_detail(code=args.code))
 
     _command_check(args=args)
 

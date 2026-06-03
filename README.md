@@ -41,19 +41,22 @@ Releases are tagged `vX.Y.Z`; see the [releases page](https://github.com/lanorme
 ## Usage
 
 ```console
-lanorme check [PATHS...]            # run every enabled check (default path: .)
-lanorme check . --check secrets     # run one check by name
-lanorme check . --select TYPE,AUTHN # only these rule codes or categories
-lanorme check . --ignore NAMING-003 # skip specific rules
-lanorme check . --output-format json
-lanorme check . --show-config       # print discovered config + effective settings
-lanorme rules                       # list every registered rule
-lanorme rule  SQL-001               # show the reference for one rule
+lanorme check [PATHS...]              # run every enabled check (default path: .)
+lanorme check . --check secrets       # run one check by name
+lanorme check . --check DRY-001       # or by rule code / category (runs only its check)
+lanorme check . --select TYPE,AUTHN   # only these rule codes or categories
+lanorme check . --ignore NAMING-003   # skip specific rules
+lanorme check . --output-format ndjson  # one finding per line, for jq / grep
+lanorme check . --output-format json    # one JSON object per check
+lanorme check . --output-format full    # show passing checks too, not just findings
+lanorme check . --show-config         # print discovered config + effective settings
+lanorme rules                         # list every registered rule
+lanorme rule  SQL-001                 # show the reference for one rule
 ```
 
 Exit code is `1` when any check fails, `0` when the tree is clean.
 
-A run looks like this:
+By default a run reports only the checks that found something, then a summary line:
 
 ```console
 $ lanorme check src/
@@ -62,6 +65,16 @@ $ lanorme check src/
     Rule: SECRETPY-001: No hardcoded secrets in source code
     Fix: Read the value from an environment variable, secrets manager, or settings module
 --- secrets: 1 violations, 0 warnings ---
+
+Summary: 23 checks — 22 passed, 0 warnings, 1 failed.
+```
+
+For machine consumption, `--output-format ndjson` prints one JSON object per
+finding, which pipes straight into `jq`, `grep`, or `wc -l`:
+
+```console
+$ lanorme check src/ --output-format ndjson | jq -c '{code, file, line}'
+{"code":"SECRETPY-001","file":"app.py","line":8}
 ```
 
 ### Suppressing a finding
@@ -145,6 +158,7 @@ On by default, on any project, no config needed:
 | `JUNK-001/002` | screenshots, scratch files, OS junk, stray binaries |
 | `TESTFILE-001` | a production module with no `test_*.py` partner |
 | `META-001..005` | the checks themselves emit well-formed output |
+| `SKILL-001..006` | Agent Skill (`SKILL.md`) frontmatter, naming and link compliance |
 
 Off until you turn them on:
 

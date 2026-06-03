@@ -5,6 +5,15 @@ for Python: it checks the usual code-quality things plus a few that other
 linters do not, such as hexagonal layer boundaries and a project's own naming
 vocabulary. This guide covers the setup, the conventions, and how to add a rule.
 
+## Where to start
+
+The roadmap lives in the [issues](https://github.com/lanorme/lanorme/issues).
+Issues tagged `help wanted` are ready for someone to pick up, and the `roadmap`
+label marks the larger themes. Comment on an issue to claim it before you start,
+so two people do not write the same fix. If you want to propose something new,
+open an issue first and describe the rule or change, so the design can be agreed
+before you write the code.
+
 ## Principles
 
 - **Standard library only.** No runtime dependencies. The only dev dependency
@@ -120,11 +129,73 @@ rule, update its section in `docs/RULES.md` and the rule tables in `README.md`
 in the same change. The Markdown is itself linted (British spelling, no em
 dashes, no emoji), so run the dogfood after editing.
 
-## Commits and pull requests
+## Sending a pull request
 
-- Work on a branch, not `main`.
-- Keep a change focused and describe the user-facing effect.
-- Add a `## [Unreleased]` CHANGELOG entry for anything users would notice.
+LaNorme uses the standard fork and pull-request flow, so you do not need write
+access to the repository.
+
+1. **Fork** the repository on GitHub, then clone your fork and add the main
+   repository as a second remote so you can stay up to date:
+
+   ```console
+   git clone https://github.com/<your-username>/lanorme
+   cd lanorme
+   git remote add upstream https://github.com/lanorme/lanorme
+   ```
+
+2. **Branch** off an up-to-date `main`. Never commit to `main` itself, on your
+   fork or otherwise, so it stays a clean mirror of upstream:
+
+   ```console
+   git fetch upstream
+   git switch -c fix/term-cli-parity upstream/main
+   ```
+
+   Name the branch for the work: `fix/...` for a bug, `feat/...` for a new rule
+   or feature, `docs/...` for documentation.
+
+3. **Make the change**, focused on one issue. Add a positive and a negative test,
+   update the rule's section in `docs/RULES.md` and the tables in `README.md` if
+   you touched a rule, and add a `## [Unreleased]` entry to `CHANGELOG.md` for
+   anything users would notice.
+
+4. **Run the gates** until they pass:
+
+   ```console
+   scripts/check.sh
+   ```
+
+   The pre-commit hook runs the same gate, so a commit only lands when the tree
+   is LaNorme-compliant.
+
+5. **Commit** with a message that describes the user-facing effect, and reference
+   the issue it closes:
+
+   ```console
+   git commit -m "Fix TERM parity between the CLI and the library (#17)"
+   ```
+
+6. **Push** to your fork and open a pull request against `lanorme/lanorme` on the
+   `main` branch:
+
+   ```console
+   git push -u origin fix/term-cli-parity
+   ```
+
+   The push prints a link to open the pull request, or run `gh pr create`.
+
+7. **CI** runs the unit tests and the dogfood on your pull request across the
+   supported Python versions. Keep it green. A maintainer then reviews it, may
+   ask for changes (push more commits to the same branch and they join the pull
+   request), and merges it when it is ready.
+
+If `main` moves on while you work, rebase your branch on `upstream/main` and
+resolve any conflicts on the branch rather than in the pull request:
+
+```console
+git fetch upstream
+git rebase upstream/main
+```
 
 ## Releasing (maintainers)
 
