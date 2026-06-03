@@ -222,7 +222,7 @@ dirs = ["legacy_src", "build_artifacts"]
 
 ---
 
-## Layer dependencies: `LAYER-001..005`
+## Layer dependencies: `LAYER-001..006`
 
 For hexagonal / layered codebases with a `domain/`, `application/`,
 `infrastructure/`, `api/` layout. Inert in their absence.
@@ -241,9 +241,17 @@ stay relative to the scan target.
   `application/`.
 - `LAYER-005`: only the composition root may import from
   `infrastructure/`.
+- `LAYER-006`: a `transport_layers` entry is not among the configured
+  `layers`, so it has no effect (advisory **warning**, exit 0).
 
 These rules track Cockburn's hexagonal architecture and Seemann's
 composition-root pattern.
+
+The composition-root exception applies to any layer listed in
+`transport_layers` (default `["api"]`). Apps with several peer transport
+adapters (a REST `api/`, an `mcp_server/`, a `grpc_server/`) can list them all
+so each keeps its own composition root. A transport peer must also appear in
+`layers` and be given an `allowed` entry.
 
 Config (all keys optional; the defaults are shown):
 
@@ -256,6 +264,10 @@ composition_root = ["api/dependencies/**", "api/v1/dependencies/**", "api/v1/mai
 
 # For layouts whose layers differ. Defaults shown.
 layers = ["domain", "application", "infrastructure", "api"]
+
+# Transport (inbound adapter) layers eligible for the composition-root
+# exception. A peer must also appear in layers and get an allowed entry.
+transport_layers = ["api"]
 [tool.lanorme.layer_deps.allowed]
 application    = ["domain"]
 infrastructure = ["domain", "application"]
