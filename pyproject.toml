@@ -96,3 +96,7 @@ enabled = true
 # Dogfood the opt-in attribute-access smell check on LaNorme itself.
 [tool.lanorme.attribute_access]
 enabled = true
+
+# Dogfood the opt-in fuzzy near-duplicate check on LaNorme itself.
+[tool.lanorme.similarity]
+enabled = true

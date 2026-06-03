@@ -9,6 +9,31 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
 
 ## [Unreleased]
 
+## [0.7.0]
+
+### Added
+
+- `similarity` check, `SIMILAR-001`: a fuzzy near-duplicate detector, the
+  opt-in (default-off) advisory **warning** companion to the exact, build-
+  failing `DRY-001`. It catches the clones `DRY-001` misses, one or two added
+  statements, a reordering, a changed number, a renamed attribute or call, by
+  comparing two functions on a structural token sequence (abstracting variable
+  names, attribute names and numbers, scored with `difflib`) gated by anchor
+  agreement on the meaning-bearing tokens `DRY-001` discards (string literals,
+  called names, operator kinds, accessed attribute names). Drifted
+  logging-message strings and equality/dunder/`@property` boilerplate are
+  handled specially. Built and tuned against a 90-case adversarial corpus
+  (`tests/fixtures/duplication_similar/`) with a scorer
+  (`benchmarks/score_similar.py`): **precision 1.000 / recall 0.850 /
+  F1 0.919**. Enable and tune via `[tool.lanorme.similarity]` (`enabled`,
+  `min_statements`, and the per-anchor thresholds).
+
+### Changed
+
+- `DRY-001` documentation now describes it accurately as an **exact structural
+  clone** detector (it was loosely called "near-duplicate"); the genuine
+  near-duplicate cases are now `SIMILAR-001`.
+
 ## [0.6.0]
 
 ### Added
