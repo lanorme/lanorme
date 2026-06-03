@@ -64,7 +64,7 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
   agreement on the meaning-bearing tokens `DRY-001` discards (string literals,
   called names, operator kinds, accessed attribute names). Drifted
   logging-message strings and equality/dunder/`@property` boilerplate are
-  handled specially. Built and tuned against a 90-case adversarial corpus
+  handled specially. Built and tuned against an 89-case adversarial corpus
   (`tests/fixtures/duplication_similar/`) with a scorer
   (`benchmarks/score_similar.py`): **precision 1.000 / recall 0.850 /
   F1 0.919**. Enable and tune via `[tool.lanorme.similarity]` (`enabled`,
