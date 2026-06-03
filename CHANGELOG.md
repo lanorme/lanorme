@@ -9,6 +9,14 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
 
 ## [Unreleased]
 
+### Changed
+
+- `JUNK-001` (stray artifacts) now flags scratch files whose name carries a
+  temp or test directory marker (`*tmpdir*`, `*tempdir*`, `*testdir*`,
+  `*scratchdir*`), so the `.testdir` / `.pc_tmpdir` files a test harness leaves
+  at the repo root are caught. Legitimate extension-less dotfiles such as
+  `.gitignore` are unaffected.
+
 ## [0.8.0]
 
 ### Added
