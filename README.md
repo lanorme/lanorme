@@ -5,10 +5,10 @@
 [![CI](https://github.com/lanorme/lanorme/actions/workflows/ci.yml/badge.svg)](https://github.com/lanorme/lanorme/actions/workflows/ci.yml)
 [![Licence: MIT](https://img.shields.io/badge/licence-MIT-blue.svg)](LICENSE)
 
-A linter for Python. It checks the usual things, commented-out code, file and function
-size, complexity, weak types, hardcoded secrets, dangerous calls, and a few
-things most linters do not: hexagonal layer boundaries, ports-and-adapters
-wiring, and a project's own naming vocabulary.
+A linter for Python. It checks the usual things: commented-out code, file and
+function size, complexity, weak types, hardcoded secrets, and dangerous calls. It
+also checks a few things most linters do not: hexagonal layer boundaries,
+ports-and-adapters wiring, and a project's own naming vocabulary.
 
 Standard library only. No runtime dependencies. Python 3.13+.
 
@@ -33,7 +33,7 @@ uvx lanorme check .
 Or install straight from source:
 
 ```console
-uv tool install "git+https://github.com/lanorme/lanorme@v0.6.0"
+uv tool install "git+https://github.com/lanorme/lanorme@v0.8.0"
 ```
 
 Releases are tagged `vX.Y.Z`; see the [releases page](https://github.com/lanorme/lanorme/releases) for notes.
@@ -41,19 +41,24 @@ Releases are tagged `vX.Y.Z`; see the [releases page](https://github.com/lanorme
 ## Usage
 
 ```console
-lanorme check [PATHS...]            # run every enabled check (default path: .)
-lanorme check . --check secrets     # run one check by name
-lanorme check . --select TYPE,AUTHN # only these rule codes or categories
-lanorme check . --ignore NAMING-003 # skip specific rules
-lanorme check . --output-format json
-lanorme check . --show-config       # print discovered config + effective settings
-lanorme rules                       # list every registered rule
-lanorme rule  SQL-001               # show the reference for one rule
+lanorme check [PATHS...]              # run every enabled check (default path: .)
+lanorme check . --check secrets       # run one check by name
+lanorme check . --check DRY-001       # by rule code or category; runs the check that owns it
+lanorme check . --select TYPE,AUTHN   # only these rule codes or categories
+lanorme check . --ignore NAMING-003   # skip specific rules
+lanorme check . --exclude 'tests/*'   # skip path globs (comma-separated)
+lanorme check . --output-format ndjson  # one finding per line, for jq / grep
+lanorme check . --output-format json    # one JSON object per check (--json is a shortcut)
+lanorme check . --output-format full    # show passing checks too, not just findings
+lanorme check . --plugin my_pkg.rules # load a plugin module that registers checks
+lanorme check . --show-config         # print discovered config + effective settings
+lanorme rules                         # list every registered rule
+lanorme rule  SQL-001                 # show the reference for one rule
 ```
 
 Exit code is `1` when any check fails, `0` when the tree is clean.
 
-A run looks like this:
+By default a run reports only the checks that found something, then a summary line:
 
 ```console
 $ lanorme check src/
@@ -62,6 +67,16 @@ $ lanorme check src/
     Rule: SECRETPY-001: No hardcoded secrets in source code
     Fix: Read the value from an environment variable, secrets manager, or settings module
 --- secrets: 1 violations, 0 warnings ---
+
+Summary: 24 checks — 23 passed, 0 warnings, 1 failed.
+```
+
+For machine consumption, `--output-format ndjson` prints one JSON object per
+finding, which pipes straight into `jq`, `grep`, or `wc -l`:
+
+```console
+$ lanorme check src/ --output-format ndjson | jq -c '{code, file, line}'
+{"code":"SECRETPY-001","file":"app.py","line":8}
 ```
 
 ### Suppressing a finding
@@ -126,9 +141,9 @@ scans the whole tree.
 
 ## What it checks
 
-`lanorme rules` prints the live list. Each rule, what it catches and does not,
-its config, and where measured its precision and recall on the bundled test
-corpora, is in [`docs/RULES.md`](docs/RULES.md).
+`lanorme rules` prints the live list. [`docs/RULES.md`](docs/RULES.md) documents
+every rule: what it catches and what it does not, its config, and its precision
+and recall on the bundled test corpora where those are measured.
 
 On by default, on any project, no config needed:
 
@@ -146,6 +161,7 @@ On by default, on any project, no config needed:
 | `JUNK-001/002` | screenshots, scratch files, OS junk, stray binaries |
 | `TESTFILE-001` | a production module with no `test_*.py` partner |
 | `META-001..005` | the checks themselves emit well-formed output |
+| `SKILL-001..006` | Agent Skill (`SKILL.md`) frontmatter, naming and link compliance |
 
 Off until you turn them on:
 
