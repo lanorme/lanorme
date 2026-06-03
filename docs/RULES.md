@@ -137,6 +137,31 @@ forbidden = ["Cust", "Client"]
 
 ---
 
+## Exceptions: `EXC-001`
+
+Default-on, violation. Detects bare `except: pass` and the broader
+family of swallowed exceptions: `except` clauses (with or without an
+exception type) whose body contains only `pass`, only `...`, or only a
+comment (no logging, no re-raise, no assignment). The rule fires on the
+`except` clause node itself so suppression with `# noqa: EXC-001` goes
+on that line.
+
+What it does **not** flag:
+
+- `except SomeError:` with any non-trivial body (a `log.*` call, an
+  assignment, a `return`, a `raise`, ...) — the exception is handled
+  even if not re-raised.
+- `except SomeError as e: pass` when `e` is referenced elsewhere in
+  the clause (not currently possible with a `pass`-only body, included
+  for clarity).
+- Cleanup patterns inside `finally:` blocks (different AST node).
+
+Config: none. Use `# noqa: EXC-001` on the `except` line for genuine
+intentional swallows (for example `except KeyboardInterrupt: pass` in a
+REPL-style loop). Broader exemptions via `[tool.lanorme.per-file-ignores]`.
+
+---
+
 ## Duplication: `DRY-001`
 
 Default-on. Detects **exact structural clones**: functions with an identical
@@ -280,6 +305,30 @@ it conforms.
 
 ---
 
+## Mutable defaults: `MUTDEF-001`
+
+Default-on, violation. Flags function and method definitions where a
+default argument value is a mutable built-in literal: `[]`, `{}`, `set()`,
+`dict()`, or `list()`. The classic Python footgun: the default object is
+created once at definition time and shared across all calls that rely on
+the default, so mutations in one call bleed into the next.
+
+What it does **not** flag:
+
+- `None` defaults (the conventional sentinel; callers assign a fresh
+  object inside the function body).
+- Immutable literals: `()`, `frozenset(...)`, strings, numbers, booleans.
+- Calls other than the bare `list()` / `dict()` / `set()` constructors
+  (a factory call like `default_factory()` is out of scope).
+- `dataclasses.field(default_factory=...)` patterns (handled by the
+  dataclasses machinery).
+
+Config: none. Use `# noqa: MUTDEF-001` on the `def` line for the rare
+intentional shared-state use. Broader exemptions via
+`[tool.lanorme.per-file-ignores]`.
+
+---
+
 ## Keyword arguments: `KWARG-001`
 
 Opt-in. With `enabled = true`, every multi-argument function definition
@@ -419,7 +468,7 @@ Each rule has a positive + negative unit test under
 
 ---
 
-## Security patterns: `AUTHN-001` / `SQL-001` / `SECRETPY-001`
+## Security patterns: `AUTHN-001` / `SQL-001` / `SECRETPY-001` / `SECRET-002` / `SECRET-003`
 
 - `AUTHN-001`: default-on. `@router.post` / `put` / `patch` / `delete`
   handlers must have an auth dependency (a parameter annotated with
@@ -457,10 +506,27 @@ Each rule has a positive + negative unit test under
   example secret keys). Excludes `conftest.py`, `seed_dev.py`, and
   files starting with `test_`. Measured against
   `tests/fixtures/security_hardcoded_secrets/` (155 labels):
-  **P = 1.000 / R = 1.000 / F1 = 1.000**. **Scope warning**:
-  Python-source only; `.env`, `*.yaml`, `*.ipynb`, `*.tf`, `Dockerfile`,
-  GitHub Actions workflows are out of scope until a separate
-  non-Python rule lands.
+  **P = 1.000 / R = 1.000 / F1 = 1.000**.
+- `SECRET-002`: default-on. Extends the `secrets` check to `.env` files.
+  Scans every `KEY=VALUE` line (including quoted values and
+  `export KEY=VALUE` forms); applies the same credential-name filter and
+  entropy / shape heuristics as `SECRETPY-001`. Lines whose value is a
+  placeholder (`<...>`, `REPLACE_ME`, `example`, empty string, `0`,
+  `false`, `true`, `null`, ...) are exempt unless the value is high-
+  entropy (32+ chars, mixed case, digits). Variable expansions (`${VAR}`,
+  `$VAR`) are never flagged. Excludes `.env.example`, `.env.sample`, and
+  `.env.template` by name. Use `# noqa: SECRET-002` on a line or
+  `[tool.lanorme.per-file-ignores]` to exempt a whole file (for example
+  a local dev `.env` that is already git-ignored).
+- `SECRET-003`: default-on. Extends the `secrets` check to YAML files
+  (`*.yaml`, `*.yml`) and Jupyter notebooks (`*.ipynb`). In YAML files,
+  all scalar values reachable from a credential-named key are checked
+  with the same heuristics. In notebooks, every code cell is parsed as
+  Python (same AST path as `SECRETPY-001`) and every output cell's text
+  is scanned for shape matches (PEM blocks, JWT tokens, vendor-prefixed
+  keys). Excludes files under `tests/` and paths matching
+  `.github/workflows/`. Use `# noqa: SECRET-003` in a notebook source
+  cell or `[tool.lanorme.per-file-ignores]` for whole files.
 
 ---
 
@@ -474,6 +540,39 @@ Config:
 [tool.lanorme.stale_paths]
 tokens = ["src/", "old_pkg/"]
 ```
+
+---
+
+## Streaming endpoints: `SSE-001`
+
+Opt-in (default-off), violation. Checks that every FastAPI / Starlette
+streaming-response generator — any `async def` or `def` that `yield`s
+inside a route decorated with `@router.get` / `@router.post` / etc. and
+whose return annotation contains `StreamingResponse` or
+`EventSourceResponse` — wraps its yield loop in a `try: … except
+asyncio.CancelledError` (or catches `GeneratorExit`) so that resources
+are released when the client disconnects. A streaming endpoint that does
+not handle disconnect silently leaks the underlying resource (database
+cursor, file handle, background task) on every abrupt client close.
+
+What it does **not** flag:
+
+- Non-streaming routes (return a plain `Response` or a Pydantic model).
+- Generators that already contain any `try/except` wrapping the `yield`
+  (even if it catches a different exception type — the rule defers to
+  the author's judgement).
+- Files outside `api/`.
+
+Enable and configure:
+
+```toml
+[tool.lanorme.streaming]
+enabled = true
+```
+
+Config: none beyond `enabled`. Use `# noqa: SSE-001` on the `def` line
+for generators where disconnect handling is intentionally delegated to
+the caller.
 
 ---
 
@@ -558,3 +657,38 @@ required_markers      = 2     # 1..3
 dry_prefix_statements = 3
 synonyms              = ["setup", "given", "when", "then"]
 ```
+
+---
+
+## Typing guards: `TYPING-001`
+
+Opt-in (default-off), violation. Enforces a consistent policy for
+imports that are only needed for type annotations (typically large
+modules imported solely to name a type). The rule has two modes,
+selected by the `require` config key:
+
+- `require = "guard"` (the default when enabled): every import that
+  appears only in annotations must be inside an `if TYPE_CHECKING:`
+  block. An import used at runtime (passed to `isinstance`, stored in a
+  dict, called) is always exempt. This mode is appropriate when you want
+  to keep runtime import graphs lean and avoid circular imports.
+- `require = "no-guard"`: the inverse — `if TYPE_CHECKING:` guards are
+  forbidden; all imports must be at module level. Use this when your
+  project relies on runtime introspection (`get_type_hints`, Pydantic
+  v1, SQLAlchemy mapped columns) that requires annotations to be
+  resolvable without `from __future__ import annotations`.
+
+`IMPORT-001` (imports inside function bodies) already fires on inline
+imports; `TYPING-001` is complementary and only fires on module-level
+imports relative to `TYPE_CHECKING` guards.
+
+Config:
+
+```toml
+[tool.lanorme.typing_guards]
+enabled = true
+require = "guard"   # "guard" | "no-guard"
+```
+
+Use `# noqa: TYPING-001` on the import line for individual exceptions.
+Broader exemptions via `[tool.lanorme.per-file-ignores]`.

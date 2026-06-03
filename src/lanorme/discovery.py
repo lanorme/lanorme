@@ -99,3 +99,15 @@ def iter_files(root: Path, *, suffix: str | None = None) -> list[Path]:
 def iter_py_files(root: Path) -> list[Path]:
     """Walk *root* for ``*.py`` files, honouring pruning. Sorted by path."""
     return iter_files(root, suffix=".py")
+
+
+def iter_env_files(root: Path) -> list[Path]:
+    """Walk *root* for ``.env`` files, honouring pruning. Sorted by path."""
+    return iter_files(root, suffix=".env")
+
+
+def iter_yaml_files(root: Path) -> list[Path]:
+    """Walk *root* for ``.yml`` and ``.yaml`` files, honouring pruning. Sorted by path."""
+    yml = iter_files(root, suffix=".yml")
+    yaml = iter_files(root, suffix=".yaml")
+    return sorted(yml + yaml)

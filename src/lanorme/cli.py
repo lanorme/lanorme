@@ -1,8 +1,8 @@
 """Command-line entry point for LaNorme.
 
     lanorme check [PATHS...] [--check NAME] [--select ...] [--ignore ...]
-                  [--exclude ...] [--output-format {full,json}] [--json]
-                  [--plugin MODULE]
+                  [--exclude ...] [--output-format {full,json,sarif,github}]
+                  [--json] [--plugin MODULE]
     lanorme rules
     lanorme rule CODE
     lanorme --version
@@ -19,6 +19,7 @@ import dataclasses
 import fnmatch
 import importlib
 import json
+import os
 import pkgutil
 import re
 import sys
@@ -308,9 +309,79 @@ def _apply_noqa(*, results: list[CheckResult], project_root: Path) -> list[Check
 # --------------------------------------------------------------------------- #
 
 
-def _print_results(*, results: list[CheckResult], json_output: bool) -> None:
-    if json_output:
+def _to_sarif(results: list[CheckResult]) -> dict:
+    """Build a SARIF 2.1.0 dict from *results*."""
+    all_violations: list[Violation] = []
+    for result in results:
+        all_violations.extend(result.violations)
+        all_violations.extend(result.warnings)
+
+    seen_rules: dict[str, dict] = {}
+    for v in all_violations:
+        code = _rule_code(v.rule)
+        if code not in seen_rules:
+            seen_rules[code] = {"id": code, "name": code}
+
+    sarif_results = []
+    for v in all_violations:
+        code = _rule_code(v.rule)
+        sarif_results.append(
+            {
+                "ruleId": code,
+                "level": "error",
+                "message": {"text": v.message},
+                "locations": [
+                    {
+                        "physicalLocation": {
+                            "artifactLocation": {"uri": v.file},
+                            "region": {"startLine": v.line},
+                        }
+                    }
+                ],
+            }
+        )
+
+    return {
+        "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+        "version": "2.1.0",
+        "runs": [
+            {
+                "tool": {
+                    "driver": {
+                        "name": "lanorme",
+                        "rules": list(seen_rules.values()),
+                    }
+                },
+                "results": sarif_results,
+            }
+        ],
+    }
+
+
+def _to_github_annotations(results: list[CheckResult]) -> str:
+    """Return GitHub Actions annotation lines for all violations in *results*."""
+    lines = []
+    for result in results:
+        for v in result.violations:
+            code = _rule_code(v.rule)
+            lines.append(f"::error file={v.file},line={v.line},title={code}::{v.message}")
+        for w in result.warnings:
+            code = _rule_code(w.rule)
+            lines.append(f"::warning file={w.file},line={w.line},title={code}::{w.message}")
+    return "\n".join(lines)
+
+
+def _print_results(*, results: list[CheckResult], output_format: str) -> None:
+    if output_format == "json":
         print(json.dumps([r.to_dict() for r in results], indent=2))
+        return
+    if output_format == "sarif":
+        print(json.dumps(_to_sarif(results), indent=2))
+        return
+    if output_format == "github":
+        annotations = _to_github_annotations(results)
+        if annotations:
+            print(annotations)
         return
     for result in results:
         print(result.format_human())
@@ -478,7 +549,7 @@ def _build_parser() -> argparse.ArgumentParser:
     check.add_argument("--plugin", action="append", default=[], help="Plugin module to load (repeatable).")
     check.add_argument(
         "--output-format",
-        choices=["full", "json"],
+        choices=["full", "json", "sarif", "github"],
         default="full",
         help="Output format (default: full).",
     )
@@ -503,7 +574,24 @@ def _run_and_report(*, args: argparse.Namespace, config: dict[str, object], src_
     ignore = _csv(args.ignore) or list(config.get("ignore", []))
     exclude = _csv(args.exclude) or list(config.get("exclude", []))
     per_file_ignores = _parse_per_file_ignores(table=config.get("per-file-ignores", {}))
-    json_output = args.json or args.output_format == "json"
+
+    # Resolve final output format: --json is a legacy alias; GITHUB_ACTIONS env
+    # var promotes "full" to "github" automatically.
+    output_format = args.output_format
+    if args.json:
+        output_format = "json"
+    if output_format == "full" and os.environ.get("GITHUB_ACTIONS") == "true":
+        output_format = "github"
+
+    # If the caller selects ALL, enable every opt-in (Configurable + disabled) check.
+    if select and "ALL" in select:
+        for check in get_all_checks().values():
+            if (
+                isinstance(check, Configurable)
+                and hasattr(check, "enabled")
+                and not check.enabled
+            ):
+                check.configure(settings={"enabled": True})
 
     # Publish excludes so checks prune them (plus the built-in junk dirs) at
     # walk time, not just in the post-filter below. Always set, even to (), so
@@ -528,7 +616,7 @@ def _run_and_report(*, args: argparse.Namespace, config: dict[str, object], src_
     results = _apply_excludes(results=results, exclude=exclude)
     results = _apply_per_file_ignores(results=results, table=per_file_ignores)
     results = _apply_noqa(results=results, project_root=Path(src_root))
-    _print_results(results=results, json_output=json_output)
+    _print_results(results=results, output_format=output_format)
 
     if any(r.status == Status.FAIL for r in results):
         sys.exit(1)

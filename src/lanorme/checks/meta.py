@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from lanorme import CheckResult, Status, Violation, get_all_checks, register
+from lanorme import CheckContext, CheckResult, Status, Violation, get_all_checks, register
 
 
 def _validate_name(*, check_name: str) -> Violation | None:
@@ -153,7 +153,10 @@ class MetaCheck:
                 violations.append(rules_violation)
 
             # META-004: run the check and verify result.check matches.
-            result = check.run(src_root=src_root)
+            if hasattr(check, "run_with_context"):
+                result = check.run_with_context(ctx=CheckContext(src_root=src_root))
+            else:
+                result = check.run(src_root=src_root)
             result_violation = _validate_result_check_name(
                 check_name=check.name,
                 result=result,

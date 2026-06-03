@@ -81,6 +81,39 @@ RULE_MAP = {
     "api_composition": "LAYER-005: only the composition root may import from infrastructure/",
 }
 
+# Named architecture presets. Each profile defines default layers and allowed
+# imports that can be activated by setting ``profile`` in the check config.
+# User-provided ``layers`` and ``allowed`` keys override the profile defaults.
+_BUILTIN_PROFILES: dict[str, dict[str, object]] = {
+    "hexagonal": {
+        "layers": ["domain", "application", "infrastructure", "api"],
+        "allowed": {
+            "domain": [],
+            "application": ["domain"],
+            "infrastructure": ["domain"],
+            "api": ["domain", "application"],
+        },
+    },
+    "four-layer": {
+        "layers": ["domain", "application", "infrastructure", "api"],
+        "allowed": {
+            "domain": [],
+            "application": ["domain", "infrastructure"],
+            "infrastructure": ["domain"],
+            "api": ["domain", "application"],
+        },
+    },
+    "clean": {
+        "layers": ["entities", "use_cases", "interface_adapters", "frameworks"],
+        "allowed": {
+            "entities": [],
+            "use_cases": ["entities"],
+            "interface_adapters": ["use_cases", "entities"],
+            "frameworks": ["interface_adapters", "use_cases", "entities"],
+        },
+    },
+}
+
 
 def _matches_glob(*, relative: str, patterns: tuple[str, ...]) -> bool:
     """True if the forward-slash relative path matches any fnmatch glob."""
@@ -154,11 +187,13 @@ class LayerDepsCheck:
     name: str = "layer_deps"
     description: str = "Hexagonal architecture layer dependency validation"
     source_root: str = ""
+    profile: str = ""
     layers: tuple[str, ...] = LAYERS
     allowed_imports: dict[str, set[str]] = field(
         default_factory=lambda: {layer: set(targets) for layer, targets in ALLOWED_IMPORTS.items()}
     )
     composition_root: tuple[str, ...] = COMPOSITION_ROOT_GLOBS
+    transport_layers: list = field(default_factory=list)
     rules: list[str] = field(
         default_factory=lambda: [
             "LAYER-001: domain/ must not import from any other layer (pure Python only)",
@@ -166,8 +201,14 @@ class LayerDepsCheck:
             "LAYER-003: infrastructure/ can only import from domain/ and application/",
             "LAYER-004: api/ can only import from domain/ and application/",
             "LAYER-005: only the composition root may import from infrastructure/",
+            "transport_layers: list of layer names treated as API-equivalent peers (default: [\"api\"])",
         ]
     )
+
+    @property
+    def _transport_set(self) -> set:
+        """Layers that receive the composition-root exception (default: {\"api\"})."""
+        return set(self.transport_layers) if self.transport_layers else {"api"}
 
     def configure(self, *, settings: dict[str, object]) -> None:
         """Apply ``[tool.lanorme.layer_deps]`` configuration."""
@@ -177,6 +218,27 @@ class LayerDepsCheck:
         comp = settings.get("composition_root")
         if isinstance(comp, list):
             self.composition_root = tuple(str(pattern) for pattern in comp)
+
+        # Profile handling: load defaults from a named preset, then let
+        # explicit layers/allowed keys in settings override them.
+        profile = settings.get("profile")
+        if isinstance(profile, str) and profile:
+            self.profile = profile
+            if profile in _BUILTIN_PROFILES:
+                preset = _BUILTIN_PROFILES[profile]
+                preset_layers = preset.get("layers")
+                if isinstance(preset_layers, list) and preset_layers:
+                    self.layers = tuple(str(layer) for layer in preset_layers)
+                preset_allowed = preset.get("allowed")
+                if isinstance(preset_allowed, dict):
+                    self.allowed_imports = {
+                        str(layer): {str(target) for target in targets}
+                        for layer, targets in preset_allowed.items()
+                        if isinstance(targets, list)
+                    }
+            else:
+                self._unknown_profile = profile
+
         layers = settings.get("layers")
         if isinstance(layers, list) and layers:
             self.layers = tuple(str(layer) for layer in layers)
@@ -187,18 +249,21 @@ class LayerDepsCheck:
                 for layer, targets in allowed.items()
                 if isinstance(targets, list)
             }
+        transport_layers = settings.get("transport_layers")
+        if isinstance(transport_layers, list):
+            self.transport_layers = [str(layer) for layer in transport_layers]
 
     def _allowed_for_file(self, *, relative: str, layer: str) -> set[str]:
         """Allowed import targets for a file, adding the composition-root exception."""
         allowed = set(self.allowed_imports.get(layer, set()))
-        if layer == "api" and _matches_glob(relative=relative, patterns=self.composition_root):
+        if layer in self._transport_set and _matches_glob(relative=relative, patterns=self.composition_root):
             allowed.add("infrastructure")
         return allowed
 
     def _violation_for(
         self, *, layer: str, target_layer: str, relative: str, line: int, is_comp_root: bool
     ) -> Violation:
-        if layer == "api" and target_layer == "infrastructure" and not is_comp_root:
+        if layer in self._transport_set and target_layer == "infrastructure" and not is_comp_root:
             rule = RULE_MAP["api_composition"]
             fix = (
                 "Move this import to the composition root, or depend on the port "
@@ -220,6 +285,19 @@ class LayerDepsCheck:
         violations: list[Violation] = []
         warnings: list[Violation] = []
         src_path = Path(src_root)
+
+        unknown_profile = getattr(self, "_unknown_profile", None)
+        if unknown_profile:
+            known = ", ".join(sorted(_BUILTIN_PROFILES))
+            warnings.append(
+                Violation(
+                    file="lanorme.toml",
+                    line=0,
+                    rule="LAYER-CFG-001: unknown architecture profile",
+                    message=f"profile = {unknown_profile!r} is not a known preset; known profiles: {known}",
+                    fix=f"Use one of the built-in profiles ({known}) or remove the profile key",
+                )
+            )
         # The architectural root. Layer classification and composition-root
         # globs are anchored here; Violation paths stay anchored at src_path so
         # they line up with --exclude / per-file-ignores / # noqa.

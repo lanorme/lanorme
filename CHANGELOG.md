@@ -9,6 +9,47 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
 
 ## [Unreleased]
 
+## [0.8.0]
+
+### Added
+
+- `MUTDEF-001`: default-on violation for mutable default arguments
+  (`[]`, `{}`, `set()`, `dict()`, `list()`) in function and method
+  definitions. The classic shared-state footgun; fires on the `def`
+  line and is suppressed with `# noqa: MUTDEF-001`.
+- `EXC-001`: default-on violation for swallowed exceptions. Flags any
+  `except` clause whose body is only `pass`, `...`, or a comment,
+  whether bare (`except:`) or typed (`except ValueError:`). Fires on
+  the `except` line.
+- `SSE-001`: opt-in violation for FastAPI / Starlette streaming-response
+  generators that do not wrap their `yield` loop in a
+  `try/except asyncio.CancelledError` (or catch `GeneratorExit`). A
+  generator that ignores client-disconnect leaks its underlying resource.
+  Enable via `[tool.lanorme.streaming] enabled = true`.
+- `SECRET-002`: default-on violation extending the `secrets` check to
+  `.env` files. Applies the same credential-name filter and entropy /
+  shape heuristics as `SECRETPY-001`; exempts `.env.example`,
+  `.env.sample`, and `.env.template` by name.
+- `SECRET-003`: default-on violation extending the `secrets` check to
+  YAML files (`*.yaml`, `*.yml`) and Jupyter notebooks (`*.ipynb`).
+  YAML scalars under credential-named keys are checked; notebook code
+  cells are parsed as Python and output cells are scanned for shape
+  matches. Excludes `tests/` and `.github/workflows/`.
+- `TYPING-001`: opt-in violation enforcing a consistent `TYPE_CHECKING`
+  guard policy. `require = "guard"` (default) flags annotation-only
+  imports that are not inside `if TYPE_CHECKING:`; `require = "no-guard"`
+  forbids the guard pattern for projects that need runtime-resolvable
+  annotations. Enable via `[tool.lanorme.typing_guards] enabled = true`.
+
+### Changed
+
+- `SECRETPY-001` documentation now notes explicitly that `.env`,
+  `*.yaml`, `*.ipynb` coverage is handled by the new `SECRET-002` and
+  `SECRET-003` rules; the previous "out of scope" caveat is removed.
+- README rule table updated: `MUTDEF-001`, `EXC-001`, `SECRET-002`, and
+  `SECRET-003` appear in the default-on table; `SSE-001` and
+  `TYPING-001` appear in the opt-in table.
+
 ## [0.7.0]
 
 ### Added

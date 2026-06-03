@@ -1,4 +1,6 @@
-"""SECRETPY-001: hardcoded secrets in Python source.
+"""Secret scanning rules.
+
+SECRETPY-001: hardcoded secrets in Python source.
 
 Three detection paths, each precision-first (the multi-reviewer audit's stated
 priority for security rules: do not produce a false sense of security):
@@ -20,9 +22,15 @@ priority for security rules: do not produce a false sense of security):
    last segment is structural (``pattern``, ``endpoint``, ``header``,
    ``name``, ``len``, ...) are not credentials.
 
-Scope is Python source only; ``.env`` / ``*.yaml`` / ``*.ipynb`` / ``*.tf``
-are out of scope until a separate non-Python rule lands. The rule code is
-``SECRETPY-001`` to make the scope explicit in the lint output.
+SECRET-002: hardcoded secrets in ``.env`` files.
+
+Lines matching ``KEY=VALUE`` where the key contains a credential keyword and
+the value is non-empty and non-placeholder are flagged.
+
+SECRET-003: hardcoded secrets in ``.yml`` / ``.yaml`` files.
+
+Key-value pairs where the lowercased key contains a credential keyword and the
+string value looks like a real secret are flagged.
 
 Run:
     lanorme check . --check=secrets
@@ -36,7 +44,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from lanorme import CheckResult, Status, Violation, register
-from lanorme.discovery import iter_py_files
+from lanorme.discovery import iter_env_files, iter_py_files, iter_yaml_files
 
 # A name suggests a credential when (i) it matches one of these multi-segment
 # phrases as the whole name or as a ``_``-anchored suffix, OR (ii) one of its
@@ -103,7 +111,23 @@ _HIGH_ENTROPY_LEN = 32
 _RULE = "SECRETPY-001: No hardcoded secrets in source code"
 _FIX = "Read the value from an environment variable, secrets manager, or settings module"
 
+_RULE_ENV = "SECRET-002: No hardcoded secrets in .env files"
+_RULE_YAML = "SECRET-003: No hardcoded secrets in .yml/.yaml files"
+
 _SKIP_DIRS = frozenset({".git", ".venv", "venv", "node_modules", "__pycache__", "dist", "build"})
+
+# Keywords that mark a .env or YAML key as a credential holder (substring match,
+# compared against the lowercased key).
+_CRED_KEY_KEYWORDS = (
+    "api_key", "apikey",
+    "access_key",
+    "secret",
+    "token",
+    "password", "passwd", "pwd",
+    "auth",
+    "private_key",
+    "passphrase",
+)
 
 
 def _normalise_name(name: str) -> str:
@@ -245,21 +269,122 @@ def _scan_tree(*, tree: ast.AST, file: str) -> list[Violation]:
     return list(deduped.values())
 
 
+def _env_key_is_credential(key: str) -> bool:
+    """True if an .env key (e.g. ``API_KEY``) looks like a credential holder."""
+    norm = key.lower()
+    return any(kw in norm for kw in _CRED_KEY_KEYWORDS)
+
+
+def _str_value_is_real_secret(text: str) -> bool:
+    """True if a plain string value looks like a real secret (non-empty, non-placeholder)."""
+    if not text or len(text) < _MIN_CRED_LITERAL_LEN:
+        return False
+    lowered = text.lower()
+    if any(marker in lowered for marker in _PLACEHOLDER_MARKERS):
+        if not _value_looks_high_entropy(text):
+            return False
+    return True
+
+
+# Matches ``KEY=VALUE`` lines in .env files. The key must be a bare identifier
+# (letters, digits, underscores) and may be optionally exported. Comments (#)
+# and blank lines are ignored. Values may be quoted or unquoted.
+_ENV_LINE_RE = re.compile(
+    r"^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(['\"]?)(.+?)\2\s*(?:#.*)?$"
+)
+
+
+def _scan_env_file(*, path: Path, relative: str) -> list[Violation]:
+    """Scan a single .env file for hardcoded credential values (SECRET-002)."""
+    found: list[Violation] = []
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except (OSError, UnicodeDecodeError):
+        return found
+    for lineno, line in enumerate(lines, start=1):
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        m = _ENV_LINE_RE.match(line)
+        if m is None:
+            continue
+        key, _quote, value = m.group(1), m.group(2), m.group(3)
+        if not _env_key_is_credential(key):
+            continue
+        if not _str_value_is_real_secret(value):
+            continue
+        found.append(Violation(
+            file=relative,
+            line=lineno,
+            rule=_RULE_ENV,
+            message=f"Hardcoded credential value for '{key}' in .env file",
+            fix=_FIX,
+        ))
+    return found
+
+
+def _yaml_key_is_credential(key: str) -> bool:
+    """True if a YAML mapping key looks like a credential holder."""
+    norm = key.lower().replace("-", "_")
+    return any(kw in norm for kw in _CRED_KEY_KEYWORDS)
+
+
+# Matches simple ``key: value`` YAML lines (scalar values only). Does not
+# handle multi-line blocks or anchors -- those rarely hold raw secrets and a
+# full YAML parse would add a dependency. Quoted and unquoted values are both
+# matched; comments are stripped.
+_YAML_KV_RE = re.compile(
+    r"^(\s*)([A-Za-z_][A-Za-z0-9_\-]*)\s*:\s+(['\"]?)(.+?)\3\s*(?:#.*)?$"
+)
+
+
+def _scan_yaml_file(*, path: Path, relative: str) -> list[Violation]:
+    """Scan a single .yml/.yaml file for hardcoded credential values (SECRET-003)."""
+    found: list[Violation] = []
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except (OSError, UnicodeDecodeError):
+        return found
+    for lineno, line in enumerate(lines, start=1):
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        m = _YAML_KV_RE.match(line)
+        if m is None:
+            continue
+        key, value = m.group(2), m.group(4)
+        if not _yaml_key_is_credential(key):
+            continue
+        if not _str_value_is_real_secret(value):
+            continue
+        found.append(Violation(
+            file=relative,
+            line=lineno,
+            rule=_RULE_YAML,
+            message=f"Hardcoded credential value for '{key}' in YAML file",
+            fix=_FIX,
+        ))
+    return found
+
+
 @dataclass
 class SecretsCheck:
-    """Hardcoded secrets in Python source: assignments, dict keys, kwargs, and shapes."""
+    """Hardcoded secrets in Python, .env, and YAML files."""
 
     name: str = "secrets"
-    description: str = "Hardcoded secrets in Python source (SECRETPY-001)"
+    description: str = "Hardcoded secrets in Python source, .env, and YAML files"
     rules: list[str] = field(
         default_factory=lambda: [
             "SECRETPY-001: No hardcoded secrets in source code",
+            "SECRET-002: No hardcoded secrets in .env files",
+            "SECRET-003: No hardcoded secrets in .yml/.yaml files",
         ]
     )
 
     def run(self, *, src_root: str) -> CheckResult:
         violations: list[Violation] = []
         root = Path(src_root)
+
         for path in iter_py_files(root):
             if any(part in _SKIP_DIRS for part in path.parts):
                 continue
@@ -273,6 +398,19 @@ class SecretsCheck:
                 continue
             relative = str(path.relative_to(root))
             violations.extend(_scan_tree(tree=tree, file=relative))
+
+        for path in iter_env_files(root):
+            if any(part in _SKIP_DIRS for part in path.parts):
+                continue
+            relative = str(path.relative_to(root))
+            violations.extend(_scan_env_file(path=path, relative=relative))
+
+        for path in iter_yaml_files(root):
+            if any(part in _SKIP_DIRS for part in path.parts):
+                continue
+            relative = str(path.relative_to(root))
+            violations.extend(_scan_yaml_file(path=path, relative=relative))
+
         status = Status.FAIL if violations else Status.PASS
         return CheckResult(check=self.name, status=status, violations=violations)
 

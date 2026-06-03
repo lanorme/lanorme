@@ -1,0 +1,16 @@
+name: LaNorme
+description: Run LaNorme static analysis
+inputs:
+  paths:
+    description: Paths to check
+    default: "."
+  output-format:
+    description: Output format (full/json/sarif/github)
+    default: full
+runs:
+  using: composite
+  steps:
+  - run: pip install lanorme
+    shell: bash
+  - run: lanorme check ${{ inputs.paths }} --output-format ${{ inputs.output-format }}
+    shell: bash

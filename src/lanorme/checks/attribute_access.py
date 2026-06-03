@@ -8,13 +8,15 @@ the type checker for no benefit.
     ATTR-001  ``hasattr(x, "name")`` branches on structure (duck typing).
               Prefer a ``runtime_checkable`` ``Protocol`` with ``isinstance``,
               or EAFP (``try: ... except AttributeError``).
+              Opt-in only: enable via ``flag_hasattr = true``.
     ATTR-002  ``getattr(x, "name")`` (no default), ``setattr(x, "name", v)``,
               or ``delattr(x, "name")`` with a constant name. Use direct
               attribute access (``x.name``).
+              Default-on (fires whenever ``enabled`` is ``true``).
 
-Both are advisory (WARNING) and opt-in (the check ships default-off). Enable
-via ``[tool.lanorme.attribute_access] enabled = true``. The high-confidence
-cases only:
+ATTR-002 is advisory (WARNING) and default-on once the check is enabled.
+ATTR-001 is advisory (WARNING) and opt-in via ``flag_hasattr = true``.
+The high-confidence cases only:
 
     - The attribute name must be a string literal that is a valid identifier.
       A non-identifier name (``getattr(x, "weird-key")``) cannot be written as
@@ -28,8 +30,9 @@ Dynamic names (``getattr(x, name)``, ``getattr(x, "_" + n)``) are genuine
 reflection and exempt by default. Enable ``flag_dynamic`` to flag them too::
 
     [tool.lanorme.attribute_access]
-    enabled = true
-    flag_dynamic = false   # also flag non-literal attribute names
+    enabled = true          # enables ATTR-002 (default true)
+    flag_hasattr = true     # also enable ATTR-001 (opt-in)
+    flag_dynamic = false    # also flag non-literal attribute names
 
 Run:
     lanorme check . --check=attribute_access
@@ -106,23 +109,38 @@ def _attr002(*, builtin: str, name: str, relative: str, line: int) -> Violation:
 
 @dataclass
 class AttributeAccessCheck:
-    """Flags low-level attribute access that usually signals a missing type."""
+    """Flags low-level attribute access that usually signals a missing type.
+
+    ATTR-002 (literal getattr/setattr/delattr) is on by default when the check
+    is enabled.  ATTR-001 (hasattr type-discrimination) is opt-in via
+    ``flag_hasattr = true``.
+    """
 
     name: str = "attribute_access"
-    description: str = "Low-level getattr/hasattr/setattr/delattr smells"
-    enabled: bool = False
+    description: str = (
+        "Low-level getattr/hasattr/setattr/delattr smells "
+        "(ATTR-002 default-on; ATTR-001 opt-in via flag_hasattr)"
+    )
+    enabled: bool = True
+    flag_hasattr: bool = False
     flag_dynamic: bool = False
     rules: list[str] = field(
         default_factory=lambda: [
-            "ATTR-001: Avoid hasattr() for type discrimination",
-            "ATTR-002: Avoid getattr/setattr/delattr with a literal attribute name",
+            "ATTR-001: Avoid hasattr() for type discrimination (opt-in: flag_hasattr)",
+            "ATTR-002: Avoid getattr/setattr/delattr with a literal attribute name (default-on)",
         ]
     )
 
     def configure(self, *, settings: dict[str, object]) -> None:
-        """Apply ``[tool.lanorme.attribute_access]`` configuration."""
+        """Apply ``[tool.lanorme.attribute_access]`` configuration.
+
+        Backward-compatible: old ``enabled = true`` still enables everything;
+        new ``flag_hasattr`` controls ATTR-001 independently.
+        """
         if "enabled" in settings:
             self.enabled = bool(settings["enabled"])
+        if "flag_hasattr" in settings:
+            self.flag_hasattr = bool(settings["flag_hasattr"])
         if "flag_dynamic" in settings:
             self.flag_dynamic = bool(settings["flag_dynamic"])
 
@@ -140,6 +158,8 @@ class AttributeAccessCheck:
         if not name.isidentifier() or _is_dunder(name):
             return None
         if builtin == "hasattr":
+            if not self.flag_hasattr:
+                return None
             return _attr001(builtin=builtin, name=name, relative=relative, line=call.lineno)
         return _attr002(builtin=builtin, name=name, relative=relative, line=call.lineno)
 

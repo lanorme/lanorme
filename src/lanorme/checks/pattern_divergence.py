@@ -1,8 +1,9 @@
-"""IMPORT-001 and ENDPOINT-001: Pattern divergence detection.
+"""IMPORT-001, ENDPOINT-001, and TYPING-001: Pattern divergence detection.
 
 Rules:
     IMPORT-001    No inline imports inside functions, all imports at module level
     ENDPOINT-001  Endpoint functions should not exceed nesting depth of 4 (warning)
+    TYPING-001    Type-only imports should use TYPE_CHECKING guard (opt-in)
 
 Run:
     lanorme check . --check=pattern_divergence
@@ -219,6 +220,119 @@ def _check_endpoint_nesting(
 
 
 # ---------------------------------------------------------------------------
+# TYPING-001: Type-only imports should use TYPE_CHECKING guard (opt-in)
+# ---------------------------------------------------------------------------
+
+_TYPING_MODULES = frozenset({"typing", "typing_extensions"})
+
+
+def _annotation_node_ids(*, tree: ast.AST) -> set[int]:
+    """Return the set of node IDs for all AST nodes that are part of annotations.
+
+    Covers:
+    - ``AnnAssign.annotation``
+    - ``arg.annotation`` (function parameter annotations)
+    - ``FunctionDef.returns`` / ``AsyncFunctionDef.returns``
+    """
+    ids: set[int] = set()
+    for node in ast.walk(tree):
+        annotation: ast.expr | None = None
+        if isinstance(node, ast.AnnAssign):
+            annotation = node.annotation
+        elif isinstance(node, ast.arg):
+            annotation = node.annotation
+        elif isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
+            annotation = node.returns
+        if annotation is not None:
+            for child in ast.walk(annotation):
+                ids.add(id(child))
+    return ids
+
+
+def _names_used_outside_annotations(*, tree: ast.AST, import_names: set[str]) -> set[str]:
+    """Return the subset of *import_names* that appear in non-annotation contexts."""
+    ann_ids = _annotation_node_ids(tree=tree)
+    used_outside: set[str] = set()
+    for node in ast.walk(tree):
+        if id(node) in ann_ids:
+            continue
+        if isinstance(node, ast.Name) and node.id in import_names:
+            used_outside.add(node.id)
+    return used_outside
+
+
+def _check_typing_imports(
+    *,
+    tree: ast.AST,
+    source_lines: list[str],
+    relative_file: str,
+    direction: str,
+) -> list[Violation]:
+    """TYPING-001: Flag typing imports that should (or should not) be guarded."""
+    parents = _build_parent_map(tree=tree)
+    violations: list[Violation] = []
+
+    # Gather all imported names from typing / typing_extensions at module level.
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.ImportFrom):
+            continue
+        if node.module not in _TYPING_MODULES:
+            continue
+
+        # Only consider module-level imports (not inside functions).
+        if _is_inside_function(node=node, parents=parents):
+            continue
+
+        already_guarded = _is_inside_type_checking_guard(node=node, parents=parents)
+
+        if _line_has_noqa(source_lines=source_lines, lineno=node.lineno, rule="TYPING-001"):
+            continue
+
+        import_names = {alias.asname or alias.name for alias in node.names}
+
+        # Check whether any imported name is used at runtime (outside annotations).
+        used_at_runtime = bool(
+            _names_used_outside_annotations(tree=tree, import_names=import_names)
+        )
+
+        if direction == "encourage":
+            # Flag unguarded imports whose names are only used in annotations.
+            if not already_guarded and not used_at_runtime:
+                violations.append(
+                    Violation(
+                        file=relative_file,
+                        line=node.lineno,
+                        rule="TYPING-001: Type-only imports should use TYPE_CHECKING guard",
+                        message=(
+                            f"Import '{node.module}' contains names used only in annotations; "
+                            "wrap it in 'if TYPE_CHECKING:'"
+                        ),
+                        fix=(
+                            "Add 'from __future__ import annotations' and wrap this import "
+                            "in 'if TYPE_CHECKING:' to avoid the runtime cost"
+                        ),
+                    ),
+                )
+        elif direction == "forbid":
+            # Flag imports that ARE guarded (project avoids TYPE_CHECKING guards).
+            if already_guarded:
+                violations.append(
+                    Violation(
+                        file=relative_file,
+                        line=node.lineno,
+                        rule="TYPING-001: Type-only imports should use TYPE_CHECKING guard",
+                        message=(
+                            f"Import '{node.module}' is inside a TYPE_CHECKING guard; "
+                            "this project forbids TYPE_CHECKING guards — move it to module level"
+                        ),
+                        fix="Remove the 'if TYPE_CHECKING:' wrapper and import at module level",
+                    ),
+                )
+
+    return violations
+
+
+# ---------------------------------------------------------------------------
 # Check class + registration
 # ---------------------------------------------------------------------------
 
@@ -235,8 +349,22 @@ class PatternDivergenceCheck:
         default_factory=lambda: [
             "IMPORT-001: No inline imports inside functions",
             "ENDPOINT-001: Endpoint nesting depth exceeds threshold (warning)",
+            "TYPING-001: Type-only imports should use TYPE_CHECKING guard (opt-in)",
         ],
     )
+
+    # TYPING-001 configuration (opt-in).
+    typing_guard_enabled: bool = False
+    typing_guard_direction: str = "encourage"
+
+    def configure(self, *, settings: dict[str, object]) -> None:
+        """Apply ``[tool.lanorme.pattern_divergence]`` configuration."""
+        enabled = settings.get("typing_guard_enabled")
+        if isinstance(enabled, bool):
+            self.typing_guard_enabled = enabled
+        direction = settings.get("typing_guard_direction")
+        if isinstance(direction, str) and direction in {"encourage", "forbid"}:
+            self.typing_guard_direction = direction
 
     def run(self, *, src_root: str) -> CheckResult:
         """Scan Python files under src/ for pattern divergence."""
@@ -285,6 +413,17 @@ class PatternDivergenceCheck:
                     relative_file=relative_file,
                 ),
             )
+
+            # TYPING-001: type-only imports guard (opt-in violation)
+            if self.typing_guard_enabled:
+                violations.extend(
+                    _check_typing_imports(
+                        tree=tree,
+                        source_lines=source_lines,
+                        relative_file=relative_file,
+                        direction=self.typing_guard_direction,
+                    ),
+                )
 
         status = Status.FAIL if violations else (Status.WARN if warnings else Status.PASS)
         return CheckResult(

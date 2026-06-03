@@ -25,8 +25,8 @@ def _codes(result) -> list[str]:
 
 
 def test_hasattr_literal_is_attr001_warning(tmp_path: Path):
-    # Arrange + Act.
-    result = _run(tmp_path, "def f(x):\n    return hasattr(x, 'foo')\n")
+    # Arrange + Act: flag_hasattr must be set to see ATTR-001.
+    result = _run(tmp_path, "def f(x):\n    return hasattr(x, 'foo')\n", flag_hasattr=True)
 
     # Assert: advisory warning, not a failing violation.
     assert _codes(result) == ["ATTR-001"]
@@ -96,9 +96,58 @@ def test_disabled_by_default(tmp_path: Path):
     path = tmp_path / "mod.py"
     path.write_text("def f(x):\n    return hasattr(x, 'foo')\n", encoding="utf-8")
 
-    # Act: the default check (no configure) ships off.
-    result = AttributeAccessCheck().run(src_root=str(tmp_path))
+    # Act: disable the check explicitly; hasattr alone does not fire without flag_hasattr.
+    check = AttributeAccessCheck()
+    check.configure(settings={"enabled": False})
+    result = check.run(src_root=str(tmp_path))
 
     # Assert.
     assert result.status == Status.PASS
     assert result.warnings == []
+
+
+def test_attr002_fires_by_default(tmp_path: Path):
+    # Arrange: a file with a literal getattr (ATTR-002 target).
+    root = tmp_path / "case_default"
+    path = root / "mod.py"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("def f(x):\n    return getattr(x, 'foo')\n", encoding="utf-8")
+
+    # Act: no configure call -- enabled defaults to True.
+    result = AttributeAccessCheck().run(src_root=str(root))
+
+    # Assert: ATTR-002 fires without any explicit configuration.
+    assert _codes(result) == ["ATTR-002"]
+    assert result.status == Status.WARN
+
+
+def test_attr001_does_not_fire_by_default(tmp_path: Path):
+    # Arrange: a file with a literal hasattr (ATTR-001 target).
+    root = tmp_path / "case_hasattr_default"
+    path = root / "mod.py"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("def f(x):\n    return hasattr(x, 'foo')\n", encoding="utf-8")
+
+    # Act: no configure call -- flag_hasattr defaults to False.
+    result = AttributeAccessCheck().run(src_root=str(root))
+
+    # Assert: ATTR-001 does not fire; the check is on but hasattr is exempt by default.
+    assert result.warnings == []
+    assert result.status == Status.PASS
+
+
+def test_attr001_fires_when_flag_hasattr_enabled(tmp_path: Path):
+    # Arrange: a file with a literal hasattr.
+    root = tmp_path / "case_hasattr_enabled"
+    path = root / "mod.py"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("def f(x):\n    return hasattr(x, 'foo')\n", encoding="utf-8")
+
+    # Act: opt in to ATTR-001 via flag_hasattr.
+    check = AttributeAccessCheck()
+    check.configure(settings={"flag_hasattr": True})
+    result = check.run(src_root=str(root))
+
+    # Assert: ATTR-001 fires.
+    assert _codes(result) == ["ATTR-001"]
+    assert result.status == Status.WARN

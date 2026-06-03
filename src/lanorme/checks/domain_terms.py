@@ -176,8 +176,16 @@ class DomainTermsCheck:
     )
 
     def configure(self, *, settings: dict[str, list[dict[str, str | list[str]]]]) -> None:
-        """Apply ``[tool.lanorme.domain_terms]`` configuration."""
-        self.term_rules = list(settings.get("rules", []))
+        """Apply ``[tool.lanorme.domain_terms]`` configuration.
+
+        Accepts the vocabulary list under either the documented ``rules`` key
+        (used in ``[[tool.lanorme.domain_terms.rules]]`` / pyproject.toml) or
+        the ``term_rules`` key (matches the dataclass field name shown by
+        ``--show-config``, used in ``[[domain_terms.term_rules]]`` /
+        lanorme.toml).  ``rules`` takes precedence when both are present.
+        """
+        raw = settings.get("rules") if "rules" in settings else settings.get("term_rules", [])
+        self.term_rules = list(raw) if raw is not None else []
 
     def run(self, *, src_root: str) -> CheckResult:
         violations: list[Violation] = []

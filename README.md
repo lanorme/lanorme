@@ -140,7 +140,9 @@ On by default, on any project, no config needed:
 | `IMPORT-001` / `ENDPOINT-001` | imports inside function bodies; deeply nested endpoints |
 | `NAMING-003/004` | HTTP-verb-to-handler match; boolean-prefix predicates |
 | `TYPE-001..003` | `dict[str, Any]`, bare containers, untyped `**kwargs` |
-| `AUTHN-001` / `SQL-001` / `SECRETPY-001` | mutation endpoints without an auth dependency; raw SQL at a database call; hardcoded secrets in `.py` |
+| `MUTDEF-001` | mutable default arguments (`[]`, `{}`, `set()`) in function signatures |
+| `EXC-001` | swallowed exceptions (`except: pass` and bare-body `except` clauses) |
+| `AUTHN-001` / `SQL-001` / `SECRETPY-001` / `SECRET-002` / `SECRET-003` | mutation endpoints without an auth dependency; raw SQL at a database call; hardcoded secrets in `.py`, `.env`, YAML, and notebooks |
 | `SHELL-001` / `DESERIAL-001` / `EVAL-001` / `CRYPTO-001` / `TLS-001` / `DEBUG-001` | shell injection, unsafe deserialisation, `eval`/`exec`, weak hashes, disabled TLS, debug mode |
 | `JUNK-001/002` | screenshots, scratch files, OS junk, stray binaries |
 | `TESTFILE-001` | a production module with no `test_*.py` partner |
@@ -160,6 +162,8 @@ Off until you turn them on:
 | `CMT-005` | restating-comment detector; experimental, precision-first |
 | `SIMILAR-001` | fuzzy near-duplicate functions (the companion to the exact `DRY-001`) |
 | `ATTR-001/002` | `hasattr`/`getattr`/`setattr` with a literal attribute name; a missing-type smell |
+| `SSE-001` | streaming endpoints missing disconnect handling (`asyncio.CancelledError` / `GeneratorExit`) |
+| `TYPING-001` | `TYPE_CHECKING` import guards (configurable: require guards or forbid them) |
 | `PROSE-001..003` | em dashes, US spelling and emoji in Markdown or comments |
 
 ## Writing a check

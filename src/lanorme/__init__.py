@@ -19,11 +19,24 @@ List every registered rule:
 
 from __future__ import annotations
 
+import ast
 import enum
 from dataclasses import dataclass, field
 from typing import Protocol, runtime_checkable
 
 __version__ = "0.7.0"
+
+
+@dataclass
+class CheckContext:
+    """Shared context passed to checks that opt in to ``run_with_context``.
+
+    ``ast_cache`` maps absolute file paths to pre-parsed ``ast.Module``
+    objects so individual checks do not each re-parse the same files.
+    """
+
+    src_root: str
+    ast_cache: dict = field(default_factory=dict)
 
 
 class Status(enum.Enum):
@@ -132,8 +145,29 @@ def get_all_checks() -> dict[str, Check]:
 
 
 def run_all(*, src_root: str) -> list[CheckResult]:
-    """Run all registered checks and return their results."""
+    """Run all registered checks and return their results.
+
+    Pre-builds a shared :class:`CheckContext` whose ``ast_cache`` maps every
+    ``.py`` file under *src_root* to its parsed ``ast.Module``.  Checks that
+    implement ``run_with_context(*, ctx)`` receive the context directly;
+    older checks that only implement ``run(*, src_root)`` are called via the
+    backward-compatible path.
+    """
+    from lanorme.discovery import iter_py_files  # local import avoids circularity
+
+    from pathlib import Path
+
+    ctx = CheckContext(src_root=src_root)
+    for path in iter_py_files(Path(src_root)):
+        try:
+            ctx.ast_cache[str(path)] = ast.parse(path.read_text(encoding="utf-8"))
+        except SyntaxError:
+            pass
+
     results = []
     for check in _registry.values():
-        results.append(check.run(src_root=src_root))
+        if hasattr(check, "run_with_context"):
+            results.append(check.run_with_context(ctx=ctx))
+        else:
+            results.append(check.run(src_root=src_root))
     return results

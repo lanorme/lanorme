@@ -1,0 +1,7 @@
+[tool.lanorme.layer_deps]
+layers = ["domain", "application", "infrastructure", "api"]
+
+[tool.lanorme.layer_deps.allowed]
+application    = ["domain", "infrastructure"]
+infrastructure = ["domain"]
+api            = ["domain", "application"]
