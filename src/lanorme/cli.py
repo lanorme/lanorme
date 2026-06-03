@@ -1,7 +1,7 @@
 """Command-line entry point for LaNorme.
 
     lanorme check [PATHS...] [--check NAME|CODE] [--select ...] [--ignore ...]
-                  [--exclude ...] [--output-format {concise,full,json,ndjson}]
+                  [--exclude ...] [--output-format {concise,full,json,ndjson,github}]
                   [--json] [--plugin MODULE]
     lanorme rules
     lanorme rule CODE
@@ -467,12 +467,12 @@ def _build_parser() -> argparse.ArgumentParser:
     check.add_argument("--plugin", action="append", default=[], help="Plugin module to load (repeatable).")
     check.add_argument(
         "--output-format",
-        choices=["concise", "full", "json", "ndjson"],
+        choices=["concise", "full", "json", "ndjson", "github"],
         default="concise",
         help=(
             "Output format (default: concise). 'concise' shows only checks with findings plus a "
             "summary; 'full' shows every check; 'json' is one object per check; 'ndjson' is one "
-            "finding per line."
+            "finding per line; 'github' emits workflow commands (auto-detected when GITHUB_ACTIONS=true)."
         ),
     )
     check.add_argument("--json", action="store_true", help="Alias for --output-format=json.")
@@ -557,6 +557,8 @@ def _run_and_report(
     exclude = _csv(args.exclude) or list(config.get("exclude", []))
     per_file_ignores = _parse_per_file_ignores(table=config.get("per-file-ignores", {}))
     output_format = "json" if args.json else args.output_format
+    if output_format not in ("json", "ndjson", "github") and os.environ.get("GITHUB_ACTIONS") == "true":
+        output_format = "github"
 
     # Publish excludes so checks prune them (plus the built-in junk dirs) at
     # walk time, not just in the post-filter below. Always set, even to (), so
