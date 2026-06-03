@@ -464,6 +464,33 @@ Each rule has a positive + negative unit test under
 
 ---
 
+## Streaming endpoints: `SSE-001`
+
+Default-on. Detects async generator functions used directly in a
+``StreamingResponse(gen())`` or ``EventSourceResponse(gen())`` call that
+lack both forms of client-disconnect handling:
+
+- **``asyncio.CancelledError`` handling** -- a ``try/except
+  asyncio.CancelledError`` (or ``except CancelledError``, ``except
+  BaseException``, bare ``except``) anywhere in the generator body. The
+  async framework cancels the generator coroutine when the client
+  disconnects; without a handler the generator leaks until the
+  garbage collector runs.
+- **``is_disconnected`` polling** -- at least one ``await
+  request.is_disconnected()`` call inside the generator, so it can break
+  early rather than waiting for the next ``yield``.
+
+Either guard is sufficient; the rule passes when either is present.
+
+Precision-first: only fires when the async generator is referenced by
+name in a streaming-response constructor call in the same file. Cross-file
+references and generator expressions passed as non-name arguments are not
+flagged.
+
+Config: none.
+
+---
+
 ## Stale paths: `STALE-001`
 
 Inert until configured. Flags references to old path tokens in

@@ -142,6 +142,7 @@ On by default, on any project, no config needed:
 | `TYPE-001..003` | `dict[str, Any]`, bare containers, untyped `**kwargs` |
 | `AUTHN-001` / `SQL-001` / `SECRETPY-001` | mutation endpoints without an auth dependency; raw SQL at a database call; hardcoded secrets in `.py` |
 | `SHELL-001` / `DESERIAL-001` / `EVAL-001` / `CRYPTO-001` / `TLS-001` / `DEBUG-001` | shell injection, unsafe deserialisation, `eval`/`exec`, weak hashes, disabled TLS, debug mode |
+| `SSE-001` | async generator in a streaming response lacks client-disconnect handling |
 | `JUNK-001/002` | screenshots, scratch files, OS junk, stray binaries |
 | `TESTFILE-001` | a production module with no `test_*.py` partner |
 | `META-001..005` | the checks themselves emit well-formed output |
