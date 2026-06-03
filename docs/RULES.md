@@ -139,14 +139,54 @@ forbidden = ["Cust", "Client"]
 
 ## Duplication: `DRY-001`
 
-Default-on. Functions with identical normalised AST bodies and at least
-five statements are flagged as duplicates. AST normalisation strips
-variable names and string literals so that two functions differing only in
-identifier spelling or string-constant content are still detected.
+Default-on. Detects **exact structural clones**: functions with an identical
+normalised AST body and at least five statements. Normalisation strips variable
+names and string literals, so two functions differing only in identifier
+spelling or string-constant content still match. It is precise but strict: a
+single added statement, a reordering, a changed number, or a renamed attribute
+defeats the match. For the fuzzier "these should share a helper" cases, see
+`SIMILAR-001` below.
 
 Config: none currently. False positives on intentionally parallel
 adapters across bounded contexts are a known limit; suppress them with
 `[tool.lanorme.per-file-ignores]` or `# noqa: DRY-001`.
+
+---
+
+## Near-duplicate: `SIMILAR-001`
+
+Opt-in (default-off), advisory **warning** (never fails the build). The fuzzy
+companion to `DRY-001`: it catches near-duplicates that the exact check misses
+(one or two added statements, reordering, a changed number, a renamed
+attribute, a renamed call) so a reviewer can decide whether to extract a shared
+helper.
+
+Two functions in a file are compared on two signals. **Structure**: a token
+sequence over the body that abstracts away variable names, attribute names and
+numbers, scored with `difflib` (so a one-statement or reorder drift still
+aligns). **Anchors**: the meaning-bearing tokens `DRY-001` discards: string
+literals, called names, operator kinds, and accessed attribute names, each
+scored by weighted Jaccard. A pair flags only when the structure is similar
+**and** every anchor agrees, which keeps precision high: parallel boilerplate
+that shares a shape but differs in its string keys or source attributes (config
+builders, dispatch tables, field mappers, framework handlers) is rejected.
+Equality/dunder/`@property` boilerplate and drifted logging-message strings are
+handled specially. Measured on the bundled corpus
+(`tests/fixtures/duplication_similar/`, scorer `benchmarks/score_similar.py`):
+**precision 1.000 / recall 0.850 / F1 0.919**. Known recall gaps: fully renamed
+attribute sets and error-message-only drift.
+
+```toml
+[tool.lanorme.similarity]
+enabled = true
+# threshold overrides (defaults shown):
+min_statements = 5
+struct_ratio   = 0.55
+str_jaccard    = 0.60
+op_jaccard     = 0.60
+call_jaccard   = 0.35
+attr_jaccard   = 0.10
+```
 
 ---
 

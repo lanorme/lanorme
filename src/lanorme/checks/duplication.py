@@ -1,11 +1,14 @@
-"""DRY-001: Near-duplicate function detection via AST normalization.
+"""DRY-001: Exact structural clone detection via AST normalization.
 
 Checks:
     DRY-001  Functions with identical normalized AST bodies (>= 5 statements)
              are flagged as duplication candidates.
 
 Normalization: variable names and string literals are replaced with placeholders
-so that functions differing only in naming are detected as duplicates.
+so that functions differing only in naming are detected as duplicates. The match
+is exact modulo those placeholders: a single added statement, a reordering, a
+changed number, or a renamed attribute defeats it. For the fuzzier near-duplicate
+cases see the ``similarity`` check (SIMILAR-001).
 
 Excludes: __init__.py, conftest.py, alembic/, migrations/, test_* prefixed files.
 
