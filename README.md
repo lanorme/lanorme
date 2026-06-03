@@ -219,7 +219,7 @@ Off until you turn them on:
 
 | Rule | Why |
 |---|---|
-| `LAYER-001..005` | needs a layered layout (`domain/ application/ infrastructure/ api/`) |
+| `LAYER-001..006` | needs a layered layout (`domain/ application/ infrastructure/ api/`) |
 | `PORT-001..003` | needs an `application/ports/` directory |
 | `TERM-NNN` | needs a vocabulary in `[tool.lanorme.domain_terms]` |
 | `PATH-001` / `STALE-001` | need forbidden dirs / stale tokens configured |
