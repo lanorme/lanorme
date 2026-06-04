@@ -5,16 +5,29 @@
 [![CI](https://github.com/lanorme/lanorme/actions/workflows/ci.yml/badge.svg)](https://github.com/lanorme/lanorme/actions/workflows/ci.yml)
 [![Licence: MIT](https://img.shields.io/badge/licence-MIT-blue.svg)](LICENSE)
 
-A linter for Python. It checks the usual things: commented-out code, file and
-function size, complexity, weak types, hardcoded secrets, and dangerous calls. It
-also checks a few things most linters do not: hexagonal layer boundaries,
-ports-and-adapters wiring, and a project's own naming vocabulary.
+LaNorme makes a codebase's standard executable. It automates the mechanical side
+of code review: on every commit it checks cyclomatic complexity, file and
+function size, duplication, stale doc references, architectural boundaries, and
+naming conventions, and fails the build when they drift.
+
+The built-in _normes_ cover the common ground. A plugin interface lets a team
+encode its own, so the standard you agree on is the standard the build keeps. The
+same gate runs in CI and inside an AI agent's loop, so people and agents write to
+one bar and the codebase stays clean as it grows.
 
 Standard library only. No runtime dependencies. Python 3.13+.
 
-```console
-$ lanorme check .
-```
+## Why LaNorme
+
+- **Keep a growing codebase clean.** Complexity, size, duplication, and stale
+  docs are caught the moment they appear, while the fix is still small.
+- **Enforce architecture and conventions.** Layering, ports-and-adapters wiring,
+  and your own domain vocabulary become checks any contributor can run.
+- **Gate AI-generated code.** Hand an agent the same _normes_ your team codes to:
+  it gets concrete, mechanical feedback on what good looks like here, and
+  non-compliant output fails before it reaches a human.
+- **Spend review on judgement.** Reviewers focus on design and correctness
+  because the mechanical checks are already green.
 
 ## Install
 
