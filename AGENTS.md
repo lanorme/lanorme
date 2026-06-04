@@ -29,6 +29,26 @@ green PR. Do not finish with a red gate.
   the public API and registry in `src/lanorme/__init__.py`, the shared file walk
   in `src/lanorme/discovery.py`.
 
+## How we build features
+
+Build a feature as a sequence of phases, not one pass, and lean on parallel
+subagents wherever the work is independent (broad discovery, a multi-dimension
+audit, review across several lenses):
+
+1. Understand and design before writing: read the relevant code, and where the
+   approach is open, weigh more than one design.
+2. Implement the coherent change in one place; shared files do not parallelise.
+3. Test end to end, not only a unit: a positive case, a negative case, the
+   boundary, and a regression for the exact behaviour, plus the dogfood
+   (`lanorme check .`) and a real run of the feature.
+4. Review adversarially: check the change against distinct lenses (correctness,
+   resilience, performance, duplication, test solidity) and verify each finding
+   by reproducing it.
+5. Hold to the merge-ready bar before it lands (the `merge-ready` skill).
+
+Solo, single-pass work is for the trivial or strictly sequential: a rebase, a
+one-line fix, a doc edit. Anything larger gets the phases above.
+
 ## When you touch a check
 
 - Scan files through `lanorme.discovery.iter_py_files` / `iter_files`, never
