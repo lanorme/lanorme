@@ -10,6 +10,9 @@ set -euo pipefail
 
 cd "$(git rev-parse --show-toplevel)"
 
+echo "==> agent artifacts in sync"
+scripts/sync-agents.sh --check
+
 echo "==> unit tests"
 uv run --group dev pytest tests/unit -q
 

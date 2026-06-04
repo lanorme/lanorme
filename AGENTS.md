@@ -1,8 +1,9 @@
 # AGENTS.md
 
 Guidance for coding agents working in this repository (the
-[agents.md](https://agents.md/) standard; `CLAUDE.md` is a symlink to this file).
-LaNorme makes a Python codebase's standard executable, checking quality, style,
+[agents.md](https://agents.md/) standard). `CLAUDE.md` and `.agents/skills/` are
+generated copies kept in sync by `scripts/sync-agents.sh`; edit this file and the
+skills under `.claude/skills/`, then run that script. LaNorme makes a Python codebase's standard executable, checking quality, style,
 architecture, and structure mechanically on every commit. It is standalone and
 standard-library-only, and it checks its own source, so changes must stay
 LaNorme-compliant.
