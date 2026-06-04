@@ -11,6 +11,11 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
 
 ### Fixed
 
+- A bug in one check can no longer abort the whole run. Each check is isolated:
+  if it raises, the failure is reported as a `RUN-000` warning on that check and
+  every other check still runs and reports. Previously a single pathological
+  file (one that overflowed a recursive helper) crashed the entire `lanorme
+  check` and discarded every result.
 - `DRY-001` (duplication) no longer crashes the whole run on a deeply nested
   file. Normalising a function body deep-copies its AST, which overflowed the
   recursion limit and raised `RecursionError` on a pathological file; the file

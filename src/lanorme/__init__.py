@@ -141,9 +141,31 @@ def get_all_checks() -> dict[str, Check]:
     return dict(_registry)
 
 
+def run_check(check: Check, *, src_root: str) -> CheckResult:
+    """Run one check, isolating any exception so it cannot abort the whole run.
+
+    A bug in one check (a `RecursionError` on a pathological file, say) must not
+    discard the results of every other check. The failure is reported as a
+    warning on that check and the run continues.
+    """
+    try:
+        return check.run(src_root=src_root)
+    except Exception as exc:  # noqa: BLE001 - one check must not sink the run
+        return CheckResult(
+            check=check.name,
+            status=Status.WARN,
+            warnings=[
+                Violation(
+                    file="",
+                    line=0,
+                    rule="RUN-000: check raised an exception",
+                    message=f"Check {check.name!r} failed on this tree: {type(exc).__name__}",
+                    fix="This is a bug in the check; the rest of the run continued",
+                ),
+            ],
+        )
+
+
 def run_all(*, src_root: str) -> list[CheckResult]:
     """Run all registered checks and return their results."""
-    results = []
-    for check in _registry.values():
-        results.append(check.run(src_root=src_root))
-    return results
+    return [run_check(check, src_root=src_root) for check in _registry.values()]
