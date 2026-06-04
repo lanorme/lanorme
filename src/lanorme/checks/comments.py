@@ -189,7 +189,9 @@ def _comment_parses_as_code(text: str) -> bool:
     for candidate in _parsing_candidates(text):
         try:
             tree = ast.parse(candidate)
-        except (SyntaxError, ValueError):
+        except (SyntaxError, ValueError, RecursionError):
+            # A deeply nested but parseable expression in a single comment can
+            # overflow the parser. Treat it as prose, not commented-out code.
             continue
         for node in tree.body:
             if _is_code_statement(node):

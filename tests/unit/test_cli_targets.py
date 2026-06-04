@@ -115,3 +115,25 @@ def test_directory_target_in_multipath_keeps_its_subtree(tmp_path: Path, capsys)
     # unrequested file, walked only for context, is dropped.
     files = {Path(f["file"]).name for f in findings}
     assert files == {"models.py", "other.py", "extra.py"}
+
+
+def test_subdir_target_honours_project_root_per_file_ignores(tmp_path: Path, capsys):
+    # Arrange: a project-root config silences TERM in pkg/, written relative to
+    # the project root (not the scanned subdirectory).
+    config = _CONFIG + '\n[tool.lanorme.per-file-ignores]\n"pkg/*.py" = ["TERM"]\n'
+    (tmp_path / "pyproject.toml").write_text(config, encoding="utf-8")
+    pkg = tmp_path / "pkg"
+    pkg.mkdir()
+    (pkg / "models.py").write_text("class Brand:\n    pass\n", encoding="utf-8")
+
+    # Act: aim the check at the subdirectory, so the scan root differs from the
+    # project root. Findings are re-anchored to the project root before filtering.
+    try:
+        main(["check", str(pkg), "--check", "domain_terms", "--json"])
+    except SystemExit:
+        pass
+    findings = _domain_terms_findings(capsys)
+
+    # Assert: the root-relative ``pkg/*.py`` ignore matched the re-anchored path,
+    # so TERM is silenced (without re-anchoring it would not match and fire).
+    assert findings == []

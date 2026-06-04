@@ -254,6 +254,21 @@ class PatternDivergenceCheck:
             try:
                 source = py_file.read_text(encoding="utf-8")
                 tree = ast.parse(source, filename=str(py_file))
+                source_lines = source.splitlines()
+
+                # IMPORT-001: inline imports (violation)
+                file_violations = _check_inline_imports(
+                    tree=tree,
+                    source_lines=source_lines,
+                    relative_file=relative_file,
+                )
+
+                # ENDPOINT-001: endpoint nesting depth (warning)
+                file_warnings = _check_endpoint_nesting(
+                    tree=tree,
+                    source_lines=source_lines,
+                    relative_file=relative_file,
+                )
             except (OSError, UnicodeDecodeError, SyntaxError):
                 warnings.append(
                     Violation(
@@ -265,26 +280,23 @@ class PatternDivergenceCheck:
                     ),
                 )
                 continue
+            except RecursionError:
+                # A deeply nested AST (for example a very long attribute chain in
+                # an endpoint) overflows the recursive depth walk. Skip the file
+                # rather than crash the whole run.
+                warnings.append(
+                    Violation(
+                        file=relative_file,
+                        line=0,
+                        rule="ENDPOINT-000: too deeply nested",
+                        message=f"{py_file.name} is too deeply nested to analyse — skipping",
+                        fix="No action needed; this file is exempt from pattern_divergence",
+                    ),
+                )
+                continue
 
-            source_lines = source.splitlines()
-
-            # IMPORT-001: inline imports (violation)
-            violations.extend(
-                _check_inline_imports(
-                    tree=tree,
-                    source_lines=source_lines,
-                    relative_file=relative_file,
-                ),
-            )
-
-            # ENDPOINT-001: endpoint nesting depth (warning)
-            warnings.extend(
-                _check_endpoint_nesting(
-                    tree=tree,
-                    source_lines=source_lines,
-                    relative_file=relative_file,
-                ),
-            )
+            violations.extend(file_violations)
+            warnings.extend(file_warnings)
 
         status = Status.FAIL if violations else (Status.WARN if warnings else Status.PASS)
         return CheckResult(

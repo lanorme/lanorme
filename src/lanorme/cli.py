@@ -15,6 +15,7 @@ Configuration is discovered by walking up from the target path: a dedicated
 from __future__ import annotations
 
 import argparse
+import dataclasses
 import fnmatch
 import importlib
 import os
@@ -480,11 +481,47 @@ def _build_parser() -> argparse.ArgumentParser:
 # --------------------------------------------------------------------------- #
 
 
+def _reanchor(*, results: list[CheckResult], scan_root: Path, project_root: Path) -> list[CheckResult]:
+    """Re-express finding paths relative to the project (config) root.
+
+    Checks walk and relativise against the scan root (a file's surrounding
+    directory for a file target), but ``exclude`` / ``per-file-ignores`` / ``noqa``
+    patterns in the config are written relative to the project root. Re-anchor so
+    they match, and so the displayed path is the same wherever the check is aimed.
+    """
+    scan_abs = scan_root.resolve()
+    project_abs = project_root.resolve()
+    if scan_abs == project_abs:
+        return results
+
+    def reanchor(finding: Violation) -> Violation:
+        if not finding.file:
+            return finding
+        try:
+            relocated = (scan_abs / finding.file).relative_to(project_abs).as_posix()
+        except ValueError:
+            return finding
+        return dataclasses.replace(finding, file=relocated)
+
+    rebuilt: list[CheckResult] = []
+    for result in results:
+        rebuilt.append(
+            CheckResult(
+                check=result.check,
+                status=result.status,
+                violations=[reanchor(v) for v in result.violations],
+                warnings=[reanchor(w) for w in result.warnings],
+            )
+        )
+    return rebuilt
+
+
 def _run_and_report(
     *,
     args: argparse.Namespace,
     config: dict[str, object],
     scan_root: Path,
+    project_root: Path,
     targets: list[Path] | None,
 ) -> None:
     """Run the selected checks, apply the filters, print, and set the exit code."""
@@ -516,10 +553,13 @@ def _run_and_report(
     # paths), keep only findings for the requested targets. A lone directory
     # request passes ``targets=None`` and this is a no-op.
     results = _apply_target_filter(results=results, scan_root=scan_root, targets=targets)
+    # The target filter works in scan-root-relative paths; everything after it
+    # (config globs, noqa source lookup, display) works in project-root-relative.
+    results = _reanchor(results=results, scan_root=scan_root, project_root=project_root)
     results = _apply_filters(results=results, select=select, ignore=ignore)
     results = _apply_excludes(results=results, exclude=exclude)
     results = _apply_per_file_ignores(results=results, table=per_file_ignores)
-    results = _apply_noqa(results=results, project_root=Path(src_root))
+    results = _apply_noqa(results=results, project_root=project_root)
     reporting.emit(results=results, output_format=output_format)
 
     if any(r.status == Status.FAIL for r in results):
@@ -538,7 +578,9 @@ def _command_check(*, args: argparse.Namespace) -> None:
         reporting.print_config(config=config, source=config_source, project_root=project_root)
         return
 
-    _run_and_report(args=args, config=config, scan_root=scan_root, targets=targets)
+    _run_and_report(
+        args=args, config=config, scan_root=scan_root, project_root=project_root, targets=targets
+    )
 
 
 def main(argv: list[str] | None = None) -> None:
