@@ -15,7 +15,6 @@ Configuration is discovered by walking up from the target path: a dedicated
 from __future__ import annotations
 
 import argparse
-import dataclasses
 import fnmatch
 import importlib
 import os
@@ -41,6 +40,16 @@ from lanorme import (
     run_check,
 )
 from lanorme.discovery import set_excludes
+from lanorme.regions import (
+    Region,
+    child_exclude_globs,
+    combine_results,
+    discover_regions,
+    is_tree_scoped,
+    reanchor_results,
+    restore_defaults,
+    snapshot_defaults,
+)
 
 _CODE_RE = re.compile(r"^([A-Z]+)-\d+")
 
@@ -481,39 +490,56 @@ def _build_parser() -> argparse.ArgumentParser:
 # --------------------------------------------------------------------------- #
 
 
-def _reanchor(*, results: list[CheckResult], scan_root: Path, project_root: Path) -> list[CheckResult]:
-    """Re-express finding paths relative to the project (config) root.
+def _run_regions(
+    *,
+    regions: list[Region],
+    root_config: dict[str, object],
+    scan_root: Path,
+    exclude: list[str],
+    pristine: dict[str, object],
+) -> list[CheckResult]:
+    """Run the checks under cascading per-directory config and merge the results.
 
-    Checks walk and relativise against the scan root (a file's surrounding
-    directory for a file target), but ``exclude`` / ``per-file-ignores`` / ``noqa``
-    patterns in the config are written relative to the project root. Re-anchor so
-    they match, and so the displayed path is the same wherever the check is aimed.
+    File-level checks run once per region, each pass scoped to the files that
+    region directly governs (the nested regions below it are excluded) and
+    configured with that region's merged settings; their findings are re-anchored
+    back to the scan root and folded together. Whole-tree checks run once at the
+    scan root under the root config. Results land in scan-root coordinates, the
+    same as a single-region run, so the downstream pipeline is unchanged.
     """
-    scan_abs = scan_root.resolve()
-    project_abs = project_root.resolve()
-    if scan_abs == project_abs:
-        return results
+    checks = get_all_checks()
+    by_name: dict[str, CheckResult] = {}
 
-    def reanchor(finding: Violation) -> Violation:
-        if not finding.file:
-            return finding
-        try:
-            relocated = (scan_abs / finding.file).relative_to(project_abs).as_posix()
-        except ValueError:
-            return finding
-        return dataclasses.replace(finding, file=relocated)
+    restore_defaults(checks=checks, snapshot=pristine)
+    _apply_check_config(config=root_config)
+    set_excludes(exclude)
+    for name, check in checks.items():
+        if is_tree_scoped(check):
+            by_name[name] = run_check(check, src_root=str(scan_root))
 
-    rebuilt: list[CheckResult] = []
-    for result in results:
-        rebuilt.append(
-            CheckResult(
-                check=result.check,
-                status=result.status,
-                violations=[reanchor(v) for v in result.violations],
-                warnings=[reanchor(w) for w in result.warnings],
+    root_dir = scan_root.resolve()
+    for region in regions:
+        restore_defaults(checks=checks, snapshot=pristine)
+        _apply_check_config(config=region.merged)
+        region_excludes = child_exclude_globs(region=region, regions=regions)
+        # The user's excludes are written relative to the scan root, so they
+        # prune correctly only in the root region's walk (rooted there). Nested
+        # regions walk from their own directory, where those globs would not
+        # line up, so their user excludes are left to the post-filter, which
+        # works in project-root coordinates and still drops the findings.
+        if region.directory == root_dir:
+            region_excludes = list(exclude) + region_excludes
+        set_excludes(region_excludes)
+        for name, check in checks.items():
+            if is_tree_scoped(check):
+                continue
+            result = run_check(check, src_root=str(region.directory))
+            (result,) = reanchor_results(
+                results=[result], from_root=region.directory, to_root=scan_root
             )
-        )
-    return rebuilt
+            by_name[name] = combine_results(existing=by_name.get(name), addition=result)
+
+    return [by_name[name] for name in checks if name in by_name]
 
 
 def _run_and_report(
@@ -523,6 +549,7 @@ def _run_and_report(
     scan_root: Path,
     project_root: Path,
     targets: list[Path] | None,
+    pristine: dict[str, object],
 ) -> None:
     """Run the selected checks, apply the filters, print, and set the exit code."""
     src_root = str(scan_root)
@@ -539,7 +566,18 @@ def _run_and_report(
     if args.single:
         results, implicit_select = _resolve_single(selector=args.single, src_root=src_root)
     else:
-        results, implicit_select = run_all(src_root=src_root), []
+        implicit_select = []
+        regions = discover_regions(scan_root=scan_root, root_config=config)
+        if len(regions) == 1:
+            results = run_all(src_root=src_root)
+        else:
+            results = _run_regions(
+                regions=regions,
+                root_config=config,
+                scan_root=scan_root,
+                exclude=exclude,
+                pristine=pristine,
+            )
 
     if not results:
         print("No checks registered.")
@@ -555,7 +593,7 @@ def _run_and_report(
     results = _apply_target_filter(results=results, scan_root=scan_root, targets=targets)
     # The target filter works in scan-root-relative paths; everything after it
     # (config globs, noqa source lookup, display) works in project-root-relative.
-    results = _reanchor(results=results, scan_root=scan_root, project_root=project_root)
+    results = reanchor_results(results=results, from_root=scan_root, to_root=project_root)
     results = _apply_filters(results=results, select=select, ignore=ignore)
     results = _apply_excludes(results=results, exclude=exclude)
     results = _apply_per_file_ignores(results=results, table=per_file_ignores)
@@ -572,6 +610,14 @@ def _command_check(*, args: argparse.Namespace) -> None:
 
     config, project_root, config_source = _discover_config(start=scan_root)
     _load_plugin_modules([*config.get("plugins", []), *args.plugin])
+    # Capture pristine defaults, then reset every check to them before applying
+    # config. configure() only ever sets, never resets, so without this a check
+    # configured by an earlier invocation in the same process would leak its
+    # settings into this run. The cascading runner reuses the snapshot to reset
+    # between regions.
+    checks = get_all_checks()
+    pristine = snapshot_defaults(checks)
+    restore_defaults(checks=checks, snapshot=pristine)
     _apply_check_config(config=config)
 
     if args.show_config:
@@ -579,7 +625,12 @@ def _command_check(*, args: argparse.Namespace) -> None:
         return
 
     _run_and_report(
-        args=args, config=config, scan_root=scan_root, project_root=project_root, targets=targets
+        args=args,
+        config=config,
+        scan_root=scan_root,
+        project_root=project_root,
+        targets=targets,
+        pristine=pristine,
     )
 
 

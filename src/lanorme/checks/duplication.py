@@ -184,6 +184,7 @@ class DuplicationCheck:
 
     name: str = "duplication"
     description: str = "Near-duplicate function detection (DRY enforcement)"
+    scope = "tree"  # groups functions across files; partitioning would hide split pairs
     rules: list[str] = field(
         default_factory=lambda: [
             "DRY-001: Functions with identical normalized AST bodies (>= 5 statements) are duplicates",

@@ -153,6 +153,7 @@ class LayerDepsCheck:
 
     name: str = "layer_deps"
     description: str = "Hexagonal architecture layer dependency validation"
+    scope = "tree"  # classifies layers by layout relative to the source root
     source_root: str = ""
     layers: tuple[str, ...] = LAYERS
     allowed_imports: dict[str, set[str]] = field(

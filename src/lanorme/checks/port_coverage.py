@@ -373,6 +373,7 @@ class PortCoverageCheck:
 
     name: str = "port_coverage"
     description: str = "Port coverage enforcement (Protocol / infrastructure alignment)"
+    scope = "tree"  # pairs adapters against ports across the whole source root
     source_root: str = ""
     ports_dir: str = DEFAULT_PORTS_DIR
     adapter_roots: tuple[str, ...] = DEFAULT_ADAPTER_ROOTS
