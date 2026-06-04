@@ -46,7 +46,7 @@ uvx lanorme check .
 Or install straight from source:
 
 ```console
-uv tool install "git+https://github.com/lanorme/lanorme@v0.8.0"
+uv tool install "git+https://github.com/lanorme/lanorme@vX.Y.Z"   # pick a tag below
 ```
 
 Releases are tagged `vX.Y.Z`; see the [releases page](https://github.com/lanorme/lanorme/releases) for notes.

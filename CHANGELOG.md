@@ -9,6 +9,8 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
 
 ## [Unreleased]
 
+## [0.9.1]
+
 ### Fixed
 
 - A bug in one check can no longer abort the whole run. Each check is isolated:
