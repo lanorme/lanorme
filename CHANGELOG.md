@@ -16,6 +16,22 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
   every other check still runs and reports. Previously a single pathological
   file (one that overflowed a recursive helper) crashed the entire `lanorme
   check` and discarded every result.
+- A subset target (a single file, or a subdirectory) now honours `exclude`,
+  `per-file-ignores`, and `# noqa` that are written relative to the project root.
+  Findings were relativised against the scanned directory, so those root-relative
+  patterns silently stopped matching; finding paths are now re-anchored to the
+  project (config) root before filtering and display.
+- `security_patterns`, `strong_types`, and `pattern_divergence` no longer crash
+  the run on a deeply nested file (a long operator chain, a deep union
+  annotation, or a deep attribute chain). Each skips the file with a `SQL-000`,
+  `TYPE-000`, or `ENDPOINT-000` warning, matching `DRY-001`; the `comments` check
+  likewise tolerates a deeply nested expression in a comment.
+
+### Internal
+
+- Backfilled unit tests for previously untested default-on checks (`secrets`,
+  `file_limits`, `security_patterns`, `strong_types`, `pattern_divergence`,
+  `comments`), taking the suite from 103 to 156 tests.
 - `DRY-001` (duplication) no longer crashes the whole run on a deeply nested
   file. Normalising a function body deep-copies its AST, which overflowed the
   recursion limit and raised `RecursionError` on a pathological file; the file

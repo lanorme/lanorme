@@ -383,15 +383,34 @@ class SecurityPatternsCheck:
             try:
                 source = py_file.read_text(encoding="utf-8")
                 tree = ast.parse(source, filename=str(py_file))
+
+                # AUTHN-001: Only check endpoint files (api/ layer).
+                file_violations: list[Violation] = []
+                if relative_file.startswith("api/"):
+                    file_violations.extend(
+                        _check_auth_on_mutations(tree=tree, relative_file=relative_file)
+                    )
+
+                # SQL-001: Check all files for raw SQL (except alembic).
+                file_violations.extend(_check_raw_sql(tree=tree, relative_file=relative_file))
             except (OSError, UnicodeDecodeError, SyntaxError):
                 continue
+            except RecursionError:
+                # A long ``"a" + "a" + ...`` chain makes _sql_from_binop and
+                # _sql_string_from recurse on BinOp.left/.right until the stack
+                # overflows. Skip the file rather than crash the whole run.
+                warnings.append(
+                    Violation(
+                        file=relative_file,
+                        line=0,
+                        rule="SQL-000: too deeply nested",
+                        message=f"{py_file.name} is too deeply nested to analyse — skipping",
+                        fix="No action needed; this file is exempt from SQL-001",
+                    ),
+                )
+                continue
 
-            # AUTHN-001: Only check endpoint files (api/ layer).
-            if relative_file.startswith("api/"):
-                violations.extend(_check_auth_on_mutations(tree=tree, relative_file=relative_file))
-
-            # SQL-001: Check all files for raw SQL (except alembic).
-            violations.extend(_check_raw_sql(tree=tree, relative_file=relative_file))
+            violations.extend(file_violations)
 
         status = Status.FAIL if violations else (Status.WARN if warnings else Status.PASS)
         return CheckResult(

@@ -246,6 +246,13 @@ class StrongTypesCheck:
             try:
                 source = py_file.read_text(encoding="utf-8")
                 tree = ast.parse(source, filename=str(py_file))
+                for node in ast.walk(tree):
+                    if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
+                        func_violations, func_warnings = _check_function(
+                            func=node, relative_file=relative_file
+                        )
+                        violations.extend(func_violations)
+                        warnings.extend(func_warnings)
             except (OSError, UnicodeDecodeError, SyntaxError):
                 warnings.append(
                     Violation(
@@ -257,14 +264,20 @@ class StrongTypesCheck:
                     )
                 )
                 continue
-
-            for node in ast.walk(tree):
-                if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
-                    func_violations, func_warnings = _check_function(
-                        func=node, relative_file=relative_file
+            except RecursionError:
+                # A deeply nested annotation (e.g. a union with thousands of
+                # terms) overflows the recursive annotation walk. Skip the file
+                # rather than crash the whole run.
+                warnings.append(
+                    Violation(
+                        file=relative_file,
+                        line=0,
+                        rule="TYPE-000: too deeply nested",
+                        message=f"{py_file.name} is too deeply nested to analyse — skipping",
+                        fix="No action needed; this file is exempt from TYPE-001..003",
                     )
-                    violations.extend(func_violations)
-                    warnings.extend(func_warnings)
+                )
+                continue
 
         status = Status.FAIL if violations else (Status.WARN if warnings else Status.PASS)
         return CheckResult(
