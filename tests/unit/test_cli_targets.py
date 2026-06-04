@@ -100,3 +100,18 @@ def test_missing_path_exits_two(tmp_path: Path, capsys):
         main(["check", str(tmp_path / "nope.py"), "--check", "domain_terms"])
     assert exc.value.code == 2
     assert "does not exist" in capsys.readouterr().err
+
+
+def test_directory_target_in_multipath_keeps_its_subtree(tmp_path: Path, capsys):
+    # Arrange: a package, a requested loose file, and an unrequested loose file.
+    pkg = _project(tmp_path)
+    (tmp_path / "extra.py").write_text("class Brand:\n    pass\n", encoding="utf-8")
+    (tmp_path / "unasked.py").write_text("class Brand:\n    pass\n", encoding="utf-8")
+
+    # Act: request the directory and one loose file, but not the other.
+    findings = _run([pkg, tmp_path / "extra.py"], capsys)
+
+    # Assert: the whole directory subtree and the named file are kept; the
+    # unrequested file, walked only for context, is dropped.
+    files = {Path(f["file"]).name for f in findings}
+    assert files == {"models.py", "other.py", "extra.py"}
