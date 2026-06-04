@@ -99,6 +99,12 @@ Conventions for a new rule:
 - **Findings vs warnings.** Put a hard finding in `violations` (it fails the
   run); put an advisory in `warnings` (it reports but keeps exit 0). Advisory,
   opinionated, or stylistic rules should be warnings.
+- **Cross-file checks declare `scope = "tree"`.** A check whose findings depend
+  on comparing or aggregating across files (a duplicate pair, a coverage gap, an
+  architecture rule) must set the class attribute `scope = "tree"`. The default
+  is `"file"`. It matters under cascading per-directory config: file-scoped
+  checks run once per config region, but a tree-scoped check runs once at the
+  scan root so a finding split across two regions is not missed.
 - **Default off when opinionated or broad.** If a rule is opinionated or fires
   often on ordinary code, ship it default-off (an `enabled` field, default
   `False`) and let users opt in. Decide the default by measuring the rule on

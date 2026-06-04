@@ -111,6 +111,7 @@ class MetaCheck:
 
     name: str = "meta"
     description: str = "Meta-check: validates all checks produce structured output"
+    scope = "tree"  # introspects the whole check registry, not a file partition
     rules: list[str] = field(
         default_factory=lambda: [
             "META-001: Check must have a non-empty name",

@@ -153,6 +153,44 @@ hexagonal layers live under a nested package: layers are classified relative to
 `ports_dir` / `adapter_roots` are read relative to it. Every other check still
 scans the whole tree.
 
+### Per-directory config for gradual adoption
+
+An ageing codebase rarely passes a full standard at once. Drop a `lanorme.toml`
+into a subdirectory and it governs the files beneath it, even when the run starts
+at the repository root: enforce the strict set in the new module, keep the legacy
+tree lenient, and tighten outward over time.
+
+```toml
+# src/new_module/lanorme.toml — tables sit at the top level here, with no
+# [tool.lanorme] prefix (that prefix is only for pyproject.toml).
+[similarity]
+enabled = true        # turn on a default-off check just for this subtree
+```
+
+A nested config **inherits** its parent and **overrides** only the keys it sets,
+so a subdirectory declares just what differs. Add `root = true` to end the
+cascade and let a subtree stand alone:
+
+```toml
+# legacy/lanorme.toml
+root = true           # ignore the strict settings from the parent
+```
+
+The cascade governs check **settings** (the per-check tables, `source_root`, and
+the flags configurable checks expose). Two things stay anchored to the root:
+
+- **Whole-tree checks** (`duplication`, `test_coverage`, `layer_deps`,
+  `port_coverage`, and the `meta` self-check) compare or aggregate across files,
+  so they run once at the scan root under the root config and a subtree cannot
+  relax them. Every other check resolves per file, under the config of its
+  nearest enclosing region.
+- **Run-level filters** (`select`, `ignore`, `exclude`, and `per-file-ignores`)
+  are read from the root config. To suppress specific rule codes for one area,
+  use a root-level `per-file-ignores` glob (or a `# noqa` comment).
+
+A run with no nested config behaves exactly as before, and `--check NAME` uses
+the root config (cascading applies to a full run).
+
 ## What it checks
 
 `lanorme rules` prints the live list. [`docs/RULES.md`](docs/RULES.md) documents

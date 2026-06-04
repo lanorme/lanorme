@@ -153,6 +153,7 @@ class TestCoverageCheck:
 
     name: str = "test_coverage"
     description: str = "Test coverage: every production module has a test"
+    scope = "tree"  # needs the whole test-file set to know a module is covered
     rules: list[str] = field(
         default_factory=lambda: [
             "TESTFILE-001: Every production module must have a corresponding test",

@@ -101,7 +101,13 @@ class CheckResult:
 
 
 class Check(Protocol):
-    """Protocol that all checks must implement."""
+    """Protocol that all checks must implement.
+
+    A check may declare ``scope = "tree"`` (default ``"file"``) to mark that it
+    compares or aggregates across files. Under cascading per-directory config a
+    file-scoped check runs once per region; a tree-scoped check runs once at the
+    scan root, because partitioning it would hide findings split across regions.
+    """
 
     name: str
     description: str

@@ -9,6 +9,29 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
 
 ## [Unreleased]
 
+## [0.10.0]
+
+### Added
+
+- Cascading per-directory config for gradual adoption (issue #28). A
+  `lanorme.toml` (or `pyproject.toml` `[tool.lanorme]`) in a subdirectory now
+  governs the files beneath it, even when the run starts at the repository root.
+  A nested config inherits its parent and overrides only the keys it sets;
+  `root = true` ends the cascade so a subtree can stand alone. File-level checks
+  resolve under the config of each file's nearest enclosing region; the
+  whole-tree checks (`duplication`, `test_coverage`, `layer_deps`,
+  `port_coverage`, `meta`) and the run-level filters (`select` / `ignore` /
+  `exclude` / `per-file-ignores`) stay anchored to the root config. A run with
+  no nested config is unchanged, so existing projects keep today's behaviour.
+
+### Changed
+
+- A `lanorme.toml` (or `pyproject.toml` `[tool.lanorme]`) in a subdirectory is
+  now honoured as a region governing that subtree. Config discovery previously
+  only walked up from the target, so such a nested file was ignored; if you have
+  a dormant one below your scan root, it now takes effect. This is why the
+  release is a minor, not a patch.
+
 ## [0.9.1]
 
 ### Fixed
