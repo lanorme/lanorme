@@ -35,6 +35,9 @@ jobs:
       - name: Install dependencies
         run: uv sync --group dev
 
+      - name: Agent artifacts in sync
+        run: scripts/sync-agents.sh --check
+
       - name: Unit tests
         run: uv run --group dev pytest tests/unit
 
