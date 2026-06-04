@@ -37,6 +37,7 @@ from lanorme import (
     get_all_checks,
     get_check,
     run_all,
+    run_check,
 )
 from lanorme.discovery import set_excludes
 
@@ -160,11 +161,11 @@ def _resolve_single(*, selector: str, src_root: str) -> tuple[list[CheckResult],
     """
     by_name = get_check(selector)
     if by_name is not None:
-        return [by_name.run(src_root=src_root)], []
+        return [run_check(by_name, src_root=src_root)], []
 
     matched = _checks_for_selector(selector=selector)
     if matched:
-        return [check.run(src_root=src_root) for check in matched], [selector.upper()]
+        return [run_check(check, src_root=src_root) for check in matched], [selector.upper()]
 
     names = ", ".join(sorted(get_all_checks())) or "(none)"
     print(
