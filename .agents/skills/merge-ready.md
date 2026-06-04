@@ -1,0 +1,1 @@
+../../.claude/skills/merge-ready/SKILL.md
