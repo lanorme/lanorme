@@ -5,11 +5,11 @@ build-backend = "hatchling.build"
 [project]
 name = "lanorme"
 version = "0.8.0"
-description = "La norme: a configurable, pluggable architecture and code-quality linter for Python."
+description = "Executable codebase standards for Python: quality, style, architecture, and structure, checked mechanically on every commit."
 readme = "README.md"
 requires-python = ">=3.13"
 license = "MIT"
-keywords = ["linter", "architecture", "code-quality", "static-analysis", "checks", "ddd", "hexagonal"]
+keywords = ["code-quality", "static-analysis", "checks", "normes", "code-review", "pre-commit", "git-hook", "architecture", "linter", "ddd", "hexagonal"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Environment :: Console",

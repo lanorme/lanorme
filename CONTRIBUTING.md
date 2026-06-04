@@ -1,9 +1,9 @@
 # Contributing to LaNorme
 
-Thanks for your interest. LaNorme is a standalone, standard-library-only linter
-for Python: it checks the usual code-quality things plus a few that other
-linters do not, such as hexagonal layer boundaries and a project's own naming
-vocabulary. This guide covers the setup, the conventions, and how to add a rule.
+Thanks for your interest. LaNorme makes a codebase's standard executable: a
+standalone, standard-library-only tool that checks quality, style, architecture,
+and structure mechanically, with ready-made checks (_normes_) and an interface to
+add your own. This guide covers the setup, the conventions, and how to add a rule.
 
 ## Where to start
 
@@ -31,7 +31,7 @@ You need [`uv`](https://docs.astral.sh/uv/) and Python 3.13 or newer.
 
 ```console
 uv sync --group dev
-uvx pre-commit install     # install the hook; runs the linter and tests on every commit thereafter
+uvx pre-commit install     # install the hook; runs the checks and tests on every commit thereafter
 ```
 
 The pre-commit hooks run `lanorme check .` and the unit tests, so a commit only

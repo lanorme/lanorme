@@ -1,8 +1,10 @@
 # CLAUDE.md
 
-Guidance for coding agents working in this repository. LaNorme is a standalone,
-standard-library-only linter for Python. It lints its own source, so changes
-must stay LaNorme-compliant.
+Guidance for coding agents working in this repository. LaNorme makes a Python
+codebase's standard executable, checking quality, style, architecture, and
+structure mechanically on every commit. It is standalone and
+standard-library-only, and it checks its own source, so changes must stay
+LaNorme-compliant.
 
 ## Before you finish a change
 
