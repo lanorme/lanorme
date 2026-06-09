@@ -9,6 +9,17 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
 
 ## [Unreleased]
 
+### Added
+
+- `TYPE-004` in the `strong_types` check: an advisory warning when a function
+  has at least one annotated parameter and returns a real value in its own
+  scope but declares no return type. It is the high-signal completeness subset
+  of ruff's `ANN` family (it fires only when the inputs are already typed and a
+  value escapes), so fully untyped functions and value-less procedures are left
+  alone. Generators are exempt, and returns inside a nested `def` or `lambda`
+  do not count. Ships as a warning, not a build failure, because presence
+  enforcement is noisier than the weak-type rules.
+
 ## [0.11.0]
 
 ### Added
