@@ -48,6 +48,7 @@ from lanorme.filtering import (
     _matches,
     _rule_code,
 )
+from lanorme.presets import _resolve_extends
 from lanorme.regions import (
     Region,
     child_exclude_globs,
@@ -513,7 +514,9 @@ def _run_and_report(
         results, implicit_select = _resolve_single(selector=args.single, src_root=src_root)
     else:
         implicit_select = []
-        regions = discover_regions(scan_root=scan_root, root_config=config)
+        regions = discover_regions(
+            scan_root=scan_root, root_config=config, resolve_extends=_resolve_extends
+        )
         if len(regions) == 1:
             results = run_all(src_root=src_root)
         else:
@@ -556,6 +559,7 @@ def _command_check(*, args: argparse.Namespace) -> None:
     scan_root, targets = _resolve_targets(args.paths)
 
     config, project_root, config_source = _discover_config(start=scan_root)
+    config = _resolve_extends(config=config, project_root=project_root)
     _load_plugin_modules([*config.get("plugins", []), *args.plugin])
     # Capture pristine defaults, then reset every check to them before applying
     # config. configure() only ever sets, never resets, so without this a check
