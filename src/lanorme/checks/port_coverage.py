@@ -114,6 +114,36 @@ def _extract_imported_names(*, tree: ast.AST) -> set[str]:
     return names
 
 
+def _adapter_bound_names(*, tree: ast.AST, adapter_dotted: tuple[str, ...]) -> set[str]:
+    """Local names bound to an adapter module, e.g. ``redis_registry`` from
+    ``from infrastructure.services import redis_registry``.
+
+    Used to catch the attribute-form instantiation ``redis_registry.RedisRegistry()``
+    precisely: only a call whose receiver is one of these names counts, so the
+    receiver check keeps the detection from firing on an unrelated same-named call.
+    """
+    bound: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom) and node.module:
+            if any(dotted in node.module for dotted in adapter_dotted):
+                bound.update(alias.asname or alias.name for alias in node.names)
+        elif isinstance(node, ast.Import):
+            for alias in node.names:
+                if any(dotted in alias.name for dotted in adapter_dotted):
+                    bound.add(alias.asname or alias.name.split(".")[-1])
+    return bound
+
+
+def _extract_attr_call_pairs(*, tree: ast.AST) -> list[tuple[str, str, int]]:
+    """Find ``value.attr(...)`` calls, returning (value_name, attr, line) triples."""
+    pairs: list[tuple[str, str, int]] = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
+            if isinstance(node.func.value, ast.Name):
+                pairs.append((node.func.value.id, node.func.attr, node.lineno))
+    return pairs
+
+
 def _extract_call_names(*, tree: ast.AST) -> list[tuple[str, int]]:
     """Find ``SomeClass(...)`` call expressions and return (name, line)."""
     calls: list[tuple[str, int]] = []
@@ -148,6 +178,25 @@ def _port_module_stem(*, module: str, ports_parts: list[str]) -> str | None:
         if parts[i : i + span] == ports_parts:
             return parts[i + span] if i + span < len(parts) else None
     return None
+
+
+def _ports_package_import_stems(*, tree: ast.AST, ports_parts: list[str]) -> set[str]:
+    """Port stems imported via the module-as-name form ``from <ports_pkg> import <stem>``.
+
+    ``_port_module_stem`` handles ``from application.ports.registry import X`` and
+    ``import application.ports.registry``, where the stem trails the ports package
+    in the dotted path. It cannot see the equally idiomatic
+    ``from application.ports import registry`` form, where the dotted module stops
+    at the ports package and the imported *name* is the port module stem. Without
+    this, a genuinely implemented port is wrongly flagged by PORT-002.
+    """
+    span = len(ports_parts)
+    stems: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom) and node.module:
+            if node.module.split(".")[-span:] == ports_parts:
+                stems.update(alias.name for alias in node.names)
+    return stems
 
 
 def _parse_file(*, py_file: Path) -> ast.AST | None:
@@ -249,11 +298,12 @@ def _check_port002(
 ) -> list[Violation]:
     """PORT-002: every port Protocol must be referenced by an adapter file."""
     referenced_port_stems: set[str] = set()
-    for _relative, _tree, import_modules in adapter_files:
+    for _relative, tree, import_modules in adapter_files:
         for module, _line in import_modules:
             stem = _port_module_stem(module=module, ports_parts=ports_parts)
             if stem is not None:
                 referenced_port_stems.add(stem)
+        referenced_port_stems |= _ports_package_import_stems(tree=tree, ports_parts=ports_parts)
 
     violations: list[Violation] = []
     for proto_name, (relative_file, line, port_stem) in sorted(port_protocols.items()):
@@ -334,10 +384,12 @@ def _check_port003(
             continue
 
         imported_infra = _extract_imported_names(tree=tree) & infra_class_names
-        if not imported_infra:
+        adapter_bound = _adapter_bound_names(tree=tree, adapter_dotted=adapter_dotted)
+        if not imported_infra and not adapter_bound:
             continue
 
         found_instantiation = False
+        # Class-import form: ``from ...redis_registry import RedisRegistry`` then ``RedisRegistry()``.
         for call_name, call_line in _extract_call_names(tree=tree):
             if call_name in imported_infra:
                 violations.append(
@@ -346,6 +398,20 @@ def _check_port003(
                         line=call_line,
                         rule="PORT-003: Direct instantiation of infra service in api/ layer",
                         message=f"'{call_name}(...)' instantiated directly — use dependency injection",
+                        fix="Move the construction to the composition root and inject it",
+                    )
+                )
+                found_instantiation = True
+        # Module-attribute form: ``from ...services import redis_registry`` then
+        # ``redis_registry.RedisRegistry()``, where the receiver is an adapter module.
+        for value_name, attr, call_line in _extract_attr_call_pairs(tree=tree):
+            if attr in infra_class_names and value_name in adapter_bound:
+                violations.append(
+                    Violation(
+                        file=relative,
+                        line=call_line,
+                        rule="PORT-003: Direct instantiation of infra service in api/ layer",
+                        message=f"'{value_name}.{attr}(...)' instantiated directly — use dependency injection",
                         fix="Move the construction to the composition root and inject it",
                     )
                 )
