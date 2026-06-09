@@ -43,3 +43,27 @@ def test_legitimate_dotfiles_are_not_flagged(tmp_path: Path):
     result = StrayArtifactsCheck().run(src_root=str(tmp_path))
     assert result.status == Status.PASS
     assert not result.violations
+
+
+def test_stray_image_at_root_is_flagged_but_asset_dir_image_is_not(tmp_path: Path):
+    # Arrange: an identical image filename at the root and inside docs/, an
+    # asset directory where images are expected.
+    (tmp_path / "diagram.png").write_text("x\n", encoding="utf-8")
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "diagram.png").write_text("x\n", encoding="utf-8")
+    # Act
+    flagged = {file for rule, file in _codes(tmp_path) if rule == "JUNK-002"}
+    # Assert: only the stray root copy is flagged; the asset-dir copy is exempt.
+    assert flagged == {"diagram.png"}
+
+
+def test_allow_glob_exempts_a_stray_image(tmp_path: Path):
+    # Arrange: a stray image that an allow entry whitelists by basename.
+    (tmp_path / "diagram.png").write_text("x\n", encoding="utf-8")
+    check = StrayArtifactsCheck()
+    check.configure(settings={"allow": ["diagram.png"]})
+    # Act
+    result = check.run(src_root=str(tmp_path))
+    # Assert: the allow entry suppresses the JUNK-002 finding.
+    assert result.status == Status.PASS
+    assert not result.violations

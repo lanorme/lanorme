@@ -7,9 +7,8 @@ configured -- that inertness is its false-positive guarantee.
 
 These tests drive the check object directly via ``configure`` + ``run`` (the
 same surface the CLI uses), mirroring the tmp_path idiom of test_comments.py.
-Every behaviour encoded here was observed against the real check; the one known
-defect (duplicate violations for a bare assignment target) is pinned with an
-xfail rather than asserted as correct.
+Every behaviour encoded here was observed against the real check, including that
+a bare assignment target fires exactly once.
 """
 
 from __future__ import annotations
@@ -230,11 +229,6 @@ def test_test_prefixed_and_migrations_files_are_exempt(check: DomainTermsCheck, 
     assert files == {"real.py"}
 
 
-@pytest.mark.xfail(
-    reason="Known defect: a bare assignment target is visited as both ast.Assign "
-    "and ast.Name, so `acct = 1` emits two identical violations instead of one.",
-    strict=True,
-)
 def test_bare_assignment_should_fire_exactly_once(check: DomainTermsCheck, tmp_path: Path):
     # Arrange: a single bare assignment to the forbidden identifier.
     _write(root=tmp_path, name="dup.py", body="acct = 1\n")
@@ -242,6 +236,6 @@ def test_bare_assignment_should_fire_exactly_once(check: DomainTermsCheck, tmp_p
     # Act.
     result = check.run(src_root=str(tmp_path))
 
-    # Assert: ideally one violation per textual occurrence (currently emits two).
+    # Assert: exactly one violation per textual occurrence of the bare target.
     ident = [v for v in _term001(result) if "identifier" in v.message]
     assert len(ident) == 1

@@ -4,7 +4,7 @@ These tests pin the CONFIRMED-CORRECT behaviour observed by running the check
 against fixtures laid out with the built-in defaults (ports_dir
 ``application/ports`` and adapter root ``infrastructure/services``). No
 ``lanorme.toml`` is needed because every fixture uses the default layout, so the
-check is driven directly via ``PortCoverageCheck().run(src_root=...)`` — the same
+check is driven directly via ``PortCoverageCheck().run(src_root=...)`` - the same
 idiom as ``tests/unit/test_strong_types.py``.
 
 Known defects (NOT encoded as passing tests; see the findings list / xfails):
@@ -161,7 +161,7 @@ def test_direct_instantiation_in_api_triggers_port003(tmp_path: Path):
 
 def test_direct_import_only_in_api_triggers_port003_import_variant(tmp_path: Path):
     # Arrange: an api/ file that imports an adapter class and uses it only as a
-    # type annotation (no instantiation) — the import-variant of PORT-003.
+    # type annotation (no instantiation) - the import-variant of PORT-003.
     _write(
         tmp_path / "application/ports/registry.py",
         "from typing import Protocol\n\n"
@@ -214,7 +214,7 @@ def test_composition_root_is_exempt_from_port003(tmp_path: Path):
     # Act.
     result = PortCoverageCheck().run(src_root=str(tmp_path))
 
-    # Assert: wiring at the composition root is allowed — no PORT-003.
+    # Assert: wiring at the composition root is allowed - no PORT-003.
     assert result.status == Status.PASS
     assert _codes(result) == []
 

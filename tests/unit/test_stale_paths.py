@@ -9,16 +9,14 @@ The check is configured directly via ``StalePathsCheck.configure(settings=...)``
 rather than through the CLI/TOML layer, mirroring the unit-test idiom of calling
 the check object directly with ``tmp_path`` fixtures.
 
-A confirmed false positive is documented as an xfail: when a ``#`` appears inside
-a string literal, the naive comment scanner treats the rest of the line as a
-comment and flags any stale token there.
+A regression test pins the precision contract: when a ``#`` appears inside a
+string literal, the comment scanner (driven by :mod:`tokenize`) must not treat
+the rest of the line as a comment, so a stale token there stays silent.
 """
 
 from __future__ import annotations
 
 from pathlib import Path
-
-import pytest
 
 from lanorme import Status
 from lanorme.checks.stale_paths import StalePathsCheck
@@ -199,15 +197,6 @@ def test_syntax_error_file_is_skipped_silently(tmp_path: Path):
     assert result.violations == []
 
 
-@pytest.mark.xfail(
-    reason=(
-        "CONFIRMED BUG (false positive): the comment scanner uses a naive "
-        "line.find('#') with no string-literal awareness, so a '#' inside a "
-        "string literal makes the rest of the line look like a comment and any "
-        "stale token there is wrongly flagged. Should PASS; currently FAILs."
-    ),
-    strict=True,
-)
 def test_hash_inside_string_literal_must_not_fire(tmp_path: Path):
     # Arrange: a '#' inside a dict value string, with a stale token later on the
     # same line. There is no real comment here.

@@ -8,17 +8,15 @@ than routing through a ``lanorme.toml``/``pyproject.toml`` file, because a
 ``[tool.lanorme.layer_deps]`` is pyproject-only -- mixing the two silently drops
 the config and would make a config test pass vacuously.
 
-Every test below was verified against current behaviour via real runs. The
-confirmed prefix-strip false positive (a third-party submodule named like a
-layer) is pinned with an xfail asserting the DESIRED (PASS) behaviour, so the
-suite documents the defect without codifying it as correct.
+Every test below was verified against current behaviour via real runs. A
+third-party submodule named like a layer (``thirdparty.infrastructure``) is
+correct code, so the heuristic recognises a project layer only when the import's
+first segment is a layer name or the project's own top-level package.
 """
 
 from __future__ import annotations
 
 from pathlib import Path
-
-import pytest
 
 from lanorme import Status
 from lanorme.checks.layer_deps import LayerDepsCheck
@@ -531,13 +529,6 @@ def test_source_root_exempts_files_outside_it(tmp_path: Path):
     assert result.violations[0].rule.startswith("LAYER-001")
 
 
-@pytest.mark.xfail(
-    reason="CONFIRMED BUG: prefix-strip flags third-party submodules named like a "
-    "layer. `from thirdparty.infrastructure import x` in application/ is correct "
-    "code but currently fires LAYER-002. This xfail asserts the DESIRED (PASS) "
-    "behaviour so the defect is documented, not codified as correct.",
-    strict=True,
-)
 def test_thirdparty_submodule_named_like_layer_is_false_positive(tmp_path: Path):
     # Arrange: a genuine third-party import whose second path segment collides
     # with a layer word.
@@ -549,7 +540,7 @@ def test_thirdparty_submodule_named_like_layer_is_false_positive(tmp_path: Path)
     # Act.
     result = LayerDepsCheck().run(src_root=str(tmp_path))
 
-    # Assert (DESIRED): correct third-party code must not fire. Currently FAILS
-    # with LAYER-002, so this test xfails until the heuristic is fixed.
+    # Assert: correct third-party code must not fire. The first segment
+    # (thirdparty) is neither a layer nor the project package, so it is ignored.
     assert result.status == Status.PASS
     assert not result.violations

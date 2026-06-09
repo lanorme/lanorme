@@ -88,7 +88,7 @@ def test_naming003_silent_on_correct_prefixes_and_exempt_and_unknown_verb(tmp_pa
     # Act.
     result = check.run(src_root=str(tmp_path))
 
-    # Assert: nothing fires — good prefixes, an exempt endpoint, an unmapped verb.
+    # Assert: nothing fires - good prefixes, an exempt endpoint, an unmapped verb.
     assert result.status == Status.PASS
     assert not result.warnings
     assert not result.violations
@@ -173,7 +173,7 @@ def test_naming004_flags_string_bool_annotation(tmp_path: Path):
 
 def test_naming004_silent_on_prefixed_private_and_nonbool(tmp_path: Path):
     # Arrange: a prefixed bool, a private bool, a non-bool, and an annotation-less
-    # function — none should fire.
+    # function - none should fire.
     _write(
         root=tmp_path,
         rel="b.py",
@@ -233,7 +233,7 @@ def test_naming001_default_off_does_not_flag_forbidden_repo_prefix(tmp_path: Pat
     # Act.
     result = check.run(src_root=str(tmp_path))
 
-    # Assert: opt-in rule is silent by default — the cardinal precision guarantee.
+    # Assert: opt-in rule is silent by default - the cardinal precision guarantee.
     assert result.status == Status.PASS
     assert not result.violations
 

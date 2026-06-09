@@ -13,8 +13,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
 from lanorme import Status
 from lanorme.checks.forbidden_paths import ForbiddenPathsCheck
 
@@ -191,16 +189,6 @@ def test_forbidding_a_vendor_name_is_a_noop(tmp_path: Path):
     assert not result.violations
 
 
-@pytest.mark.xfail(
-    reason=(
-        "Confirmed PATH-001 false negative: _is_vendor_path does an unanchored "
-        "substring match, so a non-vendor directory whose name ends with a "
-        "vendor token (e.g. 'proj.git/') wrongly excludes a forbidden dir under "
-        "it. This test asserts the CORRECT behaviour (should FAIL) and is "
-        "expected to fail until the vendor check is anchored to real segments."
-    ),
-    strict=True,
-)
 def test_forbidden_dir_under_dotgit_suffixed_project_dir_should_fire(tmp_path: Path):
     # Arrange: 'proj.git' is a legitimate project directory (e.g. a bare-repo
     # mirror), NOT the '.git' vendor tree. A forbidden dir lives inside it.

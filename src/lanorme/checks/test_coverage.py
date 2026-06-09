@@ -10,6 +10,7 @@ Run:
 
 from __future__ import annotations
 
+import ast
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -78,12 +79,54 @@ def _find_test_files(*, backend_root: Path) -> list[Path]:
     return sorted(tests_dir.glob("test_*.py"))
 
 
+def _dotted_import_paths(source: str) -> list[str] | None:
+    """Reconstruct the dotted import paths of a test file from its AST.
+
+    Returns one string per imported target (e.g. ``app.services.billing``),
+    or ``None`` if the source cannot be parsed, signalling the caller to fall
+    back to a raw-text scan.
+    """
+    try:
+        tree = ast.parse(source)
+    except SyntaxError:
+        return None
+
+    paths: list[str] = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            paths.extend(alias.name for alias in node.names)
+        elif isinstance(node, ast.ImportFrom) and node.module is not None:
+            paths.append(node.module)
+            paths.extend(f"{node.module}.{alias.name}" for alias in node.names)
+
+    return paths
+
+
+def _import_covers_module(
+    *,
+    module_name: str,
+    import_hint: str,
+    contents: str,
+    import_paths: list[str] | None,
+) -> bool:
+    """True if a real import in one test file targets the module.
+
+    ``import_paths`` are the dotted paths reconstructed from the file's AST;
+    when it is ``None`` (an unparseable file) we fall back to a permissive
+    raw-text scan so an unreadable test is never treated as missing coverage.
+    """
+    needle = f"{import_hint}.{module_name}"
+    if import_paths is None:
+        return needle in contents
+    return any(needle in path for path in import_paths)
+
+
 def _module_has_test(
     *,
     module_name: str,
     import_hint: str,
     test_stems: set[str],
-    test_file_contents: dict[str, str],
+    test_file_imports: dict[str, tuple[str, list[str] | None]],
 ) -> bool:
     """True if any test file targets the module by name or by import."""
     if f"test_{module_name}" in test_stems:
@@ -95,12 +138,13 @@ def _module_has_test(
         if f"test_{shortened}" in test_stems:
             return True
 
-    import_patterns = (
-        f"{import_hint}.{module_name}",
-        f"{import_hint} import {module_name}",
-    )
-    for contents in test_file_contents.values():
-        if any(pattern in contents for pattern in import_patterns):
+    for contents, import_paths in test_file_imports.values():
+        if _import_covers_module(
+            module_name=module_name,
+            import_hint=import_hint,
+            contents=contents,
+            import_paths=import_paths,
+        ):
             return True
 
     return False
@@ -116,12 +160,15 @@ def _check_module_coverage(
     test_files = _find_test_files(backend_root=backend_root)
     test_stems = {f.stem for f in test_files}
 
-    test_file_contents: dict[str, str] = {}
+    # Parse each test file once: keep its raw text and the dotted import paths
+    # reconstructed from its AST (or None when it cannot be parsed).
+    test_file_imports: dict[str, tuple[str, list[str] | None]] = {}
     for tf in test_files:
         try:
-            test_file_contents[tf.stem] = tf.read_text(encoding="utf-8")
+            contents = tf.read_text(encoding="utf-8")
         except OSError:
             continue
+        test_file_imports[tf.stem] = (contents, _dotted_import_paths(contents))
 
     warnings: list[Violation] = []
     for rel_path, name, import_hint in modules:
@@ -129,7 +176,7 @@ def _check_module_coverage(
             module_name=name,
             import_hint=import_hint,
             test_stems=test_stems,
-            test_file_contents=test_file_contents,
+            test_file_imports=test_file_imports,
         ):
             warnings.append(
                 Violation(

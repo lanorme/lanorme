@@ -353,6 +353,44 @@ def _direct_import_violation(
     return None
 
 
+def _instantiation_violations(
+    *,
+    tree: ast.AST,
+    relative: str,
+    infra_class_names: set[str],
+    imported_infra: set[str],
+    adapter_bound: set[str],
+) -> list[Violation]:
+    """PORT-003 instantiation findings for one api/ file (both call forms)."""
+    found: list[Violation] = []
+    # Class-import form: ``from ...redis_registry import RedisRegistry`` then ``RedisRegistry()``.
+    for call_name, call_line in _extract_call_names(tree=tree):
+        if call_name in imported_infra:
+            found.append(
+                Violation(
+                    file=relative,
+                    line=call_line,
+                    rule="PORT-003: Direct instantiation of infra service in api/ layer",
+                    message=f"'{call_name}(...)' instantiated directly — use dependency injection",
+                    fix="Move the construction to the composition root and inject it",
+                )
+            )
+    # Module-attribute form: ``from ...services import redis_registry`` then
+    # ``redis_registry.RedisRegistry()``, where the receiver is an adapter module.
+    for value_name, attr, call_line in _extract_attr_call_pairs(tree=tree):
+        if attr in infra_class_names and value_name in adapter_bound:
+            found.append(
+                Violation(
+                    file=relative,
+                    line=call_line,
+                    rule="PORT-003: Direct instantiation of infra service in api/ layer",
+                    message=f"'{value_name}.{attr}(...)' instantiated directly — use dependency injection",
+                    fix="Move the construction to the composition root and inject it",
+                )
+            )
+    return found
+
+
 def _check_port003(
     *,
     base: Path,
@@ -388,36 +426,16 @@ def _check_port003(
         if not imported_infra and not adapter_bound:
             continue
 
-        found_instantiation = False
-        # Class-import form: ``from ...redis_registry import RedisRegistry`` then ``RedisRegistry()``.
-        for call_name, call_line in _extract_call_names(tree=tree):
-            if call_name in imported_infra:
-                violations.append(
-                    Violation(
-                        file=relative,
-                        line=call_line,
-                        rule="PORT-003: Direct instantiation of infra service in api/ layer",
-                        message=f"'{call_name}(...)' instantiated directly — use dependency injection",
-                        fix="Move the construction to the composition root and inject it",
-                    )
-                )
-                found_instantiation = True
-        # Module-attribute form: ``from ...services import redis_registry`` then
-        # ``redis_registry.RedisRegistry()``, where the receiver is an adapter module.
-        for value_name, attr, call_line in _extract_attr_call_pairs(tree=tree):
-            if attr in infra_class_names and value_name in adapter_bound:
-                violations.append(
-                    Violation(
-                        file=relative,
-                        line=call_line,
-                        rule="PORT-003: Direct instantiation of infra service in api/ layer",
-                        message=f"'{value_name}.{attr}(...)' instantiated directly — use dependency injection",
-                        fix="Move the construction to the composition root and inject it",
-                    )
-                )
-                found_instantiation = True
+        instantiations = _instantiation_violations(
+            tree=tree,
+            relative=relative,
+            infra_class_names=infra_class_names,
+            imported_infra=imported_infra,
+            adapter_bound=adapter_bound,
+        )
+        violations.extend(instantiations)
 
-        if not found_instantiation:
+        if not instantiations:
             import_violation = _direct_import_violation(
                 relative=relative,
                 import_modules=import_modules,

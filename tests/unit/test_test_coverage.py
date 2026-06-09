@@ -14,7 +14,7 @@ and the check is driven directly, the same idiom as ``test_strong_types``::
     TestCoverageCheck().run(src_root=str(tmp_path / "src"))
 
 It is an *advisory* (WARNING) rule and an existence check, not a coverage
-measurement: a present partner — by filename or by an import in a test file —
+measurement: a present partner, by filename or by an import in a test file,
 satisfies it regardless of what the test asserts.
 
 Tests follow AAA structure with inline ``# Arrange / # Act / # Assert`` markers.
@@ -23,8 +23,6 @@ Tests follow AAA structure with inline ``# Arrange / # Act / # Assert`` markers.
 from __future__ import annotations
 
 from pathlib import Path
-
-import pytest
 
 from lanorme import Status
 from lanorme.checks.test_coverage import TestCoverageCheck
@@ -81,7 +79,7 @@ def test_name_matching_test_file_is_silent(tmp_path: Path):
 
 def test_import_in_differently_named_test_file_covers_module(tmp_path: Path):
     # Arrange: no test_billing.py, but a differently-named integration test
-    # imports the module — the "by import" coverage route. A second module is
+    # imports the module, the "by import" coverage route. A second module is
     # imported via `import ... as` to prove the alias form is also caught.
     src, integration = _layout(tmp_path)
     (src / "application" / "services" / "billing.py").write_text(
@@ -201,17 +199,6 @@ def test_missing_integration_dir_still_flags_modules(tmp_path: Path):
     assert any("create_order" in w.message for w in result.warnings)
 
 
-@pytest.mark.xfail(
-    reason=(
-        "Known recall gap / confirmed_bug: _module_has_test does a raw substring "
-        "search of test-file text, so an import-like substring inside a STRING "
-        "LITERAL ('services.order is great') is mistaken for genuine coverage and "
-        "a real violation (a module with zero tests) is silently missed. Pinned "
-        "here, not codified as PASS-is-correct. Remove xfail once the heuristic "
-        "ignores string literals / comments."
-    ),
-    strict=True,
-)
 def test_string_literal_substring_should_not_count_as_coverage(tmp_path: Path):
     # Arrange: order.py has no real test; a test file merely mentions the
     # module path inside a string literal.
@@ -226,7 +213,7 @@ def test_string_literal_substring_should_not_count_as_coverage(tmp_path: Path):
     # Act.
     result = TestCoverageCheck().run(src_root=str(src))
 
-    # Assert (currently FAILS — bug): a bare string literal is not an import, so
-    # the uncovered module ought to be flagged.
+    # Assert: a bare string literal is not an import, so the uncovered module is
+    # correctly flagged.
     assert result.status == Status.WARN
     assert any("order" in w.message for w in result.warnings)
