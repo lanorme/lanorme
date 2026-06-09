@@ -11,7 +11,7 @@ The check is layout-aware: it is handed ``src_root`` and treats
 
 and the check is driven directly, the same idiom as ``test_strong_types``::
 
-    TestCoverageCheck().run(src_root=str(tmp_path / "src"))
+    CoverageCheck().run(src_root=str(tmp_path / "src"))
 
 It is an *advisory* (WARNING) rule and an existence check, not a coverage
 measurement: a present partner, by filename or by an import in a test file,
@@ -25,7 +25,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from lanorme import Status
-from lanorme.checks.test_coverage import TestCoverageCheck
+from lanorme.checks.test_coverage import TestCoverageCheck as CoverageCheck
 
 
 def _layout(tmp_path: Path) -> tuple[Path, Path]:
@@ -45,7 +45,7 @@ def test_uncovered_service_fires_testfile001(tmp_path: Path):
     )
 
     # Act.
-    result = TestCoverageCheck().run(src_root=str(src))
+    result = CoverageCheck().run(src_root=str(src))
 
     # Assert: exactly one advisory WARN, coded TESTFILE-001, at line 1, with a
     # src-relative path and a fix pointing at tests/integration/.
@@ -70,7 +70,7 @@ def test_name_matching_test_file_is_silent(tmp_path: Path):
     )
 
     # Act.
-    result = TestCoverageCheck().run(src_root=str(src))
+    result = CoverageCheck().run(src_root=str(src))
 
     # Assert: a name match fully covers the module; no findings, PASS.
     assert result.status == Status.PASS
@@ -100,7 +100,7 @@ def test_import_in_differently_named_test_file_covers_module(tmp_path: Path):
     )
 
     # Act.
-    result = TestCoverageCheck().run(src_root=str(src))
+    result = CoverageCheck().run(src_root=str(src))
 
     # Assert: both modules are considered covered via their imports; the check
     # does NOT false-positive on a partner whose filename differs.
@@ -120,7 +120,7 @@ def test_shortened_name_partner_covers_module(tmp_path: Path):
     )
 
     # Act.
-    result = TestCoverageCheck().run(src_root=str(src))
+    result = CoverageCheck().run(src_root=str(src))
 
     # Assert: the shortened-name route satisfies coverage; no warnings.
     assert result.status == Status.PASS
@@ -136,7 +136,7 @@ def test_exempt_and_underscore_modules_never_fire(tmp_path: Path):
     (services / "_internal.py").write_text("def f(): ...\n", encoding="utf-8")
 
     # Act.
-    result = TestCoverageCheck().run(src_root=str(src))
+    result = CoverageCheck().run(src_root=str(src))
 
     # Assert: neither the exempt-set module nor the underscore module is flagged.
     assert result.status == Status.PASS
@@ -152,7 +152,7 @@ def test_module_outside_testable_dirs_is_out_of_scope(tmp_path: Path):
     (src / "domain" / "entity.py").write_text("def f(): ...\n", encoding="utf-8")
 
     # Act.
-    result = TestCoverageCheck().run(src_root=str(src))
+    result = CoverageCheck().run(src_root=str(src))
 
     # Assert: directories outside the testable set are never inspected.
     assert result.status == Status.PASS
@@ -173,7 +173,7 @@ def test_partner_in_tests_unit_does_not_count(tmp_path: Path):
     (unit / "test_users.py").write_text("def test_u(): ...\n", encoding="utf-8")
 
     # Act.
-    result = TestCoverageCheck().run(src_root=str(src))
+    result = CoverageCheck().run(src_root=str(src))
 
     # Assert: only tests/integration/ is scanned, so the module still fires.
     assert result.status == Status.WARN
@@ -192,7 +192,7 @@ def test_missing_integration_dir_still_flags_modules(tmp_path: Path):
     )
 
     # Act.
-    result = TestCoverageCheck().run(src_root=str(src))
+    result = CoverageCheck().run(src_root=str(src))
 
     # Assert: with no test files, every in-scope module is uncovered.
     assert result.status == Status.WARN
@@ -211,7 +211,7 @@ def test_string_literal_substring_should_not_count_as_coverage(tmp_path: Path):
     )
 
     # Act.
-    result = TestCoverageCheck().run(src_root=str(src))
+    result = CoverageCheck().run(src_root=str(src))
 
     # Assert: a bare string literal is not an import, so the uncovered module is
     # correctly flagged.
