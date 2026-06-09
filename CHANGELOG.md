@@ -9,6 +9,8 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
 
 ## [Unreleased]
 
+## [0.12.0]
+
 ### Added
 
 - Config profiles via `[tool.lanorme] extends`. Adopt a shipped preset by name,
