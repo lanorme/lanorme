@@ -11,6 +11,13 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
 
 ### Added
 
+- Promote advisory warnings to build-failing errors with `[tool.lanorme] promote`
+  (or `--promote`). List a rule code, a category, or `ALL`, and matching
+  warnings become violations that fail the run. This lets heuristic rules ship
+  as non-breaking warnings by default while a project that wants them enforced
+  opts into a hard stop. Promotion runs last, so a warning already silenced by
+  `ignore`, `per-file-ignores`, or `# noqa` is never promoted.
+
 - `TYPE-004` in the `strong_types` check: an advisory warning when a function
   has at least one annotated parameter and returns a real value in its own
   scope but declares no return type. It is the high-signal completeness subset
