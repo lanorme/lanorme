@@ -28,9 +28,16 @@ def _category(code: str) -> str:
 
 
 def _matches(*, code: str, patterns: list[str]) -> bool:
-    """True if *code* matches any selector (exact code, category, or 'ALL')."""
-    category = _category(code)
-    return any(p == "ALL" or p == code or p == category for p in patterns)
+    """True if *code* matches any selector (exact code, category, or 'ALL').
+
+    Case-insensitive, and whitespace and empty entries are ignored, so a
+    selector from a config list (``[" type-004 "]``) behaves like the CLI form
+    (``--promote 'type-004'``), which is normalised by ``_csv``.
+    """
+    code_upper = code.upper()
+    category = _category(code_upper)
+    wanted = {p.strip().upper() for p in patterns if p.strip()}
+    return any(p in ("ALL", code_upper, category) for p in wanted)
 
 
 def _keep(*, rule: str, select: list[str], ignore: list[str]) -> bool:
@@ -119,8 +126,17 @@ def _apply_promotions(*, results: list[CheckResult], promote: list[str]) -> list
 
     promoted_results: list[CheckResult] = []
     for result in results:
-        escalated = [w for w in result.warnings if _matches(code=_rule_code(w.rule), patterns=promote)]
-        kept = [w for w in result.warnings if not _matches(code=_rule_code(w.rule), patterns=promote)]
+        escalated: list[Violation] = []
+        kept: list[Violation] = []
+        for warning in result.warnings:
+            code = _rule_code(warning.rule)
+            # ``-000`` codes are skip/parse-error notices ("could not analyse,
+            # skipping"), not findings, so promotion (including ``ALL``) leaves
+            # them as warnings rather than failing the build on a non-issue.
+            if not code.endswith("-000") and _matches(code=code, patterns=promote):
+                escalated.append(warning)
+            else:
+                kept.append(warning)
         violations = [*result.violations, *escalated]
         status = Status.FAIL if violations else (Status.WARN if kept else Status.PASS)
         promoted_results.append(

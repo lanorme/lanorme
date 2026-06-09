@@ -347,6 +347,20 @@ def _csv(value: str | None) -> list[str]:
     return [item.strip() for item in value.split(",") if item.strip()] if value else []
 
 
+def _config_list(value: object) -> list[str]:
+    """Normalise a config selector value to a list of strings.
+
+    Accepts a list (``promote = ["TYPE-004"]``) or a bare string
+    (``promote = "ALL"``); anything else yields ``[]``. Whitespace and case are
+    handled downstream by ``_matches``, matching the CLI ``_csv`` path.
+    """
+    if isinstance(value, str):
+        return [value]
+    if isinstance(value, list):
+        return [str(item) for item in value]
+    return []
+
+
 def _parse_per_file_ignores(*, table: object) -> dict[str, list[str]]:
     """Normalise the ``[tool.lanorme.per-file-ignores]`` TOML table to {glob: [codes]}."""
     if not isinstance(table, dict):
@@ -484,9 +498,9 @@ def _run_and_report(
 ) -> None:
     """Run the selected checks, apply the filters, print, and set the exit code."""
     src_root = str(scan_root)
-    ignore = _csv(args.ignore) or list(config.get("ignore", []))
-    exclude = _csv(args.exclude) or list(config.get("exclude", []))
-    promote = _csv(args.promote) or list(config.get("promote", []))
+    ignore = _csv(args.ignore) or _config_list(config.get("ignore"))
+    exclude = _csv(args.exclude) or _config_list(config.get("exclude"))
+    promote = _csv(args.promote) or _config_list(config.get("promote"))
     per_file_ignores = _parse_per_file_ignores(table=config.get("per-file-ignores", {}))
     output_format = reporting.resolve_output_format(explicit=args.output_format, as_json=args.json)
 
@@ -517,7 +531,7 @@ def _run_and_report(
 
     # A code-form ``--check`` (e.g. DRY-001) narrows output to that code; an
     # explicit ``--select`` is otherwise honoured, then config ``select``.
-    select = implicit_select or _csv(args.select) or list(config.get("select", []))
+    select = implicit_select or _csv(args.select) or _config_list(config.get("select"))
 
     # When the request is narrower than the walked tree (a file, or a subset of
     # paths), keep only findings for the requested targets. A lone directory

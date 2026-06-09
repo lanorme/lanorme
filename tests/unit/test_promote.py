@@ -13,8 +13,8 @@ from pathlib import Path
 import pytest
 
 from lanorme import CheckResult, Status, Violation
-from lanorme.cli import main
-from lanorme.filtering import _apply_promotions
+from lanorme.cli import _config_list, main
+from lanorme.filtering import _apply_promotions, _matches
 
 
 def _finding(code: str) -> Violation:
@@ -127,3 +127,70 @@ def test_cli_promote_flag_makes_the_build_fail(tmp_path: Path, capsys):
     with pytest.raises(SystemExit) as exc:
         main(["check", str(tmp_path), "--check", "strong_types", "--promote", "TYPE-004", "--json"])
     assert exc.value.code == 1
+
+
+# --- red-team regressions: normalisation, skip notices, ordering, show-config ---
+
+
+def test_matches_is_case_insensitive_and_strips():
+    # Arrange: codes are uppercase, but a selector may carry stray case/whitespace.
+    # Act / Assert: it still matches, like the CLI form normalised by _csv.
+    assert _matches(code="TYPE-004", patterns=["type-004"])
+    assert _matches(code="TYPE-004", patterns=[" TYPE-004 "])
+    assert _matches(code="TYPE-004", patterns=["all"])
+    assert not _matches(code="TYPE-004", patterns=["", "  "])
+
+
+def test_config_list_accepts_a_bare_string():
+    # Arrange: `promote = "ALL"` must not iterate into ['A', 'L', 'L'].
+    # Act / Assert.
+    assert _config_list("ALL") == ["ALL"]
+    assert _config_list(["TYPE-004"]) == ["TYPE-004"]
+    assert _config_list(None) == []
+    assert _config_list(5) == []
+
+
+def test_skip_notice_is_not_promoted_even_by_all():
+    # Arrange: a `-000` skip/parse-error notice is not a finding.
+    result = _result(violations=[], warnings=[_finding("TYPE-000")])
+
+    # Act.
+    promoted = _apply_promotions(results=[result], promote=["ALL"])
+
+    # Assert: ALL must leave it a warning.
+    assert promoted[0].status == Status.WARN
+    assert not promoted[0].violations
+
+
+def test_bare_string_promote_in_config_fails_the_build(tmp_path: Path, capsys):
+    # Arrange.
+    (tmp_path / "pyproject.toml").write_text('[tool.lanorme]\npromote = "ALL"\n', encoding="utf-8")
+    (tmp_path / "svc.py").write_text(_POSITIVE, encoding="utf-8")
+
+    # Act / Assert.
+    with pytest.raises(SystemExit) as exc:
+        main(["check", str(tmp_path), "--check", "strong_types", "--json"])
+    assert exc.value.code == 1
+
+
+def test_ignored_warning_is_not_promoted(tmp_path: Path, capsys):
+    # Arrange: the same code is both ignored and promoted; ignore drops it first.
+    (tmp_path / "pyproject.toml").write_text(
+        '[tool.lanorme]\nignore = ["TYPE-004"]\npromote = ["TYPE-004"]\n', encoding="utf-8"
+    )
+    (tmp_path / "svc.py").write_text(_POSITIVE, encoding="utf-8")
+
+    # Act: no SystemExit means the build passed (the warning was filtered, not promoted).
+    main(["check", str(tmp_path), "--check", "strong_types", "--json"])
+
+
+def test_show_config_surfaces_promote(tmp_path: Path, capsys):
+    # Arrange.
+    (tmp_path / "pyproject.toml").write_text('[tool.lanorme]\npromote = ["TYPE-004"]\n', encoding="utf-8")
+    (tmp_path / "svc.py").write_text(_POSITIVE, encoding="utf-8")
+
+    # Act.
+    main(["check", str(tmp_path), "--show-config"])
+
+    # Assert: the build-failing setting is visible in the dump.
+    assert "promote" in capsys.readouterr().out
