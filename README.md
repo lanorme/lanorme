@@ -116,6 +116,7 @@ line flags win over both.
 
 ```toml
 [tool.lanorme]
+extends = ["strict", "hexagonal"]           # adopt bundled profiles (or .toml paths); local keys win
 select = ["ALL"]                            # rule codes or categories to run
 ignore = ["NAMING-003"]                     # rule codes or categories to skip
 promote = ["TYPE-004"]                      # advisory warnings to treat as build-failing errors
@@ -142,6 +143,24 @@ id = "TERM-001"
 canonical = "Account"
 forbidden = ["Acct", "Acnt"]
 ```
+
+### Profiles (`extends`)
+
+`extends` adopts a ready-made configuration. List a bundled profile by name, or
+a path to a local `.toml`; entries merge left to right and your own
+`[tool.lanorme]` keys are merged on top, so the local config always wins.
+
+| Profile | What it sets |
+|---|---|
+| `strict` | Turns on every opt-in check and promotes all warnings to build-failing errors. |
+| `hexagonal` | Ports-and-adapters `layer_deps` boundaries (domain / application / infrastructure / api) plus `port_coverage`. |
+| `clean` | Clean Architecture layers (entities / use_cases / interface_adapters / frameworks), dependencies pointing inward. |
+| `layered` | Classic N-tier (presentation / business / persistence), each layer depending only downward. |
+
+Compose them, for example `extends = ["strict", "hexagonal"]`, and override any
+individual key locally. The architecture profiles assume the conventional
+directory names; set `source_root` if your package is nested, or copy a profile
+into a local `.toml` and adjust the layer names to match your tree.
 
 `exclude` globs are pruned during the walk, not just filtered from output, so a
 large excluded subtree is never read. A built-in set of never-source
@@ -179,17 +198,21 @@ cascade and let a subtree stand alone:
 root = true           # ignore the strict settings from the parent
 ```
 
-The cascade governs check **settings** (the per-check tables, `source_root`, and
-the flags configurable checks expose). Two things stay anchored to the root:
+The cascade governs check **settings** (the per-check tables, `source_root`, the
+flags configurable checks expose, and `extends` profiles). Two things stay
+anchored to the root:
 
 - **Whole-tree checks** (`duplication`, `test_coverage`, `layer_deps`,
   `port_coverage`, and the `meta` self-check) compare or aggregate across files,
   so they run once at the scan root under the root config and a subtree cannot
   relax them. Every other check resolves per file, under the config of its
-  nearest enclosing region.
-- **Run-level filters** (`select`, `ignore`, `exclude`, and `per-file-ignores`)
-  are read from the root config. To suppress specific rule codes for one area,
-  use a root-level `per-file-ignores` glob (or a `# noqa` comment).
+  nearest enclosing region. (So a subtree can adopt `extends = ["strict"]` to
+  switch on stricter file-level checks, but an architecture profile belongs at
+  the root, where the whole-tree checks read their config.)
+- **Run-level filters** (`select`, `ignore`, `promote`, `exclude`, and
+  `per-file-ignores`) are read from the root config. To suppress or escalate
+  specific rule codes for one area, use a root-level `per-file-ignores` glob (or
+  a `# noqa` comment).
 
 A run with no nested config behaves exactly as before, and `--check NAME` uses
 the root config (cascading applies to a full run).
