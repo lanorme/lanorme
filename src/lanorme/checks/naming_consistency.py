@@ -64,6 +64,17 @@ VERB_EXEMPT_ENDPOINTS = frozenset(
 # Boolean-appropriate prefixes (NAMING-004).
 BOOL_PREFIXES = ("is_", "has_", "can_", "should_")
 
+# Decorators that exempt a bool-returning function from NAMING-004: property
+# and cached_property read as attributes (nouns), and staticmethod factories
+# follow the enclosing class's vocabulary. Matched by bare name so dotted
+# forms such as functools.cached_property are covered too.
+BOOL_EXEMPT_DECORATORS = frozenset({"property", "cached_property", "staticmethod"})
+
+# Leading verbs stripped before templating the NAMING-004 fix, so that
+# 'check_auth_posture' suggests 'is_auth_posture' rather than the mangled
+# 'is_check_auth_posture'.
+BOOL_FIX_VERB_PREFIXES = ("check_", "get_", "compute_", "fetch_", "build_", "make_", "run_")
+
 # Directories (relative to the source root) to scan for each rule.
 REPO_DIRS = ("infrastructure/repositories", "infrastructure/persistence")
 SERVICE_DIRS = ("application/services",)
@@ -210,6 +221,51 @@ def _has_bool_return_annotation(*, node: ast.FunctionDef | ast.AsyncFunctionDef)
     return isinstance(annotation, ast.Constant) and annotation.value == "bool"
 
 
+def _has_bool_exempt_decorator(*, node: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
+    """Check if a function carries a decorator that exempts it from NAMING-004."""
+    for decorator in node.decorator_list:
+        if isinstance(decorator, ast.Name) and decorator.id in BOOL_EXEMPT_DECORATORS:
+            return True
+        if isinstance(decorator, ast.Attribute) and decorator.attr in BOOL_EXEMPT_DECORATORS:
+            return True
+    return False
+
+
+def _is_protocol_base(*, base: ast.expr) -> bool:
+    """Check if a class base refers to Protocol (bare, dotted, or subscripted)."""
+    target = base.value if isinstance(base, ast.Subscript) else base
+    if isinstance(target, ast.Name) and target.id == "Protocol":
+        return True
+    return isinstance(target, ast.Attribute) and target.attr == "Protocol"
+
+
+def _collect_protocol_members(*, tree: ast.Module) -> set[int]:
+    """Collect node ids of functions defined directly inside Protocol classes."""
+    # ast.walk yields nodes without parent links, so Protocol membership is
+    # resolved up front: any function in this skip set belongs to a class whose
+    # bases include Protocol (e.g. Protocol, typing.Protocol, Protocol[T]).
+    members: set[int] = set()
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.ClassDef):
+            continue
+        if not any(_is_protocol_base(base=base) for base in node.bases):
+            continue
+        for item in node.body:
+            if isinstance(item, ast.FunctionDef | ast.AsyncFunctionDef):
+                members.add(id(item))
+    return members
+
+
+def _bool_rename_fix(*, name: str) -> str:
+    """Suggest a boolean-prefixed rename, stripping a leading verb if present."""
+    suggested = name
+    for verb in BOOL_FIX_VERB_PREFIXES:
+        if name.startswith(verb) and len(name) > len(verb):
+            suggested = name[len(verb) :]
+            break
+    return f"Rename to 'is_{suggested}' or another boolean prefix (has_, can_, should_)"
+
+
 def _check_bool_naming(
     *,
     tree: ast.Module,
@@ -217,12 +273,19 @@ def _check_bool_naming(
 ) -> list[Violation]:
     """NAMING-004: Boolean functions should use is_/has_/can_/should_ prefix."""
     warnings: list[Violation] = []
+    protocol_members = _collect_protocol_members(tree=tree)
 
     for node in ast.walk(tree):
         if not isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
             continue
 
         if node.name.startswith("_"):
+            continue
+
+        if id(node) in protocol_members:
+            continue
+
+        if _has_bool_exempt_decorator(node=node):
             continue
 
         if not _has_bool_return_annotation(node=node):
@@ -237,7 +300,7 @@ def _check_bool_naming(
                 line=node.lineno,
                 rule="NAMING-004: Boolean functions should use is_/has_/can_/should_ prefix",
                 message=f"Function '{node.name}' returns bool but lacks a boolean prefix",
-                fix=f"Rename to 'is_{node.name}' or another boolean prefix (has_, can_, should_)",
+                fix=_bool_rename_fix(name=node.name),
             ),
         )
 

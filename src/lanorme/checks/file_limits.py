@@ -2,7 +2,7 @@
 
 Checks:
     SIZE-001  Python files warn at 300 effective lines, error at 500
-    SIZE-002  Functions/methods warn at 50 lines, error at 80
+    SIZE-002  Functions/methods warn at 50 effective lines, error at 80
     SIZE-003  Classes with >10 methods are a warning (decomposition candidate)
     COMPLEXITY-001  Cyclomatic complexity warn at 10, error at 15
     PARAM-001  Parameter count warn at 5, error at 8 (excluding self/cls)
@@ -29,7 +29,7 @@ from lanorme.discovery import iter_py_files
 FILE_WARN_LINES = 300
 FILE_ERROR_LINES = 500
 
-# SIZE-002 thresholds (lines per function/method).
+# SIZE-002 thresholds (effective lines per function/method).
 FUNC_WARN_LINES = 50
 FUNC_ERROR_LINES = 80
 
@@ -108,11 +108,18 @@ def _check_file_size(
 def _check_function_lengths(
     *,
     tree: ast.AST,
+    source: str,
     relative_file: str,
 ) -> tuple[list[Violation], list[Violation]]:
-    """SIZE-002: Warn at 50 lines per function, error at 80."""
+    """SIZE-002: Warn at 50 effective lines per function, error at 80.
+
+    Effective lines mirror SIZE-001: non-blank, non-comment-only lines within
+    the function's span, so comments and blank lines never push a function
+    over a threshold.
+    """
     violations: list[Violation] = []
     warnings: list[Violation] = []
+    source_lines = source.splitlines()
 
     for node in ast.walk(tree):
         if not isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
@@ -121,7 +128,8 @@ def _check_function_lengths(
         if node.end_lineno is None:
             continue
 
-        length = node.end_lineno - node.lineno + 1
+        span = "\n".join(source_lines[node.lineno - 1 : node.end_lineno])
+        length = _count_effective_lines(source=span)
 
         if length >= FUNC_ERROR_LINES:
             violations.append(
@@ -129,7 +137,10 @@ def _check_function_lengths(
                     file=relative_file,
                     line=node.lineno,
                     rule="SIZE-002: Function exceeds 80 lines",
-                    message=f"Function '{node.name}' is {length} lines (limit: {FUNC_ERROR_LINES})",
+                    message=(
+                        f"Function '{node.name}' is {length} effective lines "
+                        f"(limit: {FUNC_ERROR_LINES})"
+                    ),
                     fix="Extract helper functions or simplify control flow",
                 ),
             )
@@ -139,7 +150,10 @@ def _check_function_lengths(
                     file=relative_file,
                     line=node.lineno,
                     rule="SIZE-002: Function approaching 80 lines",
-                    message=f"Function '{node.name}' is {length} lines (warn: {FUNC_WARN_LINES})",
+                    message=(
+                        f"Function '{node.name}' is {length} effective lines "
+                        f"(warn: {FUNC_WARN_LINES})"
+                    ),
                     fix="Consider extracting helper functions before it grows further",
                 ),
             )
@@ -314,7 +328,7 @@ class FileLimitsCheck:
     rules: list[str] = field(
         default_factory=lambda: [
             "SIZE-001: Python files warn at 300 effective lines, error at 500",
-            "SIZE-002: Functions/methods warn at 50 lines, error at 80",
+            "SIZE-002: Functions/methods warn at 50 effective lines, error at 80",
             "SIZE-003: Classes with >10 methods are a warning",
             "COMPLEXITY-001: Cyclomatic complexity warn at 10, error at 15",
             "PARAM-001: Parameter count warn at 5, error at 8 (excluding self/cls)",
@@ -356,9 +370,10 @@ class FileLimitsCheck:
             violations.extend(file_violations)
             warnings.extend(file_warnings)
 
-            # SIZE-002: Function/method length.
+            # SIZE-002: Function/method effective length.
             func_violations, func_warnings = _check_function_lengths(
                 tree=tree,
+                source=source,
                 relative_file=relative_file,
             )
             violations.extend(func_violations)
