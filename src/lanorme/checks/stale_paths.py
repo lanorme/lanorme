@@ -22,7 +22,9 @@ Run:
 from __future__ import annotations
 
 import ast
+import io
 import re
+import tokenize
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -72,6 +74,24 @@ def _scan_text(
     return findings
 
 
+def _iter_comments(source: str) -> list[tuple[int, str]]:
+    """Yield ``(lineno, comment_text)`` for every real comment in *source*.
+
+    Uses :mod:`tokenize` so that a ``#`` inside a string literal is never
+    mistaken for a comment. Un-tokenisable sources yield no comments (a graceful
+    fallback that keeps the check silent rather than risking a false positive).
+    """
+    comments: list[tuple[int, str]] = []
+    try:
+        tokens = tokenize.generate_tokens(io.StringIO(source).readline)
+        for tok in tokens:
+            if tok.type == tokenize.COMMENT:
+                comments.append((tok.start[0], tok.string))
+    except (tokenize.TokenError, IndentationError):
+        return []
+    return comments
+
+
 def _scan_file(
     *,
     py_file: Path,
@@ -86,18 +106,14 @@ def _scan_file(
 
     violations: list[Violation] = []
 
-    # Inline comments.
-    for lineno_0, line in enumerate(source.splitlines()):
-        comment_idx = line.find("#")
-        if comment_idx == -1:
-            continue
-        comment_text = line[comment_idx:]
+    # Inline comments (tokenize-extracted, so a '#' in a string never counts).
+    for lineno, comment_text in _iter_comments(source):
         for pattern in patterns:
             for match in pattern.finditer(comment_text):
                 violations.append(
                     Violation(
                         file=relative_file,
-                        line=lineno_0 + 1,
+                        line=lineno,
                         rule="STALE-001",
                         message=f"Stale path reference '{match.group(0)}' in comment",
                         fix=f"Update '{match.group(0)}' to the current path",

@@ -1,9 +1,12 @@
 """LAYER-001 through LAYER-005: Hexagonal layer dependency validation.
 
 Uses Python's ast module to parse imports statically, no runtime execution.
-Each file's layer is determined by its path under the source root. A file's
-top-level package prefix (``mypkg.domain.models``) is stripped before the layer
-is classified, so the check is package-name agnostic.
+Each file's layer is determined by its path under the source root. An import is
+classified as a project layer when its first segment is a layer name
+(``domain.models``) or the project's own top-level package followed by a layer
+(``mypkg.domain.models``); the package name is taken from ``source_root``. A
+third-party import whose submodule merely shares a layer name
+(``thirdparty.infrastructure``) is therefore left alone.
 
 Dependency rules (inward only), with the default layer set:
     domain/           -> nothing else in the source tree (pure Python + stdlib)
@@ -115,15 +118,21 @@ def _classify_layer(*, relative: str, layers: tuple[str, ...]) -> str | None:
     return None
 
 
-def _extract_src_imports(*, tree: ast.AST, layers: tuple[str, ...]) -> list[tuple[str, int]]:
+def _extract_src_imports(
+    *, tree: ast.AST, layers: tuple[str, ...], package: str
+) -> list[tuple[str, int]]:
     """Extract imports that reference architectural layers, as (target_layer, line)."""
     imports: list[tuple[str, int]] = []
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
             for alias in node.names:
-                _record_layer_import(module=alias.name, line=node.lineno, imports=imports, layers=layers)
+                _record_layer_import(
+                    module=alias.name, line=node.lineno, imports=imports, layers=layers, package=package
+                )
         elif isinstance(node, ast.ImportFrom) and node.module:
-            _record_layer_import(module=node.module, line=node.lineno, imports=imports, layers=layers)
+            _record_layer_import(
+                module=node.module, line=node.lineno, imports=imports, layers=layers, package=package
+            )
     return imports
 
 
@@ -133,13 +142,21 @@ def _record_layer_import(
     line: int,
     imports: list[tuple[str, int]],
     layers: tuple[str, ...],
+    package: str,
 ) -> None:
     """If a module path references one of the architectural layers, record it."""
-    # Imports look like mypkg.domain.models or domain.models. Strip an optional
-    # top-level package prefix (anything that is not itself a layer name) before
-    # classifying, so the check does not depend on the package's name.
+    # Imports look like domain.models (bare layer) or mypkg.domain.models (the
+    # wrapping package, then a layer). Only the project's own top-level package
+    # -- the final component of source_root, passed in as *package* -- may
+    # precede a layer. A first segment that is neither a layer nor that package
+    # is third-party, so a name such as thirdparty.infrastructure is left alone.
     parts = module.split(".")
-    target = parts[1] if parts[0] not in layers and len(parts) > 1 else parts[0]
+    if parts[0] in layers:
+        target = parts[0]
+    elif package and parts[0] == package and len(parts) > 1:
+        target = parts[1]
+    else:
+        return
     if target in layers:
         imports.append((target, line))
 
@@ -274,6 +291,10 @@ class LayerDepsCheck:
         # globs are anchored here; Violation paths stay anchored at src_path so
         # they line up with --exclude / per-file-ignores / # noqa.
         base = src_path / self.source_root if self.source_root else src_path
+        # The project's own top-level package: the final component of
+        # source_root (mypkg for src/myapp). Empty when source_root is unset, in
+        # which case only a bare layer name (domain.models) is a project import.
+        package = self.source_root.rsplit("/", 1)[-1] if self.source_root else ""
 
         for py_file in iter_py_files(src_path):
             relative = py_file.relative_to(src_path).as_posix()
@@ -300,7 +321,7 @@ class LayerDepsCheck:
                 )
                 continue
 
-            imports = _extract_src_imports(tree=tree, layers=self.layers)
+            imports = _extract_src_imports(tree=tree, layers=self.layers, package=package)
             allowed = self._allowed_for_file(relative=classify_rel, layer=layer)
             # A composition root only counts inside a transport layer, so a file
             # matching a glob in another layer is not silently treated as exempt.

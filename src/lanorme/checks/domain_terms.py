@@ -78,13 +78,13 @@ def _names_from_node(node: ast.AST) -> list[tuple[str, int]]:
         )
         return pairs
     if isinstance(node, ast.Name):
+        # Assignment targets (in ast.Assign / ast.AnnAssign) are themselves
+        # ast.Name children, so ast.walk reaches them here. Handling Assign
+        # and AnnAssign separately would visit the same target twice and emit
+        # duplicate violations, so we deliberately leave them to this branch.
         return [(node.id, getattr(node, "lineno", 0))]
     if isinstance(node, ast.Attribute):
         return [(node.attr, getattr(node, "lineno", 0))]
-    if isinstance(node, ast.Assign):
-        return [(t.id, node.lineno) for t in node.targets if isinstance(t, ast.Name)]
-    if isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
-        return [(node.target.id, node.lineno)]
     return []
 
 
