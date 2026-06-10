@@ -99,7 +99,11 @@ _DEFAULT_SPELLINGS: dict[str, str] = {
     "dialog": "dialogue",
 }
 
-_INLINE_CODE = re.compile(r"`[^`]*`")
+# A code span is a run of backticks, then content, then a matching run of the
+# same length (CommonMark). The backreference is what makes double-backtick
+# spans like ``color`` strip correctly; a single-backtick pattern would only
+# blank the delimiter pairs and leave the content exposed to the scanner.
+_INLINE_CODE = re.compile(r"(`+).*?\1")
 
 # Vendored / generated directories never scanned for prose.
 _SKIP_PARTS = frozenset(

@@ -29,17 +29,19 @@ from lanorme import CheckResult, Status, Violation, register
 
 # Default is empty → the check is inert until configured.
 _FORBIDDEN_DIRS: tuple[str, ...] = ()
-_VENDOR_PATH_FRAGMENTS = (
-    ".venv/",
-    "node_modules/",
-    ".git/",
-    "__pycache__/",
+_VENDOR_SEGMENTS = frozenset(
+    {
+        ".venv",
+        "node_modules",
+        ".git",
+        "__pycache__",
+    }
 )
 
 
 def _is_vendor_path(*, relative_path: str) -> bool:
-    normalised = relative_path.replace("\\", "/") + "/"
-    return any(fragment in normalised for fragment in _VENDOR_PATH_FRAGMENTS)
+    segments = relative_path.replace("\\", "/").split("/")
+    return any(segment in _VENDOR_SEGMENTS for segment in segments)
 
 
 @dataclass
