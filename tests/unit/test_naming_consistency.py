@@ -216,6 +216,109 @@ def test_naming004_silent_on_optional_and_union_bool(tmp_path: Path):
     assert not result.warnings
 
 
+def test_naming004_silent_on_bool_properties_and_exempt_decorators(tmp_path: Path):
+    # Arrange: bool members behind property, cached_property (bare and dotted)
+    # and staticmethod decorators - attribute-style access needs no verb prefix
+    # (issue #38).
+    _write(
+        root=tmp_path,
+        rel="b.py",
+        body=(
+            "import functools\n"
+            "from functools import cached_property\n"
+            "class Gate:\n"
+            "    @property\n"
+            "    def open(self) -> bool:\n        return True\n"
+            "    @cached_property\n"
+            "    def locked(self) -> bool:\n        return False\n"
+            "    @functools.cached_property\n"
+            "    def armed(self) -> bool:\n        return False\n"
+            "    @staticmethod\n"
+            "    def default_state() -> bool:\n        return True\n"
+        ),
+    )
+    check = NamingConsistencyCheck()
+
+    # Act.
+    result = check.run(src_root=str(tmp_path))
+
+    # Assert: decorator-exempt booleans stay silent (no NAMING-004 false positive).
+    assert result.status == Status.PASS
+    assert not result.warnings
+
+
+def test_naming004_silent_on_protocol_members_but_flags_plain_class_method(tmp_path: Path):
+    # Arrange: bool methods on Protocol classes (bare, dotted, and subscripted
+    # bases) plus the same shape on an ordinary class, which must still fire.
+    _write(
+        root=tmp_path,
+        rel="b.py",
+        body=(
+            "import typing\n"
+            "from typing import Protocol\n"
+            "class Checker(Protocol):\n"
+            "    def valid(self) -> bool:\n        ...\n"
+            "class DottedChecker(typing.Protocol):\n"
+            "    def ready(self) -> bool:\n        ...\n"
+            "class GenericChecker(Protocol[int]):\n"
+            "    def generic_ok(self) -> bool:\n        ...\n"
+            "class PlainChecker:\n"
+            "    def stale(self) -> bool:\n        return True\n"
+        ),
+    )
+    check = NamingConsistencyCheck()
+
+    # Act.
+    result = check.run(src_root=str(tmp_path))
+
+    # Assert: Protocol members are exempt; the ordinary-class method still fires.
+    assert _codes(result.warnings) == ["NAMING-004"]
+    assert "stale" in result.warnings[0].message
+
+
+def test_naming004_still_flags_plain_module_level_bool_function(tmp_path: Path):
+    # Arrange: an undecorated module-level bool function alongside an exempt
+    # property - only the former may fire (existing behaviour preserved).
+    _write(
+        root=tmp_path,
+        rel="b.py",
+        body=(
+            "def ready() -> bool:\n    return True\n"
+            "class Gate:\n"
+            "    @property\n"
+            "    def open(self) -> bool:\n        return True\n"
+        ),
+    )
+    check = NamingConsistencyCheck()
+
+    # Act.
+    result = check.run(src_root=str(tmp_path))
+
+    # Assert: exactly one NAMING-004 warning, for the module-level function.
+    assert result.status == Status.WARN
+    assert _codes(result.warnings) == ["NAMING-004"]
+    assert "ready" in result.warnings[0].message
+
+
+def test_naming004_fix_strips_leading_verb_instead_of_mangling(tmp_path: Path):
+    # Arrange: a verb-led bool function whose fix text used to suggest the
+    # mangled 'is_check_auth_posture' (issue #38).
+    _write(
+        root=tmp_path,
+        rel="b.py",
+        body="def check_auth_posture() -> bool:\n    return True\n",
+    )
+    check = NamingConsistencyCheck()
+
+    # Act.
+    result = check.run(src_root=str(tmp_path))
+
+    # Assert: still flagged, but the suggestion drops the leading verb.
+    assert _codes(result.warnings) == ["NAMING-004"]
+    assert "is_check_auth_posture" not in result.warnings[0].fix
+    assert "is_auth_posture" in result.warnings[0].fix
+
+
 # --------------------------------------------------------------------------- #
 # NAMING-001 / 002: repository & service CRUD prefixes (opt-in, FAIL severity)
 # --------------------------------------------------------------------------- #
