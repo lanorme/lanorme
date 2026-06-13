@@ -303,3 +303,97 @@ def test_corrupt_baseline_file_exits_two(tmp_path: Path):
 
     # Assert: a clean exit 2, not a traceback.
     assert code == 2
+
+
+# --- red-team regressions -----------------------------------------------------
+
+
+def test_file_level_finding_survives_an_unrelated_top_of_file_edit(tmp_path: Path):
+    # Arrange: a file in the SIZE-001 warning band, baselined; then an unrelated
+    # comment inserted at the very top (so the line-1 sentinel text changes).
+    body = "".join(f"v{i} = {i}\n" for i in range(330))
+    root = _project(tmp_path, {"big.py": body}, config=_BASELINE_CONFIG)
+    _run(["baseline", "write", str(root)])
+    (root / "big.py").write_text("# unrelated new top comment\n" + body, encoding="utf-8")
+
+    # Act.
+    code = _run(["check", str(root)])
+
+    # Assert: the same file-level finding must stay suppressed, not resurface
+    # (it anchors on the rule description, not the text on line 1).
+    assert code == 0
+
+
+def test_same_tier_file_size_growth_stays_suppressed(tmp_path: Path):
+    # Arrange: a SIZE-001 warning baselined, then the file grows but stays in the
+    # same warning tier (its message line-count changes, the tier does not).
+    root = _project(
+        tmp_path, {"big.py": "".join(f"v{i} = {i}\n" for i in range(330))}, config=_BASELINE_CONFIG
+    )
+    _run(["baseline", "write", str(root)])
+    (root / "big.py").write_text("".join(f"v{i} = {i}\n" for i in range(360)), encoding="utf-8")
+
+    # Act.
+    code = _run(["check", str(root)])
+
+    # Assert: a same-tier warning is not resurrected by a metric change.
+    assert code == 0
+
+
+def test_warning_entry_never_suppresses_an_error_finding():
+    # Arrange: an entry recorded as a warning; the same key now error-tier.
+    root = Path("/proj")
+    finding = Violation(file="a.py", line=0, rule="X-001: thing", message="m", fix="")
+    [entry] = bl._entries_from_results(
+        results=[CheckResult(check="x", status=Status.WARN, warnings=[finding])],
+        project_root=root,
+    )
+    index = {(entry["file"], entry["code"], entry["anchor"]): entry}
+
+    # Act: the finding reappears as an error (escalated tier).
+    suppressed = bl._is_suppressed(
+        index=index, consumed={}, project_root=root, finding=finding, tier="error", cache={}
+    )
+
+    # Assert: the severity gate refuses to let a warning hide an error.
+    assert suppressed is False
+
+
+def test_malformed_baseline_entry_exits_two(tmp_path: Path):
+    # Arrange: valid JSON, valid version, but an entry missing a required key.
+    root = _project(tmp_path, {"a.py": _EVAL}, config=_BASELINE_CONFIG)
+    (root / "lanorme-baseline.json").write_text(
+        '{"version": 1, "entries": [{"code": "EVAL-001", "anchor": "sha:x"}]}', encoding="utf-8"
+    )
+
+    # Act.
+    code = _run(["check", str(root)])
+
+    # Assert: a clean exit 2, not a KeyError traceback.
+    assert code == 2
+
+
+def test_write_creates_a_configured_subdirectory(tmp_path: Path):
+    # Arrange: a baseline path under a directory that does not exist yet.
+    config = '[tool.lanorme]\nbaseline = "ci/baseline.json"\n'
+    root = _project(tmp_path, {"a.py": _EVAL}, config=config)
+
+    # Act.
+    code = _run(["baseline", "write", str(root)])
+
+    # Assert: the parent directory is created and the write succeeds.
+    assert code == 0
+    assert (root / "ci" / "baseline.json").is_file()
+
+
+def test_first_write_block_shows_the_configured_subdirectory_path(tmp_path: Path, capsys):
+    # Arrange.
+    config = '[tool.lanorme]\nbaseline = "ci/baseline.json"\n'
+    root = _project(tmp_path, {"a.py": _EVAL}, config=config)
+
+    # Act.
+    _run(["baseline", "write", str(root)])
+    out = capsys.readouterr().out
+
+    # Assert: the copy-paste block names the real relative path, not the basename.
+    assert 'baseline = "ci/baseline.json"' in out

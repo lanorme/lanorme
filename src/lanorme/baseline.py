@@ -10,8 +10,9 @@ plus a baseline, every new line is held to strict from day one of a legacy repo.
 The matching is content-anchored, never line-number-anchored, so an entry
 survives unrelated edits above it. A finding is keyed by
 ``(file, rule code, anchor)`` where the anchor is a hash of the stripped source
-line at the finding (or a hash of the finding message for file-level findings).
-Hashing both forms keeps source text and any secret out of the committed file.
+line at the finding, or (for a file-level finding reported at a line-1 sentinel)
+a hash of the static rule description. Hashing every form keeps source text and
+any secret out of the committed file.
 
 A baselined *warning* never suppresses a current *error*-tier finding, so a
 baselined file that grows past a hard threshold re-reports and fails the build.
@@ -47,21 +48,25 @@ def _norm_path(file: str) -> str:
 
 
 def _anchor(
-    *, project_root: Path, file: str, line: int, message: str, cache: dict[str, list[str]]
+    *, project_root: Path, file: str, line: int, rule: str, cache: dict[str, list[str]]
 ) -> str:
     """A stable, content-derived key for a finding.
 
-    For a line-anchored finding the anchor is a hash of the stripped source
-    line, so it survives unrelated edits above the finding. For a file-level
-    finding (line <= 0) or a blank/unreadable line, it falls back to a hash of
-    the raw message. Both forms are hashed, so neither source text nor any
-    embedded secret reaches the committed baseline file.
+    For a line-anchored finding (line >= 2) the anchor is a hash of the stripped
+    source line, so it survives unrelated edits above the finding. A file-level
+    finding is reported at a line-1 sentinel (SIZE-001, PORT-001, TESTFILE-001
+    and friends) and is about the whole file, not line 1; anchoring it to the
+    text on line 1, or to its count-bearing message, would resurrect it on an
+    unrelated top-of-file edit or a minor metric change. So file-level findings
+    (line <= 1) and findings whose source line is blank/unreadable anchor on the
+    static rule description instead, which carries no source text and no per-run
+    count. Every form is hashed, so no source text or secret reaches the file.
     """
-    if line >= 1:
+    if line >= 2:
         source = _line_at(project_root=project_root, file=file, line=line, cache=cache).strip()
         if source:
             return "sha:" + hashlib.sha256(source.encode("utf-8")).hexdigest()
-    return "msg:" + hashlib.sha256(message.encode("utf-8")).hexdigest()
+    return "desc:" + hashlib.sha256(_describe(rule).encode("utf-8")).hexdigest()
 
 
 def _describe(rule: str) -> str:
@@ -87,7 +92,7 @@ def _finding_key(
             project_root=project_root,
             file=finding.file,
             line=finding.line,
-            message=finding.message,
+            rule=finding.rule,
             cache=cache,
         ),
     )
@@ -127,11 +132,15 @@ def load_index(path: Path) -> dict[tuple[str, str, str], dict[str, object]]:
 
     index: dict[tuple[str, str, str], dict[str, object]] = {}
     for entry in entries:
-        key = (str(entry["file"]), str(entry["code"]), str(entry["anchor"]))
+        try:
+            key = (str(entry["file"]), str(entry["code"]), str(entry["anchor"]))
+            count = int(entry.get("count", 1))
+        except (KeyError, TypeError, ValueError):
+            _fail(f"baseline file '{path}' has a malformed entry: {entry!r}")
         slot = index.setdefault(key, {"severity": _WARNING, "count": 0})
         if entry.get("severity") == _ERROR:
             slot["severity"] = _ERROR
-        slot["count"] = int(slot["count"]) + int(entry.get("count", 1))
+        slot["count"] = int(slot["count"]) + count
     return index
 
 
@@ -276,17 +285,30 @@ def write(*, results: list[CheckResult], project_root: Path, baseline_path: Path
     added = len(new_keys - old_keys)
     pruned = len(old_keys - new_keys)
 
+    baseline_path.parent.mkdir(parents=True, exist_ok=True)
     baseline_path.write_text(_serialise(entries), encoding="utf-8")
 
     total = sum(int(e["count"]) for e in entries)
-    print(f"Wrote {len(entries)} baseline entries ({total} findings): +{added} new, -{pruned} pruned (was {len(old_keys)}).")
+    entry_word = "entry" if len(entries) == 1 else "entries"
+    finding_word = "finding" if total == 1 else "findings"
+    print(
+        f"Wrote {len(entries)} baseline {entry_word} ({total} {finding_word}): "
+        f"+{added} new, -{pruned} pruned (was {len(old_keys)})."
+    )
     if first_write:
-        rel = baseline_path.name
         print(
             "\nAdd this to your configuration and commit the file like a lockfile:\n\n"
             "    [tool.lanorme]\n"
-            f'    baseline = "{rel}"\n'
+            f'    baseline = "{_display_path(baseline_path=baseline_path, project_root=project_root)}"\n'
         )
+
+
+def _display_path(*, baseline_path: Path, project_root: Path) -> str:
+    """The baseline path as written in config (project-relative where possible)."""
+    try:
+        return baseline_path.relative_to(project_root).as_posix()
+    except ValueError:
+        return baseline_path.name
 
 
 def print_status(*, results: list[CheckResult], project_root: Path, baseline_path: Path) -> None:
