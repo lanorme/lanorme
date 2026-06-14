@@ -32,6 +32,12 @@ Add the rule code to `promote` in `[tool.lanorme]`:
 promote = ["TYPE-004"]
 ```
 
+This is the `pyproject.toml` form. In a standalone `lanorme.toml` the prefix is
+dropped, so write `promote = ["TYPE-004"]` at the top level with no
+`[tool.lanorme]` header (a `[tool.lanorme]` header there is silently ignored).
+See the [configuration reference](../reference/configuration.md) for the header
+convention.
+
 A category works too (`promote = ["TYPE"]`), as does the whole catalogue:
 
 ```toml
