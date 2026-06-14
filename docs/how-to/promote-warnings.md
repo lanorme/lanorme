@@ -1,5 +1,20 @@
 # Promote advisory warnings to build-failing errors
 
+This how-to shows how to turn an advisory warning into a build-failing error with `promote`, and explains how promotion interacts with suppression, skip notices, and the `strict` profile.
+
+A warning is only ever promoted if it survives every suppression mechanism first, and skip notices are never promoted at all. The decision a single warning runs through is:
+
+```mermaid
+flowchart TD
+    W[Advisory warning] --> S{Suppressed by ignore,<br/>per-file-ignores, or noqa?}
+    S -- yes --> G[Gone before promotion: stays clear]
+    S -- no --> N{A -000 skip or<br/>parse-error notice?}
+    N -- yes --> K[Never promoted: stays a warning]
+    N -- no --> P{Code matched by promote<br/>code, category, or ALL?}
+    P -- yes --> F[Build-failing error, exit 1]
+    P -- no --> R[Remains an advisory warning, exit 0]
+```
+
 Some rules report at the advisory tier: they raise a warning, but the run
 still exits `0`. `TYPE-004` (a function with typed parameters and a real
 return value should declare a return type) is one such rule. When you want

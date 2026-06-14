@@ -1,10 +1,15 @@
 # Why LaNorme is precision-first
 
+This explanation traces how one goal, making a team's coding standard
+executable and trustworthy enough to gate every commit, drives every design
+choice in the tool: the false-positive budget, the baseline, the stdlib-only
+stance, and the generated docs.
+
 LaNorme exists to do one thing well: make a team's coding standard executable
 and trustworthy enough to gate every commit. Every design choice in the tool
-follows from that goal. This page explains the reasoning, so that the rules,
-the baseline, and the documentation all make sense as parts of a single idea
-rather than a list of features.
+follows from that goal. The reasoning below ties the rules, the baseline, and
+the documentation together as parts of a single idea rather than a list of
+features.
 
 ## The thesis: an executable standard
 
@@ -31,6 +36,20 @@ developer is blocked by a finding that is obviously wrong, they lose trust. The
 third time, they add an ignore. Soon the whole tool is disabled, and with it
 goes every true finding it would have caught. A linter spends trust on every
 false positive, and it has a limited supply.
+
+```mermaid
+flowchart TD
+    A["Check flags correct code (false positive)"] --> B["Developer loses trust in the gate"]
+    B --> C["Ignore rule or disable the check"]
+    C --> D["Gate switched off for the whole team"]
+    D --> E["Every true finding now goes uncaught"]
+    E -. "the one defect a false negative would have cost
+is now every defect" .-> A
+```
+
+The spiral is why precision is weighted so far above recall: a single
+unjustified block does not cost one finding, it risks the entire gate, and a
+gate nobody trusts catches nothing at all.
 
 So LaNorme treats a false positive as the cardinal sin and a false negative as
 a tolerable cost. When a check cannot be sure, it stays quiet. It would rather

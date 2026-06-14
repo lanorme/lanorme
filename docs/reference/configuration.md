@@ -1,7 +1,7 @@
 # Configuration reference
 
-Every top-level key in the `[tool.lanorme]` table, generated from the tool
-so it cannot drift. Per-check settings (`[tool.lanorme.<check>]`) are
+This reference lists every top-level key in the `[tool.lanorme]` table, generated
+from the tool so it cannot drift. Per-check settings (`[tool.lanorme.<check>]`) are
 documented with each rule in the [rule reference](../RULES.md). A machine-readable
 [`lanorme.schema.json`](https://lanorme.github.io/lanorme/lanorme.schema.json) validates this table in editors.
 
@@ -98,7 +98,7 @@ plugins = ["my_company.lanorme_checks"]
 
 Each check is configured under its own table, always with an `enabled`
 toggle (opt-in checks default to `false`). The settings a check accepts are
-listed in its [rule reference](rules.md) section. For example:
+listed in its [rule reference](../RULES.md) section. For example:
 
 ```toml
 [tool.lanorme.prose]

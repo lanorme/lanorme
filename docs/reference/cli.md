@@ -1,5 +1,7 @@
 # CLI reference
 
+This reference describes every `lanorme` command, subcommand, argument, and flag, together with the config-discovery order, output formats, and exit codes.
+
 Every `lanorme` command, its arguments, and its flags. The descriptions
 reflect `lanorme <command> --help` exactly. For the configuration keys that
 the flags override, see the [configuration reference](configuration.md). For
@@ -25,6 +27,18 @@ The four subcommands:
 | [`baseline`](#baseline) | Record or inspect the warning baseline. |
 | [`rules`](#rules) | List all registered rules and exit. |
 | [`rule`](#rule) | Print the reference section for a single rule code. |
+
+Only `baseline` nests further, into `write` and `status`:
+
+```mermaid
+flowchart LR
+    L[lanorme] --> C[check]
+    L --> B[baseline]
+    L --> R[rules]
+    L --> U[rule]
+    B --> W[write]
+    B --> S[status]
+```
 
 ## Config discovery
 

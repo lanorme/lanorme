@@ -79,6 +79,7 @@ exclude = [
     "docs/audit/*",                 # multi-reviewer audit reports (verbatim reviewer prose)
     ".venv/*",
     "dist/*",
+    "site/*",                       # mkdocs build output
 ]
 
 [tool.lanorme.prose]
@@ -102,4 +103,8 @@ enabled = true
 
 # Dogfood the opt-in fuzzy near-duplicate check on LaNorme itself.
 [tool.lanorme.similarity]
+enabled = true
+
+# Dogfood the docs-structure check on our own documentation.
+[tool.lanorme.docs]
 enabled = true

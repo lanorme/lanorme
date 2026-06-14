@@ -90,6 +90,15 @@
         }
       }
     },
+    "docs": {
+      "type": "object",
+      "description": "Settings for the docs check (see docs/RULES.md).",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      }
+    },
     "domain_terms": {
       "type": "object",
       "description": "Settings for the domain_terms check (see docs/RULES.md).",

@@ -1,13 +1,13 @@
 # Use configuration profiles
 
+This how-to shows how to adopt the bundled profiles, compose several, point at a
+local `.toml`, and read the merged result.
+
 A profile is a named bundle of LaNorme settings you adopt with the `extends`
 key, instead of copying the same toggles into every project. Use a profile to
 turn on a coherent set of checks in one line, then override individual keys
-locally where a project differs.
-
-This page shows how to adopt the bundled profiles, compose several, point at a
-local `.toml`, and read the merged result. For the full meaning of every key a
-profile can set, see the [configuration reference](../reference/configuration.md).
+locally where a project differs. For the full meaning of every key a profile can
+set, see the [configuration reference](../reference/configuration.md).
 
 ## Adopt a single profile
 
@@ -87,6 +87,13 @@ Profiles merge left to right, then your own keys merge on top, so a local key
 always wins. Tables merge per key: a local `[tool.lanorme.layer_deps]` that sets
 only `transport_layers` overrides that one key and leaves the rest of the
 profile's `layer_deps` table intact.
+
+```mermaid
+flowchart LR
+    A["First profile<br/>(leftmost)"] --> B["Next profile<br/>(further right wins ties)"]
+    B --> C["Your [tool.lanorme]<br/>local keys (always win)"]
+    C --> D[Effective config]
+```
 
 Order matters when two profiles set the same key. In `extends = ["strict",
 "team-rules.toml"]` above, `team-rules.toml` is to the right of `strict`, so its

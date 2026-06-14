@@ -1,8 +1,22 @@
 # Configure which checks run
 
-Recipes for narrowing what LaNorme runs and silencing the noise you have
-decided to accept. Each recipe gives the goal, the `[tool.lanorme]` config,
-the equivalent command-line flag where one exists, and a verified example.
+This how-to gives recipes for narrowing what LaNorme runs and silencing the
+noise you have decided to accept, from selecting a subset of rules down to
+silencing a single line. Each recipe gives the goal, the `[tool.lanorme]`
+config, the equivalent command-line flag where one exists, and a verified
+example.
+
+A finding has to survive every stage below to be reported, applied in this
+order:
+
+```mermaid
+flowchart LR
+    A[select] --> B[ignore]
+    B --> C[exclude]
+    C --> D[per-file-ignores]
+    D --> E[noqa]
+    E --> F[reported]
+```
 
 Config is read from `[tool.lanorme]` in `pyproject.toml`, or from a
 `lanorme.toml` / `.lanorme.toml` file. Command-line flags override config for

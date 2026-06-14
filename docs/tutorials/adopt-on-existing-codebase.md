@@ -11,6 +11,20 @@ debt you started with stays recorded and quiet until you choose to pay it down.
 You will need Python 3.13 or newer and a terminal. The whole tutorial fits in
 two effective commands: one baseline, one check.
 
+The shape of the adoption flow:
+
+```mermaid
+flowchart TD
+    A[lanorme check .] --> B[Finds existing debt]
+    B --> C[extends = strict]
+    C --> D[lanorme baseline write]
+    D --> E[Commit baseline like a lockfile]
+    E --> F[Gate is green: debt recorded, not waived]
+    F --> G{New finding?}
+    G -- yes --> H[Fails the gate]
+    G -- no --> I[Stays green]
+```
+
 ## What you will build
 
 A small project with three findings already in it. By the end:

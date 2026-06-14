@@ -15,7 +15,7 @@ exclude_docs: |
 theme:
   name: material
   features:
-    - navigation.sections
+    - navigation.indexes
     - navigation.top
     - navigation.tracking
     - toc.follow
@@ -51,7 +51,13 @@ markdown_extensions:
   - pymdownx.highlight
   - pymdownx.inlinehilite
   - pymdownx.snippets
-  - pymdownx.superfences
+  - pymdownx.superfences:
+      # Mermaid diagrams: the source is text in the Markdown (so agents read it)
+      # and mkdocs-material renders it to an SVG (so humans see a diagram).
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
 
 extra:
   version:
@@ -60,16 +66,21 @@ extra:
 nav:
   - Home: index.md
   - Tutorials:
+      - tutorials/index.md
       - Adopt on an existing codebase: tutorials/adopt-on-existing-codebase.md
   - How-to guides:
+      - how-to/index.md
       - Configure checks: how-to/configure-checks.md
       - Promote warnings to errors: how-to/promote-warnings.md
       - Use profiles: how-to/use-profiles.md
       - Write a check: how-to/write-a-check.md
   - Reference:
+      - reference/index.md
       - Configuration: reference/configuration.md
       - Rules: RULES.md
       - Rule index: reference/rules-index.md
       - CLI: reference/cli.md
   - Explanation:
+      - explanation/index.md
       - Precision-first: explanation/precision-first.md
+      - Docs architecture: explanation/docs-architecture.md

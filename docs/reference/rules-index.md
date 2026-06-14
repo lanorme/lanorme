@@ -1,7 +1,7 @@
 # Rule index
 
-Every rule code, its check, and whether the check is opt-in (default off),
-generated from the registry. Full descriptions, configuration and precision
+This reference maps every rule code to its check and whether the check is opt-in
+(default off), generated from the registry. Full descriptions, configuration and precision
 notes for each rule are in the [rule reference](../RULES.md).
 
 | Rule | Check | Opt-in |
@@ -18,6 +18,14 @@ notes for each rule are in the [rule reference](../RULES.md).
 | `CRYPTO-001` | security_calls | no |
 | `DEBUG-001` | security_calls | no |
 | `DESERIAL-001` | security_calls | no |
+| `DOCS-001` | docs | yes |
+| `DOCS-002` | docs | yes |
+| `DOCS-003` | docs | yes |
+| `DOCS-004` | docs | yes |
+| `DOCS-005` | docs | yes |
+| `DOCS-006` | docs | yes |
+| `DOCS-007` | docs | yes |
+| `DOCS-008` | docs | yes |
 | `DRY-001` | duplication | no |
 | `ENDPOINT-001` | pattern_divergence | no |
 | `EVAL-001` | security_calls | no |
@@ -50,6 +58,7 @@ notes for each rule are in the [rule reference](../RULES.md).
 | `PROSE-002` | prose | yes |
 | `PROSE-003` | comments | no |
 | `PROSE-003` | prose | yes |
+| `PROSE-004` | prose | yes |
 | `SECRETPY-001` | secrets | no |
 | `SHELL-001` | security_calls | no |
 | `SIMILAR-001` | similarity | yes |

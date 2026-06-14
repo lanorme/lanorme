@@ -1,5 +1,7 @@
 # LaNorme rule reference
 
+This reference describes every rule code LaNorme can emit, one section per code, covering what each rule catches, what it deliberately ignores, where to configure it, and its measured precision, recall, and F1 where a labelled corpus exists.
+
 One section per rule code emitted by LaNorme. Each section says what the
 rule catches, what it does not, where to configure it, and (where the
 rule has a labelled corpus under `tests/fixtures/` and a scorer under

@@ -12,6 +12,7 @@ Tests follow AAA structure with inline ``# Arrange / # Act / # Assert`` markers.
 from __future__ import annotations
 
 import importlib.util
+import subprocess
 import sys
 from pathlib import Path
 
@@ -28,14 +29,17 @@ def _load_generator() -> object:
 
 
 def test_generated_docs_are_in_sync():
-    # Arrange.
-    generator = _load_generator()
-
-    # Act: --check returns 1 when any committed generated file is stale.
-    exit_code = generator.main(argv=["--check"])
+    # Arrange / Act: run the generator's --check in a fresh interpreter so a
+    # registry mutated by an earlier test (a stub check) cannot make the rule
+    # set differ from the committed files.
+    result = subprocess.run(
+        [sys.executable, str(_GEN), "--check"], capture_output=True, text=True
+    )
 
     # Assert.
-    assert exit_code == 0, "generated docs are stale; run 'python3 scripts/gen_docs.py'"
+    assert result.returncode == 0, (
+        f"generated docs are stale; run 'python3 scripts/gen_docs.py'\n{result.stderr}"
+    )
 
 
 def test_every_top_level_config_key_is_documented():
