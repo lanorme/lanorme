@@ -151,7 +151,7 @@ re-check:
 $ lanorme baseline write
 Wrote 1 baseline entry (1 finding): +1 new, -0 pruned (was 0).
 $ lanorme check
-All 24 checks passed.
+All 25 checks passed.
 ```
 
 **It never resurrects paid-down noise.** When you fix a finding, its entry no

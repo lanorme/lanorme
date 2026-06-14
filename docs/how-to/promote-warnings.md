@@ -67,7 +67,7 @@ $ lanorme check orders.py --select TYPE-004
     Fix: Add a return annotation (for example '-> ResultType') to the signature
 --- strong_types: 0 violations, 1 warnings ---
 
-Summary: 24 checks — 23 passed, 1 warnings, 0 failed.
+Summary: 25 checks — 24 passed, 1 warnings, 0 failed.
 $ echo $?
 0
 ```
@@ -82,7 +82,7 @@ $ lanorme check orders.py --select TYPE-004 --promote TYPE-004
     Fix: Add a return annotation (for example '-> ResultType') to the signature
 --- strong_types: 1 violations, 0 warnings ---
 
-Summary: 24 checks — 23 passed, 0 warnings, 1 failed.
+Summary: 25 checks — 24 passed, 0 warnings, 1 failed.
 $ echo $?
 1
 ```
@@ -108,7 +108,7 @@ def total_price(quantity: int, unit_price: float):  # noqa: TYPE-004
 
 ```console
 $ lanorme check orders.py --select TYPE-004 --promote ALL
-All 24 checks passed.
+All 25 checks passed.
 $ echo $?
 0
 ```
@@ -118,7 +118,7 @@ nothing to promote:
 
 ```console
 $ lanorme check orders.py --select TYPE-004 --ignore TYPE-004 --promote TYPE-004
-All 24 checks passed.
+All 25 checks passed.
 $ echo $?
 0
 ```

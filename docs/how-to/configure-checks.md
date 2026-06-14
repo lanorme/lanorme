@@ -25,6 +25,16 @@ a single run. For the full key list and types, see the
 categories are listed by `lanorme rules`; per-check settings live in the
 [rule reference](../RULES.md).
 
+>!!! note
+>    The recipes below use the `pyproject.toml` layout. In a standalone
+>    `lanorme.toml` / `.lanorme.toml` the `tool.lanorme` prefix is dropped:
+>    top-level scalar keys go bare (`select = [...]`) and sub-tables lose the
+>    prefix too, so `[tool.lanorme.per-file-ignores]` becomes
+>    `[per-file-ignores]`. Using the prefixed header in a `lanorme.toml` is a
+>    silent no-op — the table is ignored and no error is raised. See the
+>    [config discovery](../reference/cli.md#config-discovery) note in the CLI
+>    reference.
+
 Targets are rule codes (`EVAL-001`), categories (`SEC`, `SECRETPY`), or `ALL`.
 
 ## Run only some checks
@@ -41,12 +51,12 @@ Equivalent flag: `--select` takes a comma-separated list.
 ```console
 $ lanorme check src --select EVAL-001
 [FAIL] security_calls
-  VIOLATION: src/pkg/main.py:1 — eval() on a non-literal argument is an RCE primitive
+  VIOLATION: pkg/main.py:1 — eval() on a non-literal argument is an RCE primitive
     Rule: EVAL-001
     Fix: Use ast.literal_eval for trusted-shape parsing, or build a dispatch table
 --- security_calls: 1 violations, 0 warnings ---
 
-Summary: 24 checks — 23 passed, 0 warnings, 1 failed.
+Summary: 25 checks — 24 passed, 0 warnings, 1 failed.
 ```
 
 A category selects every code under it: `--select SEC` runs the whole
@@ -70,7 +80,7 @@ Equivalent flag: `--ignore` takes a comma-separated list.
 
 ```console
 $ lanorme check src --select file_limits --ignore PARAM-001
-All 24 checks passed.
+All 25 checks passed.
 ```
 
 `ignore` applies after `select`, so a rule that is both selected and ignored
@@ -106,34 +116,49 @@ segment and will not match a top-level directory.
 ## Silence a rule for a path glob
 
 Goal: keep a rule on, but accept it for files matching a glob (for example,
-allow hardcoded fixture tokens under `tests/`).
+allow wide-signature test factories under `tests/` to keep `PARAM-001`).
 
 This is config only; there is no command-line equivalent.
 
-```toml
-[tool.lanorme]
-select = ["SECRETPY"]
+Without any suppression, a nine-parameter factory in `tests/factories.py`
+reports `PARAM-001`:
 
-[tool.lanorme.per-file-ignores]
-"tests/*" = ["SECRETPY-001"]
+```console
+$ lanorme check . --select PARAM-001
+[FAIL] file_limits
+  VIOLATION: tests/factories.py:1 — Function 'build' has parameter count 9 (limit: 8)
+    Rule: PARAM-001: Function exceeds 8 parameters
+    Fix: Group related parameters into a dataclass or TypedDict
+--- file_limits: 1 violations, 0 warnings ---
+
+Summary: 25 checks — 24 passed, 0 warnings, 1 failed.
 ```
 
 The key is a glob; the value is a list of codes or categories suppressed for
-matching files. With the config above, only the production file reports:
+matching files. In `pyproject.toml` the table carries the `tool.lanorme`
+prefix:
 
-```console
-$ lanorme check .
-[FAIL] secrets
-  VIOLATION: src/app.py:1 — Hardcoded credential value bound to 'PASSWORD'
-    Rule: SECRETPY-001: No hardcoded secrets in source code
-    Fix: Read the value from an environment variable, secrets manager, or settings module
---- secrets: 1 violations, 0 warnings ---
-
-Summary: 24 checks — 23 passed, 0 warnings, 1 failed.
+```toml
+[tool.lanorme.per-file-ignores]
+"tests/*" = ["PARAM-001"]
 ```
 
-The matching `tests/test_app.py` carries the same hardcoded token but is not
-reported. Confirm the discovered config and effective per-check settings with
+In a standalone `lanorme.toml` / `.lanorme.toml` the prefix is dropped and the
+header is bare — the prefixed form is silently ignored there:
+
+```toml
+[per-file-ignores]
+"tests/*" = ["PARAM-001"]
+```
+
+With either form in place, the matching file is no longer reported:
+
+```console
+$ lanorme check . --select PARAM-001
+All 25 checks passed.
+```
+
+Confirm the discovered config and effective per-check settings with
 `lanorme check --show-config`.
 
 ## Silence one line
@@ -153,16 +178,16 @@ def f():
     x = eval(input())                 # line 2: reported
 
 def g():
-    y = eval(input())  # noqa         # line 7: silenced (all rules)
+    y = eval(input())  # noqa         # line 5: silenced (all rules)
 
 def h():
-    z = eval(input())  # noqa: EVAL-001   # line 12: silenced (this code)
+    z = eval(input())  # noqa: EVAL-001   # line 8: silenced (this code)
 
 def k():
-    w = eval(input())  # noqa: SQL-001    # line 17: still reported
+    w = eval(input())  # noqa: SQL-001    # line 11: still reported
 ```
 
-Only lines 2 and 17 are reported: the bare `# noqa` and the matching
+Only lines 2 and 11 are reported: the bare `# noqa` and the matching
 `# noqa: EVAL-001` suppress their lines, while `# noqa: SQL-001` is the wrong
 code and does not silence the `eval`.
 
@@ -170,10 +195,10 @@ code and does not silence the `eval`.
 $ lanorme check a.py --select EVAL-001
 [FAIL] security_calls
   VIOLATION: a.py:2 — eval() on a non-literal argument is an RCE primitive
-  VIOLATION: a.py:17 — eval() on a non-literal argument is an RCE primitive
+  VIOLATION: a.py:11 — eval() on a non-literal argument is an RCE primitive
 --- security_calls: 2 violations, 0 warnings ---
 
-Summary: 24 checks — 23 passed, 0 warnings, 1 failed.
+Summary: 25 checks — 24 passed, 0 warnings, 1 failed.
 ```
 
 ## Exit codes
@@ -184,7 +209,7 @@ clean.
 
 ```console
 $ lanorme check src --select EVAL-001   # no eval in src
-All 24 checks passed.
+All 25 checks passed.
 $ echo $?
 0
 ```

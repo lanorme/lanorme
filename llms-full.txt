@@ -10,9 +10,14 @@ from the tool so it cannot drift. Per-check settings (`[tool.lanorme.<check>]`) 
 documented with each rule in the [rule reference](../RULES.md). A machine-readable
 [`lanorme.schema.json`](https://lanorme.github.io/lanorme/lanorme.schema.json) validates this table in editors.
 
-Configuration is read from `[tool.lanorme]` in `pyproject.toml`, or from a
-`lanorme.toml` / `.lanorme.toml` file. Keys also have command-line equivalents
-(`--select`, `--ignore`, and so on); the command line wins over config.
+Configuration lives in `[tool.lanorme]` in `pyproject.toml`, or in a standalone
+`lanorme.toml` / `.lanorme.toml`. **The table header differs between the two.** In
+`pyproject.toml` every key sits under `[tool.lanorme]`, and a per-check table under
+`[tool.lanorme.<check>]`. In a standalone `lanorme.toml` the prefix is dropped: keys
+are top-level (`promote = ["TYPE-004"]`) and a sub-table is bare (`[per-file-ignores]`,
+`[prose]`). The examples below show the `pyproject.toml` form; a `[tool.lanorme]` prefix
+written inside a `lanorme.toml` is silently ignored. Keys also have command-line
+equivalents (`--select`, `--ignore`); the command line wins over config.
 
 | Key | Type | Default | Feature |
 | --- | --- | --- | --- |
@@ -278,7 +283,11 @@ Measured against the 165-comment corpus under
 single FP is an illustrative call signature following a `Typical usage:`
 header.
 
-Config: none.
+Config:
+```toml
+[tool.lanorme.comments]
+commented_code = true   # default-on; set false to disable CMT-001
+```
 
 ### `CMT-002`: No verbose comments
 
@@ -289,6 +298,7 @@ than `max_block_lines` (default 6).
 Config:
 ```toml
 [tool.lanorme.comments]
+verbose           = true   # default-on; set false to disable CMT-002
 max_comment_chars = 120
 max_block_lines   = 6
 ```
@@ -325,6 +335,61 @@ Config:
 em_dash = true   # emit PROSE-001 on comments/docstrings
 emoji   = true   # emit PROSE-003 on comments/docstrings
 ```
+
+---
+
+## Docs: `DOCS-001..008`
+
+Opt-in (default-off), tree-scoped. Enforces a familiar Diataxis-style structure
+and accessibility on a Markdown documentation tree. It inspects only Markdown
+under `docs_root` (default `docs`); files anywhere else are ignored, so it never
+imposes a docs structure on source trees or stray Markdown. Headings and images
+inside fenced code blocks are never matched, so a sample showing a hash heading
+or an image link is left alone. `DOCS-001..004` are build-failing errors;
+`DOCS-005..008` are advisory warnings.
+
+- `DOCS-001`: a content page has exactly one level-1 heading.
+- `DOCS-002`: heading levels descend one step at a time (no skipped levels).
+- `DOCS-003`: a content page opens with a canonical skimmer line. The first
+  prose line after the H1 must begin with one of `This page`, `This tutorial`,
+  `This guide`, `This reference`, `This how-to`, or `This explanation`.
+- `DOCS-004`: every image carries non-empty alternative text, for both
+  Markdown image links and HTML `img` tags.
+- `DOCS-005`: prefer SVG or Mermaid over a local raster image (warning).
+- `DOCS-006`: a known section directory that has pages carries an `index.md`
+  landing page (warning).
+- `DOCS-007`: every page lives in a known section or is a known top-level
+  page (warning).
+- `DOCS-008`: headings are not numbered by hand; renderers number sections
+  for you (warning).
+
+Vendored or generated directories (`.git`, `.venv`, `node_modules`,
+`__pycache__`, `dist`, `build`, and so on) are never treated as part of a docs
+tree.
+
+Config (all keys optional; the defaults are shown):
+```toml
+[tool.lanorme.docs]
+enabled   = true                  # default false (the whole check is opt-in)
+docs_root = "docs"                # tree to inspect, relative to the scan target
+# Diataxis section directories expected under docs_root.
+sections  = ["tutorials", "how-to", "reference", "explanation"]
+# Pages allowed at the top level without a section home (DOCS-007).
+known_top_level = [
+  "index.md",
+  "RULES.md",
+  "reference/configuration.md",
+  "reference/rules-index.md",
+  "reference/cli.md",
+]
+# Image extensions treated as raster formats for DOCS-005.
+raster_extensions = ["png", "jpg", "jpeg", "gif", "webp", "bmp"]
+allow = ["**/logo.png"]           # globs exempt from the prefer-SVG warning (default empty)
+```
+
+The check is tree-scoped (`scope = "tree"`): it reads the directory layout, not
+only individual files, so the section-index and quadrant rules can reason about
+where each page sits.
 
 ---
 
@@ -589,7 +654,7 @@ Adapter roots are scanned recursively, so widening `adapter_roots` to
 
 ---
 
-## Prose: `PROSE-001..003` on Markdown
+## Prose: `PROSE-001..004` on Markdown
 
 Off until enabled.
 
@@ -599,16 +664,42 @@ Off until enabled.
 
 Skips fenced code blocks (` ``` `, `~~~`) and inline `` `code` `` spans.
 
+### `PROSE-004`: Em-dash density above natural English
+
+Advisory warning, opt-in (default-off). Where `PROSE-001` bans every em dash
+outright, `PROSE-004` instead measures how often em dashes appear and warns once
+per file when the density runs above what natural English sustains. It reuses
+the same code-span and fenced-block stripping as the other prose rules, so it
+measures the remaining prose alone.
+
+The heuristic has an eligibility floor and two fire thresholds. A file is only
+measured when it clears all three floor values (`min_em` em dashes, `min_words`
+words, `min_sentences` sentences), which keeps the rule silent on anything too
+short to judge. It then fires only when **both** density thresholds are
+exceeded: em dashes per 1000 words above `em_per_1000` **and** the fraction of
+sentences carrying an em dash above `em_sentence_fraction`. ANDing the two axes
+stops a single high reading from tripping the warning. Setting `em_dash = false`
+while `em_dash_density = true` switches a region from the `PROSE-001` ban to
+this density advisory.
+
 Config:
 ```toml
 [tool.lanorme.prose]
-enabled    = true
-extensions = [".md", ".markdown"]   # default
-em_dash    = true                   # default
-emoji      = true                   # default
+enabled         = true
+extensions      = [".md", ".markdown"]   # default
+em_dash         = true                   # default; PROSE-001 ban
+emoji           = true                   # default
+em_dash_density = true                   # enable PROSE-004 (default false)
 
 [tool.lanorme.prose.spellings]
 customize = "customise"             # extend or override the built-in US->UK map
+
+[tool.lanorme.prose.density]
+min_em               = 4      # eligibility floor: minimum em dashes
+min_words            = 400    # eligibility floor: minimum words
+min_sentences        = 30     # eligibility floor: minimum sentences
+em_per_1000          = 30.0   # fire threshold: em dashes per 1000 words
+em_sentence_fraction = 0.50   # fire threshold: fraction of sentences with an em dash
 ```
 
 ---

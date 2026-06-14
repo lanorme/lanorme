@@ -5,9 +5,14 @@ from the tool so it cannot drift. Per-check settings (`[tool.lanorme.<check>]`) 
 documented with each rule in the [rule reference](../RULES.md). A machine-readable
 [`lanorme.schema.json`](https://lanorme.github.io/lanorme/lanorme.schema.json) validates this table in editors.
 
-Configuration is read from `[tool.lanorme]` in `pyproject.toml`, or from a
-`lanorme.toml` / `.lanorme.toml` file. Keys also have command-line equivalents
-(`--select`, `--ignore`, and so on); the command line wins over config.
+Configuration lives in `[tool.lanorme]` in `pyproject.toml`, or in a standalone
+`lanorme.toml` / `.lanorme.toml`. **The table header differs between the two.** In
+`pyproject.toml` every key sits under `[tool.lanorme]`, and a per-check table under
+`[tool.lanorme.<check>]`. In a standalone `lanorme.toml` the prefix is dropped: keys
+are top-level (`promote = ["TYPE-004"]`) and a sub-table is bare (`[per-file-ignores]`,
+`[prose]`). The examples below show the `pyproject.toml` form; a `[tool.lanorme]` prefix
+written inside a `lanorme.toml` is silently ignored. Keys also have command-line
+equivalents (`--select`, `--ignore`); the command line wins over config.
 
 | Key | Type | Default | Feature |
 | --- | --- | --- | --- |

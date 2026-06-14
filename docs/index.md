@@ -29,10 +29,10 @@ Then check your project:
 lanorme check .
 ```
 
-A clean run prints a summary and exits `0`:
+A clean run reports that every check passed and exits `0`:
 
 ```text
-Summary: 24 checks — 22 passed, 1 warnings, 1 failed.
+All 25 checks passed.
 ```
 
 Exit codes are `0` when clean, `1` when there are findings, and `2` on a

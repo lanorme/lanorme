@@ -255,7 +255,7 @@ result is one of `_CODE_NODES` (imports, assigns, defs, control flow,
 returns / raises / asserts, ...), the comment is treated as disabled code.
 ```
 
-An unknown code prints a not-found notice and exits `0`, not `2`:
+An unknown code prints a not-found notice and exits `2`:
 
 ```console
 $ lanorme rule NOPE-999
@@ -284,7 +284,7 @@ $ lanorme check bad.py
     Fix: Delete it; version control remembers
 --- comments: 1 violations, 0 warnings ---
 
-Summary: 24 checks — 23 passed, 0 warnings, 1 failed.
+Summary: 25 checks — 24 passed, 0 warnings, 1 failed.
 ```
 
 `json` emits one object per check, with `violations` and `warnings` arrays:
@@ -332,9 +332,9 @@ $ lanorme check --output-format github bad.py
 
 Exit `2` covers an unknown subcommand, an invalid flag value (such as a bad
 `--output-format` choice), a nonexistent scan path, a `baseline` write or
-status given file targets, and a configured baseline file that does not
-exist.
+status given file targets, a configured baseline file that does not exist,
+and `lanorme rule <CODE>` with an unknown code.
 
 >!!! note
->    `lanorme rule <CODE>` with an unknown code exits `0`, not `2`. It is a
->    lookup that found nothing, not a usage error.
+>    `lanorme rule <CODE>` with an unknown code exits `2`. The lookup found
+>    nothing, so it is reported as a not-found error rather than a clean run.

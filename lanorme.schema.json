@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://lanorme.github.io/lanorme/lanorme.schema.json",
   "title": "LaNorme configuration",
-  "description": "The [tool.lanorme] table in pyproject.toml or lanorme.toml.",
+  "description": "The [tool.lanorme] table in pyproject.toml, or top-level keys in a standalone lanorme.toml.",
   "type": "object",
   "properties": {
     "select": {

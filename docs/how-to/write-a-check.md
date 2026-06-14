@@ -292,17 +292,24 @@ rule inert on a project that has not asked for it.
 
 ## Verify it is loaded
 
-`lanorme rules` lists every registered rule, including a loaded plugin's. Confirm
-the plugin loads and its codes appear:
+Run the check and confirm it executed. `--output-format full` shows passing
+checks too, so a loaded check appears even when it found nothing:
 
 ```console
 $ lanorme check . --plugin myproject.checks.house_rules --output-format full
 ```
 
-`--output-format full` shows passing checks too, so you can see your check ran
-even when it found nothing. For machine-readable output while developing, use
-`--output-format ndjson` (one finding per line) or `--output-format json` (one
-object per check).
+For a check loaded via config or the entry-point group, drop the `--plugin`
+flag — plain `lanorme check . --output-format full` lists it once it is
+registered. Seeing your check in that output (a `[PASS]` line when it is clean)
+is the reliable signal that the plugin loaded. For machine-readable output while
+developing, use `--output-format ndjson` (one finding per line) or
+`--output-format json` (one object per check).
+
+`lanorme rules` is a narrower check. It lists only rules registered through the
+`lanorme.checks` entry-point group, so it surfaces a plugin shipped that way but
+not one loaded via `[tool.lanorme] plugins` or `--plugin`. The `rules` command
+also takes no `--plugin` flag.
 
 ## Related pages
 

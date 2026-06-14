@@ -119,7 +119,7 @@ lanorme check .
     Fix: Consider grouping related parameters into a dataclass or TypedDict
 --- file_limits: 0 violations, 1 warnings ---
 
-Summary: 24 checks — 22 passed, 1 warnings, 1 failed.
+Summary: 25 checks — 23 passed, 1 warnings, 1 failed.
 ```
 
 The exit code is `1` because at least one finding was reported. The default
@@ -172,7 +172,7 @@ lanorme check .
     Fix: Add a bare * separator: def foo(self, *, param1: str, param2: int)
 --- named_args: 1 violations, 0 warnings ---
 
-Summary: 24 checks — 21 passed, 0 warnings, 3 failed.
+Summary: 25 checks — 22 passed, 0 warnings, 3 failed.
 ```
 
 Three failures now. The `PARAM-001` warning has become an error, and the opt-in
@@ -246,7 +246,7 @@ lanorme check .
 ```
 
 ```text
-All 24 checks passed.
+All 25 checks passed.
 ```
 
 ```text
@@ -279,7 +279,7 @@ lanorme check .
     Fix: Delete it; version control remembers
 --- comments: 1 violations, 0 warnings ---
 
-Summary: 24 checks — 23 passed, 0 warnings, 1 failed.
+Summary: 25 checks — 24 passed, 0 warnings, 1 failed.
 ```
 
 Only the new finding in `myapp/orders.py` reports. The recorded debt in
@@ -320,7 +320,7 @@ lanorme check --no-baseline .
     Fix: Add a bare * separator: def foo(self, *, param1: str, param2: int)
 --- named_args: 1 violations, 0 warnings ---
 
-Summary: 24 checks — 21 passed, 0 warnings, 3 failed.
+Summary: 25 checks — 22 passed, 0 warnings, 3 failed.
 ```
 
 That is the full picture: the new finding plus the three recorded ones. It is

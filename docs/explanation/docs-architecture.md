@@ -65,7 +65,7 @@ Every published Markdown page lives in one of the four section directories or is
 
 Every content page opens with a **skimmer**: a one-line scope statement placed as the first prose paragraph immediately under the H1, before any sub-heading, list, table, or code block. It is the page's promise of scope, so a reader (human or agent) learns what the page covers within one paragraph of the title.
 
-The strongest skimmer begins with a literal opener naming the page kind, such as "This page ...", "This tutorial ...", "This how-to ...", or "This reference ...". That shape is recommended, not required. A leading mkdocs-material admonition (`!!! note`) or a blockquote callout directly under the H1 also counts as a valid skimmer slot, because it states scope just as a paragraph would. Index and home pages are exempt, since their body is legitimately a list.
+The skimmer must begin with a literal opener naming the page kind, drawn from a fixed set: "This page ...", "This tutorial ...", "This guide ...", "This reference ...", "This how-to ...", or "This explanation ...". That opener is required, not merely recommended; the `docs` check (`DOCS-003`) treats it as a closed whitelist and accepts no other phrasing. A near-miss such as "This recipe ...", "Use this how-to ...", or any opener that does not start with one of those six exact phrases is flagged as a build-failing error. The skimmer must also be a plain prose paragraph: a leading mkdocs-material admonition (`!!! note`) or a blockquote callout under the H1 does *not* satisfy the rule, because the check reads the first non-blank prose line and requires the canonical opener there. Index and home pages are exempt, since their body is legitimately a list.
 
 ## Naming convention
 
@@ -86,7 +86,7 @@ Headings descend without gaps: an H2 is followed by an H2 or an H3, never an H4.
 
 The default diagram format is **Mermaid** in a ```` ```mermaid ```` fence. The source lives in the Markdown, so an agent reads the same artifact a human sees rendered to SVG. Use it for flowcharts, sequence diagrams, and state, relationship, or class diagrams (the decision guide above is one).
 
-For richer visuals Mermaid cannot express, use a hand-authored **`.svg`** referenced with `![descriptive alt](path.svg)` or `<img src="..." alt="...">`. The alt text is the agent's and the screen-reader's text alternative and is **mandatory**; `alt=""` is the correct marker for a purely decorative image and is never flagged. A Mermaid fence is its own text alternative and needs no alt.
+For richer visuals Mermaid cannot express, use a hand-authored **`.svg`** referenced with `![descriptive alt](path.svg)` or `<img src="..." alt="...">`. The alt text is the agent's and the screen-reader's text alternative and is **mandatory on every image**, decorative ones included: the `docs` check (`DOCS-004`) flags an empty alt, whether an empty-string `alt=""` attribute or a Markdown image with empty brackets, as a build-failing error exactly as it flags a missing one. There is no decorative escape hatch, so describe what the image shows even when it is ornamental. A Mermaid fence is its own text alternative and needs no alt.
 
 **Raster** formats (`.png`, `.jpg`, and friends) are discouraged for diagrams: they are opaque to an agent and do not scale. A genuine UI screenshot or photo is legitimate raster and stays allowed; the discouragement is an escapable nudge, not a hard rule. Rendering Mermaid to SVG requires the `pymdownx.superfences` custom_fence named `mermaid` in `mkdocs.yml`; without it, Mermaid blocks dump as raw code.
 
@@ -124,7 +124,7 @@ The architecture, the page conventions, and the diagram policy are enforced by o
 
 Only objective, measured-clean conventions are **errors**; every subjective convention is an advisory **warning**, so the cardinal sin (a false positive on genuinely good docs) is structurally avoided.
 
-- **Errors:** `DOCS-001` exactly one H1, `DOCS-002` heading levels descend one step at a time, `DOCS-003` a content page opens with a canonical skimmer line, `DOCS-004` every image carries alt text (`alt=""` allowed for a decorative image).
+- **Errors:** `DOCS-001` exactly one H1, `DOCS-002` heading levels descend one step at a time, `DOCS-003` a content page opens with a canonical skimmer line, `DOCS-004` every image carries non-empty alt text (an empty `alt=""` is flagged like a missing one, including for decorative images).
 - **Warnings:** `DOCS-005` prefer SVG or Mermaid over a local raster image, `DOCS-006` each section directory carries an `index.md`, `DOCS-007` every page has a home in the architecture (a known section or top-level page), `DOCS-008` headings are not numbered by hand.
 
 Separately, the em-dash ban (`PROSE-001`) is relaxed inside `docs/` by a `docs/lanorme.toml` region that swaps it for an advisory **em-dash density** rule (`PROSE-004`): em dashes are welcome at the proportion and distribution of natural edited English, and only sustained LLM-style overuse (a high per-1,000-word rate *and* an em dash in most sentences) is flagged, as a warning.
