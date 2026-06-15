@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+
+<!--
+  Per-page Markdown actions. Every page is also served as raw Markdown at its
+  own URL (the docs/ hook publishes <page>.md), so we surface that: a human sees
+  the page can be read or copied as Markdown and handed straight to an agent.
+-->
+{% block content %}
+  {% if page and page.file and page.file.src_uri.endswith(".md") %}
+    {% set md_url = base_url ~ "/" ~ page.file.src_uri %}
+    <div class="md-page-actions" role="group" aria-label="Markdown actions">
+      <a class="md-page-actions__btn" href="{{ md_url }}" target="_blank" rel="noopener"
+         title="Open this page as raw Markdown">
+        {% include ".icons/material/language-markdown.svg" %}<span>View as Markdown</span>
+      </a>
+      <button class="md-page-actions__btn" type="button" data-md-src="{{ md_url }}"
+              title="Copy this page as Markdown, ready to paste into an agent">
+        {% include ".icons/material/content-copy.svg" %}<span>Copy for an agent</span>
+      </button>
+    </div>
+  {% endif %}
+  {{ super() }}
+{% endblock %}

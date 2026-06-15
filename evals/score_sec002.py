@@ -1,7 +1,7 @@
 """Score SQL-001 (no raw SQL) against the labeled evaluation corpus.
 
 Runs every enabled check over the labeled corpus under
-``tests/fixtures/security_raw_sql/``, filters to violations whose ``rule``
+``evals/corpora/security_raw_sql/``, filters to violations whose ``rule``
 starts with ``SQL-001`` (so any future sub-codes are picked up too), and
 compares them against the ground-truth labels in ``labels.json``.
 
@@ -12,7 +12,7 @@ docstrings / comments / log messages / regex / changelogs / test assertions,
 Alembic migrations under ``alembic/versions/``).
 
 Run:
-    uv run python benchmarks/score_sec002.py
+    uv run python evals/score_sec002.py
 """
 
 from __future__ import annotations
@@ -24,11 +24,15 @@ from pathlib import Path
 from lanorme import run_all
 from lanorme.cli import _load_builtin_checks  # noqa: PLC2701 -- benchmarks pin to internals
 
-_CORPUS = Path(__file__).resolve().parent.parent / "tests" / "fixtures" / "security_raw_sql"
+_CORPUS = Path(__file__).resolve().parent / "corpora" / "security_raw_sql"
 _LABELS = _CORPUS / "labels.json"
 
 _RAW_SQL = "raw_sql"
 _OK = "ok"
+
+# The rule code this scorer measures (exposed for the audit harness).
+RULE = "SQL-001"
+_REPO_ROOT = Path(__file__).resolve().parent.parent
 
 
 def _load_labels() -> dict[tuple[str, int], dict[str, str]]:
@@ -66,10 +70,15 @@ def _ratio(*, numerator: float, denominator: float) -> float:
     return numerator / denominator if denominator else 0.0
 
 
-def main() -> int:
+def score() -> dict:
+    """Run SQL-001 against its labelled corpus and return metrics.
+
+    Returns a dict with rule, corpus (repo-relative), tp/fp/fn/tn and
+    precision/recall/f1. Raises ValueError if the corpus is out of date
+    (a finding not in labels.json, or a missing labels file).
+    """
     if not _LABELS.is_file():
-        print(f"error: labels file not found at {_LABELS}", file=sys.stderr)
-        return 2
+        raise ValueError(f"labels file not found at {_LABELS}")
 
     labels = _load_labels()
     positives = {key for key, entry in labels.items() if entry["label"] == _RAW_SQL}
@@ -78,23 +87,43 @@ def main() -> int:
 
     unlabeled = sorted(flagged - set(labels))
     if unlabeled:
-        print("error: SQL-001 flagged lines that are not in labels.json:", file=sys.stderr)
-        for rel_file, line in unlabeled:
-            print(f"  {rel_file}:{line}", file=sys.stderr)
-        print(
-            "Add these lines to labels.json (or remove the fixture) before scoring.",
-            file=sys.stderr,
+        site = f"{unlabeled[0][0]}:{unlabeled[0][1]}"
+        raise ValueError(
+            f"SQL-001 flagged {len(unlabeled)} line(s) not in labels.json "
+            f"(first: {site}); update labels.json before scoring."
         )
-        return 2
 
-    true_positives = sorted(flagged & positives)
-    false_positives = sorted(flagged & negatives)
-    false_negatives = sorted(positives - flagged)
-
-    tp, fp, fn = len(true_positives), len(false_positives), len(false_negatives)
+    tp = len(flagged & positives)
+    fp = len(flagged & negatives)
+    fn = len(positives - flagged)
+    tn = len(negatives) - fp
     precision = _ratio(numerator=tp, denominator=tp + fp)
     recall = _ratio(numerator=tp, denominator=tp + fn)
     f1 = _ratio(numerator=2 * precision * recall, denominator=precision + recall)
+    return {
+        "rule": RULE,
+        "corpus": _CORPUS.relative_to(_REPO_ROOT).as_posix(),
+        "tp": tp, "fp": fp, "fn": fn, "tn": tn,
+        "precision": precision, "recall": recall, "f1": f1,
+    }
+
+
+def main() -> int:
+    try:
+        metrics = score()
+    except ValueError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+
+    labels = _load_labels()
+    positives = {key for key, entry in labels.items() if entry["label"] == _RAW_SQL}
+    negatives = {key for key, entry in labels.items() if entry["label"] == _OK}
+    flagged = _flagged_sec002()
+    false_positives = sorted(flagged & negatives)
+    false_negatives = sorted(positives - flagged)
+
+    tp, fp, fn = metrics["tp"], metrics["fp"], metrics["fn"]
+    precision, recall, f1 = metrics["precision"], metrics["recall"], metrics["f1"]
 
     print("SQL-001 raw-SQL detector -- evaluation against labeled corpus")
     print(f"corpus: {_CORPUS}")

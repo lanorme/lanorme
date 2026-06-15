@@ -1,0 +1,40 @@
+/* Per-page Markdown action bar (View / Copy as Markdown). */
+.md-page-actions {
+  display: flex;
+  gap: 0.4rem;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  margin: 0 0 0.6rem;
+}
+
+.md-page-actions__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.25rem 0.6rem;
+  font-size: 0.66rem;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--md-default-fg-color--light);
+  background: var(--md-default-fg-color--lightest);
+  border: 0.05rem solid var(--md-default-fg-color--lightest);
+  border-radius: 0.3rem;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background 125ms, color 125ms;
+}
+
+.md-page-actions__btn:hover {
+  color: var(--md-accent-fg-color);
+  background: var(--md-accent-fg-color--transparent);
+}
+
+.md-page-actions__btn svg {
+  width: 0.9rem;
+  height: 0.9rem;
+  fill: currentColor;
+}
+
+.md-page-actions__btn--flash {
+  color: var(--md-accent-fg-color);
+}

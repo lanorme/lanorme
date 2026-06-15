@@ -1,14 +1,40 @@
 ---
 name: release-lanorme
-description: Cut a new LaNorme release. Bumps the version, runs the gates, tags, and creates the GitHub Release, which auto-publishes to PyPI via Trusted Publishing. Use when asked to release, ship, or publish a new LaNorme version.
+description: Use when cutting, shipping, releasing, or publishing a new LaNorme version (a "0.x.y" bump, a tag, a PyPI release). Runs every release gate (unit tests, the dogfood, generated docs in sync), records a eval audit (precision/recall/F1 per scored rule plus end-to-end performance, stamped with the version and hardware) to evals/results/, bumps the version, tags, and creates the GitHub Release that auto-publishes to PyPI and deploys the versioned docs.
+license: MIT
+compatibility: Requires Python 3.13+, uv, git, and gh, run from a clean main checkout.
+metadata:
+  project: lanorme
 ---
 
 # Release LaNorme
 
-Releases are automated end to end. Creating a GitHub Release fires
-`.github/workflows/release.yml`, which builds and publishes to PyPI through
-Trusted Publishing (OIDC). No token is ever handled, and `uv publish` is never
-run by hand.
+This page explains how to cut a release and the discipline every release runs:
+the gates, a recorded eval audit, regenerated docs, and the automated
+publish. Creating a GitHub Release fires `.github/workflows/release.yml` (builds
+and publishes to PyPI through Trusted Publishing, OIDC, no token handled) and
+`.github/workflows/docs.yml` (deploys that version's docs with mike). `uv
+publish` is never run by hand.
+
+## The release discipline
+
+Every release records the same evidence so a green tag is auditable later:
+
+1. **Tests and dogfood** pass (`pytest tests/unit`, `lanorme check .`).
+2. **Generated docs are in sync** with the tool (`scripts/gen_docs.py --check`):
+   the configuration reference, JSON schema, rule index, and llms files.
+3. **A eval audit is recorded** to `evals/results/vX.Y.Z.json`: the
+   accuracy metrics (precision, recall, F1 per scored rule against the labelled
+   corpora) and the end-to-end performance numbers, each stamped with the
+   LaNorme version, the git commit, the Python version, and the hardware
+   (platform and processor). Accuracy is deterministic and is the audit's
+   backbone; performance is informative and machine-dependent (the hardware
+   stamp is what makes it interpretable).
+4. **RULES.md reflects the measured F1** for every rule that has a corpus. If a
+   rule's F1 moved, update its line before tagging.
+
+`scripts/release.sh` enforces steps 1 to 3 (it refuses to tag if any gate fails
+or the docs are stale); step 4 is a human check on the audit output.
 
 ## Versioning
 
@@ -23,42 +49,75 @@ question is whether a green codebase could go red on upgrade:
   default). Before 1.0, every breaking change is a minor.
 - major (`1.0.0`): the stability commitment.
 
-The README "Versioning" section is the canonical statement; keep them in step.
+The README "Versioning" section is canonical; keep them in step.
 
 ## Steps
 
 1. Pick the new version `X.Y.Z`.
 2. Add a `## [X.Y.Z]` section to `CHANGELOG.md` describing the user-facing
-   changes. This is required: the release notes are taken verbatim from it.
-3. From the repo root, run the helper:
+   changes. Required: the release notes are taken verbatim from it.
+3. Regenerate the docs and record the eval audit:
+
+   ```
+   uv run python scripts/gen_docs.py
+   uv run python evals/audit.py --version X.Y.Z
+   ```
+
+   Review the audit (`evals/results/vX.Y.Z.json`); if any F1 changed,
+   update that rule's line in `docs/RULES.md`. Commit the regenerated docs and
+   the audit file.
+4. From the repo root, run the helper:
 
    ```
    scripts/release.sh X.Y.Z
    ```
 
-   It refuses unless you are on `main` and the CHANGELOG section exists. Then it
-   runs the unit tests and the dogfood (`lanorme check .`), bumps the version in
-   `pyproject.toml` and `src/lanorme/__init__.py`, builds, runs `twine check`,
-   commits, tags `vX.Y.Z`, pushes, and creates the GitHub Release.
-4. Watch the publish workflow and verify the package is live:
+   It refuses unless you are on `main`, the CHANGELOG section exists, the docs
+   are in sync, and the gates pass. Then it bumps the version in `pyproject.toml`
+   and `src/lanorme/__init__.py`, builds, runs `twine check`, commits, tags
+   `vX.Y.Z`, pushes, and creates the GitHub Release.
+5. Watch the publish and docs workflows, then verify the package is live:
 
    ```
    gh run watch $(gh run list --workflow=release.yml --limit 1 --json databaseId --jq '.[0].databaseId') --exit-status
    uvx --refresh --from lanorme==X.Y.Z lanorme --version
    ```
 
+   The docs workflow publishes `X.Y.Z` (and moves the `latest` alias) at
+   https://lanorme.github.io/lanorme/.
+
+## Gotchas
+
+- `scripts/release.sh` refuses to do anything unless you are on `main`, the
+  working tree is clean, the `## [X.Y.Z]` CHANGELOG section exists, and the
+  gates pass. It is safe to run; it tags nothing until every gate is green.
+- The version lives in **two** files (`pyproject.toml` and
+  `src/lanorme/__init__.py`); `release.sh` bumps both. The manual fallback must
+  too, or the build and `lanorme --version` disagree.
+- `uv publish` is never run by hand. PyPI publishing is OIDC Trusted Publishing,
+  fired only by the GitHub Release.
+- The eval audit's accuracy step is strict: if a scorer sees a finding that
+  is not in its corpus `labels.json`, it errors rather than scoring a wrong
+  number. That means a fixture went stale, not that the release is blocked on
+  performance; fix the labels.
+- Performance numbers are machine-dependent. The audit stamps the hardware so
+  they are interpretable, but do not compare them across machines.
+
 ## If something fails
 
-- Tests or dogfood fail: nothing is committed or tagged. Fix and re-run.
+- A gate (tests, dogfood, stale docs) fails: nothing is committed or tagged. Fix
+  and re-run.
+- The eval audit's accuracy step fails (a scorer flags an unlabelled
+  finding): the corpus is out of date. Fix the labels or the fixture, re-run.
 - The publish workflow fails (for example a PyPI outage): the tag and release
   already exist, so do not re-tag. Re-run with `gh run rerun <id>` or
   `gh workflow run release.yml`.
 
 ## Manual fallback (no script)
 
-Do the same by hand: bump `version` in `pyproject.toml` and `__version__` in
-`src/lanorme/__init__.py`, edit `CHANGELOG.md`, run
-`uv run --group dev pytest tests/unit` and `uv run lanorme check .`, then
-`uv build`, `git commit`, `git tag -a vX.Y.Z`, `git push origin main`,
-`git push origin vX.Y.Z`, and
-`gh release create vX.Y.Z dist/* --notes "..."`.
+Bump `version` in `pyproject.toml` and `__version__` in
+`src/lanorme/__init__.py`, edit `CHANGELOG.md`, run `uv run python
+scripts/gen_docs.py`, `uv run python evals/audit.py --version X.Y.Z`, `uv
+run --group dev pytest tests/unit`, and `uv run lanorme check .`, then `uv
+build`, `git commit`, `git tag -a vX.Y.Z`, `git push origin main`, `git push
+origin vX.Y.Z`, and `gh release create vX.Y.Z dist/* --notes "..."`.
