@@ -16,7 +16,7 @@ Reports precision, recall, F1, the confusion counts, and the misclassified
 filenames.
 
 Run:
-    uv run python benchmarks/score_similar.py
+    uv run python evals/score_similar.py
 """
 
 from __future__ import annotations
@@ -26,9 +26,13 @@ from pathlib import Path
 
 from lanorme.checks.similarity import SimilarityCheck
 
-_CORPUS = Path(__file__).resolve().parent.parent / "tests" / "fixtures" / "duplication_similar"
+_CORPUS = Path(__file__).resolve().parent / "corpora" / "duplication_similar"
 _POSITIVES = _CORPUS / "positives"
 _NEGATIVES = _CORPUS / "negatives"
+
+# The rule code this scorer measures (exposed for the audit harness).
+RULE = "SIMILAR-001"
+_REPO_ROOT = Path(__file__).resolve().parent.parent
 
 
 def _flagged(*, file_path: Path) -> bool:
@@ -48,28 +52,49 @@ def _ratio(*, numerator: float, denominator: float) -> float:
     return numerator / denominator if denominator else 0.0
 
 
-def main() -> int:
+def score() -> dict:
+    """Run SIMILAR-001 against its labelled corpus and return metrics.
+
+    This corpus labels whole files by directory (positives/ versus negatives/)
+    rather than by labels.json, so there is no unlabelled-finding case. Returns
+    a dict with rule, corpus (repo-relative), tp/fp/fn/tn and precision/recall/
+    f1. Raises ValueError if the corpus directories are missing.
+    """
     if not _POSITIVES.is_dir() or not _NEGATIVES.is_dir():
-        print(f"error: corpus not found under {_CORPUS}", file=sys.stderr)
-        return 2
+        raise ValueError(f"corpus not found under {_CORPUS}")
 
     positives = sorted(p for p in _POSITIVES.glob("*.py") if p.name != "__init__.py")
     negatives = sorted(p for p in _NEGATIVES.glob("*.py") if p.name != "__init__.py")
 
-    true_positives = [p for p in positives if _flagged(file_path=p)]
-    false_negatives = [p for p in positives if not _flagged(file_path=p)]
-    false_positives = [p for p in negatives if _flagged(file_path=p)]
-    true_negatives = [p for p in negatives if not _flagged(file_path=p)]
-
-    tp, fp, fn, tn = (
-        len(true_positives),
-        len(false_positives),
-        len(false_negatives),
-        len(true_negatives),
-    )
+    tp = sum(1 for p in positives if _flagged(file_path=p))
+    fn = len(positives) - tp
+    fp = sum(1 for p in negatives if _flagged(file_path=p))
+    tn = len(negatives) - fp
     precision = _ratio(numerator=tp, denominator=tp + fp)
     recall = _ratio(numerator=tp, denominator=tp + fn)
     f1 = _ratio(numerator=2 * precision * recall, denominator=precision + recall)
+    return {
+        "rule": RULE,
+        "corpus": _CORPUS.relative_to(_REPO_ROOT).as_posix(),
+        "tp": tp, "fp": fp, "fn": fn, "tn": tn,
+        "precision": precision, "recall": recall, "f1": f1,
+    }
+
+
+def main() -> int:
+    try:
+        metrics = score()
+    except ValueError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+
+    positives = sorted(p for p in _POSITIVES.glob("*.py") if p.name != "__init__.py")
+    negatives = sorted(p for p in _NEGATIVES.glob("*.py") if p.name != "__init__.py")
+    false_negatives = [p for p in positives if not _flagged(file_path=p)]
+    false_positives = [p for p in negatives if _flagged(file_path=p)]
+
+    tp, fp, fn, tn = metrics["tp"], metrics["fp"], metrics["fn"], metrics["tn"]
+    precision, recall, f1 = metrics["precision"], metrics["recall"], metrics["f1"]
 
     print("SIMILAR-001 structural near-duplicate detector - evaluation against labelled corpus")
     print(f"corpus: {_CORPUS}")

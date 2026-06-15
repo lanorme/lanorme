@@ -1,0 +1,4 @@
+[tool.lanorme.prose]
+enabled = true
+em_dash = false
+em_dash_density = true
