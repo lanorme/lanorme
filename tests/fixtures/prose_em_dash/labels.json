@@ -1,0 +1,16 @@
+{
+  "fire_api_overview.md": {"should_fire": true},
+  "fire_launch_announcement.md": {"should_fire": true},
+  "fire_productivity_guide.md": {"should_fire": true},
+  "ok_boundary_clustered.md": {"should_fire": false},
+  "ok_boundary_fraction.md": {"should_fire": false},
+  "ok_code_fenced.md": {"should_fire": false},
+  "ok_faq.md": {"should_fire": false},
+  "ok_long_gardening.md": {"should_fire": false},
+  "ok_long_history.md": {"should_fire": false},
+  "ok_near_low_fraction.md": {"should_fire": false},
+  "ok_short_emheavy.md": {"should_fire": false},
+  "ok_short_punchy.md": {"should_fire": false},
+  "ok_sparse_essay.md": {"should_fire": false},
+  "ok_tutorial.md": {"should_fire": false}
+}
