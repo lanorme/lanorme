@@ -53,6 +53,8 @@
       
     
     
+      <link rel="stylesheet" href="../stylesheets/md-actions.css">
+    
     <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
@@ -1620,6 +1622,20 @@
               
               <article class="md-content__inner md-typeset">
                 
+  
+    
+    <div class="md-page-actions" role="group" aria-label="Markdown actions">
+      <a class="md-page-actions__btn" href="../RULES.md" target="_blank" rel="noopener"
+         title="Open this page as raw Markdown">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20.56 18H3.44C2.65 18 2 17.37 2 16.59V7.41C2 6.63 2.65 6 3.44 6h17.12c.79 0 1.44.63 1.44 1.41v9.18c0 .78-.65 1.41-1.44 1.41M6.81 15.19v-3.66l1.92 2.35 1.92-2.35v3.66h1.93V8.81h-1.93l-1.92 2.35-1.92-2.35H4.89v6.38zM19.69 12h-1.92V8.81h-1.92V12h-1.93l2.89 3.28z"/></svg><span>View as Markdown</span>
+      </a>
+      <button class="md-page-actions__btn" type="button" data-md-src="../RULES.md"
+              title="Copy this page as Markdown, ready to paste into an agent">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 21H8V7h11m0-2H8a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2m-3-4H4a2 2 0 0 0-2 2v14h2V3h12z"/></svg><span>Copy for an agent</span>
+      </button>
+    </div>
+  
+  
                   
 
 
@@ -1639,8 +1655,8 @@
 <p>This reference describes every rule code LaNorme can emit, one section per code, covering what each rule catches, what it deliberately ignores, where to configure it, and its measured precision, recall, and F1 where a labelled corpus exists.</p>
 <p>One section per rule code emitted by LaNorme. Each section says what the
 rule catches, what it does not, where to configure it, and (where the
-rule has a labelled corpus under <code>tests/fixtures/</code> and a scorer under
-<code>benchmarks/</code>) the measured precision / recall / F1 on that corpus.</p>
+rule has a labelled corpus under <code>evals/corpora/</code> and a scorer under
+<code>evals/</code>) the measured precision / recall / F1 on that corpus.</p>
 <p>Live rule list: <code>lanorme rules</code>.
 Default policy and per-check configuration: see the README.</p>
 <p>The rules are grouped by category in the same order as <code>lanorme rules</code>.</p>
@@ -1690,7 +1706,7 @@ tried in several wrapping strategies before being declared prose:</p>
 <li>Decorator lines (<code>@foo</code>) are tried followed by <code>def _(): pass</code>.</li>
 </ul>
 <p>Measured against the 165-comment corpus under
-<code>tests/fixtures/comments_commented_code/</code> with <code>benchmarks/score_cmt001.py</code>:
+<code>evals/corpora/comments_commented_code/</code> with <code>evals/score_cmt001.py</code>:
 <strong>P = 0.985 / R = 1.000 / F1 = 0.992</strong> (TP = 66, FP = 1, FN = 0). The
 single FP is an illustrative call signature following a <code>Typical usage:</code>
 header.</p>
@@ -1715,7 +1731,7 @@ and verb maps onto the adjacent statement, and an allowlist exempts comments
 that carry a why, a caveat, a unit, or a reference. It will miss synonym
 paraphrases. Full design: <code>docs/cmt005-design.md</code>.</p>
 <p>Measured against the 167-comment corpus under
-<code>tests/fixtures/comments_restating/</code> with <code>benchmarks/score_cmt005.py</code>:
+<code>evals/corpora/comments_restating/</code> with <code>evals/score_cmt005.py</code>:
 <strong>P = 1.000 / R = 0.418 / F1 = 0.589</strong> (TP = 33, FP = 0, FN = 46, TN = 88).
 The 0.418 recall is bounded by the design's refusal to chase synonym
 paraphrases without losing precision.</p>
@@ -1826,7 +1842,7 @@ that shares a shape but differs in its string keys or source attributes (config
 builders, dispatch tables, field mappers, framework handlers) is rejected.
 Equality/dunder/<code>@property</code> boilerplate and drifted logging-message strings are
 handled specially. Measured on the bundled corpus
-(<code>tests/fixtures/duplication_similar/</code>, scorer <code>benchmarks/score_similar.py</code>):
+(<code>evals/corpora/duplication_similar/</code>, scorer <code>evals/score_similar.py</code>):
 <strong>precision 1.000 / recall 0.850 / F1 0.919</strong>. Known recall gaps: fully renamed
 attribute sets and error-message-only drift.</p>
 <div class="highlight"><pre><span></span><code><span class="k">[tool.lanorme.similarity]</span>
@@ -2017,6 +2033,10 @@ sentences carrying an em dash above <code>em_sentence_fraction</code>. ANDing th
 stops a single high reading from tripping the warning. Setting <code>em_dash = false</code>
 while <code>em_dash_density = true</code> switches a region from the <code>PROSE-001</code> ban to
 this density advisory.</p>
+<p>Measured on the labelled corpus <code>evals/corpora/prose_em_dash</code> (run
+<code>evals/score_prose004.py</code>): <strong>P = 1.000 / R = 1.000 / F1 = 1.000</strong> (TP = 3,
+FP = 0, FN = 0, TN = 11). The corpus exists to prove the calibrated thresholds
+do not false-positive on natural prose.</p>
 <p>Config:
 <div class="highlight"><pre><span></span><code><span class="k">[tool.lanorme.prose]</span>
 <span class="n">enabled</span><span class="w">         </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span>
@@ -2080,7 +2100,7 @@ for broader patches.</p>
   second positional on <code>.execute</code>) with placeholder marks (<code>:name</code>,
   <code>%s</code>, <code>?</code>) is treated as safely parameterised and not flagged.
   Excludes <code>alembic/</code> and <code>test_*</code> files. Measured against
-  <code>tests/fixtures/security_raw_sql/</code> (120 labels): <strong>P = 1.000 /
+  <code>evals/corpora/security_raw_sql/</code> (120 labels): <strong>P = 1.000 /
   R = 1.000 / F1 = 1.000</strong>. Known limitations not in the corpus: SQL
   built across multiple statements with helper functions; lazy-loaded
   query templates; non-Python query files.</li>
@@ -2099,7 +2119,7 @@ for broader patches.</p>
   chars, mixed case, digits) to defeat the marker (AWS docs-style
   example secret keys). Excludes <code>conftest.py</code>, <code>seed_dev.py</code>, and
   files starting with <code>test_</code>. Measured against
-  <code>tests/fixtures/security_hardcoded_secrets/</code> (155 labels):
+  <code>evals/corpora/security_hardcoded_secrets/</code> (155 labels):
   <strong>P = 1.000 / R = 1.000 / F1 = 1.000</strong>. <strong>Scope warning</strong>:
   Python-source only; <code>.env</code>, <code>*.yaml</code>, <code>*.ipynb</code>, <code>*.tf</code>, <code>Dockerfile</code>,
   GitHub Actions workflows are out of scope until a separate
@@ -2234,6 +2254,7 @@ actually exercises the module.</p>
 
 
                 
+
               </article>
             </div>
           
@@ -2280,6 +2301,8 @@ actually exercises the module.</p>
     
     
       <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+        <script src="../javascripts/md-actions.js"></script>
       
     
   </body>
