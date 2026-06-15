@@ -14,6 +14,7 @@ exclude_docs: |
 
 theme:
   name: material
+  custom_dir: overrides
   features:
     - navigation.indexes
     - navigation.top
@@ -62,6 +63,12 @@ markdown_extensions:
 extra:
   version:
     provider: mike
+
+extra_css:
+  - stylesheets/md-actions.css
+
+extra_javascript:
+  - javascripts/md-actions.js
 
 nav:
   - Home: index.md
