@@ -98,9 +98,9 @@ On by default, on any project, no config needed:
 | `SKILL-001..006` | Agent Skill (`SKILL.md`) frontmatter, naming and link compliance |
 
 Off until you turn them on (layered or hexagonal architecture, domain
-vocabulary, house styles, and experimental precision-first detectors): `LAYER`,
-`PORT`, `TERM`, `KWARG`, `NAMING-001/002`, `AAA`, `CMT-005`, `SIMILAR`, `ATTR`,
-`PROSE`, `PATH`, `STALE`. The
+vocabulary, house styles, Markdown docs structure, and experimental
+precision-first detectors): `LAYER`, `PORT`, `TERM`, `KWARG`, `NAMING-001/002`,
+`AAA`, `CMT-005`, `SIMILAR`, `ATTR`, `PROSE`, `DOCS`, `PATH`, `STALE`. The
 [rule reference](https://lanorme.github.io/lanorme/) documents each.
 
 ## Configuration

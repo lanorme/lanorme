@@ -111,8 +111,9 @@ Conventions for a new rule:
   representative third-party code (for example the standard library), not only
   on this repo.
 - **Heuristic rules get a corpus.** A fuzzy detector should come with a labelled
-  fixture set under `tests/fixtures/` and a scorer under `benchmarks/` that
-  reports precision, recall, and F1, so the precision claim is measured.
+  corpus under `evals/corpora/` and a scorer under `evals/` that reports
+  precision, recall, and F1, so the precision claim is measured. The release
+  audit records those numbers to `evals/results/`; see [`evals/README.md`](evals/README.md).
 - **Stay within the house limits.** LaNorme enforces its own `SIZE` / `PARAM` /
   `COMPLEXITY` limits on itself: files warn at 300 effective lines and fail at
   500; functions warn at 50 and fail at 80; complexity warns at 10 and fails at
