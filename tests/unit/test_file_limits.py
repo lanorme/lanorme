@@ -326,6 +326,29 @@ def _complexity_of(source: str) -> int:
         ("def f(x):\n match x:\n  case _ if g(x): return 1\n  case _: return 0", 2),
         # A bare capture (`case other`) is an irrefutable catch-all: it does not count.
         ("def f(x):\n match x:\n  case 1: return 1\n  case other: return other", 2),
+        # Multiple filters in a single generator each count.
+        ("def f(xs):\n return [x for x in xs if a if b]", 3),
+        # Dict comprehensions count their filters too.
+        ("def f(xs):\n return {k: v for k, v in xs if k}", 2),
+        # A generator expression passed as an argument counts its filter.
+        ("def f(xs):\n return sum(x for x in xs if x)", 2),
+        # Async comprehensions count their nested `for` and filter `if`.
+        ("async def f(xs, ys):\n return [x async for x in xs for y in ys if y]", 3),
+        # Every refutable pattern kind counts: or-patterns,
+        ("def f(x):\n match x:\n  case 1 | 2 | 3: return 1\n  case _: return 0", 2),
+        # sequence patterns,
+        ("def f(x):\n match x:\n  case [a, b]: return 1\n  case _: return 0", 2),
+        # class patterns,
+        ("def f(x):\n match x:\n  case Point(x=0): return 1\n  case _: return 0", 2),
+        # mapping patterns,
+        ("def f(x):\n match x:\n  case {'k': v}: return 1\n  case _: return 0", 2),
+        # and a capture guarded by a condition (the guard can fail).
+        ("def f(x):\n match x:\n  case y if y > 0: return 1\n  case _: return 0", 2),
+        # A nested comprehension: each primary `for` is free, the inner filter counts.
+        ("def f(rows):\n return [[y for y in r if y] for r in rows]", 2),
+        # Branching inside a NESTED function does not count for the outer one.
+        ("\ndef f(x):\n    def g(y):\n        match y:\n            case 1: return 1\n            case 2: return 2\n    return g\n", 1),
+        ("\ndef f(xs):\n    def g(ys): return [y for y in ys if y]\n    return g\n", 1),
     ],
 )
 def test_complexity001_counts_match_and_comprehension_branches(source, expected):
@@ -344,6 +367,32 @@ def test_complexity001_match_warns_through_the_check(run_on):
     result = run_on(source)
     # Assert: the now-counted case arms push it past the warn threshold.
     assert _has_rule(result.warnings, "COMPLEXITY-001")
+
+
+def test_complexity001_match_fails_at_error_boundary(run_on):
+    # Arrange: fourteen refutable cases is complexity 15, the error boundary.
+    arms = "".join(f"        case {i}:\n            return {i}\n" for i in range(14))
+    source = "def f(x):\n    match x:\n" + arms
+
+    # Act.
+    result = run_on(source)
+
+    # Assert: a build-failing violation, not merely a warning.
+    assert result.status == Status.FAIL
+    assert _has_rule(result.violations, "COMPLEXITY-001")
+
+
+def test_complexity001_plain_comprehensions_stay_clean(run_on):
+    # Arrange: a dozen plain map comprehensions, whose primary loops never count.
+    lines = "".join(f"    a{i} = [x for x in xs]\n" for i in range(12))
+    source = "def f(xs):\n" + lines + "    return a0\n"
+
+    # Act.
+    result = run_on(source)
+
+    # Assert: no complexity finding, proving the primary `for` is free at scale.
+    assert result.status == Status.PASS
+    assert not _has_rule(result.warnings, "COMPLEXITY-001")
 
 
 # PARAM-001: parameter count excluding self/cls.
