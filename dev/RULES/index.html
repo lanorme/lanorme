@@ -1865,8 +1865,18 @@ attribute sets and error-message-only drift.</p>
 <li><code>SIZE-003</code>: classes with more than 10 methods (warning only). Useful
   as a smell on services and views; on rich aggregate roots in a DDD
   codebase, expect to silence it via <code>per-file-ignores</code>.</li>
-<li><code>COMPLEXITY-001</code>: cyclomatic complexity. Warn at 10; error at 15.
-  Mirrors the ruff <code>C901</code> / <code>mccabe</code> defaults.</li>
+<li><code>COMPLEXITY-001</code>: cyclomatic complexity. Warn at 10; error at 15 (the
+  ruff <code>C901</code> / <code>mccabe</code> default thresholds). Complexity is 1 plus one for
+  each decision point: an <code>if</code> / <code>elif</code> / <code>for</code> / <code>while</code> / <code>except</code> /
+  <code>with</code> / <code>assert</code> / ternary, each extra <code>and</code> / <code>or</code> operand, each
+  <strong>refutable <code>match</code> case</strong> (an irrefutable catch-all such as <code>case _:</code> or
+  a bare <code>case x:</code> does not count, like an <code>else</code>), and, inside a
+  comprehension, each <strong>filter <code>if</code></strong> and each <strong>nested <code>for</code></strong> clause. One
+  deliberate divergence from a textbook count: a comprehension's <em>primary</em>
+  <code>for</code> is treated as a single expression and does not count, so a plain
+  <code>[f(x) for x in xs]</code> costs nothing. That keeps the 10 / 15 thresholds
+  calibrated for code that leans on comprehensions; the conditional and
+  nested-loop branching they can hide still counts.</li>
 <li><code>PARAM-001</code>: function/method parameter count, excluding <code>self</code> /
   <code>cls</code>. Warn at 5; error at 8.</li>
 </ul>
