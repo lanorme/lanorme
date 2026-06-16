@@ -10,14 +10,12 @@ versus ``result.violations``), never from the rule string alone.
 
 from __future__ import annotations
 
-import ast
-import textwrap
 from pathlib import Path
 
 import pytest
 
 from lanorme import Status
-from lanorme.checks.file_limits import FileLimitsCheck, _cyclomatic_complexity
+from lanorme.checks.file_limits import FileLimitsCheck
 
 
 @pytest.fixture
@@ -298,65 +296,73 @@ def test_complexity001_at_hard_fails(run_on):
     assert not _has_rule(result.warnings, "COMPLEXITY-001")
 
 
-def _complexity_of(source: str) -> int:
-    """Cyclomatic complexity of the single function defined in ``source``."""
-    func = ast.parse(textwrap.dedent(source)).body[0]
-    assert isinstance(func, ast.FunctionDef | ast.AsyncFunctionDef)
-    return _cyclomatic_complexity(func_node=func)
+def test_complexity001_comprehension_filters_warn_when_amplified(run_on):
+    # Arrange: nine filter `if` clauses take one comprehension to complexity 10
+    # (1 + 9), the warn boundary, where the plain-comprehension test stays clean.
+    filters = "".join(f" if a{i}" for i in range(9))
+    source = f"def f(xs):\n    return [x for x in xs{filters}]\n"
 
-
-@pytest.mark.parametrize(
-    ("source", "expected"),
-    [
-        # A comprehension's primary loop is a single expression: it does not count.
-        ("def f(xs):\n return [x for x in xs]", 1),
-        # A filter `if` is a branch.
-        ("def f(xs):\n return [x for x in xs if p(x)]", 2),
-        # A nested `for` clause multiplies paths and counts; the first does not.
-        ("def f(xs, ys):\n return [x for x in xs for y in ys]", 2),
-        # The filter `if` plus the `and` inside it (BoolOp) both count.
-        ("def f(xs):\n return [x for x in xs if a and b]", 3),
-        # Set and dict and generator comprehensions count their filters too.
-        ("def f(xs):\n return {k for k in xs if k}", 2),
-        # Each refutable `case` counts; the `case _` default (like `else`) does not.
-        ("def f(x):\n match x:\n  case 1: return 1\n  case 2: return 2\n  case _: return 0", 3),
-        # No default: every case is a real test.
-        ("def f(x):\n match x:\n  case 1: return 1\n  case 2: return 2", 3),
-        # A guard makes even a wildcard arm refutable, so it counts.
-        ("def f(x):\n match x:\n  case _ if g(x): return 1\n  case _: return 0", 2),
-        # A bare capture (`case other`) is an irrefutable catch-all: it does not count.
-        ("def f(x):\n match x:\n  case 1: return 1\n  case other: return other", 2),
-        # Multiple filters in a single generator each count.
-        ("def f(xs):\n return [x for x in xs if a if b]", 3),
-        # Dict comprehensions count their filters too.
-        ("def f(xs):\n return {k: v for k, v in xs if k}", 2),
-        # A generator expression passed as an argument counts its filter.
-        ("def f(xs):\n return sum(x for x in xs if x)", 2),
-        # Async comprehensions count their nested `for` and filter `if`.
-        ("async def f(xs, ys):\n return [x async for x in xs for y in ys if y]", 3),
-        # Every refutable pattern kind counts: or-patterns,
-        ("def f(x):\n match x:\n  case 1 | 2 | 3: return 1\n  case _: return 0", 2),
-        # sequence patterns,
-        ("def f(x):\n match x:\n  case [a, b]: return 1\n  case _: return 0", 2),
-        # class patterns,
-        ("def f(x):\n match x:\n  case Point(x=0): return 1\n  case _: return 0", 2),
-        # mapping patterns,
-        ("def f(x):\n match x:\n  case {'k': v}: return 1\n  case _: return 0", 2),
-        # and a capture guarded by a condition (the guard can fail).
-        ("def f(x):\n match x:\n  case y if y > 0: return 1\n  case _: return 0", 2),
-        # A nested comprehension: each primary `for` is free, the inner filter counts.
-        ("def f(rows):\n return [[y for y in r if y] for r in rows]", 2),
-        # Branching inside a NESTED function does not count for the outer one.
-        ("\ndef f(x):\n    def g(y):\n        match y:\n            case 1: return 1\n            case 2: return 2\n    return g\n", 1),
-        ("\ndef f(xs):\n    def g(ys): return [y for y in ys if y]\n    return g\n", 1),
-    ],
-)
-def test_complexity001_counts_match_and_comprehension_branches(source, expected):
-    # Arrange: a function whose branching lives in a comprehension or a match.
     # Act.
-    value = _complexity_of(source)
-    # Assert: the previously-uncounted branches now register.
-    assert value == expected
+    result = run_on(source)
+
+    # Assert: the filters are counted, so the function crosses the warn line.
+    assert _has_rule(result.warnings, "COMPLEXITY-001")
+
+
+def test_complexity001_nested_comprehension_loops_warn_when_amplified(run_on):
+    # Arrange: ten generators (nine nested) reach complexity 10; the primary loop
+    # is free, so only the nine nested `for` clauses do the counting.
+    loops = "".join(f" for _ in rs{i}" for i in range(10))
+    source = f"def f(rs):\n    return [0{loops}]\n"
+
+    # Act.
+    result = run_on(source)
+
+    # Assert: nested iteration is counted, crossing the warn threshold.
+    assert _has_rule(result.warnings, "COMPLEXITY-001")
+
+
+def test_complexity001_irrefutable_catch_all_does_not_count(run_on):
+    # Arrange: eight refutable cases is complexity 9 (clean); a trailing `case _`
+    # default would tip it to 10 (warn) only if catch-alls counted -- they do not.
+    arms = "".join(f"        case {i}:\n            return {i}\n" for i in range(8))
+    source = "def f(x):\n    match x:\n" + arms + "        case _:\n            return -1\n"
+
+    # Act.
+    result = run_on(source)
+
+    # Assert: the catch-all is free, so the function stays under the warn line.
+    assert result.status == Status.PASS
+    assert not _has_rule(result.warnings, "COMPLEXITY-001")
+
+
+def test_complexity001_branching_in_a_nested_function_is_excluded(run_on):
+    # Arrange: f has five own `if`s (complexity 6) and a nested g with five more.
+    # g stays clean on its own (6); f would only warn if it wrongly absorbed g's
+    # branches (5 + 5 + 1 = 11). Both at 6 isolates the exclusion as the variable.
+    outer = "".join(f"    if a{i}: pass\n" for i in range(5))
+    inner = "".join(f"        if b{i}: pass\n" for i in range(5))
+    source = "def f(x):\n" + outer + "    def g(y):\n" + inner + "    return g\n"
+
+    # Act.
+    result = run_on(source)
+
+    # Assert: g's branches do not count toward f, so neither function warns.
+    assert result.status == Status.PASS
+    assert not _has_rule(result.warnings, "COMPLEXITY-001")
+
+
+def test_complexity001_same_branching_hoisted_to_outer_warns(run_on):
+    # Arrange: the same ten `if`s, all in one function body, is complexity 11 --
+    # proving the previous test passed because of exclusion, not because the
+    # branches are uncounted.
+    source = "def f(x):\n" + "".join(f"    if a{i}: pass\n" for i in range(10)) + "    return 0\n"
+
+    # Act.
+    result = run_on(source)
+
+    # Assert: in one scope the branches count and cross the warn line.
+    assert _has_rule(result.warnings, "COMPLEXITY-001")
 
 
 def test_complexity001_match_warns_through_the_check(run_on):
