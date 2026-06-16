@@ -9,6 +9,17 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
 
 ## [Unreleased]
 
+### Changed
+
+- COMPLEXITY-001 now counts the branching that comprehensions and `match`
+  statements introduce: each filter `if` and each nested `for` clause inside a
+  comprehension, and each refutable `match` case (an irrefutable catch-all, like
+  an `else`, does not count). Previously a `match` with many cases, plus a
+  comprehension's filters and nested loops, all read as complexity 1, so
+  branch-heavy logic could sit under the threshold unseen. A comprehension's
+  primary `for` is still treated as a single expression and does not count.
+  Some functions may newly warn (or, past 15, fail) as a result.
+
 ## [0.13.0]
 
 ### Added

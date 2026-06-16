@@ -191,23 +191,63 @@ def _check_class_method_count(
     return warnings
 
 
+_BRANCHING_TYPES = (
+    ast.If,
+    ast.IfExp,
+    ast.For,
+    ast.While,
+    ast.ExceptHandler,
+    ast.With,
+    ast.Assert,
+)
+_COMPREHENSIONS = (ast.ListComp, ast.SetComp, ast.DictComp, ast.GeneratorExp)
+
+
+def _match_case_is_refutable(*, case: ast.match_case) -> bool:
+    """True if a ``case`` arm can fail to match, so it is a real branch.
+
+    An irrefutable arm always matches, like an ``else``: a bare capture or
+    wildcard (``case x`` / ``case _``) with no guard. A guard makes any arm
+    refutable, because the guard can be false (``case _ if cond``).
+    """
+    pattern = case.pattern
+    irrefutable = (
+        isinstance(pattern, ast.MatchAs)
+        and pattern.pattern is None
+        and case.guard is None
+    )
+    return not irrefutable
+
+
+def _node_complexity_increment(*, node: ast.AST) -> int:
+    """Extra paths one node introduces, not counting its descendants.
+
+    Comprehensions count a branch per filter ``if`` and per nested ``for``
+    clause; the primary ``for`` is the comprehension's iteration and is treated
+    as a single expression (see RULES.md, COMPLEXITY-001). A ``match`` counts a
+    branch per refutable ``case`` arm, mirroring ``if`` / ``elif``.
+    """
+    if isinstance(node, _BRANCHING_TYPES):
+        return 1
+    if isinstance(node, ast.BoolOp):
+        return len(node.values) - 1
+    if isinstance(node, ast.match_case):
+        return 1 if _match_case_is_refutable(case=node) else 0
+    if isinstance(node, _COMPREHENSIONS):
+        return sum(len(gen.ifs) + int(index > 0) for index, gen in enumerate(node.generators))
+    return 0
+
+
 def _cyclomatic_complexity(*, func_node: ast.FunctionDef | ast.AsyncFunctionDef) -> int:
     """Calculate cyclomatic complexity for a single function.
 
-    Walks only direct descendants, nested function bodies are excluded.
-    Base complexity is 1. Increments for branching/looping constructs and
-    each extra boolean operand in BoolOp nodes.
+    Walks only direct descendants, nested function bodies are excluded. Base
+    complexity is 1, plus one per branching construct (``if`` / ``for`` /
+    ``while`` / ``except`` / ``with`` / ``assert`` / ternary), one per extra
+    boolean operand, one per refutable ``match`` case, and, for comprehensions,
+    one per filter ``if`` and per nested ``for`` clause.
     """
     complexity = 1
-    _BRANCHING_TYPES = (
-        ast.If,
-        ast.IfExp,
-        ast.For,
-        ast.While,
-        ast.ExceptHandler,
-        ast.With,
-        ast.Assert,
-    )
 
     # Walk the function body but skip nested function definitions.
     nodes_to_visit: list[ast.AST] = list(func_node.body)
@@ -215,10 +255,7 @@ def _cyclomatic_complexity(*, func_node: ast.FunctionDef | ast.AsyncFunctionDef)
         node = nodes_to_visit.pop()
         if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
             continue
-        if isinstance(node, _BRANCHING_TYPES):
-            complexity += 1
-        elif isinstance(node, ast.BoolOp):
-            complexity += len(node.values) - 1
+        complexity += _node_complexity_increment(node=node)
         nodes_to_visit.extend(ast.iter_child_nodes(node))
 
     return complexity

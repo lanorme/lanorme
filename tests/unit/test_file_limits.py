@@ -10,12 +10,14 @@ versus ``result.violations``), never from the rule string alone.
 
 from __future__ import annotations
 
+import ast
+import textwrap
 from pathlib import Path
 
 import pytest
 
 from lanorme import Status
-from lanorme.checks.file_limits import FileLimitsCheck
+from lanorme.checks.file_limits import FileLimitsCheck, _cyclomatic_complexity
 
 
 @pytest.fixture
@@ -294,6 +296,54 @@ def test_complexity001_at_hard_fails(run_on):
     assert result.status == Status.FAIL
     assert _has_rule(result.violations, "COMPLEXITY-001")
     assert not _has_rule(result.warnings, "COMPLEXITY-001")
+
+
+def _complexity_of(source: str) -> int:
+    """Cyclomatic complexity of the single function defined in ``source``."""
+    func = ast.parse(textwrap.dedent(source)).body[0]
+    assert isinstance(func, ast.FunctionDef | ast.AsyncFunctionDef)
+    return _cyclomatic_complexity(func_node=func)
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        # A comprehension's primary loop is a single expression: it does not count.
+        ("def f(xs):\n return [x for x in xs]", 1),
+        # A filter `if` is a branch.
+        ("def f(xs):\n return [x for x in xs if p(x)]", 2),
+        # A nested `for` clause multiplies paths and counts; the first does not.
+        ("def f(xs, ys):\n return [x for x in xs for y in ys]", 2),
+        # The filter `if` plus the `and` inside it (BoolOp) both count.
+        ("def f(xs):\n return [x for x in xs if a and b]", 3),
+        # Set and dict and generator comprehensions count their filters too.
+        ("def f(xs):\n return {k for k in xs if k}", 2),
+        # Each refutable `case` counts; the `case _` default (like `else`) does not.
+        ("def f(x):\n match x:\n  case 1: return 1\n  case 2: return 2\n  case _: return 0", 3),
+        # No default: every case is a real test.
+        ("def f(x):\n match x:\n  case 1: return 1\n  case 2: return 2", 3),
+        # A guard makes even a wildcard arm refutable, so it counts.
+        ("def f(x):\n match x:\n  case _ if g(x): return 1\n  case _: return 0", 2),
+        # A bare capture (`case other`) is an irrefutable catch-all: it does not count.
+        ("def f(x):\n match x:\n  case 1: return 1\n  case other: return other", 2),
+    ],
+)
+def test_complexity001_counts_match_and_comprehension_branches(source, expected):
+    # Arrange: a function whose branching lives in a comprehension or a match.
+    # Act.
+    value = _complexity_of(source)
+    # Assert: the previously-uncounted branches now register.
+    assert value == expected
+
+
+def test_complexity001_match_warns_through_the_check(run_on):
+    # Arrange: a match with ten refutable cases is complexity 11, over the warn line.
+    arms = "".join(f"        case {i}:\n            return {i}\n" for i in range(10))
+    source = "def f(x):\n    match x:\n" + arms + "        case _:\n            return -1\n"
+    # Act.
+    result = run_on(source)
+    # Assert: the now-counted case arms push it past the warn threshold.
+    assert _has_rule(result.warnings, "COMPLEXITY-001")
 
 
 # PARAM-001: parameter count excluding self/cls.
