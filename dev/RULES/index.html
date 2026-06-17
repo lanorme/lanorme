@@ -2221,14 +2221,24 @@ build-failing; <code>TYPE-004</code> is an advisory warning.</p>
 <h2 id="test-coverage-testfile-001">Test coverage: <code>TESTFILE-001</code><a class="headerlink" href="#test-coverage-testfile-001" title="Permanent link">&para;</a></h2>
 <p>Default-on warning. For each Python file under one of the hardwired
 production directories, verify that a matching <code>test_*.py</code> partner (by name
-or by import reference) exists under <code>tests/integration/</code>. Note this is
-<strong>file presence</strong>, not coverage; it cannot tell you whether the test
-actually exercises the module.</p>
-<p>Config: none. The scanned production directories (<code>api/v1/endpoints</code>,
-<code>application/services</code>, <code>application/commands</code>, <code>application/queries</code>,
-<code>infrastructure/repositories</code>, <code>infrastructure/signing</code>,
-<code>infrastructure/secrets</code>) and the exempt modules (<code>dependencies</code>, <code>main</code>,
-<code>logging</code>, <code>session</code>) are hardwired.</p>
+or by import reference) exists under one of the configured test roots
+(<code>tests/integration/</code> by default). Note this is <strong>file presence</strong>, not
+coverage; it cannot tell you whether the test actually exercises the module.</p>
+<p>Findings are reported on the same path base as every other rule (relative to
+<code>src_root</code>), so a <code>[per-file-ignores]</code> glob written against the path another
+rule reports for a file suppresses this one too, and a baseline records it
+the same way.</p>
+<p>Config:
+<div class="highlight"><pre><span></span><code><span class="k">[tool.lanorme.test_coverage]</span>
+<span class="n">test_roots</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;tests/integration&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;tests/unit&quot;</span><span class="p">]</span>
+</code></pre></div></p>
+<p><code>test_roots</code> lists the directories (relative to the backend root, the parent
+of <code>src_root</code>) scanned for partner test files; it defaults to
+<code>["tests/integration"]</code>. The scanned production directories
+(<code>api/v1/endpoints</code>, <code>application/services</code>, <code>application/commands</code>,
+<code>application/queries</code>, <code>infrastructure/repositories</code>,
+<code>infrastructure/signing</code>, <code>infrastructure/secrets</code>) and the exempt modules
+(<code>dependencies</code>, <code>main</code>, <code>logging</code>, <code>session</code>) are hardwired.</p>
 <hr />
 <h2 id="test-style-aaa-001-aaa-002">Test style: <code>AAA-001</code> / <code>AAA-002</code><a class="headerlink" href="#test-style-aaa-001-aaa-002" title="Permanent link">&para;</a></h2>
 <p>Off until enabled.</p>
