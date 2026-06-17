@@ -9,6 +9,26 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
 
 ## [Unreleased]
 
+## [0.14.1]
+
+### Fixed
+
+- `TESTFILE-001` (test_coverage) now reports findings on the same path base as
+  every other rule. It previously kept the `src/` segment in its path, which
+  the CLI's re-anchoring then doubled into `src/src/...`. The doubled path
+  matched no `[per-file-ignores]` glob or baseline entry written against the
+  path other rules report, so the finding could not be suppressed or baselined.
+  Paths are now a single `src/...`, so the documented suppression and baseline
+  mechanisms work with no new configuration.
+
+### Added
+
+- `[tool.lanorme.test_coverage] test_roots` configures the directories scanned
+  for partner `test_*.py` files, defaulting to `["tests/integration"]`
+  (today's behaviour). Set, for example,
+  `test_roots = ["tests/integration", "tests/unit"]` so a module tested only
+  under `tests/unit/` is credited rather than flagged.
+
 ## [0.14.0]
 
 ### Changed

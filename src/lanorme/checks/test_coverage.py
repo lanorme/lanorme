@@ -1,8 +1,18 @@
 """TESTFILE-001: every production module must have a corresponding test.
 
 A single advisory (WARNING) rule, surfaced when a file in one of the hardwired
-production directories lacks a matching ``test_*.py`` partner under
-``tests/integration/``. AAA-style test checks live in the ``test_style`` check.
+production directories lacks a matching ``test_*.py`` partner under one of the
+configured test roots (``tests/integration/`` by default). AAA-style test
+checks live in the ``test_style`` check.
+
+Findings are reported relative to ``src_root`` (the same base every other
+check uses), so the CLI's re-anchoring and the ``[per-file-ignores]`` globs
+both line up with the path other rules report for the same file.
+
+Configure the scanned test roots:
+
+    [tool.lanorme.test_coverage]
+    test_roots = ["tests/integration", "tests/unit"]
 
 Run:
     lanorme check . --check=test_coverage
@@ -47,6 +57,10 @@ _EXEMPT_MODULES: set[str] = {
     "session",  # DB session factory
 }
 
+# Test roots scanned for partner test files, relative to the backend root
+# (``src_root.parent``). Overridable via ``[tool.lanorme.test_coverage]``.
+_DEFAULT_TEST_ROOTS: tuple[str, ...] = ("tests/integration",)
+
 
 def _find_production_modules(*, src_root: str) -> list[tuple[str, str, str]]:
     """Return testable production modules as (relative_path, name, import_hint)."""
@@ -65,18 +79,21 @@ def _find_production_modules(*, src_root: str) -> list[tuple[str, str, str]]:
             if name in _EXEMPT_MODULES:
                 continue
 
-            rel_path = str(py_file.relative_to(src_path.parent))
+            rel_path = str(py_file.relative_to(src_path))
             modules.append((rel_path, name, import_prefix))
 
     return modules
 
 
-def _find_test_files(*, backend_root: Path) -> list[Path]:
-    """Return all test_*.py files under tests/integration/."""
-    tests_dir = backend_root / "tests" / "integration"
-    if not tests_dir.is_dir():
-        return []
-    return sorted(tests_dir.glob("test_*.py"))
+def _find_test_files(*, backend_root: Path, test_roots: tuple[str, ...]) -> list[Path]:
+    """Return all test_*.py files under each configured test root."""
+    found: list[Path] = []
+    for test_root in test_roots:
+        tests_dir = backend_root / test_root
+        if not tests_dir.is_dir():
+            continue
+        found.extend(tests_dir.glob("test_*.py"))
+    return sorted(found)
 
 
 def _dotted_import_paths(source: str) -> list[str] | None:
@@ -154,21 +171,25 @@ def _check_module_coverage(
     *,
     src_root: str,
     backend_root: Path,
+    test_roots: tuple[str, ...],
 ) -> list[Violation]:
     """TESTFILE-001: verify every production module has a corresponding test."""
     modules = _find_production_modules(src_root=src_root)
-    test_files = _find_test_files(backend_root=backend_root)
+    test_files = _find_test_files(backend_root=backend_root, test_roots=test_roots)
     test_stems = {f.stem for f in test_files}
+    primary_root = test_roots[0] if test_roots else "tests/integration"
 
     # Parse each test file once: keep its raw text and the dotted import paths
-    # reconstructed from its AST (or None when it cannot be parsed).
+    # reconstructed from its AST (or None when it cannot be parsed). Keyed by
+    # full path so identically-named files in different roots (e.g. a unit and
+    # an integration test_x.py) do not shadow one another.
     test_file_imports: dict[str, tuple[str, list[str] | None]] = {}
     for tf in test_files:
         try:
             contents = tf.read_text(encoding="utf-8")
         except OSError:
             continue
-        test_file_imports[tf.stem] = (contents, _dotted_import_paths(contents))
+        test_file_imports[str(tf)] = (contents, _dotted_import_paths(contents))
 
     warnings: list[Violation] = []
     for rel_path, name, import_hint in modules:
@@ -185,8 +206,8 @@ def _check_module_coverage(
                     rule="TESTFILE-001: Every production module must have a corresponding test",
                     message=f"No test file found for module '{name}'",
                     fix=(
-                        f"Create tests/integration/test_{name}.py with at least one "
-                        f"integration test for {name}"
+                        f"Create {primary_root}/test_{name}.py with at least one "
+                        f"test for {name}"
                     ),
                 ),
             )
@@ -201,17 +222,31 @@ class TestCoverageCheck:
     name: str = "test_coverage"
     description: str = "Test coverage: every production module has a test"
     scope = "tree"  # needs the whole test-file set to know a module is covered
+    test_roots: tuple[str, ...] = _DEFAULT_TEST_ROOTS
     rules: list[str] = field(
         default_factory=lambda: [
             "TESTFILE-001: Every production module must have a corresponding test",
         ],
     )
 
+    def configure(self, *, settings: dict[str, object]) -> None:
+        """Apply ``[tool.lanorme.test_coverage]`` configuration.
+
+        ``test_roots`` is a list of directories (relative to the backend root,
+        ``src_root.parent``) scanned for partner ``test_*.py`` files. An empty
+        or malformed value falls back to the default of ``tests/integration``.
+        """
+        roots = settings.get("test_roots")
+        if isinstance(roots, list):
+            cleaned = tuple(str(r) for r in roots if isinstance(r, str) and r)
+            if cleaned:
+                self.test_roots = cleaned
+
     def run(self, *, src_root: str) -> CheckResult:
         """Run the coverage check and return advisory warnings."""
         backend_root = Path(src_root).parent
         coverage_warnings = _check_module_coverage(
-            src_root=src_root, backend_root=backend_root
+            src_root=src_root, backend_root=backend_root, test_roots=self.test_roots
         )
         status = Status.WARN if coverage_warnings else Status.PASS
         return CheckResult(

@@ -3,8 +3,9 @@ hardwired testable directory must have a `test_*.py` partner in
 ``tests/integration/``.
 
 The check is layout-aware: it is handed ``src_root`` and treats
-``src_root.parent`` as the backend root, where it looks for
-``tests/integration/``. So every fixture mirrors that sibling layout::
+``src_root.parent`` as the backend root, where it looks for the configured
+test roots (``tests/integration/`` by default). So every fixture mirrors that
+sibling layout::
 
     tmp_path/src/application/services/x.py
     tmp_path/tests/integration/test_x.py
@@ -12,6 +13,10 @@ The check is layout-aware: it is handed ``src_root`` and treats
 and the check is driven directly, the same idiom as ``test_strong_types``::
 
     CoverageCheck().run(src_root=str(tmp_path / "src"))
+
+Findings are reported relative to ``src_root`` (not its parent), the same base
+every other check uses, so the CLI's re-anchoring lands them on a single
+``src/...`` path rather than a doubled ``src/src/...``.
 
 It is an *advisory* (WARNING) rule and an existence check, not a coverage
 measurement: a present partner, by filename or by an import in a test file,
@@ -22,10 +27,12 @@ Tests follow AAA structure with inline ``# Arrange / # Act / # Assert`` markers.
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from lanorme import Status
 from lanorme.checks.test_coverage import TestCoverageCheck as CoverageCheck
+from lanorme.cli import main
 
 
 def _layout(tmp_path: Path) -> tuple[Path, Path]:
@@ -35,6 +42,25 @@ def _layout(tmp_path: Path) -> tuple[Path, Path]:
     (src / "application" / "services").mkdir(parents=True)
     integration.mkdir(parents=True)
     return src, integration
+
+
+def _endpoint_with_unit_partner(tmp_path: Path) -> Path:
+    """An endpoint whose only test partner lives in tests/unit/. Return src dir.
+
+    Both an empty tests/integration/ and a tests/unit/test_users.py are laid
+    down, so whether the module is credited depends solely on which roots are
+    scanned.
+    """
+    src = tmp_path / "src"
+    (src / "api" / "v1" / "endpoints").mkdir(parents=True)
+    (tmp_path / "tests" / "integration").mkdir(parents=True)
+    unit = tmp_path / "tests" / "unit"
+    unit.mkdir(parents=True)
+    (src / "api" / "v1" / "endpoints" / "users.py").write_text(
+        "def f(): ...\n", encoding="utf-8"
+    )
+    (unit / "test_users.py").write_text("def test_u(): ...\n", encoding="utf-8")
+    return src
 
 
 def test_uncovered_service_fires_testfile001(tmp_path: Path):
@@ -48,13 +74,14 @@ def test_uncovered_service_fires_testfile001(tmp_path: Path):
     result = CoverageCheck().run(src_root=str(src))
 
     # Assert: exactly one advisory WARN, coded TESTFILE-001, at line 1, with a
-    # src-relative path and a fix pointing at tests/integration/.
+    # path relative to src_root (no leading src/, so re-anchoring does not
+    # double it) and a fix pointing at tests/integration/.
     assert result.status == Status.WARN
     assert len(result.warnings) == 1
     w = result.warnings[0]
     assert w.rule.startswith("TESTFILE-001")
     assert w.line == 1
-    assert w.file == "src/application/services/billing.py"
+    assert w.file == "application/services/billing.py"
     assert "billing" in w.message
     assert "tests/integration/test_billing.py" in w.fix
 
@@ -162,15 +189,7 @@ def test_module_outside_testable_dirs_is_out_of_scope(tmp_path: Path):
 def test_partner_in_tests_unit_does_not_count(tmp_path: Path):
     # Arrange: a module whose only test lives in tests/unit/, not
     # tests/integration/.
-    src = tmp_path / "src"
-    (src / "api" / "v1" / "endpoints").mkdir(parents=True)
-    (tmp_path / "tests" / "integration").mkdir(parents=True)
-    unit = tmp_path / "tests" / "unit"
-    unit.mkdir(parents=True)
-    (src / "api" / "v1" / "endpoints" / "users.py").write_text(
-        "def f(): ...\n", encoding="utf-8"
-    )
-    (unit / "test_users.py").write_text("def test_u(): ...\n", encoding="utf-8")
+    src = _endpoint_with_unit_partner(tmp_path)
 
     # Act.
     result = CoverageCheck().run(src_root=str(src))
@@ -181,6 +200,108 @@ def test_partner_in_tests_unit_does_not_count(tmp_path: Path):
         w.rule.startswith("TESTFILE-001") and "users" in w.message
         for w in result.warnings
     )
+
+
+def test_configured_test_roots_credit_a_unit_partner(tmp_path: Path):
+    # Arrange: the same unit-only partner, but test_roots now includes
+    # tests/unit/ alongside the default integration root.
+    src = _endpoint_with_unit_partner(tmp_path)
+
+    # Act: configure the extra root, then run.
+    check = CoverageCheck()
+    check.configure(settings={"test_roots": ["tests/integration", "tests/unit"]})
+    result = check.run(src_root=str(src))
+
+    # Assert: the unit partner now satisfies coverage; no findings, PASS.
+    assert result.status == Status.PASS
+    assert result.warnings == []
+
+
+def test_empty_test_roots_falls_back_to_default(tmp_path: Path):
+    # Arrange: a module with its integration partner, and a malformed config
+    # (an empty list) that must not blank out the default root.
+    src, integration = _layout(tmp_path)
+    (src / "application" / "services" / "billing.py").write_text(
+        "def charge(): ...\n", encoding="utf-8"
+    )
+    (integration / "test_billing.py").write_text(
+        "def test_charge(): ...\n", encoding="utf-8"
+    )
+
+    # Act: an empty test_roots is ignored, keeping tests/integration/.
+    check = CoverageCheck()
+    check.configure(settings={"test_roots": []})
+    result = check.run(src_root=str(src))
+
+    # Assert: the default root still credits the partner.
+    assert result.status == Status.PASS
+    assert result.warnings == []
+
+
+# --------------------------------------------------------------------------- #
+# End-to-end: the path the CLI actually reports (check output + re-anchoring)
+# --------------------------------------------------------------------------- #
+
+
+def _project_with_uncovered_module(tmp_path: Path, *, config: str) -> Path:
+    """Lay out a repo whose src/ holds one uncovered service. Return the src dir."""
+    (tmp_path / "pyproject.toml").write_text(config, encoding="utf-8")
+    src = tmp_path / "src"
+    (src / "application" / "services").mkdir(parents=True)
+    (tmp_path / "tests" / "integration").mkdir(parents=True)
+    (src / "application" / "services" / "billing.py").write_text(
+        "def charge(): ...\n", encoding="utf-8"
+    )
+    return src
+
+
+def _testfile_findings(capsys) -> list[dict]:
+    """Parse the captured ``--json`` output and return TESTFILE-001 warnings."""
+    payload = json.loads(capsys.readouterr().out)
+    return [
+        w
+        for result in payload
+        for w in result["warnings"]
+        if w["code"] == "TESTFILE-001"
+    ]
+
+
+def test_cli_reports_single_src_path_not_doubled(tmp_path: Path, capsys):
+    # Arrange: scanning the src dir while config lives at the repo root is the
+    # invocation that re-anchors findings up to the project root.
+    src = _project_with_uncovered_module(tmp_path, config="[tool.lanorme]\n")
+
+    # Act: run the real CLI over the src dir (exits nonzero on findings).
+    try:
+        main(["check", str(src), "--check=test_coverage", "--json"])
+    except SystemExit:
+        pass
+
+    # Assert: the finding lands on a single src/ path, the same base every
+    # other check reports, not the doubled src/src/ that blocked filtering.
+    findings = _testfile_findings(capsys)
+    assert [w["file"] for w in findings] == ["src/application/services/billing.py"]
+
+
+def test_cli_per_file_ignores_now_suppresses_the_finding(tmp_path: Path, capsys):
+    # Arrange: the same uncovered module, baselined with the documented
+    # per-file-ignores mechanism against the (now correct) src/ path.
+    src = _project_with_uncovered_module(
+        tmp_path,
+        config=(
+            "[tool.lanorme.per-file-ignores]\n"
+            '"src/application/*" = ["TESTFILE-001"]\n'
+        ),
+    )
+
+    # Act.
+    try:
+        main(["check", str(src), "--check=test_coverage", "--json"])
+    except SystemExit:
+        pass
+
+    # Assert: the glob matches the reported path, so the false positive is gone.
+    assert _testfile_findings(capsys) == []
 
 
 def test_missing_integration_dir_still_flags_modules(tmp_path: Path):

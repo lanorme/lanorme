@@ -895,15 +895,28 @@ build-failing; `TYPE-004` is an advisory warning.
 
 Default-on warning. For each Python file under one of the hardwired
 production directories, verify that a matching `test_*.py` partner (by name
-or by import reference) exists under `tests/integration/`. Note this is
-**file presence**, not coverage; it cannot tell you whether the test
-actually exercises the module.
+or by import reference) exists under one of the configured test roots
+(`tests/integration/` by default). Note this is **file presence**, not
+coverage; it cannot tell you whether the test actually exercises the module.
 
-Config: none. The scanned production directories (`api/v1/endpoints`,
-`application/services`, `application/commands`, `application/queries`,
-`infrastructure/repositories`, `infrastructure/signing`,
-`infrastructure/secrets`) and the exempt modules (`dependencies`, `main`,
-`logging`, `session`) are hardwired.
+Findings are reported on the same path base as every other rule (relative to
+`src_root`), so a `[per-file-ignores]` glob written against the path another
+rule reports for a file suppresses this one too, and a baseline records it
+the same way.
+
+Config:
+```toml
+[tool.lanorme.test_coverage]
+test_roots = ["tests/integration", "tests/unit"]
+```
+
+`test_roots` lists the directories (relative to the backend root, the parent
+of `src_root`) scanned for partner test files; it defaults to
+`["tests/integration"]`. The scanned production directories
+(`api/v1/endpoints`, `application/services`, `application/commands`,
+`application/queries`, `infrastructure/repositories`,
+`infrastructure/signing`, `infrastructure/secrets`) and the exempt modules
+(`dependencies`, `main`, `logging`, `session`) are hardwired.
 
 ---
 
