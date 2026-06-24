@@ -1,0 +1,2330 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="A precision-first, standard-library-only Python linter that makes a team's codebase standard executable on every commit.">
+      
+      
+      
+        <link rel="canonical" href="https://lanorme.github.io/lanorme/0.14.2/RULES/">
+      
+      
+        <link rel="prev" href="../reference/configuration/">
+      
+      
+        <link rel="next" href="../reference/rules-index/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Rules - LaNorme</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../stylesheets/md-actions.css">
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="black" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#lanorme-rule-reference" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="LaNorme" class="md-header__button md-logo" aria-label="LaNorme" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            LaNorme
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Rules
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="black" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m17.75 4.09-2.53 1.94.91 3.06-2.63-1.81-2.63 1.81.91-3.06-2.53-1.94L12.44 4l1.06-3 1.06 3zm3.5 6.91-1.64 1.25.59 1.98-1.7-1.17-1.7 1.17.59-1.98L15.75 11l2.06-.05L18.5 9l.69 1.95zm-2.28 4.95c.83-.08 1.72 1.1 1.19 1.85-.32.45-.66.87-1.08 1.27C15.17 23 8.84 23 4.94 19.07c-3.91-3.9-3.91-10.24 0-14.14.4-.4.82-.76 1.27-1.08.75-.53 1.93.36 1.85 1.19-.27 2.86.69 5.83 2.89 8.02a9.96 9.96 0 0 0 8.02 2.89m-1.64 2.02a12.08 12.08 0 0 1-7.8-3.47c-2.17-2.19-3.33-5-3.49-7.82-2.81 3.14-2.7 7.96.31 10.98 3.02 3.01 7.84 3.12 10.98.31"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="black" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 7a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5 5 5 0 0 1 5-5m0 2a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3m0-7 2.39 3.42C13.65 5.15 12.84 5 12 5s-1.65.15-2.39.42zM3.34 7l4.16-.35A7.2 7.2 0 0 0 5.94 8.5c-.44.74-.69 1.5-.83 2.29zm.02 10 1.76-3.77a7.131 7.131 0 0 0 2.38 4.14zM20.65 7l-1.77 3.79a7.02 7.02 0 0 0-2.38-4.15zm-.01 10-4.14.36c.59-.51 1.12-1.14 1.54-1.86.42-.73.69-1.5.83-2.29zM12 22l-2.41-3.44c.74.27 1.55.44 2.41.44.82 0 1.63-.17 2.37-.44z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/lanorme/lanorme" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    lanorme/lanorme
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="LaNorme" class="md-nav__button md-logo" aria-label="LaNorme" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    LaNorme
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/lanorme/lanorme" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    lanorme/lanorme
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../tutorials/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorials
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2" id="__nav_2_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Tutorials
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tutorials/adopt-on-existing-codebase/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Adopt on an existing codebase
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../how-to/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    How-to guides
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    How-to guides
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../how-to/configure-checks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Configure checks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../how-to/promote-warnings/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Promote warnings to errors
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../how-to/use-profiles/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Use profiles
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../how-to/write-a-check/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Write a check
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../reference/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reference
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_4" id="__nav_4_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Rules
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Rules
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#attribute-access-attr-001-attr-002" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Attribute access: ATTR-001 / ATTR-002
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#comments-cmt-and-prose-on-py" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Comments: CMT-* and PROSE-* on .py
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Comments: CMT-* and PROSE-* on .py">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#cmt-001-no-commented-out-code" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CMT-001: No commented-out code
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cmt-002-no-verbose-comments" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CMT-002: No verbose comments
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cmt-005-no-comments-that-restate-the-next-line-of-code" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CMT-005: No comments that restate the next line of code
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#prose-001-prose-003-on-comments-and-docstrings" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PROSE-001 / PROSE-003 on comments and docstrings
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#docs-docs-001008" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Docs: DOCS-001..008
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#domain-terminology-term-nnn" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Domain terminology: TERM-NNN
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#duplication-dry-001" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Duplication: DRY-001
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#near-duplicate-similar-001" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Near-duplicate: SIMILAR-001
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#file-limits-size-complexity-001-param-001" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        File limits: SIZE-* / COMPLEXITY-001 / PARAM-001
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#forbidden-paths-path-001" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Forbidden paths: PATH-001
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#layer-dependencies-layer-001006" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Layer dependencies: LAYER-001..006
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#meta-meta-001005" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Meta: META-001..005
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#keyword-arguments-kwarg-001" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Keyword arguments: KWARG-001
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#naming-conventions-naming-001004" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Naming conventions: NAMING-001..004
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pattern-divergence-import-001-endpoint-001" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pattern divergence: IMPORT-001 / ENDPOINT-001
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#port-coverage-port-001003" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Port coverage: PORT-001..003
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#prose-prose-001004-on-markdown" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Prose: PROSE-001..004 on Markdown
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Prose: PROSE-001..004 on Markdown">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#prose-004-em-dash-density-above-natural-english" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PROSE-004: Em-dash density above natural English
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#security-calls-shell-001-deserial-001-eval-001-crypto-001-tls-001-debug-001" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Security calls: SHELL-001 / DESERIAL-001 / EVAL-001 / CRYPTO-001 / TLS-001 / DEBUG-001
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#security-patterns-authn-001-sql-001-secretpy-001" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Security patterns: AUTHN-001 / SQL-001 / SECRETPY-001
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#skills-skill-001006" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Skills: SKILL-001..006
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#stale-paths-stale-001" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Stale paths: STALE-001
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#stray-artifacts-junk-001002" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Stray artifacts: JUNK-001/002
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#strong-types-type-001004" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Strong types: TYPE-001..004
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#test-coverage-testfile-001" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Test coverage: TESTFILE-001
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#test-style-aaa-001-aaa-002" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Test style: AAA-001 / AAA-002
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/rules-index/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Rule index
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../explanation/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Explanation
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Explanation
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../explanation/precision-first/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Precision-first
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../explanation/docs-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Docs architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#attribute-access-attr-001-attr-002" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Attribute access: ATTR-001 / ATTR-002
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#comments-cmt-and-prose-on-py" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Comments: CMT-* and PROSE-* on .py
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Comments: CMT-* and PROSE-* on .py">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#cmt-001-no-commented-out-code" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CMT-001: No commented-out code
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cmt-002-no-verbose-comments" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CMT-002: No verbose comments
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cmt-005-no-comments-that-restate-the-next-line-of-code" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CMT-005: No comments that restate the next line of code
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#prose-001-prose-003-on-comments-and-docstrings" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PROSE-001 / PROSE-003 on comments and docstrings
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#docs-docs-001008" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Docs: DOCS-001..008
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#domain-terminology-term-nnn" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Domain terminology: TERM-NNN
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#duplication-dry-001" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Duplication: DRY-001
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#near-duplicate-similar-001" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Near-duplicate: SIMILAR-001
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#file-limits-size-complexity-001-param-001" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        File limits: SIZE-* / COMPLEXITY-001 / PARAM-001
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#forbidden-paths-path-001" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Forbidden paths: PATH-001
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#layer-dependencies-layer-001006" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Layer dependencies: LAYER-001..006
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#meta-meta-001005" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Meta: META-001..005
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#keyword-arguments-kwarg-001" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Keyword arguments: KWARG-001
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#naming-conventions-naming-001004" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Naming conventions: NAMING-001..004
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pattern-divergence-import-001-endpoint-001" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pattern divergence: IMPORT-001 / ENDPOINT-001
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#port-coverage-port-001003" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Port coverage: PORT-001..003
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#prose-prose-001004-on-markdown" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Prose: PROSE-001..004 on Markdown
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Prose: PROSE-001..004 on Markdown">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#prose-004-em-dash-density-above-natural-english" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PROSE-004: Em-dash density above natural English
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#security-calls-shell-001-deserial-001-eval-001-crypto-001-tls-001-debug-001" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Security calls: SHELL-001 / DESERIAL-001 / EVAL-001 / CRYPTO-001 / TLS-001 / DEBUG-001
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#security-patterns-authn-001-sql-001-secretpy-001" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Security patterns: AUTHN-001 / SQL-001 / SECRETPY-001
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#skills-skill-001006" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Skills: SKILL-001..006
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#stale-paths-stale-001" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Stale paths: STALE-001
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#stray-artifacts-junk-001002" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Stray artifacts: JUNK-001/002
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#strong-types-type-001004" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Strong types: TYPE-001..004
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#test-coverage-testfile-001" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Test coverage: TESTFILE-001
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#test-style-aaa-001-aaa-002" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Test style: AAA-001 / AAA-002
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+  
+    
+    <div class="md-page-actions" role="group" aria-label="Markdown actions">
+      <a class="md-page-actions__btn" href="../RULES.md" target="_blank" rel="noopener"
+         title="Open this page as raw Markdown">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20.56 18H3.44C2.65 18 2 17.37 2 16.59V7.41C2 6.63 2.65 6 3.44 6h17.12c.79 0 1.44.63 1.44 1.41v9.18c0 .78-.65 1.41-1.44 1.41M6.81 15.19v-3.66l1.92 2.35 1.92-2.35v3.66h1.93V8.81h-1.93l-1.92 2.35-1.92-2.35H4.89v6.38zM19.69 12h-1.92V8.81h-1.92V12h-1.93l2.89 3.28z"/></svg><span>View as Markdown</span>
+      </a>
+      <button class="md-page-actions__btn" type="button" data-md-src="../RULES.md"
+              title="Copy this page as Markdown, ready to paste into an agent">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 21H8V7h11m0-2H8a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2m-3-4H4a2 2 0 0 0-2 2v14h2V3h12z"/></svg><span>Copy for an agent</span>
+      </button>
+    </div>
+  
+  
+                  
+
+
+  
+  
+    
+      
+    
+    <a href="https://github.com/lanorme/lanorme/raw/main/docs/RULES.md" title="View source of this page" class="md-content__button md-icon">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 18c.56 0 1 .44 1 1s-.44 1-1 1-1-.44-1-1 .44-1 1-1m0-3c-2.73 0-5.06 1.66-6 4 .94 2.34 3.27 4 6 4s5.06-1.66 6-4c-.94-2.34-3.27-4-6-4m0 6.5a2.5 2.5 0 0 1-2.5-2.5 2.5 2.5 0 0 1 2.5-2.5 2.5 2.5 0 0 1 2.5 2.5 2.5 2.5 0 0 1-2.5 2.5M9.27 20H6V4h7v5h5v4.07c.7.08 1.36.25 2 .49V8l-6-6H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h4.5a8.2 8.2 0 0 1-1.23-2"/></svg>
+    </a>
+  
+
+
+<h1 id="lanorme-rule-reference">LaNorme rule reference<a class="headerlink" href="#lanorme-rule-reference" title="Permanent link">&para;</a></h1>
+<p>This reference describes every rule code LaNorme can emit, one section per code, covering what each rule catches, what it deliberately ignores, where to configure it, and its measured precision, recall, and F1 where a labelled corpus exists.</p>
+<p>One section per rule code emitted by LaNorme. Each section says what the
+rule catches, what it does not, where to configure it, and (where the
+rule has a labelled corpus under <code>evals/corpora/</code> and a scorer under
+<code>evals/</code>) the measured precision / recall / F1 on that corpus.</p>
+<p>Live rule list: <code>lanorme rules</code>.
+Default policy and per-check configuration: see the README.</p>
+<p>The rules are grouped by category in the same order as <code>lanorme rules</code>.</p>
+<hr />
+<h2 id="attribute-access-attr-001-attr-002">Attribute access: <code>ATTR-001</code> / <code>ATTR-002</code><a class="headerlink" href="#attribute-access-attr-001-attr-002" title="Permanent link">&para;</a></h2>
+<p>Opt-in (default-off); both are advisory warnings. Enable with
+<code>[tool.lanorme.attribute_access] enabled = true</code>. The premise: when an
+attribute name is a constant at the call site, the type is known too, so the
+dynamic form only hides the attribute from the type checker.</p>
+<ul>
+<li><code>ATTR-001</code>: <code>hasattr(x, "name")</code> with a literal identifier name. Branching
+  on structure is duck typing; prefer a <code>runtime_checkable</code> <code>Protocol</code> with
+  <code>isinstance</code>, or EAFP (<code>try: ... except AttributeError</code>).</li>
+<li><code>ATTR-002</code>: <code>getattr(x, "name")</code> (no default), <code>setattr(x, "name", v)</code>, or
+  <code>delattr(x, "name")</code> with a literal identifier name. Use direct attribute
+  access (<code>x.name</code>).</li>
+</ul>
+<p>High-confidence cases only. Exempt: three-argument <code>getattr(x, "name",
+default)</code> (the safe-access idiom); dunder names (<code>__class__</code>, <code>__name__</code>, ...);
+names that are not valid identifiers (cannot be written as <code>x.name</code>); and files
+under <code>tests/</code>. Dynamic names (<code>getattr(x, name)</code>) are reflection and exempt
+unless <code>flag_dynamic</code> is set.</p>
+<p>Config:
+<div class="highlight"><pre><span></span><code><span class="k">[tool.lanorme.attribute_access]</span>
+<span class="n">enabled</span><span class="w">      </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span>
+<span class="n">flag_dynamic</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">false</span><span class="w">   </span><span class="c1"># also flag non-literal (reflective) attribute names</span>
+</code></pre></div></p>
+<hr />
+<h2 id="comments-cmt-and-prose-on-py">Comments: <code>CMT-*</code> and <code>PROSE-*</code> on .py<a class="headerlink" href="#comments-cmt-and-prose-on-py" title="Permanent link">&para;</a></h2>
+<h3 id="cmt-001-no-commented-out-code"><code>CMT-001</code>: No commented-out code<a class="headerlink" href="#cmt-001-no-commented-out-code" title="Permanent link">&para;</a></h3>
+<p>Default-on. Walks every <code>#</code> comment and parses its text as Python; if the
+result is one of <code>_CODE_NODES</code> (imports, assigns, defs, control flow,
+returns / raises / asserts, ...), the comment is treated as disabled code.
+Guards: comments ending in <code>.</code> / <code>?</code> / <code>!</code> are prose; <code>foo(...)</code> (literal
+<code>...</code>) is illustrative; <code>label: type</code> with no value is documentation; tooling
+pragmas (<code># noqa</code>, <code># type:</code>, ...) are skipped; and the lines of a
+<a href="https://peps.python.org/pep-0723/">PEP 723</a> <code># /// script</code> ... <code># ///</code> inline
+metadata block are tooling, not code.</p>
+<p>To recover the shapes <code>ast.parse</code> rejects standalone, the comment text is
+tried in several wrapping strategies before being declared prose:</p>
+<ul>
+<li>Block headers ending in <code>:</code> are tried with a <code>pass</code> body.</li>
+<li><code>try:</code> is tried with a <code>pass</code> body plus a synthetic <code>except Exception</code>.</li>
+<li><code>elif</code> / <code>else</code> are tried inside an <code>if True: pass</code> prefix.</li>
+<li><code>except</code> / <code>finally</code> are tried inside a <code>try: pass</code> prefix.</li>
+<li>Bare <code>return</code> / <code>yield</code> / <code>raise</code> are tried inside <code>def _(): ...</code>.</li>
+<li>Decorator lines (<code>@foo</code>) are tried followed by <code>def _(): pass</code>.</li>
+</ul>
+<p>Measured against the 165-comment corpus under
+<code>evals/corpora/comments_commented_code/</code> with <code>evals/score_cmt001.py</code>:
+<strong>P = 0.985 / R = 1.000 / F1 = 0.992</strong> (TP = 66, FP = 1, FN = 0). The
+single FP is an illustrative call signature following a <code>Typical usage:</code>
+header.</p>
+<p>Config:
+<div class="highlight"><pre><span></span><code><span class="k">[tool.lanorme.comments]</span>
+<span class="n">commented_code</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span><span class="w">   </span><span class="c1"># default-on; set false to disable CMT-001</span>
+</code></pre></div></p>
+<h3 id="cmt-002-no-verbose-comments"><code>CMT-002</code>: No verbose comments<a class="headerlink" href="#cmt-002-no-verbose-comments" title="Permanent link">&para;</a></h3>
+<p>Default-on. Flags any single comment longer than <code>max_comment_chars</code>
+(default 120) and any block of consecutive standalone comments longer
+than <code>max_block_lines</code> (default 6).</p>
+<p>Config:
+<div class="highlight"><pre><span></span><code><span class="k">[tool.lanorme.comments]</span>
+<span class="n">verbose</span><span class="w">           </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span><span class="w">   </span><span class="c1"># default-on; set false to disable CMT-002</span>
+<span class="n">max_comment_chars</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">120</span>
+<span class="n">max_block_lines</span><span class="w">   </span><span class="o">=</span><span class="w"> </span><span class="mi">6</span>
+</code></pre></div></p>
+<h3 id="cmt-005-no-comments-that-restate-the-next-line-of-code"><code>CMT-005</code>: No comments that restate the next line of code<a class="headerlink" href="#cmt-005-no-comments-that-restate-the-next-line-of-code" title="Permanent link">&para;</a></h3>
+<p>Default-off. <strong>Experimental.</strong> Lives in its own <code>restating</code> check.
+Precision-first by design: it only flags a comment when every content word
+and verb maps onto the adjacent statement, and an allowlist exempts comments
+that carry a why, a caveat, a unit, or a reference. It will miss synonym
+paraphrases. Full design: <code>docs/cmt005-design.md</code>.</p>
+<p>Measured against the 167-comment corpus under
+<code>evals/corpora/comments_restating/</code> with <code>evals/score_cmt005.py</code>:
+<strong>P = 1.000 / R = 0.418 / F1 = 0.589</strong> (TP = 33, FP = 0, FN = 46, TN = 88).
+The 0.418 recall is bounded by the design's refusal to chase synonym
+paraphrases without losing precision.</p>
+<p>Config:
+<div class="highlight"><pre><span></span><code><span class="k">[tool.lanorme.restating]</span>
+<span class="n">enabled</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span>
+</code></pre></div></p>
+<h3 id="prose-001-prose-003-on-comments-and-docstrings"><code>PROSE-001</code> / <code>PROSE-003</code> on comments and docstrings<a class="headerlink" href="#prose-001-prose-003-on-comments-and-docstrings" title="Permanent link">&para;</a></h3>
+<p>Off until enabled. The same rule codes that the <code>prose</code> check emits on
+Markdown also fire here, on <code>#</code> comments and <code>"""..."""</code> docstrings,
+when configured.</p>
+<p>Config:
+<div class="highlight"><pre><span></span><code><span class="k">[tool.lanorme.comments]</span>
+<span class="n">em_dash</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span><span class="w">   </span><span class="c1"># emit PROSE-001 on comments/docstrings</span>
+<span class="n">emoji</span><span class="w">   </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span><span class="w">   </span><span class="c1"># emit PROSE-003 on comments/docstrings</span>
+</code></pre></div></p>
+<hr />
+<h2 id="docs-docs-001008">Docs: <code>DOCS-001..008</code><a class="headerlink" href="#docs-docs-001008" title="Permanent link">&para;</a></h2>
+<p>Opt-in (default-off), tree-scoped. Enforces a familiar Diataxis-style structure
+and accessibility on a Markdown documentation tree. It inspects only Markdown
+under <code>docs_root</code> (default <code>docs</code>); files anywhere else are ignored, so it never
+imposes a docs structure on source trees or stray Markdown. Headings and images
+inside fenced code blocks are never matched, so a sample showing a hash heading
+or an image link is left alone. <code>DOCS-001..004</code> are build-failing errors;
+<code>DOCS-005..008</code> are advisory warnings.</p>
+<ul>
+<li><code>DOCS-001</code>: a content page has exactly one level-1 heading.</li>
+<li><code>DOCS-002</code>: heading levels descend one step at a time (no skipped levels).</li>
+<li><code>DOCS-003</code>: a content page opens with a canonical skimmer line. The first
+  prose line after the H1 must begin with one of <code>This page</code>, <code>This tutorial</code>,
+  <code>This guide</code>, <code>This reference</code>, <code>This how-to</code>, or <code>This explanation</code>.</li>
+<li><code>DOCS-004</code>: every image carries non-empty alternative text, for both
+  Markdown image links and HTML <code>img</code> tags.</li>
+<li><code>DOCS-005</code>: prefer SVG or Mermaid over a local raster image (warning).</li>
+<li><code>DOCS-006</code>: a known section directory that has pages carries an <code>index.md</code>
+  landing page (warning).</li>
+<li><code>DOCS-007</code>: every page lives in a known section or is a known top-level
+  page (warning).</li>
+<li><code>DOCS-008</code>: headings are not numbered by hand; renderers number sections
+  for you (warning).</li>
+</ul>
+<p>Vendored or generated directories (<code>.git</code>, <code>.venv</code>, <code>node_modules</code>,
+<code>__pycache__</code>, <code>dist</code>, <code>build</code>, and so on) are never treated as part of a docs
+tree.</p>
+<p>Config (all keys optional; the defaults are shown):
+<div class="highlight"><pre><span></span><code><span class="k">[tool.lanorme.docs]</span>
+<span class="n">enabled</span><span class="w">   </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span><span class="w">                  </span><span class="c1"># default false (the whole check is opt-in)</span>
+<span class="n">docs_root</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;docs&quot;</span><span class="w">                </span><span class="c1"># tree to inspect, relative to the scan target</span>
+<span class="c1"># Diataxis section directories expected under docs_root.</span>
+<span class="n">sections</span><span class="w">  </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;tutorials&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;how-to&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;reference&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;explanation&quot;</span><span class="p">]</span>
+<span class="c1"># Pages allowed at the top level without a section home (DOCS-007).</span>
+<span class="n">known_top_level</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span>
+<span class="w">  </span><span class="s2">&quot;index.md&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="s2">&quot;RULES.md&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="s2">&quot;reference/configuration.md&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="s2">&quot;reference/rules-index.md&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="s2">&quot;reference/cli.md&quot;</span><span class="p">,</span>
+<span class="p">]</span>
+<span class="c1"># Image extensions treated as raster formats for DOCS-005.</span>
+<span class="n">raster_extensions</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;png&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;jpg&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;jpeg&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;gif&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;webp&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;bmp&quot;</span><span class="p">]</span>
+<span class="n">allow</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;**/logo.png&quot;</span><span class="p">]</span><span class="w">           </span><span class="c1"># globs exempt from the prefer-SVG warning (default empty)</span>
+</code></pre></div></p>
+<p>The check is tree-scoped (<code>scope = "tree"</code>): it reads the directory layout, not
+only individual files, so the section-index and quadrant rules can reason about
+where each page sits.</p>
+<hr />
+<h2 id="domain-terminology-term-nnn">Domain terminology: <code>TERM-NNN</code><a class="headerlink" href="#domain-terminology-term-nnn" title="Permanent link">&para;</a></h2>
+<p>Configurable ubiquitous-language enforcement. Inert by default. Each
+rule the user configures gets a code from the <code>TERM-</code> family.</p>
+<p>Config:
+<div class="highlight"><pre><span></span><code><span class="k">[[tool.lanorme.domain_terms.rules]]</span>
+<span class="n">id</span><span class="w">        </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;TERM-001&quot;</span>
+<span class="n">canonical</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;Account&quot;</span>
+<span class="n">forbidden</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;Acct&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;Acnt&quot;</span><span class="p">]</span>
+
+<span class="k">[[tool.lanorme.domain_terms.rules]]</span>
+<span class="n">id</span><span class="w">        </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;TERM-002&quot;</span>
+<span class="n">canonical</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;Customer&quot;</span>
+<span class="n">forbidden</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;Cust&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;Client&quot;</span><span class="p">]</span>
+</code></pre></div></p>
+<hr />
+<h2 id="duplication-dry-001">Duplication: <code>DRY-001</code><a class="headerlink" href="#duplication-dry-001" title="Permanent link">&para;</a></h2>
+<p>Default-on. Detects <strong>exact structural clones</strong>: functions with an identical
+normalised AST body and at least five statements. Normalisation strips variable
+names and string literals, so two functions differing only in identifier
+spelling or string-constant content still match. It is precise but strict: a
+single added statement, a reordering, a changed number, or a renamed attribute
+defeats the match. For the fuzzier "these should share a helper" cases, see
+<code>SIMILAR-001</code> below.</p>
+<p>Config: none. False positives on intentionally parallel
+adapters across bounded contexts are a known limit; suppress them with
+<code>[tool.lanorme.per-file-ignores]</code>, <code># noqa: DRY-001</code>, or
+<code># lanorme: ignore[DRY-001]</code>.</p>
+<hr />
+<h2 id="near-duplicate-similar-001">Near-duplicate: <code>SIMILAR-001</code><a class="headerlink" href="#near-duplicate-similar-001" title="Permanent link">&para;</a></h2>
+<p>Opt-in (default-off), advisory <strong>warning</strong> (never fails the build). The fuzzy
+companion to <code>DRY-001</code>: it catches near-duplicates that the exact check misses
+(one or two added statements, reordering, a changed number, a renamed
+attribute, a renamed call) so a reviewer can decide whether to extract a shared
+helper.</p>
+<p>Two functions in a file are compared on two signals. <strong>Structure</strong>: a token
+sequence over the body that abstracts away variable names, attribute names and
+numbers, scored with <code>difflib</code> (so a one-statement or reorder drift still
+aligns). <strong>Anchors</strong>: the meaning-bearing tokens <code>DRY-001</code> discards: string
+literals, called names, operator kinds, and accessed attribute names, each
+scored by weighted Jaccard. A pair flags only when the structure is similar
+<strong>and</strong> every anchor agrees, which keeps precision high: parallel boilerplate
+that shares a shape but differs in its string keys or source attributes (config
+builders, dispatch tables, field mappers, framework handlers) is rejected.
+Equality/dunder/<code>@property</code> boilerplate and drifted logging-message strings are
+handled specially. Measured on the bundled corpus
+(<code>evals/corpora/duplication_similar/</code>, scorer <code>evals/score_similar.py</code>):
+<strong>precision 1.000 / recall 0.850 / F1 0.919</strong>. Known recall gaps: fully renamed
+attribute sets and error-message-only drift.</p>
+<div class="highlight"><pre><span></span><code><span class="k">[tool.lanorme.similarity]</span>
+<span class="n">enabled</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span>
+<span class="c1"># threshold overrides (defaults shown):</span>
+<span class="n">min_statements</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">5</span>
+<span class="n">struct_ratio</span><span class="w">   </span><span class="o">=</span><span class="w"> </span><span class="mf">0.55</span>
+<span class="n">str_jaccard</span><span class="w">    </span><span class="o">=</span><span class="w"> </span><span class="mf">0.60</span>
+<span class="n">op_jaccard</span><span class="w">     </span><span class="o">=</span><span class="w"> </span><span class="mf">0.60</span>
+<span class="n">call_jaccard</span><span class="w">   </span><span class="o">=</span><span class="w"> </span><span class="mf">0.35</span>
+<span class="n">attr_jaccard</span><span class="w">   </span><span class="o">=</span><span class="w"> </span><span class="mf">0.10</span>
+</code></pre></div>
+<hr />
+<h2 id="file-limits-size-complexity-001-param-001">File limits: <code>SIZE-*</code> / <code>COMPLEXITY-001</code> / <code>PARAM-001</code><a class="headerlink" href="#file-limits-size-complexity-001-param-001" title="Permanent link">&para;</a></h2>
+<p>All default-on.</p>
+<ul>
+<li><code>SIZE-001</code>: Python files. Warn at 300 effective (non-blank,
+  non-comment) lines; error at 500.</li>
+<li><code>SIZE-002</code>: functions and methods. Warn at 50 lines; error at 80.</li>
+<li><code>SIZE-003</code>: classes with more than 10 methods (warning only). Useful
+  as a smell on services and views; on rich aggregate roots in a DDD
+  codebase, expect to silence it via <code>per-file-ignores</code>.</li>
+<li><code>COMPLEXITY-001</code>: cyclomatic complexity. Warn at 10; error at 15 (the
+  ruff <code>C901</code> / <code>mccabe</code> default thresholds). Complexity is 1 plus one for
+  each decision point: an <code>if</code> / <code>elif</code> / <code>for</code> / <code>while</code> / <code>except</code> /
+  <code>with</code> / <code>assert</code> / ternary, each extra <code>and</code> / <code>or</code> operand, each
+  <strong>refutable <code>match</code> case</strong> (an irrefutable catch-all such as <code>case _:</code> or
+  a bare <code>case x:</code> does not count, like an <code>else</code>), and, inside a
+  comprehension, each <strong>filter <code>if</code></strong> and each <strong>nested <code>for</code></strong> clause. One
+  deliberate divergence from a textbook count: a comprehension's <em>primary</em>
+  <code>for</code> is treated as a single expression and does not count, so a plain
+  <code>[f(x) for x in xs]</code> costs nothing. That keeps the 10 / 15 thresholds
+  calibrated for code that leans on comprehensions; the conditional and
+  nested-loop branching they can hide still counts.</li>
+<li><code>PARAM-001</code>: function/method parameter count, excluding <code>self</code> /
+  <code>cls</code>. Warn at 5; error at 8.</li>
+</ul>
+<p>Skips <code>__init__.py</code>, <code>conftest.py</code>, <code>alembic/</code>, <code>migrations/</code>, and
+<code>test_*</code> files.</p>
+<hr />
+<h2 id="forbidden-paths-path-001">Forbidden paths: <code>PATH-001</code><a class="headerlink" href="#forbidden-paths-path-001" title="Permanent link">&para;</a></h2>
+<p>Inert until configured.</p>
+<p>Config:
+<div class="highlight"><pre><span></span><code><span class="k">[tool.lanorme.forbidden_paths]</span>
+<span class="n">dirs</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;legacy_src&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;build_artifacts&quot;</span><span class="p">]</span>
+</code></pre></div></p>
+<hr />
+<h2 id="layer-dependencies-layer-001006">Layer dependencies: <code>LAYER-001..006</code><a class="headerlink" href="#layer-dependencies-layer-001006" title="Permanent link">&para;</a></h2>
+<p>For hexagonal / layered codebases with a <code>domain/</code>, <code>application/</code>,
+<code>infrastructure/</code>, <code>api/</code> layout. Inert in their absence.</p>
+<p>If the layers live under a nested package directory, set the top-level
+<code>[tool.lanorme] source_root</code> (e.g. <code>"src/myproject"</code>) so they are classified
+relative to it. Files outside <code>source_root</code> are layer-exempt;
+<code>composition_root</code> is then read relative to <code>source_root</code> too. Reported paths
+stay relative to the scan target.</p>
+<ul>
+<li><code>LAYER-001</code>: <code>domain/</code> must not import any other layer.</li>
+<li><code>LAYER-002</code>: <code>application/</code> may only import from <code>domain/</code>.</li>
+<li><code>LAYER-003</code>: <code>infrastructure/</code> may only import from <code>domain/</code> and
+  <code>application/</code>.</li>
+<li><code>LAYER-004</code>: <code>api/</code> may only import from <code>domain/</code> and
+  <code>application/</code>.</li>
+<li><code>LAYER-005</code>: only the composition root may import from
+  <code>infrastructure/</code>.</li>
+<li><code>LAYER-006</code>: a <code>transport_layers</code> entry is not among the configured
+  <code>layers</code>, so it has no effect (advisory <strong>warning</strong>, exit 0).</li>
+</ul>
+<p>These rules track Cockburn's hexagonal architecture and Seemann's
+composition-root pattern.</p>
+<p>The composition-root exception applies to any layer listed in
+<code>transport_layers</code> (default <code>["api"]</code>). Apps with several peer transport
+adapters (a REST <code>api/</code>, an <code>mcp_server/</code>, a <code>grpc_server/</code>) can list them all
+so each keeps its own composition root. A transport peer must also appear in
+<code>layers</code> and be given an <code>allowed</code> entry.</p>
+<p>Config (all keys optional; the defaults are shown):</p>
+<div class="highlight"><pre><span></span><code><span class="k">[tool.lanorme.layer_deps]</span>
+<span class="c1"># Files allowed to import infrastructure (the composition root).</span>
+<span class="c1"># fnmatch globs against the source-relative path, so a module FILE</span>
+<span class="c1"># (api/dependencies.py) is recognised, not only a directory.</span>
+<span class="n">composition_root</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;api/dependencies/**&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;api/v1/dependencies/**&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;api/v1/main.py&quot;</span><span class="p">]</span>
+
+<span class="c1"># For layouts whose layers differ. Defaults shown.</span>
+<span class="n">layers</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;domain&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;application&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;infrastructure&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;api&quot;</span><span class="p">]</span>
+
+<span class="c1"># Transport (inbound adapter) layers eligible for the composition-root</span>
+<span class="c1"># exception. A peer must also appear in layers and get an allowed entry.</span>
+<span class="n">transport_layers</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;api&quot;</span><span class="p">]</span>
+<span class="k">[tool.lanorme.layer_deps.allowed]</span>
+<span class="n">application</span><span class="w">    </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;domain&quot;</span><span class="p">]</span>
+<span class="n">infrastructure</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;domain&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;application&quot;</span><span class="p">]</span>
+<span class="n">api</span><span class="w">            </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;domain&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;application&quot;</span><span class="p">]</span>
+</code></pre></div>
+<hr />
+<h2 id="meta-meta-001005">Meta: <code>META-001..005</code><a class="headerlink" href="#meta-meta-001005" title="Permanent link">&para;</a></h2>
+<p>Self-validation that every registered check produces well-formed output.</p>
+<ul>
+<li><code>META-001</code>: non-empty <code>name</code>.</li>
+<li><code>META-002</code>: non-empty <code>description</code>.</li>
+<li><code>META-003</code>: non-empty <code>rules</code> list.</li>
+<li><code>META-004</code>: <code>CheckResult.check</code> matches the check's <code>name</code>.</li>
+<li><code>META-005</code>: violations carry a non-empty <code>file</code>, <code>rule</code>, <code>message</code>,
+  and <code>fix</code>.</li>
+</ul>
+<p>If you ship a plugin, run <code>lanorme check . --check=meta</code> once to confirm
+it conforms.</p>
+<hr />
+<h2 id="keyword-arguments-kwarg-001">Keyword arguments: <code>KWARG-001</code><a class="headerlink" href="#keyword-arguments-kwarg-001" title="Permanent link">&para;</a></h2>
+<p>Opt-in. With <code>enabled = true</code>, every multi-argument function definition
+must contain a bare <code>*</code> separator to force keyword-only call sites.</p>
+<p>Config:
+<div class="highlight"><pre><span></span><code><span class="k">[tool.lanorme.named_args]</span>
+<span class="n">enabled</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span>
+</code></pre></div></p>
+<hr />
+<h2 id="naming-conventions-naming-001004">Naming conventions: <code>NAMING-001..004</code><a class="headerlink" href="#naming-conventions-naming-001004" title="Permanent link">&para;</a></h2>
+<ul>
+<li><code>NAMING-001</code>: opt-in. Repository methods (files under
+  <code>infrastructure/repositories/</code> or <code>infrastructure/persistence/</code>) that use
+  a non-canonical synonym prefix (<code>fetch_</code> / <code>retrieve_</code> / <code>find_</code> /
+  <code>remove_</code> / <code>add_</code>) are flagged and steered to the CRUD equivalent
+  (<code>get_</code> / <code>create_</code> / <code>update_</code> / <code>delete_</code> / <code>list_</code>). Conflicts with the
+  DDD ubiquitous-language convention; off by default.</li>
+<li><code>NAMING-002</code>: opt-in. Service methods (files under <code>application/services/</code>)
+  that use the same synonym prefixes are flagged and steered to the CRUD
+  equivalent. Conflicts with domain-named operations (<code>approve_loan</code>,
+  <code>transfer_funds</code>); off by default.</li>
+<li><code>NAMING-003</code>: default-on warning. Endpoint handler names (in files
+  under <code>api/v1/endpoints/</code>) should match their HTTP verb (<code>get_user</code> on
+  <code>@router.get</code>, <code>delete_user</code> on <code>@router.delete</code>). Health probes and
+  auth-issuance handlers are exempt.</li>
+<li><code>NAMING-004</code>: default-on warning. Functions whose return annotation
+  is <code>bool</code> should use a boolean prefix (<code>is_</code> / <code>has_</code> / <code>can_</code> /
+  <code>should_</code>).</li>
+</ul>
+<p>Config:
+<div class="highlight"><pre><span></span><code><span class="k">[tool.lanorme.naming_consistency]</span>
+<span class="n">repo_crud</span><span class="w">    </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span><span class="w">   </span><span class="c1"># enable NAMING-001</span>
+<span class="n">service_crud</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span><span class="w">   </span><span class="c1"># enable NAMING-002</span>
+</code></pre></div></p>
+<hr />
+<h2 id="pattern-divergence-import-001-endpoint-001">Pattern divergence: <code>IMPORT-001</code> / <code>ENDPOINT-001</code><a class="headerlink" href="#pattern-divergence-import-001-endpoint-001" title="Permanent link">&para;</a></h2>
+<ul>
+<li><code>IMPORT-001</code>: default-on. Imports must live at the top of the module
+  (<code>import</code> / <code>from x import y</code> statements must not be nested inside a
+  function or method body). Equivalent to ruff <code>PLC0415</code> with a different
+  default. Imports inside an <code>if TYPE_CHECKING:</code> guard are exempt, as are
+  files under <code>infrastructure/observability/</code> and <code>api/v1/main.py</code>
+  (conditional startup wiring); <code>test_*</code> files are skipped.</li>
+<li><code>ENDPOINT-001</code>: default-on warning. Functions defined in files under
+  <code>api/v1/endpoints/</code> must not exceed nesting depth 4. Deep endpoints
+  correlate with missed branches in auth and validation paths.</li>
+</ul>
+<hr />
+<h2 id="port-coverage-port-001003">Port coverage: <code>PORT-001..003</code><a class="headerlink" href="#port-coverage-port-001003" title="Permanent link">&para;</a></h2>
+<p>For hexagonal codebases with <code>application/ports/</code>. As with <code>layer_deps</code>, the
+top-level <code>[tool.lanorme] source_root</code> anchors <code>ports_dir</code>, <code>adapter_roots</code>,
+and <code>composition_root</code> under a nested package directory when set.</p>
+<ul>
+<li><code>PORT-001</code>: every adapter file (under the adapter roots) must import
+  from the ports directory.</li>
+<li><code>PORT-002</code>: every <code>Protocol</code> declared in the ports directory must
+  have at least one implementation. Treat as advisory: ports realised
+  only by test doubles or sibling plugins are legitimate.</li>
+<li><code>PORT-003</code>: no direct import or instantiation of an infrastructure
+  adapter from the <code>api/</code> layer outside the composition root.</li>
+</ul>
+<p>Config (all keys optional; the defaults are shown):</p>
+<div class="highlight"><pre><span></span><code><span class="k">[tool.lanorme.port_coverage]</span>
+<span class="n">ports_dir</span><span class="w">        </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;application/ports&quot;</span><span class="w">     </span><span class="c1"># where port Protocols live</span>
+<span class="n">adapter_roots</span><span class="w">    </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;infrastructure/services&quot;</span><span class="p">]</span><span class="w">  </span><span class="c1"># dirs scanned for adapters (recursive)</span>
+<span class="n">composition_root</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;*dependencies/*&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;*v1/main.py&quot;</span><span class="p">]</span><span class="w">  </span><span class="c1"># PORT-003 exemption (globs)</span>
+<span class="n">skip_files</span><span class="w">         </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;__init__.py&quot;</span><span class="p">]</span>
+<span class="n">ports_without_impl</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;repositories.py&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;unit_of_work.py&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;otel.py&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;metrics.py&quot;</span><span class="p">]</span>
+</code></pre></div>
+<p>Adapter roots are scanned recursively, so widening <code>adapter_roots</code> to
+<code>["infrastructure"]</code> picks up adapters in per-integration subdirectories.</p>
+<hr />
+<h2 id="prose-prose-001004-on-markdown">Prose: <code>PROSE-001..004</code> on Markdown<a class="headerlink" href="#prose-prose-001004-on-markdown" title="Permanent link">&para;</a></h2>
+<p>Off until enabled.</p>
+<ul>
+<li><code>PROSE-001</code>: em dashes (<code>-</code>) in prose.</li>
+<li><code>PROSE-002</code>: American spellings; suggests the British form.</li>
+<li><code>PROSE-003</code>: emoji in prose.</li>
+</ul>
+<p>Skips fenced code blocks (<code>```</code>, <code>~~~</code>) and inline <code>`code`</code> spans.</p>
+<h3 id="prose-004-em-dash-density-above-natural-english"><code>PROSE-004</code>: Em-dash density above natural English<a class="headerlink" href="#prose-004-em-dash-density-above-natural-english" title="Permanent link">&para;</a></h3>
+<p>Advisory warning, opt-in (default-off). Where <code>PROSE-001</code> bans every em dash
+outright, <code>PROSE-004</code> instead measures how often em dashes appear and warns once
+per file when the density runs above what natural English sustains. It reuses
+the same code-span and fenced-block stripping as the other prose rules, so it
+measures the remaining prose alone.</p>
+<p>The heuristic has an eligibility floor and two fire thresholds. A file is only
+measured when it clears all three floor values (<code>min_em</code> em dashes, <code>min_words</code>
+words, <code>min_sentences</code> sentences), which keeps the rule silent on anything too
+short to judge. It then fires only when <strong>both</strong> density thresholds are
+exceeded: em dashes per 1000 words above <code>em_per_1000</code> <strong>and</strong> the fraction of
+sentences carrying an em dash above <code>em_sentence_fraction</code>. ANDing the two axes
+stops a single high reading from tripping the warning. Setting <code>em_dash = false</code>
+while <code>em_dash_density = true</code> switches a region from the <code>PROSE-001</code> ban to
+this density advisory.</p>
+<p>Measured on the labelled corpus <code>evals/corpora/prose_em_dash</code> (run
+<code>evals/score_prose004.py</code>): <strong>P = 1.000 / R = 1.000 / F1 = 1.000</strong> (TP = 3,
+FP = 0, FN = 0, TN = 11). The corpus exists to prove the calibrated thresholds
+do not false-positive on natural prose.</p>
+<p>Config:
+<div class="highlight"><pre><span></span><code><span class="k">[tool.lanorme.prose]</span>
+<span class="n">enabled</span><span class="w">         </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span>
+<span class="n">extensions</span><span class="w">      </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;.md&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;.markdown&quot;</span><span class="p">]</span><span class="w">   </span><span class="c1"># default</span>
+<span class="n">em_dash</span><span class="w">         </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span><span class="w">                   </span><span class="c1"># default; PROSE-001 ban</span>
+<span class="n">emoji</span><span class="w">           </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span><span class="w">                   </span><span class="c1"># default</span>
+<span class="n">em_dash_density</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span><span class="w">                   </span><span class="c1"># enable PROSE-004 (default false)</span>
+
+<span class="k">[tool.lanorme.prose.spellings]</span>
+<span class="n">customize</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;customise&quot;</span><span class="w">             </span><span class="c1"># extend or override the built-in US-&gt;UK map</span>
+
+<span class="k">[tool.lanorme.prose.density]</span>
+<span class="n">min_em</span><span class="w">               </span><span class="o">=</span><span class="w"> </span><span class="mi">4</span><span class="w">      </span><span class="c1"># eligibility floor: minimum em dashes</span>
+<span class="n">min_words</span><span class="w">            </span><span class="o">=</span><span class="w"> </span><span class="mi">400</span><span class="w">    </span><span class="c1"># eligibility floor: minimum words</span>
+<span class="n">min_sentences</span><span class="w">        </span><span class="o">=</span><span class="w"> </span><span class="mi">30</span><span class="w">     </span><span class="c1"># eligibility floor: minimum sentences</span>
+<span class="n">em_per_1000</span><span class="w">          </span><span class="o">=</span><span class="w"> </span><span class="mf">30.0</span><span class="w">   </span><span class="c1"># fire threshold: em dashes per 1000 words</span>
+<span class="n">em_sentence_fraction</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">0.50</span><span class="w">   </span><span class="c1"># fire threshold: fraction of sentences with an em dash</span>
+</code></pre></div></p>
+<hr />
+<h2 id="security-calls-shell-001-deserial-001-eval-001-crypto-001-tls-001-debug-001">Security calls: <code>SHELL-001</code> / <code>DESERIAL-001</code> / <code>EVAL-001</code> / <code>CRYPTO-001</code> / <code>TLS-001</code> / <code>DEBUG-001</code><a class="headerlink" href="#security-calls-shell-001-deserial-001-eval-001-crypto-001-tls-001-debug-001" title="Permanent link">&para;</a></h2>
+<p>All default-on. Single AST walk. Precision-first: when the AST shape is
+ambiguous, the rule prefers a false negative over a false positive (no
+false sense of security). Use <code># noqa: &lt;CODE&gt;</code> or <code># lanorme: ignore[&lt;CODE&gt;]</code>
+for legitimate uses (e.g. a pickle load on a trusted local cache) or
+<code>[tool.lanorme.per-file-ignores]</code> for broader patches.</p>
+<ul>
+<li><code>SHELL-001</code>: <code>subprocess.run</code> / <code>call</code> / <code>check_call</code> /
+  <code>check_output</code> / <code>Popen</code> with <code>shell=True</code>; <code>os.system</code>; <code>os.popen</code>.</li>
+<li><code>DESERIAL-001</code>: <code>pickle.load(s)</code>, <code>marshal.load(s)</code>, <code>dill.load(s)</code>,
+  <code>cPickle.load(s)</code>, <code>yaml.load</code> without <code>Loader=SafeLoader</code> /
+  <code>CSafeLoader</code> / <code>BaseLoader</code>, <code>yaml.unsafe_load</code>.</li>
+<li><code>EVAL-001</code>: <code>eval</code> / <code>exec</code> / <code>compile</code> where the first argument is
+  not a string literal. (Literal-arg <code>compile(...)</code> flows are accepted.)</li>
+<li><code>CRYPTO-001</code>: <code>hashlib.md5</code> / <code>hashlib.sha1</code> used for security
+  (<code>usedforsecurity=False</code> is honoured), <code>hashlib.new("md5"/"sha1", ...)</code>,
+  <code>ssl.PROTOCOL_SSLv2</code> / <code>SSLv3</code> / <code>TLSv1</code> / <code>TLSv1_1</code>.</li>
+<li><code>TLS-001</code>: <code>requests</code> / <code>httpx</code> / <code>aiohttp</code> call with <code>verify=False</code>,
+  <code>ssl._create_unverified_context</code>, <code>ssl.CERT_NONE</code> attribute reference.</li>
+<li><code>DEBUG-001</code>: <code>Flask(...)</code> / <code>FastAPI(...)</code> constructor with
+  <code>debug=True</code>, <code>*.run(debug=True)</code> / <code>*.run_server(debug=True)</code>,
+  module-level <code>DEBUG = True</code> in <code>*settings.py</code> / <code>*config.py</code>.</li>
+</ul>
+<p>Each rule has a positive + negative unit test under
+<code>tests/unit/test_security_calls.py</code> locking the AST shape.</p>
+<hr />
+<h2 id="security-patterns-authn-001-sql-001-secretpy-001">Security patterns: <code>AUTHN-001</code> / <code>SQL-001</code> / <code>SECRETPY-001</code><a class="headerlink" href="#security-patterns-authn-001-sql-001-secretpy-001" title="Permanent link">&para;</a></h2>
+<ul>
+<li><code>AUTHN-001</code>: default-on. <code>@router.post</code> / <code>put</code> / <code>patch</code> / <code>delete</code>
+  handlers must have an auth dependency (a parameter annotated with
+  <code>Depends(get_current_user)</code> or <code>Depends(require_*)</code>). FastAPI-shaped;
+  the rule checks for <strong>authentication presence only</strong>, not
+  authorisation. Only endpoint files under <code>api/</code> are scanned. Exempt
+  endpoints: <code>login</code>, <code>logout</code>, <code>refresh</code>, <code>token</code>.</li>
+<li><code>SQL-001</code>: default-on. AST-based: only flags SQL string literals that
+  reach a database execution sink (<code>.execute</code> / <code>.executemany</code> /
+  <code>.executescript</code> on a DB-shaped receiver, or <code>read_sql</code> /
+  <code>read_sql_query</code>). Unwraps <code>text(...)</code> constructors, resolves module-
+  level and function-local string constants, and treats <code>+</code> /
+  <code>%</code>-formatted / <code>.format</code>-built SQL as interpolated (always flagged).
+  Static SQL passed alongside a <code>params=</code> / <code>parameters=</code> kwarg (or a
+  second positional on <code>.execute</code>) with placeholder marks (<code>:name</code>,
+  <code>%s</code>, <code>?</code>) is treated as safely parameterised and not flagged.
+  Excludes <code>alembic/</code> and <code>test_*</code> files. Measured against
+  <code>evals/corpora/security_raw_sql/</code> (120 labels): <strong>P = 1.000 /
+  R = 1.000 / F1 = 1.000</strong>. Known limitations not in the corpus: SQL
+  built across multiple statements with helper functions; lazy-loaded
+  query templates; non-Python query files.</li>
+<li><code>SECRETPY-001</code>: default-on. Lives in the <code>secrets</code> check. AST-based:
+  flags credential-named assignments
+  (variable, dict key, or call kwarg) whose value looks like a real
+  secret, plus shape-only matches (PEM private-key blocks, JWT-shaped
+  tokens, Bearer headers, DB / cache URLs with embedded <code>user:pass@host</code>
+  credentials, and vendor-prefixed credentials: AWS <code>AKIA</code> / <code>ASIA</code>,
+  GitHub <code>ghp_</code> / <code>gho_</code> / <code>github_pat_</code>, Slack <code>xox*</code>, Stripe
+  <code>sk_live_</code> / <code>sk_test_</code>). Names whose first segment is <code>help_</code> /
+  <code>hint_</code> / <code>msg_</code> / etc. are documentation; names whose last segment
+  is structural (<code>pattern</code>, <code>endpoint</code>, <code>header</code>, <code>name</code>, <code>len</code>, ...)
+  are not credentials. Placeholder markers (<code>&lt;your-...&gt;</code>, <code>REPLACE_ME</code>,
+  <code>example</code>, ...) skip a value unless it is high-entropy enough (32+
+  chars, mixed case, digits) to defeat the marker (AWS docs-style
+  example secret keys). Excludes <code>conftest.py</code>, <code>seed_dev.py</code>, and
+  files starting with <code>test_</code>. Measured against
+  <code>evals/corpora/security_hardcoded_secrets/</code> (155 labels):
+  <strong>P = 1.000 / R = 1.000 / F1 = 1.000</strong>. <strong>Scope warning</strong>:
+  Python-source only; <code>.env</code>, <code>*.yaml</code>, <code>*.ipynb</code>, <code>*.tf</code>, <code>Dockerfile</code>,
+  GitHub Actions workflows are out of scope until a separate
+  non-Python rule lands.</li>
+</ul>
+<hr />
+<h2 id="skills-skill-001006">Skills: <code>SKILL-001..006</code><a class="headerlink" href="#skills-skill-001006" title="Permanent link">&para;</a></h2>
+<p>On by default. Validates files named <code>SKILL.md</code> against the <a href="https://agentskills.io/specification">Agent Skills
+specification</a>. It only fires where a
+<code>SKILL.md</code> exists, so it is silent on projects without skills. The frontmatter
+parser is stdlib only and never turns its own uncertainty into a failure: if a
+required value cannot be read cleanly it warns <code>SKILL-006</code> rather than reporting
+the value as missing.</p>
+<p>Build failing:</p>
+<ul>
+<li><code>SKILL-001</code>: <code>name</code> is required; 1 to 64 characters; lowercase <code>a-z</code>, digits
+  and hyphens only; no leading, trailing or consecutive hyphen; and it must match
+  the parent directory name.</li>
+<li><code>SKILL-002</code>: <code>description</code> is required, non-empty, and at most 1024 characters.</li>
+<li><code>SKILL-003</code>: optional fields are well formed: <code>compatibility</code> at most 500
+  characters, <code>metadata</code> a map of string keys to string values, and
+  <code>allowed-tools</code> a single string.</li>
+</ul>
+<p>Advisory warnings:</p>
+<ul>
+<li><code>SKILL-004</code>: the <code>SKILL.md</code> body stays under 500 lines (progressive disclosure).</li>
+<li><code>SKILL-005</code>: relative Markdown links resolve to a file that exists. Links in
+  fenced code blocks, external URLs, and <code>#anchors</code> are ignored.</li>
+<li><code>SKILL-006</code>: the frontmatter is present but could not be parsed with confidence.</li>
+</ul>
+<p>Config:
+<div class="highlight"><pre><span></span><code><span class="k">[tool.lanorme.skills]</span>
+<span class="n">enabled</span><span class="w">     </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span><span class="w">   </span><span class="c1"># default</span>
+<span class="n">check_links</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span><span class="w">   </span><span class="c1"># default; set false to skip SKILL-005</span>
+</code></pre></div></p>
+<hr />
+<h2 id="stale-paths-stale-001">Stale paths: <code>STALE-001</code><a class="headerlink" href="#stale-paths-stale-001" title="Permanent link">&para;</a></h2>
+<p>Inert until configured. Flags references to old path tokens in
+docstrings and comments after a refactor.</p>
+<p>Config:
+<div class="highlight"><pre><span></span><code><span class="k">[tool.lanorme.stale_paths]</span>
+<span class="n">tokens</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;src/&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;old_pkg/&quot;</span><span class="p">]</span>
+</code></pre></div></p>
+<hr />
+<h2 id="stray-artifacts-junk-001002">Stray artifacts: <code>JUNK-001/002</code><a class="headerlink" href="#stray-artifacts-junk-001002" title="Permanent link">&para;</a></h2>
+<p>Default-on. Surface tree clutter, including the privacy-relevant cases
+of screenshots and editor backups that frequently contain secrets or
+PII.</p>
+<ul>
+<li><code>JUNK-001</code>: files matching scratch / temp / OS / build name globs such
+  as <code>screenshot*</code>, <code>scratch*</code>, <code>untitled*</code>, <code>*~</code>, <code>*.bak</code>, <code>*.orig</code>,
+  <code>*.rej</code>, <code>*.swp</code>, <code>*.swo</code>, <code>*.tmp</code>, <code>tmp.*</code>, <code>temp.*</code>, <code>.DS_Store</code>,
+  <code>Thumbs.db</code>, <code>desktop.ini</code>, <code>nohup.out</code>, <code>core.*</code>, <code>*.pyc</code>, <code>*.pyo</code>,
+  <code>.coverage</code>, <code>coverage.xml</code>.</li>
+<li><code>JUNK-002</code>: image / binary extensions outside an asset directory.
+  Default extensions: <code>.png</code>, <code>.jpg</code>, <code>.jpeg</code>, <code>.gif</code>, <code>.bmp</code>, <code>.webp</code>.
+  Default asset directories: <code>assets/</code>, <code>static/</code>, <code>images/</code>, <code>img/</code>,
+  <code>media/</code>, <code>public/</code>, <code>docs/</code>, <code>.github/</code>.</li>
+</ul>
+<p>Config:
+<div class="highlight"><pre><span></span><code><span class="k">[tool.lanorme.stray_artifacts]</span>
+<span class="n">patterns</span><span class="w">   </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;*.heic&quot;</span><span class="p">]</span><span class="w">            </span><span class="c1"># extra name globs flagged as JUNK-001</span>
+<span class="n">extensions</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;.zip&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;.pdf&quot;</span><span class="p">]</span><span class="w">      </span><span class="c1"># extra extensions flagged as JUNK-002</span>
+<span class="n">assets</span><span class="w">     </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;screenshots&quot;</span><span class="p">]</span><span class="w">       </span><span class="c1"># extra dirs where binaries are allowed</span>
+<span class="n">allow</span><span class="w">      </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;docs/diagram.png&quot;</span><span class="p">]</span><span class="w">  </span><span class="c1"># never flag these (globs)</span>
+<span class="n">exclude</span><span class="w">    </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;sandbox&quot;</span><span class="p">]</span><span class="w">           </span><span class="c1"># extra directories to skip entirely</span>
+</code></pre></div></p>
+<hr />
+<h2 id="strong-types-type-001004">Strong types: <code>TYPE-001..004</code><a class="headerlink" href="#strong-types-type-001004" title="Permanent link">&para;</a></h2>
+<p>Default-on. Skips files under <code>tests/</code> and <code>migrations/</code>. <code>TYPE-001..003</code> are
+build-failing; <code>TYPE-004</code> is an advisory warning.</p>
+<ul>
+<li><code>TYPE-001</code>: <code>dict[str, Any]</code> (and other weakly-typed dict containers)
+  in function signatures or return annotations. Pushes toward DTOs,
+  TypedDicts, and value objects.</li>
+<li><code>TYPE-002</code>: bare <code>dict</code> / <code>list</code> / <code>tuple</code> / <code>set</code> without type
+  parameters.</li>
+<li><code>TYPE-003</code>: <code>**kwargs</code> must be annotated with a concrete type or
+  <code>Unpack[TypedDict]</code>; bare <code>**kwargs: Any</code> is rejected.</li>
+<li><code>TYPE-004</code> (advisory warning): a function with at least one annotated
+  parameter that returns a real value in its own scope should also declare a
+  return type. This is the high-signal completeness subset of ruff's <code>ANN</code>,
+  not blanket presence enforcement: it fires only when the parameters are
+  already typed and a value escapes, so a fully untyped function or a procedure
+  that returns nothing is left alone. Generators (own-scope <code>yield</code>) are exempt;
+  returns inside a nested <code>def</code> or <code>lambda</code> do not count.</li>
+</ul>
+<hr />
+<h2 id="test-coverage-testfile-001">Test coverage: <code>TESTFILE-001</code><a class="headerlink" href="#test-coverage-testfile-001" title="Permanent link">&para;</a></h2>
+<p>Default-on warning. For each Python file under one of the hardwired
+production directories, verify that a matching <code>test_*.py</code> partner (by name
+or by import reference) exists under one of the configured test roots
+(<code>tests/integration/</code> by default). Note this is <strong>file presence</strong>, not
+coverage; it cannot tell you whether the test actually exercises the module.</p>
+<p>Findings are reported on the same path base as every other rule (relative to
+<code>src_root</code>), so a <code>[per-file-ignores]</code> glob written against the path another
+rule reports for a file suppresses this one too, and a baseline records it
+the same way.</p>
+<p>Config:
+<div class="highlight"><pre><span></span><code><span class="k">[tool.lanorme.test_coverage]</span>
+<span class="n">test_roots</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;tests/integration&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;tests/unit&quot;</span><span class="p">]</span>
+</code></pre></div></p>
+<p><code>test_roots</code> lists the directories (relative to the backend root, the parent
+of <code>src_root</code>) scanned for partner test files; it defaults to
+<code>["tests/integration"]</code>. The scanned production directories
+(<code>api/v1/endpoints</code>, <code>application/services</code>, <code>application/commands</code>,
+<code>application/queries</code>, <code>infrastructure/repositories</code>,
+<code>infrastructure/signing</code>, <code>infrastructure/secrets</code>) and the exempt modules
+(<code>dependencies</code>, <code>main</code>, <code>logging</code>, <code>session</code>) are hardwired.</p>
+<hr />
+<h2 id="test-style-aaa-001-aaa-002">Test style: <code>AAA-001</code> / <code>AAA-002</code><a class="headerlink" href="#test-style-aaa-001-aaa-002" title="Permanent link">&para;</a></h2>
+<p>Off until enabled.</p>
+<ul>
+<li><code>AAA-001</code>: test functions with more than <code>min_statements</code> (default 3)
+  body statements must carry at least <code>required_markers</code> (default 2) of
+  the AAA section comment markers (<code># Arrange</code>, <code># Act</code>, <code># Assert</code>) or
+  their BDD synonyms (<code># Given</code>, <code># When</code>, <code># Then</code>). Setup, exercise,
+  call, expect, verify are recognised as additional aliases.</li>
+<li><code>AAA-002</code>: two or more test functions in the same file may not share
+  the same <code>dry_prefix_statements</code> (default 3) opening statements (the
+  arrange block). Extract the shared setup into a pytest fixture or a
+  helper.</li>
+</ul>
+<p>Config:
+<div class="highlight"><pre><span></span><code><span class="k">[tool.lanorme.test_style]</span>
+<span class="n">enabled</span><span class="w">               </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span>
+<span class="n">min_statements</span><span class="w">        </span><span class="o">=</span><span class="w"> </span><span class="mi">3</span>
+<span class="n">required_markers</span><span class="w">      </span><span class="o">=</span><span class="w"> </span><span class="mi">2</span><span class="w">     </span><span class="c1"># 1..3</span>
+<span class="n">dry_prefix_statements</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">3</span>
+<span class="n">synonyms</span><span class="w">              </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;setup&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;given&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;when&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;then&quot;</span><span class="p">]</span>
+</code></pre></div></p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.indexes", "navigation.top", "navigation.tracking", "toc.follow", "search.suggest", "search.highlight", "content.code.copy", "content.action.view"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+        <script src="../javascripts/md-actions.js"></script>
+      
+    
+  </body>
+</html>
