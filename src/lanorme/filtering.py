@@ -155,22 +155,39 @@ def _apply_per_file_ignores(
 
 
 # --------------------------------------------------------------------------- #
-# ``# noqa`` suppression
+# Inline suppression: ``# noqa`` and ``# lanorme: ignore[...]``
 # --------------------------------------------------------------------------- #
 
 _NOQA_RE = re.compile(r"#\s*noqa(?:\s*:\s*([A-Za-z0-9_,\-\s]+))?", re.IGNORECASE)
+# A LaNorme-native directive ruff and other linters never read, so a project
+# running both can silence a finding without ruff reporting an invalid `# noqa`
+# (ruff's parser cannot tokenise the hyphen in our codes, e.g. ``TYPE-001``).
+_IGNORE_RE = re.compile(
+    r"#\s*lanorme\s*:\s*ignore(?:\s*\[([A-Za-z0-9_,\-\s]+)\])?", re.IGNORECASE
+)
 
 
-def _noqa_silences(*, line: str, rule: str) -> bool:
-    """True if *line* carries a ``# noqa`` comment that covers *rule*."""
-    match = _NOQA_RE.search(line)
+def _directive_silences(*, pattern: re.Pattern[str], line: str, rule: str) -> bool:
+    """True if a *pattern* directive on *line* covers *rule*.
+
+    A directive with no code list (bare ``# noqa`` or ``# lanorme: ignore``)
+    silences every rule on the line; a coded one silences only matching codes
+    (exact code, category, or ``ALL``).
+    """
+    match = pattern.search(line)
     if match is None:
         return False
     if match.group(1) is None:
-        return True  # bare `# noqa` silences any rule on this line
+        return True
     codes = [c.strip() for c in match.group(1).split(",") if c.strip()]
-    code = _rule_code(rule)
-    return _matches(code=code, patterns=codes)
+    return _matches(code=_rule_code(rule), patterns=codes)
+
+
+def _line_silences(*, line: str, rule: str) -> bool:
+    """True if a ``# noqa`` or ``# lanorme: ignore`` on *line* covers *rule*."""
+    return _directive_silences(pattern=_NOQA_RE, line=line, rule=rule) or _directive_silences(
+        pattern=_IGNORE_RE, line=line, rule=rule
+    )
 
 
 def _line_at(*, project_root: Path, file: str, line: int, cache: dict[str, list[str]]) -> str:
@@ -189,15 +206,15 @@ def _line_at(*, project_root: Path, file: str, line: int, cache: dict[str, list[
     return lines[line - 1]
 
 
-def _apply_noqa(*, results: list[CheckResult], project_root: Path) -> list[CheckResult]:
-    """Drop violations/warnings whose source line carries a covering ``# noqa`` comment."""
+def _apply_inline_ignores(*, results: list[CheckResult], project_root: Path) -> list[CheckResult]:
+    """Drop findings whose source line carries a covering ``# noqa`` / ``# lanorme: ignore``."""
     cache: dict[str, list[str]] = {}
 
     def should_keep(violation: Violation) -> bool:
         line = _line_at(
             project_root=project_root, file=violation.file, line=violation.line, cache=cache
         )
-        return not _noqa_silences(line=line, rule=violation.rule)
+        return not _line_silences(line=line, rule=violation.rule)
 
     filtered: list[CheckResult] = []
     for result in results:

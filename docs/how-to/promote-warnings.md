@@ -6,7 +6,7 @@ A warning is only ever promoted if it survives every suppression mechanism first
 
 ```mermaid
 flowchart TD
-    W[Advisory warning] --> S{Suppressed by ignore,<br/>per-file-ignores, or noqa?}
+    W[Advisory warning] --> S{Suppressed by ignore, per-file-ignores,<br/>noqa, or lanorme: ignore?}
     S -- yes --> G[Gone before promotion: stays clear]
     S -- no --> N{A -000 skip or<br/>parse-error notice?}
     N -- yes --> K[Never promoted: stays a warning]
@@ -101,8 +101,8 @@ for the full table of keys and their command-line equivalents.
 
 Promotion is the last step. It runs after every suppression mechanism, so a
 warning that is already silenced is gone before promotion can see it. A code
-listed in `ignore`, matched by `per-file-ignores`, or carrying a `# noqa`
-comment is never promoted, even under `promote = ["ALL"]`.
+listed in `ignore`, matched by `per-file-ignores`, or carrying a `# noqa` or
+`# lanorme: ignore` comment is never promoted, even under `promote = ["ALL"]`.
 
 A `# noqa` on the line suppresses the warning, so `--promote ALL` has nothing
 to escalate and the run passes:

@@ -9,6 +9,17 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
 
 ## [Unreleased]
 
+## [0.14.2]
+
+### Added
+
+- A `# lanorme: ignore[CODE, CODE]` inline directive silences findings on a
+  line, the same way `# noqa` does (bare, or with an exact code, a category, or
+  `ALL`). It exists for projects that also run ruff: ruff cannot parse the
+  hyphen in a code like `TYPE-001`, so a shared `# noqa: TYPE-001` makes ruff
+  report an invalid directive, whereas `# lanorme: ignore[TYPE-001]` carries no
+  `noqa` token for ruff to read. `# noqa` keeps working unchanged.
+
 ## [0.14.1]
 
 ### Fixed

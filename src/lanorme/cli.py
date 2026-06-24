@@ -42,7 +42,7 @@ from lanorme.discovery import set_excludes
 from lanorme.filtering import (
     _apply_excludes,
     _apply_filters,
-    _apply_noqa,
+    _apply_inline_ignores,
     _apply_per_file_ignores,
     _apply_promotions,
     _apply_target_filter,
@@ -393,7 +393,7 @@ def _collect_results(
     pristine: dict[str, object],
     filters: _Filters,
 ) -> list[CheckResult] | None:
-    """Run the checks and apply every filter up to (and including) ``# noqa``.
+    """Run the checks and apply every filter up to (and including) inline ignores.
 
     This is the shared spine of ``check``, ``baseline write`` and ``baseline
     status``: all three must see byte-identical findings through an identical
@@ -428,12 +428,12 @@ def _collect_results(
     effective_select = implicit_select or filters.select
     results = _apply_target_filter(results=results, scan_root=scan_root, targets=targets)
     # The target filter works in scan-root-relative paths; everything after it
-    # (config globs, noqa source lookup, display) works in project-root-relative.
+    # (config globs, inline-ignore source lookup, display) works in project-root-relative.
     results = reanchor_results(results=results, from_root=scan_root, to_root=project_root)
     results = _apply_filters(results=results, select=effective_select, ignore=filters.ignore)
     results = _apply_excludes(results=results, exclude=filters.exclude)
     results = _apply_per_file_ignores(results=results, table=per_file_ignores)
-    return _apply_noqa(results=results, project_root=project_root)
+    return _apply_inline_ignores(results=results, project_root=project_root)
 
 
 def _baseline_path(*, config: dict[str, object], project_root: Path) -> Path | None:

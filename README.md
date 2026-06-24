@@ -70,8 +70,10 @@ $ lanorme check src/
 Summary: 24 checks — 23 passed, 0 warnings, 1 failed.
 ```
 
-The full command and flag reference, output formats, and `# noqa` suppression are
-in the [CLI reference](https://lanorme.github.io/lanorme/latest/reference/cli/).
+The full command and flag reference and output formats are in the
+[CLI reference](https://lanorme.github.io/lanorme/latest/reference/cli/).
+Inline suppression, `# noqa` and the ruff-safe `# lanorme: ignore[CODE]`, is in
+[Configure which checks run](https://lanorme.github.io/lanorme/latest/how-to/configure-checks/#silence-one-line).
 
 ## What it checks
 
