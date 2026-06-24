@@ -1823,7 +1823,8 @@ defeats the match. For the fuzzier "these should share a helper" cases, see
 <code>SIMILAR-001</code> below.</p>
 <p>Config: none. False positives on intentionally parallel
 adapters across bounded contexts are a known limit; suppress them with
-<code>[tool.lanorme.per-file-ignores]</code> or <code># noqa: DRY-001</code>.</p>
+<code>[tool.lanorme.per-file-ignores]</code>, <code># noqa: DRY-001</code>, or
+<code># lanorme: ignore[DRY-001]</code>.</p>
 <hr />
 <h2 id="near-duplicate-similar-001">Near-duplicate: <code>SIMILAR-001</code><a class="headerlink" href="#near-duplicate-similar-001" title="Permanent link">&para;</a></h2>
 <p>Opt-in (default-off), advisory <strong>warning</strong> (never fails the build). The fuzzy
@@ -2069,9 +2070,9 @@ do not false-positive on natural prose.</p>
 <h2 id="security-calls-shell-001-deserial-001-eval-001-crypto-001-tls-001-debug-001">Security calls: <code>SHELL-001</code> / <code>DESERIAL-001</code> / <code>EVAL-001</code> / <code>CRYPTO-001</code> / <code>TLS-001</code> / <code>DEBUG-001</code><a class="headerlink" href="#security-calls-shell-001-deserial-001-eval-001-crypto-001-tls-001-debug-001" title="Permanent link">&para;</a></h2>
 <p>All default-on. Single AST walk. Precision-first: when the AST shape is
 ambiguous, the rule prefers a false negative over a false positive (no
-false sense of security). Use <code># noqa: &lt;CODE&gt;</code> for legitimate uses (e.g.
-a pickle load on a trusted local cache) or <code>[tool.lanorme.per-file-ignores]</code>
-for broader patches.</p>
+false sense of security). Use <code># noqa: &lt;CODE&gt;</code> or <code># lanorme: ignore[&lt;CODE&gt;]</code>
+for legitimate uses (e.g. a pickle load on a trusted local cache) or
+<code>[tool.lanorme.per-file-ignores]</code> for broader patches.</p>
 <ul>
 <li><code>SHELL-001</code>: <code>subprocess.run</code> / <code>call</code> / <code>check_call</code> /
   <code>check_output</code> / <code>Popen</code> with <code>shell=True</code>; <code>os.system</code>; <code>os.popen</code>.</li>

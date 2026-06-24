@@ -1177,7 +1177,7 @@ order:</p>
     A[select] --&gt; B[ignore]
     B --&gt; C[exclude]
     C --&gt; D[per-file-ignores]
-    D --&gt; E[noqa]
+    D --&gt; E[inline ignore]
     E --&gt; F[reported]</code></pre>
 <p>Config is read from <code>[tool.lanorme]</code> in <code>pyproject.toml</code>, or from a
 <code>lanorme.toml</code> / <code>.lanorme.toml</code> file. Command-line flags override config for
@@ -1287,12 +1287,23 @@ header is bare — the prefixed form is silently ignored there:</p>
 <code>lanorme check --show-config</code>.</p>
 <h2 id="silence-one-line">Silence one line<a class="headerlink" href="#silence-one-line" title="Permanent link">&para;</a></h2>
 <p>Goal: accept a single finding in place, at the source line.</p>
-<p>This is a source pragma; there is no command-line equivalent.</p>
+<p>This is a source pragma; there is no command-line equivalent. Two directives
+are read, both on the finding's own line:</p>
 <ul>
 <li><code># noqa</code> suppresses every finding on that line.</li>
 <li><code># noqa: CODE</code> suppresses only that rule code on that line; other findings
   on the line still report, and a different code does not suppress.</li>
+<li><code># lanorme: ignore</code> and <code># lanorme: ignore[CODE, CODE]</code> behave the same way,
+  bare or with a bracketed code list.</li>
 </ul>
+<p><code># noqa</code> is shared with ruff and other linters, so a bare <code># noqa</code> you add for
+ruff also silences LaNorme on that line. Reach for <code># lanorme: ignore[...]</code>
+when you run both tools and want to silence a LaNorme finding alone: ruff
+cannot parse the hyphen in a code like <code>TYPE-001</code>, so a shared <code># noqa:
+TYPE-001</code> makes ruff report an invalid directive, while <code># lanorme: ignore</code>
+carries no <code>noqa</code> token for ruff to read.</p>
+<p>A code in either directive may be an exact code (<code>EVAL-001</code>), a category
+(<code>SEC</code>), or <code>ALL</code>, matching the other config targets.</p>
 <p>Given this file checked with <code>--select EVAL-001</code>:</p>
 <div class="highlight"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">f</span><span class="p">():</span>
     <span class="n">x</span> <span class="o">=</span> <span class="nb">eval</span><span class="p">(</span><span class="nb">input</span><span class="p">())</span>                 <span class="c1"># line 2: reported</span>

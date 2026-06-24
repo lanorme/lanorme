@@ -14,7 +14,7 @@ flowchart LR
     A[select] --> B[ignore]
     B --> C[exclude]
     C --> D[per-file-ignores]
-    D --> E[noqa]
+    D --> E[inline ignore]
     E --> F[reported]
 ```
 
@@ -165,11 +165,24 @@ Confirm the discovered config and effective per-check settings with
 
 Goal: accept a single finding in place, at the source line.
 
-This is a source pragma; there is no command-line equivalent.
+This is a source pragma; there is no command-line equivalent. Two directives
+are read, both on the finding's own line:
 
 - `# noqa` suppresses every finding on that line.
 - `# noqa: CODE` suppresses only that rule code on that line; other findings
   on the line still report, and a different code does not suppress.
+- `# lanorme: ignore` and `# lanorme: ignore[CODE, CODE]` behave the same way,
+  bare or with a bracketed code list.
+
+`# noqa` is shared with ruff and other linters, so a bare `# noqa` you add for
+ruff also silences LaNorme on that line. Reach for `# lanorme: ignore[...]`
+when you run both tools and want to silence a LaNorme finding alone: ruff
+cannot parse the hyphen in a code like `TYPE-001`, so a shared `# noqa:
+TYPE-001` makes ruff report an invalid directive, while `# lanorme: ignore`
+carries no `noqa` token for ruff to read.
+
+A code in either directive may be an exact code (`EVAL-001`), a category
+(`SEC`), or `ALL`, matching the other config targets.
 
 Given this file checked with `--select EVAL-001`:
 

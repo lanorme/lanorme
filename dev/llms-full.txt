@@ -425,7 +425,8 @@ defeats the match. For the fuzzier "these should share a helper" cases, see
 
 Config: none. False positives on intentionally parallel
 adapters across bounded contexts are a known limit; suppress them with
-`[tool.lanorme.per-file-ignores]` or `# noqa: DRY-001`.
+`[tool.lanorme.per-file-ignores]`, `# noqa: DRY-001`, or
+`# lanorme: ignore[DRY-001]`.
 
 ---
 
@@ -723,9 +724,9 @@ em_sentence_fraction = 0.50   # fire threshold: fraction of sentences with an em
 
 All default-on. Single AST walk. Precision-first: when the AST shape is
 ambiguous, the rule prefers a false negative over a false positive (no
-false sense of security). Use `# noqa: <CODE>` for legitimate uses (e.g.
-a pickle load on a trusted local cache) or `[tool.lanorme.per-file-ignores]`
-for broader patches.
+false sense of security). Use `# noqa: <CODE>` or `# lanorme: ignore[<CODE>]`
+for legitimate uses (e.g. a pickle load on a trusted local cache) or
+`[tool.lanorme.per-file-ignores]` for broader patches.
 
 - `SHELL-001`: `subprocess.run` / `call` / `check_call` /
   `check_output` / `Popen` with `shell=True`; `os.system`; `os.popen`.

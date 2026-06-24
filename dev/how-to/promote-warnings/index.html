@@ -1125,7 +1125,7 @@
 <p>This how-to shows how to turn an advisory warning into a build-failing error with <code>promote</code>, and explains how promotion interacts with suppression, skip notices, and the <code>strict</code> profile.</p>
 <p>A warning is only ever promoted if it survives every suppression mechanism first, and skip notices are never promoted at all. The decision a single warning runs through is:</p>
 <pre class="mermaid"><code>flowchart TD
-    W[Advisory warning] --&gt; S{Suppressed by ignore,&lt;br/&gt;per-file-ignores, or noqa?}
+    W[Advisory warning] --&gt; S{Suppressed by ignore, per-file-ignores,&lt;br/&gt;noqa, or lanorme: ignore?}
     S -- yes --&gt; G[Gone before promotion: stays clear]
     S -- no --&gt; N{A -000 skip or&lt;br/&gt;parse-error notice?}
     N -- yes --&gt; K[Never promoted: stays a warning]
@@ -1193,8 +1193,8 @@ for the full table of keys and their command-line equivalents.</p>
 <h2 id="promotion-runs-after-suppression">Promotion runs after suppression<a class="headerlink" href="#promotion-runs-after-suppression" title="Permanent link">&para;</a></h2>
 <p>Promotion is the last step. It runs after every suppression mechanism, so a
 warning that is already silenced is gone before promotion can see it. A code
-listed in <code>ignore</code>, matched by <code>per-file-ignores</code>, or carrying a <code># noqa</code>
-comment is never promoted, even under <code>promote = ["ALL"]</code>.</p>
+listed in <code>ignore</code>, matched by <code>per-file-ignores</code>, or carrying a <code># noqa</code> or
+<code># lanorme: ignore</code> comment is never promoted, even under <code>promote = ["ALL"]</code>.</p>
 <p>A <code># noqa</code> on the line suppresses the warning, so <code>--promote ALL</code> has nothing
 to escalate and the run passes:</p>
 <div class="highlight"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">total_price</span><span class="p">(</span><span class="n">quantity</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">unit_price</span><span class="p">:</span> <span class="nb">float</span><span class="p">):</span>  <span class="c1"># noqa: TYPE-004</span>
