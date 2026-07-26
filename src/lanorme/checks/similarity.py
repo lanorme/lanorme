@@ -482,7 +482,7 @@ class SimilarityCheck:
         for path in iter_py_files(root):
             if _should_skip(path=path):
                 continue
-            relative_file = str(path.relative_to(root))
+            relative_file = path.relative_to(root).as_posix()
             # Per-file isolation: a single pathological file (parse error, or a
             # deeply nested body that overflows the recursive walk) must never
             # abort the whole advisory run.

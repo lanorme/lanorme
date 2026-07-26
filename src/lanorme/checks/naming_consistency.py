@@ -348,7 +348,7 @@ class NamingConsistencyCheck:
         src_path = Path(src_root)
 
         for py_file in iter_py_files(src_path):
-            relative_file = str(py_file.relative_to(src_path))
+            relative_file = py_file.relative_to(src_path).as_posix()
 
             try:
                 source = py_file.read_text(encoding="utf-8")

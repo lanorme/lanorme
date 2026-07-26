@@ -350,7 +350,7 @@ class ProseCheck:
             text = path.read_text(encoding="utf-8")
         except (OSError, UnicodeDecodeError):
             return [], []
-        relative_file = str(path.relative_to(root))
+        relative_file = path.relative_to(root).as_posix()
         violations = self._scan_text(
             text=text,
             relative_file=relative_file,

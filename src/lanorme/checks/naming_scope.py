@@ -187,7 +187,7 @@ class NamingScopeCheck:
                 tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
             except (OSError, UnicodeDecodeError, SyntaxError):
                 continue
-            relative = str(path.relative_to(root))
+            relative = path.relative_to(root).as_posix()
             for node in ast.walk(tree):
                 if isinstance(node, _FUNCTION_TYPES):
                     violations.extend(_function_violations(func=node, file=relative, settings=resolved))

@@ -450,7 +450,7 @@ class SkillsCheck:
                 continue
             if any(part in _SKIP_PARTS for part in path.parts):
                 continue
-            relative = str(path.relative_to(root))
+            relative = path.relative_to(root).as_posix()
             file_violations, file_warnings = self._scan_file(path=path, file=relative)
             violations.extend(file_violations)
             warnings.extend(file_warnings)

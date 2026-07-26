@@ -76,6 +76,18 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
   only widens the cap, so nothing that passed before fails now; set
   `block_lines_per_branch = 0` for the previous flat behaviour.
 
+### Fixed
+
+- Findings now report a `/`-separated path on Windows. Twenty-three checks built
+  their relative path with `str(Path.relative_to(...))`, which yields
+  `src\lanorme\cli.py` there, while `discovery.py` and every documented example
+  use `/`. Suppression, exclude and vendor matching were unaffected, because
+  each of those consumers normalised defensively before comparing, but anything
+  reading a reported path directly saw the platform form, and the eval scorers
+  for `CMT-007` and `NAMING-005` failed outright against their labelled corpora.
+  Every site now builds the path with `as_posix()`, so a reported path reads the
+  same on every platform. Output on macOS and Linux is unchanged.
+
 ## [0.14.2]
 
 ### Added

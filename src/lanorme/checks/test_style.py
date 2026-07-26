@@ -268,7 +268,7 @@ class TestStyleCheck:
                 tree = ast.parse(source, filename=str(path))
             except (OSError, UnicodeDecodeError, SyntaxError):
                 continue
-            relative_file = str(path.relative_to(root))
+            relative_file = path.relative_to(root).as_posix()
             source_lines = source.splitlines()
             violations.extend(
                 self._aaa_violations(

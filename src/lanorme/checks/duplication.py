@@ -203,7 +203,7 @@ class DuplicationCheck:
             if _should_exclude(file_path=py_file):
                 continue
 
-            relative_file = str(py_file.relative_to(src_path))
+            relative_file = py_file.relative_to(src_path).as_posix()
 
             try:
                 source = py_file.read_text(encoding="utf-8")

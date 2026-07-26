@@ -79,7 +79,7 @@ def _find_production_modules(*, src_root: str) -> list[tuple[str, str, str]]:
             if name in _EXEMPT_MODULES:
                 continue
 
-            rel_path = str(py_file.relative_to(src_path))
+            rel_path = py_file.relative_to(src_path).as_posix()
             modules.append((rel_path, name, import_prefix))
 
     return modules

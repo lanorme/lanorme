@@ -69,7 +69,7 @@ class ForbiddenPathsCheck:
             for hit in root.rglob(forbidden):
                 if not hit.is_dir():
                     continue
-                relative = str(hit.relative_to(root))
+                relative = hit.relative_to(root).as_posix()
                 if _is_vendor_path(relative_path=relative):
                     continue
                 violations.append(

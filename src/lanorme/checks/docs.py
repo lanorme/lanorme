@@ -443,7 +443,7 @@ class DocsCheck:
                 continue
             pages.append(path)
             rel_posix = path.relative_to(docs_dir).as_posix()
-            file = str(path.relative_to(root))
+            file = path.relative_to(root).as_posix()
             try:
                 lines = path.read_text(encoding="utf-8").splitlines()
             except (OSError, UnicodeDecodeError):

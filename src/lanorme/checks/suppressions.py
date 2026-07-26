@@ -171,7 +171,7 @@ class SuppressionsCheck:
         for path in iter_py_files(root):
             if any(part in _SKIP_DIRS for part in path.parts):
                 continue
-            directives.extend(_directives_in(path=path, relative=str(path.relative_to(root))))
+            directives.extend(_directives_in(path=path, relative=path.relative_to(root).as_posix()))
         directives.sort(key=lambda d: (d.file, d.line))
 
         violations = _budget_violation(directives=directives, max_total=self.max_total)

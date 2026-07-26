@@ -439,7 +439,7 @@ class CommentsCheck:
                     tree=tree,
                     comments=_collect_comments(source=source, source_lines=source_lines),
                     source_lines=source_lines,
-                    relative_file=str(py_file.relative_to(root)),
+                    relative_file=py_file.relative_to(root).as_posix(),
                 )
             )
 

@@ -243,7 +243,7 @@ class DocstringsCheck:
                 continue
             violations.extend(_definition_violations(
                 tree=tree,
-                file=str(path.relative_to(root)),
+                file=path.relative_to(root).as_posix(),
                 min_lines=self.min_lines,
                 require_private=self.require_private,
             ))

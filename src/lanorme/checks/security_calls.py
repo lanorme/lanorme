@@ -388,7 +388,7 @@ class SecurityCallsCheck:
                 tree = ast.parse(source, filename=str(path))
             except (OSError, UnicodeDecodeError, SyntaxError):
                 continue
-            relative_file = str(path.relative_to(root))
+            relative_file = path.relative_to(root).as_posix()
             violations.extend(self._scan_tree(tree=tree, relative_file=relative_file))
         status = Status.FAIL if violations else Status.PASS
         return CheckResult(check=self.name, status=status, violations=violations)

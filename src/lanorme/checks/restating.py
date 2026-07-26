@@ -325,7 +325,7 @@ class RestatingCheck:
                 tree = ast.parse(source, filename=str(path))
             except (OSError, UnicodeDecodeError, SyntaxError):
                 continue
-            relative = str(path.relative_to(root))
+            relative = path.relative_to(root).as_posix()
             source_lines = source.splitlines()
             comments = _collect_comments(source=source, source_lines=source_lines)
             violations.extend(_restating_violations(tree=tree, comments=comments, file=relative))

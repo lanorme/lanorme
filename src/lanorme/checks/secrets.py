@@ -271,7 +271,7 @@ class SecretsCheck:
                 tree = ast.parse(source, filename=str(path))
             except (OSError, UnicodeDecodeError, SyntaxError):
                 continue
-            relative = str(path.relative_to(root))
+            relative = path.relative_to(root).as_posix()
             violations.extend(_scan_tree(tree=tree, file=relative))
         status = Status.FAIL if violations else Status.PASS
         return CheckResult(check=self.name, status=status, violations=violations)

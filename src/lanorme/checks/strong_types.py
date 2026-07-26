@@ -357,7 +357,7 @@ class StrongTypesCheck:
         src_path = Path(src_root)
 
         for py_file in iter_py_files(src_path):
-            relative_file = str(py_file.relative_to(src_path))
+            relative_file = py_file.relative_to(src_path).as_posix()
             if _is_exempt_path(relative_path=relative_file):
                 continue
 
