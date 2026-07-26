@@ -28,6 +28,22 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
   way to satisfy the family was to write nothing. `CMT-007` is what stops
   `CMT-006` being answered with `"""Go."""`.
 
+- `NAMING-005` in a new opt-in `naming_scope` check. A short name is flagged
+  when the distance from its binding to its last use exceeds `max_span`
+  (default 20 lines), so `i` in a three-line loop passes and the same `i` held
+  across sixty lines does not. Only names the function itself binds count, so
+  an imported alias such as `np` is not the function's to answer for.
+  Conventional idioms (`i`, `lo`, `hi`, `lr`, ...) are exempt at any distance
+  and the list is extensible through `allow`. Default off:
+
+      [tool.lanorme.naming_scope]
+      enabled = true
+
+  The 20-line default is calibrated, not guessed: short-name spans reach p95 =
+  10 and max 18 in LaNorme's own source but p90 = 21 and max 53 in generated
+  code, and twenty lines is roughly the screenful past which a binding and its
+  use stop being visible together.
+
 ## [0.14.2]
 
 ### Added

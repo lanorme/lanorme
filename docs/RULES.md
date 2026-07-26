@@ -464,6 +464,59 @@ service_crud = true   # enable NAMING-002
 
 ---
 
+## Naming scope: `NAMING-005`
+
+Default-off. **Opinionated.** Lives in its own `naming_scope` check.
+
+`NAMING-005` does not ban short names. `i` in a three-line loop is
+perfectly readable; the same `i` bound at the top of a sixty-line function
+and used at the bottom is not, because the binding has scrolled out of
+sight and the name itself has to carry the meaning. The defect is
+shortness *held over distance*, so the requirement scales with the span.
+
+Span is measured from where a name is first bound to where it is last
+referenced, within one function. Only names the function itself binds are
+considered (parameters and assignment targets): a referenced-but-unbound
+short name such as `np` or `re` is an imported module, where the name is
+the library's choice and not the function's.
+
+Choosing the default (`max_span = 20`), measured over LaNorme's own
+`src/` and the 3321 lines of generated code under `evals/`:
+
+| corpus | p90 span | p95 | max | findings at 20 |
+| --- | --- | --- | --- | --- |
+| `src/` | 7 | 10 | 18 | 0 |
+| generated code | 21 | 24 | 53 | 9 |
+
+The default sits in that gap, and has a reason beyond the gap: twenty
+lines is roughly a screenful, the point at which a binding and its use
+stop being visible together. At that default LaNorme's own source and test
+suite are clean, and the generated corpus yields `rc` held over 53 lines,
+`s` over 52 and `p` over 50.
+
+Short names that stay readable at any distance are exempt by default:
+`_`, `i`, `j`, `k`, `n`, `x`, `y`, `z`, `db`, `id`, `fd`, `fh`, `ok`,
+`lo`, `hi`, `lr`, `ax`, `df`, `ts`. Extend the list rather than raising the
+span, so the exemption stays visible in config. Numeric and ML code is the
+usual reason to: fitted parameters such as `a` / `b` / `c` read fine to
+their audience and are the rule's most likely false positive.
+
+Config:
+```toml
+[tool.lanorme.naming_scope]
+enabled          = true
+max_span         = 20        # lines between binding and last use
+max_short_length = 2         # names this long or shorter are "short"
+allow            = ["mu"]    # extends the default allowlist
+```
+
+Measured against `evals/corpora/naming_scope/` with
+`evals/score_naming005.py`: **P = 1.000 / R = 1.000 / F1 = 1.000**
+(TP = 2, FP = 0, FN = 0, TN = 4). That corpus is a regression guard, not
+an unbiased estimate; the calibration evidence is the table above.
+
+---
+
 ## Pattern divergence: `IMPORT-001` / `ENDPOINT-001`
 
 - `IMPORT-001`: default-on. Imports must live at the top of the module

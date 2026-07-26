@@ -180,6 +180,15 @@
         }
       }
     },
+    "naming_scope": {
+      "type": "object",
+      "description": "Settings for the naming_scope check (see docs/RULES.md).",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      }
+    },
     "pattern_divergence": {
       "type": "object",
       "description": "Settings for the pattern_divergence check (see docs/RULES.md).",

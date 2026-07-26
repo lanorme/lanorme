@@ -50,6 +50,7 @@ notes for each rule are in the [rule reference](../RULES.md).
 | `NAMING-002` | naming_consistency | no |
 | `NAMING-003` | naming_consistency | no |
 | `NAMING-004` | naming_consistency | no |
+| `NAMING-005` | naming_scope | yes |
 | `PARAM-001` | file_limits | no |
 | `PATH-001` | forbidden_paths | no |
 | `PORT-001` | port_coverage | no |

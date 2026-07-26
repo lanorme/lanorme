@@ -1,0 +1,9 @@
+{
+  "_comment": "Ground truth for NAMING-005. Keys are file:line of the binding; true means the short name is carried past the span limit and should be flagged. The negatives cover the three ways a short name stays legitimate: a small span, a conventional counter, and an allowlisted idiom (lo/hi), so a threshold or allowlist regression surfaces as a false positive.",
+  "positives/pos_long_span.py:6": true,
+  "positives/pos_long_span.py:33": true,
+  "negatives/neg_short_span.py:6": false,
+  "negatives/neg_short_span.py:14": false,
+  "negatives/neg_short_span.py:40": false,
+  "negatives/neg_short_span.py:41": false
+}
