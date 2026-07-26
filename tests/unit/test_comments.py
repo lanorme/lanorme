@@ -175,3 +175,84 @@ def test_cmt002_flags_overlong_line(check: CommentsCheck, tmp_path: Path):
     line_hits = [v for v in result.violations if v.rule == "CMT-002" and "chars" in v.message]
     assert len(line_hits) == 1
     assert "130 chars" in line_hits[0].message
+
+
+# --------------------------------------------------------------------------- #
+# CMT-002: the block allowance scales with the complexity it explains
+# --------------------------------------------------------------------------- #
+
+
+def _branchy(*, arms: int) -> str:
+    """A function body with *arms* decision points, to drive up complexity."""
+    return "".join(f"    if value == {i} and value > 0:\n        return {i}\n" for i in range(arms))
+
+
+def test_cmt002_long_block_allowed_in_front_of_complex_code(check: CommentsCheck, tmp_path: Path):
+    # Arrange: ten lines of explanation introducing a function COMPLEXITY-001 would warn about.
+    block = "".join(f"# explanation line {i}\n" for i in range(10))
+    body = f"{block}def hard(value):\n{_branchy(arms=12)}    return 0\n"
+    _write(root=tmp_path, name="hard.py", body=body)
+
+    # Act.
+    result = check.run(src_root=str(tmp_path))
+
+    # Assert: hard code earns the room to say why it is hard.
+    assert not any(v.rule == "CMT-002" for v in result.violations)
+
+
+def test_cmt002_same_block_still_flagged_in_front_of_trivial_code(check: CommentsCheck, tmp_path: Path):
+    # Arrange: the identical block, this time introducing a one-line function.
+    block = "".join(f"# explanation line {i}\n" for i in range(10))
+    body = f"{block}def easy(value):\n    return value\n"
+    _write(root=tmp_path, name="easy.py", body=body)
+
+    # Act.
+    result = check.run(src_root=str(tmp_path))
+
+    # Assert.
+    assert result.status == Status.FAIL
+    hits = [v for v in result.violations if v.rule == "CMT-002" and "lines" in v.message]
+    assert len(hits) == 1
+    assert "complexity 1" in hits[0].message
+
+
+def test_cmt002_block_inside_a_complex_function_is_allowed(check: CommentsCheck, tmp_path: Path):
+    # Arrange: the explanation sits in the middle of the hard function, not above it.
+    block = "".join(f"    # explanation line {i}\n" for i in range(10))
+    body = f"def hard(value):\n{_branchy(arms=12)}{block}    return 0\n"
+    _write(root=tmp_path, name="inside.py", body=body)
+
+    # Act.
+    result = check.run(src_root=str(tmp_path))
+
+    # Assert.
+    assert not any(v.rule == "CMT-002" for v in result.violations)
+
+
+def test_cmt002_module_banner_keeps_the_base_allowance(check: CommentsCheck, tmp_path: Path):
+    # Arrange: a block far from any definition must not inherit a function's allowance.
+    block = "".join(f"# banner line {i}\n" for i in range(10))
+    body = f"def hard(value):\n{_branchy(arms=12)}    return 0\n\n\n{block}\n\n\nVALUE = 1\n"
+    _write(root=tmp_path, name="banner.py", body=body)
+
+    # Act.
+    result = check.run(src_root=str(tmp_path))
+
+    # Assert.
+    assert result.status == Status.FAIL
+    assert any("complexity 1" in v.message for v in result.violations if v.rule == "CMT-002")
+
+
+def test_cmt002_scaling_is_configurable(tmp_path: Path):
+    # Arrange: turning the per-branch allowance off restores the old flat cap.
+    instance = CommentsCheck()
+    instance.configure(settings={"block_lines_per_branch": 0})
+    block = "".join(f"# explanation line {i}\n" for i in range(10))
+    _write(root=tmp_path, name="flat.py", body=f"{block}def hard(value):\n{_branchy(arms=12)}    return 0\n")
+
+    # Act.
+    result = instance.run(src_root=str(tmp_path))
+
+    # Assert.
+    assert result.status == Status.FAIL
+    assert any(v.rule == "CMT-002" for v in result.violations)

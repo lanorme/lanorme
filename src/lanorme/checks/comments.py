@@ -36,6 +36,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from lanorme import CheckResult, Status, Violation, register
+from lanorme.checks.file_limits import _cyclomatic_complexity
 from lanorme.discovery import iter_py_files
 
 _EM_DASH = "—"
@@ -233,6 +234,51 @@ def _violation(*, relative_file: str, line: int, code: str, message: str, fix: s
     return Violation(file=relative_file, line=line, rule=code, message=message, fix=fix)
 
 
+# How far a comment block may run before CMT-002 calls it verbose is not a
+# constant. A flat cap makes the rule fight COMPLEXITY-001: that rule warns at
+# complexity 10 precisely because such code is hard, and then a six-line cap
+# forbids explaining why it is hard. The allowance therefore grows with the
+# complexity of the code the block introduces, so difficult code can carry the
+# explanation it needs while a trivial helper still cannot ramble.
+_BLOCK_LINES_PER_BRANCH = 2
+
+
+@dataclass(frozen=True)
+class _Span:
+    """A function's line range and cyclomatic complexity."""
+
+    start: int
+    end: int
+    complexity: int
+
+
+def _function_spans(*, tree: ast.Module) -> list[_Span]:
+    """Line range and complexity of every function in the module."""
+    spans: list[_Span] = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
+            continue
+        end = getattr(node, "end_lineno", node.lineno)
+        spans.append(_Span(
+            start=node.lineno, end=end, complexity=_cyclomatic_complexity(func_node=node)
+        ))
+    return spans
+
+
+def _complexity_near(*, spans: list[_Span], start: int, end: int) -> int:
+    """Complexity of the function a comment block explains.
+
+    A block inside a function is explaining that function. A block sitting
+    directly above one is its preamble, so it earns the same allowance. Anything
+    else, a module-level banner or a note between definitions, gets the base.
+    """
+    enclosing = [span.complexity for span in spans if span.start <= start <= span.end]
+    if enclosing:
+        return max(enclosing)
+    following = [span.complexity for span in spans if 0 <= span.start - end <= 2]
+    return max(following) if following else 1
+
+
 @dataclass
 class CommentsCheck:
     """Concise, clean comments: commented-out code, verbosity, style, restating."""
@@ -245,6 +291,7 @@ class CommentsCheck:
     flag_emoji: bool = False
     max_block_lines: int = 6
     max_comment_chars: int = 120
+    block_lines_per_branch: int = _BLOCK_LINES_PER_BRANCH
     rules: list[str] = field(
         default_factory=lambda: [
             "CMT-001: No commented-out code",
@@ -263,7 +310,7 @@ class CommentsCheck:
         for short in ("em_dash", "emoji"):
             if short in settings:
                 setattr(self, f"flag_{short}", bool(settings[short]))
-        for key in ("max_block_lines", "max_comment_chars"):
+        for key in ("max_block_lines", "max_comment_chars", "block_lines_per_branch"):
             if key in settings:
                 setattr(self, key, int(settings[key]))
 
@@ -291,7 +338,9 @@ class CommentsCheck:
             )
         return found
 
-    def _verbose_violations(self, *, comments: list[_Comment], relative_file: str) -> list[Violation]:
+    def _verbose_violations(
+        self, *, comments: list[_Comment], relative_file: str, spans: list[_Span]
+    ) -> list[Violation]:
         found: list[Violation] = []
         for comment in comments:
             if len(comment.text) > self.max_comment_chars:
@@ -304,10 +353,12 @@ class CommentsCheck:
                         fix="Tighten it, or move the detail into a docstring",
                     )
                 )
-        found.extend(self._block_violations(comments=comments, relative_file=relative_file))
+        found.extend(self._block_violations(comments=comments, relative_file=relative_file, spans=spans))
         return found
 
-    def _block_violations(self, *, comments: list[_Comment], relative_file: str) -> list[Violation]:
+    def _block_violations(
+        self, *, comments: list[_Comment], relative_file: str, spans: list[_Span]
+    ) -> list[Violation]:
         found: list[Violation] = []
         standalone = [c for c in comments if c.standalone]
         index = 0
@@ -316,13 +367,20 @@ class CommentsCheck:
             while end + 1 < len(standalone) and standalone[end + 1].line == standalone[end].line + 1:
                 end += 1
             length = end - index + 1
-            if length > self.max_block_lines:
+            complexity = _complexity_near(
+                spans=spans, start=standalone[index].line, end=standalone[end].line
+            )
+            allowance = self.max_block_lines + (complexity - 1) * self.block_lines_per_branch
+            if length > allowance:
                 found.append(
                     _violation(
                         relative_file=relative_file,
                         line=standalone[index].line,
                         code="CMT-002",
-                        message=f"Comment block is {length} lines (limit {self.max_block_lines})",
+                        message=(
+                            f"Comment block is {length} lines (limit {allowance} "
+                            f"at complexity {complexity})"
+                        ),
                         fix="Tighten it, or move the detail into a docstring",
                     )
                 )
@@ -352,7 +410,9 @@ class CommentsCheck:
                 if c.line not in metadata_lines and _looks_like_code(text=c.text)
             )
         if self.flag_verbose:
-            found.extend(self._verbose_violations(comments=comments, relative_file=relative_file))
+            found.extend(self._verbose_violations(
+                comments=comments, relative_file=relative_file, spans=_function_spans(tree=tree)
+            ))
         if self.flag_em_dash or self.flag_emoji:
             for comment in comments:
                 found.extend(

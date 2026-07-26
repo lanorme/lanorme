@@ -81,15 +81,36 @@ commented_code = true   # default-on; set false to disable CMT-001
 ### `CMT-002`: No verbose comments
 
 Default-on. Flags any single comment longer than `max_comment_chars`
-(default 120) and any block of consecutive standalone comments longer
-than `max_block_lines` (default 6).
+(default 120), and any block of consecutive standalone comments longer
+than its allowance.
+
+The block allowance is not a constant. A flat cap makes this rule fight
+`COMPLEXITY-001`: that rule warns at complexity 10 precisely because such
+code is hard to follow, and a six-line cap then forbids explaining why.
+So the allowance grows with the complexity of the code the block
+introduces:
+
+```
+allowance = max_block_lines + (complexity - 1) * block_lines_per_branch
+```
+
+At the defaults a trivial helper allows 6 lines and a function at the
+`COMPLEXITY-001` warning threshold allows 24. The complexity used is that
+of the function the block sits inside, or the one it sits directly above
+(within two lines, so a preamble counts). A module-level banner far from
+any definition gets the base allowance, and the message names the
+complexity it scored so the number is never a mystery.
+
+The scaling only ever widens the cap, so no block that passed before can
+fail now. Set `block_lines_per_branch = 0` for the old flat behaviour.
 
 Config:
 ```toml
 [tool.lanorme.comments]
-verbose           = true   # default-on; set false to disable CMT-002
-max_comment_chars = 120
-max_block_lines   = 6
+verbose                = true   # default-on; set false to disable CMT-002
+max_comment_chars      = 120
+max_block_lines        = 6      # the base, for straight-line code
+block_lines_per_branch = 2      # extra lines earned per decision point
 ```
 
 ### `CMT-005`: No comments that restate the next line of code

@@ -64,6 +64,16 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
   anything, so that family is answerable only in config, where the decision is
   reviewable. This is the only rule family with the exemption.
 
+- `CMT-002`'s comment-block cap now scales with the cyclomatic complexity of the
+  code the block introduces, as
+  `max_block_lines + (complexity - 1) * block_lines_per_branch`. A flat six-line
+  cap put the rule in direct conflict with `COMPLEXITY-001`, which warns at
+  complexity 10 because such code is hard to follow, while `CMT-002` forbade
+  explaining why at any length. At the defaults a trivial helper still allows 6
+  lines and a function at the `COMPLEXITY-001` threshold allows 24. The change
+  only widens the cap, so nothing that passed before fails now; set
+  `block_lines_per_branch = 0` for the previous flat behaviour.
+
 ## [0.14.2]
 
 ### Added
