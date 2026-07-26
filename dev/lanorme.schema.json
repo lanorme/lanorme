@@ -99,6 +99,15 @@
         }
       }
     },
+    "docstrings": {
+      "type": "object",
+      "description": "Settings for the docstrings check (see docs/RULES.md).",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      }
+    },
     "domain_terms": {
       "type": "object",
       "description": "Settings for the domain_terms check (see docs/RULES.md).",
@@ -165,6 +174,15 @@
     "naming_consistency": {
       "type": "object",
       "description": "Settings for the naming_consistency check (see docs/RULES.md).",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "naming_scope": {
+      "type": "object",
+      "description": "Settings for the naming_scope check (see docs/RULES.md).",
       "properties": {
         "enabled": {
           "type": "boolean"
@@ -273,6 +291,15 @@
     "strong_types": {
       "type": "object",
       "description": "Settings for the strong_types check (see docs/RULES.md).",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "suppressions": {
+      "type": "object",
+      "description": "Settings for the suppressions check (see docs/RULES.md).",
       "properties": {
         "enabled": {
           "type": "boolean"

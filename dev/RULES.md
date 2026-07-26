@@ -81,15 +81,36 @@ commented_code = true   # default-on; set false to disable CMT-001
 ### `CMT-002`: No verbose comments
 
 Default-on. Flags any single comment longer than `max_comment_chars`
-(default 120) and any block of consecutive standalone comments longer
-than `max_block_lines` (default 6).
+(default 120), and any block of consecutive standalone comments longer
+than its allowance.
+
+The block allowance is not a constant. A flat cap makes this rule fight
+`COMPLEXITY-001`: that rule warns at complexity 10 precisely because such
+code is hard to follow, and a six-line cap then forbids explaining why.
+So the allowance grows with the complexity of the code the block
+introduces:
+
+```
+allowance = max_block_lines + (complexity - 1) * block_lines_per_branch
+```
+
+At the defaults a trivial helper allows 6 lines and a function at the
+`COMPLEXITY-001` warning threshold allows 24. The complexity used is that
+of the function the block sits inside, or the one it sits directly above
+(within two lines, so a preamble counts). A module-level banner far from
+any definition gets the base allowance, and the message names the
+complexity it scored so the number is never a mystery.
+
+The scaling only ever widens the cap, so no block that passed before can
+fail now. Set `block_lines_per_branch = 0` for the old flat behaviour.
 
 Config:
 ```toml
 [tool.lanorme.comments]
-verbose           = true   # default-on; set false to disable CMT-002
-max_comment_chars = 120
-max_block_lines   = 6
+verbose                = true   # default-on; set false to disable CMT-002
+max_comment_chars      = 120
+max_block_lines        = 6      # the base, for straight-line code
+block_lines_per_branch = 2      # extra lines earned per decision point
 ```
 
 ### `CMT-005`: No comments that restate the next line of code
@@ -110,6 +131,60 @@ Config:
 ```toml
 [tool.lanorme.restating]
 enabled = true
+```
+
+### `CMT-006` / `CMT-007`: docstrings that exist, and that say something
+
+Default-off. **Opinionated.** Lives in its own `docstrings` check.
+
+Every other rule in the comment family subtracts: `CMT-001` deletes
+commented-out code, `CMT-002` caps comment length, `CMT-005` deletes
+comments that restate the next line, `PROSE-001` / `PROSE-003` strip em
+dashes and emoji. The cheapest way to satisfy all of them is to write
+nothing. These two point the other way.
+
+- `CMT-006`: a public function or class whose span reaches `min_lines`
+  (default 5) carries a docstring. Dunders, private names, `test_*` files,
+  `__init__.py`, `conftest.py`, `alembic/` and `migrations/` are out of
+  scope.
+- `CMT-007`: that docstring says more than the signature. A docstring is
+  vacuous when every content word in it is already carried by the
+  definition's name, its parameters, or its enclosing class. Padding does
+  not help, because padding is restatement.
+
+`CMT-007` reuses the vocabulary machinery behind `CMT-005`: identifier
+splitting, stemming, and the 11-category allowlist that exempts a comment
+carrying a why, a caveat, a unit or a reference. Two additions on top:
+
+- **Abbreviation coverage.** A stemmer links `process` to `processing` but
+  not to `proc`, so a docstring word also counts as restatement when it
+  extends a signature stem of at least 3 characters, or is extended by
+  one. The floor stops a two-letter name such as `go` swallowing `govern`.
+- **Emptiness before allowlist.** A docstring with no content word left
+  after filler removal is vacuous whatever the allowlist says, so
+  `This is a helper function.` is not rescued by it.
+
+Measured against the 23-definition corpus under
+`evals/corpora/docstrings_vacuous/` with `evals/score_cmt007.py`:
+**P = 1.000 / R = 1.000 / F1 = 1.000** (TP = 9, FP = 0, FN = 0, TN = 14).
+That corpus was written alongside the rule and tuned against, so treat the
+figure as a regression guard rather than an unbiased estimate. The
+independent evidence is held-out: `CMT-007` returns **zero** findings over
+the 3321 lines of generated code in `evals/readability/runs/` and
+`evals/articulacy/runs*/`, and zero over LaNorme's own `src/` with
+`require_private` on, while `CMT-006` finds 114 missing docstrings in the
+same generated corpora.
+
+`CMT-007` is a guard, not a finder. Its job is to stop `CMT-006` being
+satisfied by `"""Go."""`; on code written in good faith it should stay
+silent, and on this evidence it does.
+
+Config:
+```toml
+[tool.lanorme.docstrings]
+enabled         = true
+min_lines       = 5      # definitions shorter than this need no docstring
+require_private = false  # also require them on _private definitions
 ```
 
 ### `PROSE-001` / `PROSE-003` on comments and docstrings
@@ -410,6 +485,59 @@ service_crud = true   # enable NAMING-002
 
 ---
 
+## Naming scope: `NAMING-005`
+
+Default-off. **Opinionated.** Lives in its own `naming_scope` check.
+
+`NAMING-005` does not ban short names. `i` in a three-line loop is
+perfectly readable; the same `i` bound at the top of a sixty-line function
+and used at the bottom is not, because the binding has scrolled out of
+sight and the name itself has to carry the meaning. The defect is
+shortness *held over distance*, so the requirement scales with the span.
+
+Span is measured from where a name is first bound to where it is last
+referenced, within one function. Only names the function itself binds are
+considered (parameters and assignment targets): a referenced-but-unbound
+short name such as `np` or `re` is an imported module, where the name is
+the library's choice and not the function's.
+
+Choosing the default (`max_span = 20`), measured over LaNorme's own
+`src/` and the 3321 lines of generated code under `evals/`:
+
+| corpus | p90 span | p95 | max | findings at 20 |
+| --- | --- | --- | --- | --- |
+| `src/` | 7 | 10 | 18 | 0 |
+| generated code | 21 | 24 | 53 | 9 |
+
+The default sits in that gap, and has a reason beyond the gap: twenty
+lines is roughly a screenful, the point at which a binding and its use
+stop being visible together. At that default LaNorme's own source and test
+suite are clean, and the generated corpus yields `rc` held over 53 lines,
+`s` over 52 and `p` over 50.
+
+Short names that stay readable at any distance are exempt by default:
+`_`, `i`, `j`, `k`, `n`, `x`, `y`, `z`, `db`, `id`, `fd`, `fh`, `ok`,
+`lo`, `hi`, `lr`, `ax`, `df`, `ts`. Extend the list rather than raising the
+span, so the exemption stays visible in config. Numeric and ML code is the
+usual reason to: fitted parameters such as `a` / `b` / `c` read fine to
+their audience and are the rule's most likely false positive.
+
+Config:
+```toml
+[tool.lanorme.naming_scope]
+enabled          = true
+max_span         = 20        # lines between binding and last use
+max_short_length = 2         # names this long or shorter are "short"
+allow            = ["mu"]    # extends the default allowlist
+```
+
+Measured against `evals/corpora/naming_scope/` with
+`evals/score_naming005.py`: **P = 1.000 / R = 1.000 / F1 = 1.000**
+(TP = 2, FP = 0, FN = 0, TN = 4). That corpus is a regression guard, not
+an unbiased estimate; the calibration evidence is the table above.
+
+---
+
 ## Pattern divergence: `IMPORT-001` / `ENDPOINT-001`
 
 - `IMPORT-001`: default-on. Imports must live at the top of the module
@@ -678,6 +806,58 @@ build-failing; `TYPE-004` is an advisory warning.
   already typed and a value escapes, so a fully untyped function or a procedure
   that returns nothing is left alone. Generators (own-scope `yield`) are exempt;
   returns inside a nested `def` or `lambda` do not count.
+
+---
+
+## Suppressions: `SUPPRESS-001` / `SUPPRESS-002`
+
+Default-off. **Opinionated.** Lives in its own `suppressions` check.
+
+Every other rule can be switched off on a line with `# noqa` or
+`# lanorme: ignore[...]`. That is deliberate, and it is also why adding
+rules raises a project's ceiling without moving its floor: a rule one
+comment away from off is a suggestion, not a standard. These two rules do
+not close the hatches, they price them.
+
+- `SUPPRESS-001`: the project's total inline suppressions against
+  `max_total` (default 0). One finding for the project, reporting the
+  count and the most-suppressed files.
+- `SUPPRESS-002`: a directive that names no rule. A bare `# noqa` or an
+  `ALL` code list silences every current rule on the line *and every
+  future one*, so a line suppressed once quietly opts out of everything
+  added since. Flagged regardless of budget.
+
+**Neither code can be silenced inline.** `lanorme.filtering` refuses
+`# noqa` and `# lanorme: ignore` for the `SUPPRESS` category, because a
+budget an offender can waive on the offending line is not a budget. They
+remain switchable in config, and that is the point: an escape belongs in a
+reviewed file, not scattered invisibly across source lines. This is the
+only asymmetry of its kind in LaNorme.
+
+Use it as a ratchet. Set `max_total` to today's count, then lower it as
+debt is paid; CI fails on the next suppression added rather than on the
+backlog:
+
+```console
+lanorme check . --check=suppressions   # reports the current count
+```
+
+Comments are read through `tokenize` and matched from the start of the
+comment, so a directive named in prose (`# lines up with --exclude and
+# noqa handling`) or quoted in a string is documentation, not an escape,
+and does not count against the budget.
+
+Config:
+```toml
+[tool.lanorme.suppressions]
+enabled       = true
+max_total     = 0      # the ratchet: set to today's count, then lower it
+allow_blanket = false  # set true to permit bare '# noqa'
+```
+
+This rule is a count, not a heuristic, so it carries no scored corpus.
+Its correctness is pinned by `tests/unit/test_suppressions.py`, including
+a regression that the `SUPPRESS` codes survive a `# noqa` naming them.
 
 ---
 

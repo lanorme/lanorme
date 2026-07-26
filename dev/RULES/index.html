@@ -799,6 +799,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#cmt-006-cmt-007-docstrings-that-exist-and-that-say-something" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CMT-006 / CMT-007: docstrings that exist, and that say something
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#prose-001-prose-003-on-comments-and-docstrings" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -925,6 +936,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#naming-scope-naming-005" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Naming scope: NAMING-005
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#pattern-divergence-import-001-endpoint-001" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1041,21 +1063,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#test-coverage-testfile-001" class="md-nav__link">
+  <a href="#suppressions-suppress-001-suppress-002" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Test coverage: TESTFILE-001
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#test-style-aaa-001-aaa-002" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Test style: AAA-001 / AAA-002
+        Suppressions: SUPPRESS-001 / SUPPRESS-002
       
     </span>
   </a>
@@ -1346,6 +1357,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#cmt-006-cmt-007-docstrings-that-exist-and-that-say-something" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CMT-006 / CMT-007: docstrings that exist, and that say something
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#prose-001-prose-003-on-comments-and-docstrings" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1472,6 +1494,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#naming-scope-naming-005" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Naming scope: NAMING-005
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#pattern-divergence-import-001-endpoint-001" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1588,21 +1621,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#test-coverage-testfile-001" class="md-nav__link">
+  <a href="#suppressions-suppress-001-suppress-002" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Test coverage: TESTFILE-001
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#test-style-aaa-001-aaa-002" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Test style: AAA-001 / AAA-002
+        Suppressions: SUPPRESS-001 / SUPPRESS-002
       
     </span>
   </a>
@@ -1716,13 +1738,29 @@ header.</p>
 </code></pre></div></p>
 <h3 id="cmt-002-no-verbose-comments"><code>CMT-002</code>: No verbose comments<a class="headerlink" href="#cmt-002-no-verbose-comments" title="Permanent link">&para;</a></h3>
 <p>Default-on. Flags any single comment longer than <code>max_comment_chars</code>
-(default 120) and any block of consecutive standalone comments longer
-than <code>max_block_lines</code> (default 6).</p>
+(default 120), and any block of consecutive standalone comments longer
+than its allowance.</p>
+<p>The block allowance is not a constant. A flat cap makes this rule fight
+<code>COMPLEXITY-001</code>: that rule warns at complexity 10 precisely because such
+code is hard to follow, and a six-line cap then forbids explaining why.
+So the allowance grows with the complexity of the code the block
+introduces:</p>
+<div class="highlight"><pre><span></span><code>allowance = max_block_lines + (complexity - 1) * block_lines_per_branch
+</code></pre></div>
+<p>At the defaults a trivial helper allows 6 lines and a function at the
+<code>COMPLEXITY-001</code> warning threshold allows 24. The complexity used is that
+of the function the block sits inside, or the one it sits directly above
+(within two lines, so a preamble counts). A module-level banner far from
+any definition gets the base allowance, and the message names the
+complexity it scored so the number is never a mystery.</p>
+<p>The scaling only ever widens the cap, so no block that passed before can
+fail now. Set <code>block_lines_per_branch = 0</code> for the old flat behaviour.</p>
 <p>Config:
 <div class="highlight"><pre><span></span><code><span class="k">[tool.lanorme.comments]</span>
-<span class="n">verbose</span><span class="w">           </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span><span class="w">   </span><span class="c1"># default-on; set false to disable CMT-002</span>
-<span class="n">max_comment_chars</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">120</span>
-<span class="n">max_block_lines</span><span class="w">   </span><span class="o">=</span><span class="w"> </span><span class="mi">6</span>
+<span class="n">verbose</span><span class="w">                </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span><span class="w">   </span><span class="c1"># default-on; set false to disable CMT-002</span>
+<span class="n">max_comment_chars</span><span class="w">      </span><span class="o">=</span><span class="w"> </span><span class="mi">120</span>
+<span class="n">max_block_lines</span><span class="w">        </span><span class="o">=</span><span class="w"> </span><span class="mi">6</span><span class="w">      </span><span class="c1"># the base, for straight-line code</span>
+<span class="n">block_lines_per_branch</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">2</span><span class="w">      </span><span class="c1"># extra lines earned per decision point</span>
 </code></pre></div></p>
 <h3 id="cmt-005-no-comments-that-restate-the-next-line-of-code"><code>CMT-005</code>: No comments that restate the next line of code<a class="headerlink" href="#cmt-005-no-comments-that-restate-the-next-line-of-code" title="Permanent link">&para;</a></h3>
 <p>Default-off. <strong>Experimental.</strong> Lives in its own <code>restating</code> check.
@@ -1738,6 +1776,54 @@ paraphrases without losing precision.</p>
 <p>Config:
 <div class="highlight"><pre><span></span><code><span class="k">[tool.lanorme.restating]</span>
 <span class="n">enabled</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span>
+</code></pre></div></p>
+<h3 id="cmt-006-cmt-007-docstrings-that-exist-and-that-say-something"><code>CMT-006</code> / <code>CMT-007</code>: docstrings that exist, and that say something<a class="headerlink" href="#cmt-006-cmt-007-docstrings-that-exist-and-that-say-something" title="Permanent link">&para;</a></h3>
+<p>Default-off. <strong>Opinionated.</strong> Lives in its own <code>docstrings</code> check.</p>
+<p>Every other rule in the comment family subtracts: <code>CMT-001</code> deletes
+commented-out code, <code>CMT-002</code> caps comment length, <code>CMT-005</code> deletes
+comments that restate the next line, <code>PROSE-001</code> / <code>PROSE-003</code> strip em
+dashes and emoji. The cheapest way to satisfy all of them is to write
+nothing. These two point the other way.</p>
+<ul>
+<li><code>CMT-006</code>: a public function or class whose span reaches <code>min_lines</code>
+  (default 5) carries a docstring. Dunders, private names, <code>test_*</code> files,
+  <code>__init__.py</code>, <code>conftest.py</code>, <code>alembic/</code> and <code>migrations/</code> are out of
+  scope.</li>
+<li><code>CMT-007</code>: that docstring says more than the signature. A docstring is
+  vacuous when every content word in it is already carried by the
+  definition's name, its parameters, or its enclosing class. Padding does
+  not help, because padding is restatement.</li>
+</ul>
+<p><code>CMT-007</code> reuses the vocabulary machinery behind <code>CMT-005</code>: identifier
+splitting, stemming, and the 11-category allowlist that exempts a comment
+carrying a why, a caveat, a unit or a reference. Two additions on top:</p>
+<ul>
+<li><strong>Abbreviation coverage.</strong> A stemmer links <code>process</code> to <code>processing</code> but
+  not to <code>proc</code>, so a docstring word also counts as restatement when it
+  extends a signature stem of at least 3 characters, or is extended by
+  one. The floor stops a two-letter name such as <code>go</code> swallowing <code>govern</code>.</li>
+<li><strong>Emptiness before allowlist.</strong> A docstring with no content word left
+  after filler removal is vacuous whatever the allowlist says, so
+  <code>This is a helper function.</code> is not rescued by it.</li>
+</ul>
+<p>Measured against the 23-definition corpus under
+<code>evals/corpora/docstrings_vacuous/</code> with <code>evals/score_cmt007.py</code>:
+<strong>P = 1.000 / R = 1.000 / F1 = 1.000</strong> (TP = 9, FP = 0, FN = 0, TN = 14).
+That corpus was written alongside the rule and tuned against, so treat the
+figure as a regression guard rather than an unbiased estimate. The
+independent evidence is held-out: <code>CMT-007</code> returns <strong>zero</strong> findings over
+the 3321 lines of generated code in <code>evals/readability/runs/</code> and
+<code>evals/articulacy/runs*/</code>, and zero over LaNorme's own <code>src/</code> with
+<code>require_private</code> on, while <code>CMT-006</code> finds 114 missing docstrings in the
+same generated corpora.</p>
+<p><code>CMT-007</code> is a guard, not a finder. Its job is to stop <code>CMT-006</code> being
+satisfied by <code>"""Go."""</code>; on code written in good faith it should stay
+silent, and on this evidence it does.</p>
+<p>Config:
+<div class="highlight"><pre><span></span><code><span class="k">[tool.lanorme.docstrings]</span>
+<span class="n">enabled</span><span class="w">         </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span>
+<span class="n">min_lines</span><span class="w">       </span><span class="o">=</span><span class="w"> </span><span class="mi">5</span><span class="w">      </span><span class="c1"># definitions shorter than this need no docstring</span>
+<span class="n">require_private</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">false</span><span class="w">  </span><span class="c1"># also require them on _private definitions</span>
 </code></pre></div></p>
 <h3 id="prose-001-prose-003-on-comments-and-docstrings"><code>PROSE-001</code> / <code>PROSE-003</code> on comments and docstrings<a class="headerlink" href="#prose-001-prose-003-on-comments-and-docstrings" title="Permanent link">&para;</a></h3>
 <p>Off until enabled. The same rule codes that the <code>prose</code> check emits on
@@ -1984,6 +2070,70 @@ must contain a bare <code>*</code> separator to force keyword-only call sites.</
 <span class="n">service_crud</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span><span class="w">   </span><span class="c1"># enable NAMING-002</span>
 </code></pre></div></p>
 <hr />
+<h2 id="naming-scope-naming-005">Naming scope: <code>NAMING-005</code><a class="headerlink" href="#naming-scope-naming-005" title="Permanent link">&para;</a></h2>
+<p>Default-off. <strong>Opinionated.</strong> Lives in its own <code>naming_scope</code> check.</p>
+<p><code>NAMING-005</code> does not ban short names. <code>i</code> in a three-line loop is
+perfectly readable; the same <code>i</code> bound at the top of a sixty-line function
+and used at the bottom is not, because the binding has scrolled out of
+sight and the name itself has to carry the meaning. The defect is
+shortness <em>held over distance</em>, so the requirement scales with the span.</p>
+<p>Span is measured from where a name is first bound to where it is last
+referenced, within one function. Only names the function itself binds are
+considered (parameters and assignment targets): a referenced-but-unbound
+short name such as <code>np</code> or <code>re</code> is an imported module, where the name is
+the library's choice and not the function's.</p>
+<p>Choosing the default (<code>max_span = 20</code>), measured over LaNorme's own
+<code>src/</code> and the 3321 lines of generated code under <code>evals/</code>:</p>
+<table>
+<thead>
+<tr>
+<th>corpus</th>
+<th>p90 span</th>
+<th>p95</th>
+<th>max</th>
+<th>findings at 20</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>src/</code></td>
+<td>7</td>
+<td>10</td>
+<td>18</td>
+<td>0</td>
+</tr>
+<tr>
+<td>generated code</td>
+<td>21</td>
+<td>24</td>
+<td>53</td>
+<td>9</td>
+</tr>
+</tbody>
+</table>
+<p>The default sits in that gap, and has a reason beyond the gap: twenty
+lines is roughly a screenful, the point at which a binding and its use
+stop being visible together. At that default LaNorme's own source and test
+suite are clean, and the generated corpus yields <code>rc</code> held over 53 lines,
+<code>s</code> over 52 and <code>p</code> over 50.</p>
+<p>Short names that stay readable at any distance are exempt by default:
+<code>_</code>, <code>i</code>, <code>j</code>, <code>k</code>, <code>n</code>, <code>x</code>, <code>y</code>, <code>z</code>, <code>db</code>, <code>id</code>, <code>fd</code>, <code>fh</code>, <code>ok</code>,
+<code>lo</code>, <code>hi</code>, <code>lr</code>, <code>ax</code>, <code>df</code>, <code>ts</code>. Extend the list rather than raising the
+span, so the exemption stays visible in config. Numeric and ML code is the
+usual reason to: fitted parameters such as <code>a</code> / <code>b</code> / <code>c</code> read fine to
+their audience and are the rule's most likely false positive.</p>
+<p>Config:
+<div class="highlight"><pre><span></span><code><span class="k">[tool.lanorme.naming_scope]</span>
+<span class="n">enabled</span><span class="w">          </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span>
+<span class="n">max_span</span><span class="w">         </span><span class="o">=</span><span class="w"> </span><span class="mi">20</span><span class="w">        </span><span class="c1"># lines between binding and last use</span>
+<span class="n">max_short_length</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">2</span><span class="w">         </span><span class="c1"># names this long or shorter are &quot;short&quot;</span>
+<span class="n">allow</span><span class="w">            </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;mu&quot;</span><span class="p">]</span><span class="w">    </span><span class="c1"># extends the default allowlist</span>
+</code></pre></div></p>
+<p>Measured against <code>evals/corpora/naming_scope/</code> with
+<code>evals/score_naming005.py</code>: <strong>P = 1.000 / R = 1.000 / F1 = 1.000</strong>
+(TP = 2, FP = 0, FN = 0, TN = 4). That corpus is a regression guard, not
+an unbiased estimate; the calibration evidence is the table above.</p>
+<hr />
 <h2 id="pattern-divergence-import-001-endpoint-001">Pattern divergence: <code>IMPORT-001</code> / <code>ENDPOINT-001</code><a class="headerlink" href="#pattern-divergence-import-001-endpoint-001" title="Permanent link">&para;</a></h2>
 <ul>
 <li><code>IMPORT-001</code>: default-on. Imports must live at the top of the module
@@ -2218,6 +2368,47 @@ build-failing; <code>TYPE-004</code> is an advisory warning.</p>
   that returns nothing is left alone. Generators (own-scope <code>yield</code>) are exempt;
   returns inside a nested <code>def</code> or <code>lambda</code> do not count.</li>
 </ul>
+<hr />
+<h2 id="suppressions-suppress-001-suppress-002">Suppressions: <code>SUPPRESS-001</code> / <code>SUPPRESS-002</code><a class="headerlink" href="#suppressions-suppress-001-suppress-002" title="Permanent link">&para;</a></h2>
+<p>Default-off. <strong>Opinionated.</strong> Lives in its own <code>suppressions</code> check.</p>
+<p>Every other rule can be switched off on a line with <code># noqa</code> or
+<code># lanorme: ignore[...]</code>. That is deliberate, and it is also why adding
+rules raises a project's ceiling without moving its floor: a rule one
+comment away from off is a suggestion, not a standard. These two rules do
+not close the hatches, they price them.</p>
+<ul>
+<li><code>SUPPRESS-001</code>: the project's total inline suppressions against
+  <code>max_total</code> (default 0). One finding for the project, reporting the
+  count and the most-suppressed files.</li>
+<li><code>SUPPRESS-002</code>: a directive that names no rule. A bare <code># noqa</code> or an
+  <code>ALL</code> code list silences every current rule on the line <em>and every
+  future one</em>, so a line suppressed once quietly opts out of everything
+  added since. Flagged regardless of budget.</li>
+</ul>
+<p><strong>Neither code can be silenced inline.</strong> <code>lanorme.filtering</code> refuses
+<code># noqa</code> and <code># lanorme: ignore</code> for the <code>SUPPRESS</code> category, because a
+budget an offender can waive on the offending line is not a budget. They
+remain switchable in config, and that is the point: an escape belongs in a
+reviewed file, not scattered invisibly across source lines. This is the
+only asymmetry of its kind in LaNorme.</p>
+<p>Use it as a ratchet. Set <code>max_total</code> to today's count, then lower it as
+debt is paid; CI fails on the next suppression added rather than on the
+backlog:</p>
+<div class="highlight"><pre><span></span><code><span class="go">lanorme check . --check=suppressions   # reports the current count</span>
+</code></pre></div>
+<p>Comments are read through <code>tokenize</code> and matched from the start of the
+comment, so a directive named in prose (`# lines up with --exclude and</p>
+<h1 id="noqa-handling-or-quoted-in-a-string-is-documentation-not-an-escape">noqa handling`) or quoted in a string is documentation, not an escape,<a class="headerlink" href="#noqa-handling-or-quoted-in-a-string-is-documentation-not-an-escape" title="Permanent link">&para;</a></h1>
+<p>and does not count against the budget.</p>
+<p>Config:
+<div class="highlight"><pre><span></span><code><span class="k">[tool.lanorme.suppressions]</span>
+<span class="n">enabled</span><span class="w">       </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span>
+<span class="n">max_total</span><span class="w">     </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="w">      </span><span class="c1"># the ratchet: set to today&#39;s count, then lower it</span>
+<span class="n">allow_blanket</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">false</span><span class="w">  </span><span class="c1"># set true to permit bare &#39;# noqa&#39;</span>
+</code></pre></div></p>
+<p>This rule is a count, not a heuristic, so it carries no scored corpus.
+Its correctness is pinned by <code>tests/unit/test_suppressions.py</code>, including
+a regression that the <code>SUPPRESS</code> codes survive a <code># noqa</code> naming them.</p>
 <hr />
 <h2 id="test-coverage-testfile-001">Test coverage: <code>TESTFILE-001</code><a class="headerlink" href="#test-coverage-testfile-001" title="Permanent link">&para;</a></h2>
 <p>Default-on warning. For each Python file under one of the hardwired

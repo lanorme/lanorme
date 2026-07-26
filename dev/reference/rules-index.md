@@ -14,6 +14,8 @@ notes for each rule are in the [rule reference](../RULES.md).
 | `CMT-001` | comments | no |
 | `CMT-002` | comments | no |
 | `CMT-005` | restating | yes |
+| `CMT-006` | docstrings | yes |
+| `CMT-007` | docstrings | yes |
 | `COMPLEXITY-001` | file_limits | no |
 | `CRYPTO-001` | security_calls | no |
 | `DEBUG-001` | security_calls | no |
@@ -48,6 +50,7 @@ notes for each rule are in the [rule reference](../RULES.md).
 | `NAMING-002` | naming_consistency | no |
 | `NAMING-003` | naming_consistency | no |
 | `NAMING-004` | naming_consistency | no |
+| `NAMING-005` | naming_scope | yes |
 | `PARAM-001` | file_limits | no |
 | `PATH-001` | forbidden_paths | no |
 | `PORT-001` | port_coverage | no |
@@ -73,6 +76,8 @@ notes for each rule are in the [rule reference](../RULES.md).
 | `SKILL-006` | skills | no |
 | `SQL-001` | security_patterns | no |
 | `STALE-001` | stale_paths | no |
+| `SUPPRESS-001` | suppressions | yes |
+| `SUPPRESS-002` | suppressions | yes |
 | `TERM-NNN` | domain_terms | no |
 | `TESTFILE-001` | test_coverage | no |
 | `TLS-001` | security_calls | no |
