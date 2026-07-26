@@ -72,6 +72,7 @@ exclude = [
     "evals/corpora/*",           # deliberately dirty labelled eval corpora
     "evals/readability/runs/*",  # verbatim model output, the readability eval subject
     "evals/articulacy/runs/*",   # verbatim model output, the articulacy eval subject
+    "evals/articulacy/runs_control/*",  # ditto, the no-report-requested control arm
     "benchmarks/.corpora/*",     # downloaded third-party corpora
     "evals/score_*.py",          # per-check scorers share boilerplate by design
     "docs/cmt005-design.md",     # in-progress design note for the CMT-005 rule
