@@ -691,7 +691,11 @@ def verify_resume(
     if not manifest_path.exists():
         return VerifyResult(ok=False, problems=[f"manifest file not found: {manifest_path}"], warnings=[])
 
-    manifest = json.loads(manifest_path.read_text())
+    try:
+        manifest = json.loads(manifest_path.read_text())
+    except (json.JSONDecodeError, OSError) as exc:
+        return VerifyResult(ok=False, problems=[f"manifest file is unreadable/corrupt: {exc}"], warnings=[])
+
     actual_sha256 = _sha256_of_file(checkpoint_path)
     if actual_sha256 != manifest.get("checkpoint_sha256"):
         problems.append(
@@ -700,7 +704,17 @@ def verify_resume(
             "-- the file is corrupt or was truncated, likely by a kill mid-write"
         )
 
-    payload = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
+    # A checksum mismatch already tells us the file is not what it claims to
+    # be; deserializing it anyway is still useful (it may well fail loudly,
+    # which is additional evidence), but never let that exception escape a CI
+    # helper whose entire job is to turn "this checkpoint is broken" into a
+    # clean, reportable result instead of a crash.
+    try:
+        payload = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
+    except Exception as exc:  # noqa: BLE001 -- deliberately broad: any load failure is a reportable integrity problem
+        problems.append(f"checkpoint payload failed to deserialize: {exc!r}")
+        return VerifyResult(ok=False, problems=problems, warnings=warnings)
+
     missing_keys = [key for key in _REQUIRED_PAYLOAD_KEYS if key not in payload]
     if missing_keys:
         problems.append(f"checkpoint payload is missing required keys: {missing_keys}")
