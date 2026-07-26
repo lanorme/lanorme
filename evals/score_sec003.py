@@ -60,11 +60,7 @@ def _flagged_sec003() -> set[tuple[str, int]]:
     if check is None:
         raise RuntimeError("secrets check is not registered")
     result = check.run(src_root=str(_CORPUS))
-    return {
-        (v.file.replace("\\", "/"), v.line)
-        for v in result.violations
-        if v.rule.startswith(_RULE_PREFIX)
-    }
+    return {(v.file, v.line) for v in result.violations if v.rule.startswith(_RULE_PREFIX)}
 
 
 def _ratio(*, numerator: float, denominator: float) -> float:

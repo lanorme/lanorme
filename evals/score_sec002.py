@@ -53,17 +53,8 @@ def _flagged_sec002() -> set[tuple[str, int]]:
     for result in results:
         for v in result.violations:
             if v.rule.startswith("SQL-001"):
-                flagged.add((_relative(v.file), v.line))
+                flagged.add((v.file, v.line))
     return flagged
-
-
-def _relative(file: str) -> str:
-    """Turn an absolute path emitted by a check into a corpus-relative slash path."""
-    norm = file.replace("\\", "/")
-    corpus_str = str(_CORPUS).replace("\\", "/")
-    if norm.startswith(corpus_str + "/"):
-        return norm[len(corpus_str) + 1 :]
-    return norm
 
 
 def _ratio(*, numerator: float, denominator: float) -> float:

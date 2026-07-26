@@ -52,11 +52,7 @@ def _fired_documents() -> set[str]:
         flag_em_dash_density=True,
     )
     result = check.run(src_root=str(_CORPUS))
-    return {
-        warning.file.replace("\\", "/")
-        for warning in result.warnings
-        if warning.rule.startswith(_RULE)
-    }
+    return {warning.file for warning in result.warnings if warning.rule.startswith(_RULE)}
 
 
 def _ratio(*, numerator: float, denominator: float) -> float:

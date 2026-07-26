@@ -101,6 +101,11 @@ def _apply_target_filter(
     return filtered
 
 
+# Both glob matchers below normalise the finding's path before comparing it to a
+# user pattern, and that is not redundant with the built-ins reporting `/` on
+# every platform: they also see findings from third-party checks, and the Check
+# protocol constrains nothing about separators (the plugin guide's own example
+# builds its path with `str(path.relative_to(...))`, the OS form on Windows).
 def _path_excluded(*, path: str, patterns: list[str]) -> bool:
     normalised = path.replace("\\", "/")
     return any(fnmatch.fnmatch(normalised, pattern) for pattern in patterns)

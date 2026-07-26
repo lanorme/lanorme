@@ -51,11 +51,7 @@ def _flagged_cmt001() -> set[tuple[str, int]]:
     """Run the check; return the set of (file, line) flagged as CMT-001."""
     check = CommentsCheck()
     result = check.run(src_root=str(_CORPUS))
-    return {
-        (v.file.replace("\\", "/"), v.line)
-        for v in result.violations
-        if v.rule == "CMT-001"
-    }
+    return {(v.file, v.line) for v in result.violations if v.rule == "CMT-001"}
 
 
 def _ratio(*, numerator: float, denominator: float) -> float:

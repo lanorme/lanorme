@@ -48,11 +48,7 @@ def _flagged_cmt005() -> set[tuple[str, int]]:
     """Run the ``restating`` check; return the set of CMT-005 (file, line)."""
     check = RestatingCheck(enabled=True)
     result = check.run(src_root=str(_CORPUS))
-    return {
-        (v.file.replace("\\", "/"), v.line)
-        for v in result.violations
-        if v.rule == "CMT-005"
-    }
+    return {(v.file, v.line) for v in result.violations if v.rule == "CMT-005"}
 
 
 def _ratio(*, numerator: float, denominator: float) -> float:

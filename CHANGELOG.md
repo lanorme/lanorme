@@ -9,6 +9,17 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
 
 ## [Unreleased]
 
+### Changed
+
+- Removed the defensive path normalisation six call sites carried from when
+  checks still reported the platform separator. Every check has built its
+  relative path with `as_posix()` since 0.15.0, so the five eval scorers that
+  re-applied `.replace("\\", "/")` to a finding's `file`, and `PATH-001`'s
+  vendor-tree test, were normalising a string that is already `/`-separated.
+  The two glob matchers in `filtering.py` keep theirs, because they also see
+  findings from third-party checks and the check protocol constrains nothing
+  about separators. Reported output is unchanged on every platform.
+
 ## [0.15.0]
 
 ### Added

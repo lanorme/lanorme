@@ -40,8 +40,7 @@ _VENDOR_SEGMENTS = frozenset(
 
 
 def _is_vendor_path(*, relative_path: str) -> bool:
-    segments = relative_path.replace("\\", "/").split("/")
-    return any(segment in _VENDOR_SEGMENTS for segment in segments)
+    return any(segment in _VENDOR_SEGMENTS for segment in relative_path.split("/"))
 
 
 @dataclass
