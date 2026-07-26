@@ -1,0 +1,103 @@
+{
+  "metadata": {
+    "audited_version": "0.15.0",
+    "lanorme_version": "0.15.0",
+    "git_commit": "8e73e4a",
+    "git_dirty": false,
+    "python_version": "3.13.14",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "processor": "AMD64 Family 26 Model 68 Stepping 0, AuthenticAMD",
+    "timestamp_utc": "2026-07-26T06:10:42.033985+00:00"
+  },
+  "accuracy": [
+    {
+      "rule": "CMT-001",
+      "corpus": "evals/corpora/comments_commented_code",
+      "tp": 66,
+      "fp": 1,
+      "fn": 0,
+      "tn": 98,
+      "precision": 0.9850746268656716,
+      "recall": 1.0,
+      "f1": 0.9924812030075187
+    },
+    {
+      "rule": "CMT-005",
+      "corpus": "evals/corpora/comments_restating",
+      "tp": 33,
+      "fp": 0,
+      "fn": 46,
+      "tn": 88,
+      "precision": 1.0,
+      "recall": 0.4177215189873418,
+      "f1": 0.5892857142857143
+    },
+    {
+      "rule": "CMT-007",
+      "corpus": "docstrings_vacuous",
+      "tp": 9,
+      "fp": 0,
+      "fn": 0,
+      "tn": 14,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0
+    },
+    {
+      "rule": "NAMING-005",
+      "corpus": "naming_scope",
+      "tp": 2,
+      "fp": 0,
+      "fn": 0,
+      "tn": 4,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0
+    },
+    {
+      "rule": "PROSE-004",
+      "corpus": "evals/corpora/prose_em_dash",
+      "tp": 3,
+      "fp": 0,
+      "fn": 0,
+      "tn": 11,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0
+    },
+    {
+      "rule": "SQL-001",
+      "corpus": "evals/corpora/security_raw_sql",
+      "tp": 41,
+      "fp": 0,
+      "fn": 0,
+      "tn": 79,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0
+    },
+    {
+      "rule": "SECRETPY-001",
+      "corpus": "evals/corpora/security_hardcoded_secrets",
+      "tp": 43,
+      "fp": 0,
+      "fn": 0,
+      "tn": 112,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0
+    },
+    {
+      "rule": "SIMILAR-001",
+      "corpus": "evals/corpora/duplication_similar",
+      "tp": 34,
+      "fp": 0,
+      "fn": 6,
+      "tn": 49,
+      "precision": 1.0,
+      "recall": 0.85,
+      "f1": 0.9189189189189189
+    }
+  ],
+  "performance": {}
+}
