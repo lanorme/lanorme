@@ -297,6 +297,15 @@
         }
       }
     },
+    "suppressions": {
+      "type": "object",
+      "description": "Settings for the suppressions check (see docs/RULES.md).",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      }
+    },
     "test_coverage": {
       "type": "object",
       "description": "Settings for the test_coverage check (see docs/RULES.md).",

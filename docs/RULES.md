@@ -788,6 +788,58 @@ build-failing; `TYPE-004` is an advisory warning.
 
 ---
 
+## Suppressions: `SUPPRESS-001` / `SUPPRESS-002`
+
+Default-off. **Opinionated.** Lives in its own `suppressions` check.
+
+Every other rule can be switched off on a line with `# noqa` or
+`# lanorme: ignore[...]`. That is deliberate, and it is also why adding
+rules raises a project's ceiling without moving its floor: a rule one
+comment away from off is a suggestion, not a standard. These two rules do
+not close the hatches, they price them.
+
+- `SUPPRESS-001`: the project's total inline suppressions against
+  `max_total` (default 0). One finding for the project, reporting the
+  count and the most-suppressed files.
+- `SUPPRESS-002`: a directive that names no rule. A bare `# noqa` or an
+  `ALL` code list silences every current rule on the line *and every
+  future one*, so a line suppressed once quietly opts out of everything
+  added since. Flagged regardless of budget.
+
+**Neither code can be silenced inline.** `lanorme.filtering` refuses
+`# noqa` and `# lanorme: ignore` for the `SUPPRESS` category, because a
+budget an offender can waive on the offending line is not a budget. They
+remain switchable in config, and that is the point: an escape belongs in a
+reviewed file, not scattered invisibly across source lines. This is the
+only asymmetry of its kind in LaNorme.
+
+Use it as a ratchet. Set `max_total` to today's count, then lower it as
+debt is paid; CI fails on the next suppression added rather than on the
+backlog:
+
+```console
+lanorme check . --check=suppressions   # reports the current count
+```
+
+Comments are read through `tokenize` and matched from the start of the
+comment, so a directive named in prose (`# lines up with --exclude and
+# noqa handling`) or quoted in a string is documentation, not an escape,
+and does not count against the budget.
+
+Config:
+```toml
+[tool.lanorme.suppressions]
+enabled       = true
+max_total     = 0      # the ratchet: set to today's count, then lower it
+allow_blanket = false  # set true to permit bare '# noqa'
+```
+
+This rule is a count, not a heuristic, so it carries no scored corpus.
+Its correctness is pinned by `tests/unit/test_suppressions.py`, including
+a regression that the `SUPPRESS` codes survive a `# noqa` naming them.
+
+---
+
 ## Test coverage: `TESTFILE-001`
 
 Default-on warning. For each Python file under one of the hardwired

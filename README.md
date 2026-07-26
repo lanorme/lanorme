@@ -98,6 +98,7 @@ On by default, on any project, no config needed:
 | `SHELL-001` / `DESERIAL-001` / `EVAL-001` / `CRYPTO-001` / `TLS-001` / `DEBUG-001` | shell injection, unsafe deserialisation, `eval`/`exec`, weak hashes, disabled TLS, debug mode |
 | `JUNK-001/002` | screenshots, scratch files, OS junk, stray binaries |
 | `TESTFILE-001` | a production module with no `test_*.py` partner |
+| `SUPPRESS-001/002` | inline suppressions over budget; blanket directives that name no rule |
 | `META-001..005` | the checks themselves emit well-formed output |
 | `SKILL-001..006` | Agent Skill (`SKILL.md`) frontmatter, naming and link compliance |
 

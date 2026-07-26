@@ -44,6 +44,26 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
   code, and twenty lines is roughly the screenful past which a binding and its
   use stop being visible together.
 
+- `SUPPRESS-001` / `SUPPRESS-002` in a new opt-in `suppressions` check.
+  `SUPPRESS-001` counts the project's inline suppressions against `max_total`;
+  `SUPPRESS-002` flags a directive that names no rule, since a bare `# noqa`
+  silences every future rule as well as today's. Default off:
+
+      [tool.lanorme.suppressions]
+      enabled   = true
+      max_total = 0
+
+  Used as a ratchet: set `max_total` to today's count and lower it as debt is
+  paid, so CI fails on the next suppression rather than on the backlog.
+
+### Changed
+
+- Inline `# noqa` and `# lanorme: ignore` no longer silence the `SUPPRESS`
+  category. Every other rule stays suppressible exactly as before. A budget on
+  suppressions that can be waived on the offending line does not bound
+  anything, so that family is answerable only in config, where the decision is
+  reviewable. This is the only rule family with the exemption.
+
 ## [0.14.2]
 
 ### Added

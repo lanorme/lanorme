@@ -76,6 +76,8 @@ notes for each rule are in the [rule reference](../RULES.md).
 | `SKILL-006` | skills | no |
 | `SQL-001` | security_patterns | no |
 | `STALE-001` | stale_paths | no |
+| `SUPPRESS-001` | suppressions | yes |
+| `SUPPRESS-002` | suppressions | yes |
 | `TERM-NNN` | domain_terms | no |
 | `TESTFILE-001` | test_coverage | no |
 | `TLS-001` | security_calls | no |

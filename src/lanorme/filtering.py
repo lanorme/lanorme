@@ -183,8 +183,16 @@ def _directive_silences(*, pattern: re.Pattern[str], line: str, rule: str) -> bo
     return _matches(code=_rule_code(rule), patterns=codes)
 
 
+# Categories no inline directive may silence. A budget on suppressions that an
+# offender can waive on the offending line is not a budget, so the SUPPRESS
+# family is answerable only in config, where the decision is reviewable.
+_UNSUPPRESSABLE = frozenset({"SUPPRESS"})
+
+
 def _line_silences(*, line: str, rule: str) -> bool:
     """True if a ``# noqa`` or ``# lanorme: ignore`` on *line* covers *rule*."""
+    if _category(_rule_code(rule)) in _UNSUPPRESSABLE:
+        return False
     return _directive_silences(pattern=_NOQA_RE, line=line, rule=rule) or _directive_silences(
         pattern=_IGNORE_RE, line=line, rule=rule
     )
