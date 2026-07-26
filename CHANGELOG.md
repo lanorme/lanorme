@@ -9,6 +9,8 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
 
 ## [Unreleased]
 
+## [0.15.0]
+
 ### Added
 
 - `CMT-006` / `CMT-007` in a new opt-in `docstrings` check. `CMT-006` requires
