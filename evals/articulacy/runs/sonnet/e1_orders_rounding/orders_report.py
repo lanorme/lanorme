@@ -15,11 +15,14 @@ import json
 import sys
 from dataclasses import dataclass, field
 from datetime import date, datetime
-from decimal import Decimal, InvalidOperation
-from typing import Mapping, Sequence
+from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
+from typing import Mapping, Sequence, TypeVar
 
 CENTS = Decimal(100)
 TOP_N_CUSTOMERS = 3
+TWO_PLACES = Decimal("0.01")
+
+_K = TypeVar("_K")
 
 
 # --------------------------------------------------------------------------
@@ -97,6 +100,10 @@ class CountrySummary:
     def top_customers(self, n: int = TOP_N_CUSTOMERS) -> list[tuple[str, Decimal]]:
         ranked = sorted(self._customer_net.items(), key=lambda kv: kv[1], reverse=True)
         return ranked[:n]
+
+    def customer_net_totals(self) -> dict[str, Decimal]:
+        """Every customer's net revenue (in EUR) within this country, not just the top N."""
+        return dict(self._customer_net)
 
 
 # --------------------------------------------------------------------------
@@ -260,12 +267,83 @@ def aggregate_by_country(orders: Sequence[Order]) -> dict[str, CountrySummary]:
 
 
 # --------------------------------------------------------------------------
+# Currency conversion and reconciled rounding
+# --------------------------------------------------------------------------
+
+
+def conversion_factor(currency: str, rates: Mapping[str, float]) -> Decimal:
+    """The factor to multiply a EUR amount by to get an amount in `currency`.
+
+    `rates` is the same currency -> EUR rate table used to convert orders
+    into EUR (i.e. ``rates[X]`` is how many EUR one unit of ``X`` is worth),
+    so converting the other way round divides by that rate.
+    """
+    currency = currency.strip().upper()
+    if currency == "EUR":
+        return Decimal("1")
+    if currency not in rates:
+        raise ValueError(f"currency {currency!r} is not EUR and has no entry in the rates file")
+    rate = Decimal(str(rates[currency]))
+    if rate == 0:
+        raise ValueError(f"rate for currency {currency!r} is zero")
+    return Decimal("1") / rate
+
+
+def _round_currency(value: Decimal, precision: Decimal = TWO_PLACES) -> Decimal:
+    return value.quantize(precision, rounding=ROUND_HALF_UP)
+
+
+def apportion(
+    values: Mapping[_K, Decimal],
+    *,
+    target_total: Decimal | None = None,
+    precision: Decimal = TWO_PLACES,
+) -> dict[_K, Decimal]:
+    """Round every value to `precision`, so the rounded parts sum exactly to
+    the rounded whole (the largest-remainder method).
+
+    Rounding each figure independently can leave the parts a cent or two off
+    from the total once every value has been rounded on its own. Instead,
+    round every value down to `precision` first, then hand out the leftover
+    (or excess) unit of `precision` to the entries whose exact value is
+    furthest from (or closest to) its naively rounded figure, so the parts
+    always add back up to `target_total` (the rounded sum of the exact
+    values, by default).
+    """
+    if not values:
+        return {}
+
+    exact_total = sum(values.values(), Decimal("0"))
+    if target_total is None:
+        target_total = _round_currency(exact_total, precision)
+
+    naive = {key: _round_currency(value, precision) for key, value in values.items()}
+    naive_total = sum(naive.values(), Decimal("0"))
+    remainder_units = int((target_total - naive_total) / precision)
+    if remainder_units == 0:
+        return naive
+
+    diffs = {key: values[key] - naive[key] for key in values}
+    if remainder_units > 0:
+        order = sorted(values, key=lambda key: (-diffs[key], str(key)))
+        step, count = precision, remainder_units
+    else:
+        order = sorted(values, key=lambda key: (diffs[key], str(key)))
+        step, count = -precision, -remainder_units
+
+    result = dict(naive)
+    for key in order[:count]:
+        result[key] = result[key] + step
+    return result
+
+
+# --------------------------------------------------------------------------
 # Rendering
 # --------------------------------------------------------------------------
 
 
-def _money(value: Decimal) -> str:
-    return f"{value.quantize(Decimal('0.01')):,.2f} EUR"
+def _money(value: Decimal, currency: str = "EUR") -> str:
+    return f"{value.quantize(TWO_PLACES, rounding=ROUND_HALF_UP):,.2f} {currency}"
 
 
 def _date(value: datetime | None) -> str:
@@ -275,62 +353,94 @@ def _date(value: datetime | None) -> str:
 def render_report(
     customers: Mapping[str, CustomerSummary],
     countries: Mapping[str, CountrySummary],
+    *,
+    currency: str = "EUR",
+    rate: Decimal = Decimal("1"),
 ) -> str:
-    """Render a plain-text report, sorted by net revenue descending."""
+    """Render a plain-text report, sorted by net revenue descending.
+
+    All monetary figures are converted from EUR to `currency` using `rate`
+    (a EUR -> `currency` multiplier) and rounded to two decimal places. Net
+    revenue figures are reconciled: the per-customer and per-country net
+    revenue figures each add up exactly to their section's totals line, and
+    the per-customer breakdown within a country adds up exactly to that
+    country's net revenue figure.
+    """
     lines: list[str] = []
     lines.append("ORDERS REPORT")
     lines.append("=============")
     lines.append("")
 
-    lines.extend(_render_customer_section(customers))
+    lines.extend(_render_customer_section(customers, currency=currency, rate=rate))
     lines.append("")
-    lines.extend(_render_country_section(countries))
+    lines.extend(_render_country_section(countries, currency=currency, rate=rate))
 
     return "\n".join(lines) + "\n"
 
 
-def _render_customer_section(customers: Mapping[str, CustomerSummary]) -> list[str]:
+def _render_customer_section(
+    customers: Mapping[str, CustomerSummary], *, currency: str, rate: Decimal
+) -> list[str]:
     lines = ["By customer (net revenue descending)", "-" * 38]
     ranked = sorted(customers.values(), key=lambda c: c.net_revenue, reverse=True)
 
+    net_in_currency = {c.customer_id: c.net_revenue * rate for c in ranked}
+    reconciled_net = apportion(net_in_currency)
+
     total_orders = 0
-    total_net = Decimal("0")
     for summary in ranked:
         coupon = "yes" if summary.used_coupon else "no"
+        net = reconciled_net[summary.customer_id]
+        avg = _round_currency(summary.average_order_value * rate)
         lines.append(
             f"{summary.customer_id:<20} orders={summary.order_count:<5} "
-            f"net={_money(summary.net_revenue):>16} "
-            f"avg={_money(summary.average_order_value):>16} "
+            f"net={_money(net, currency):>16} "
+            f"avg={_money(avg, currency):>16} "
             f"first={_date(summary.first_order)} last={_date(summary.last_order)} "
             f"coupon={coupon}"
         )
         total_orders += summary.order_count
-        total_net += summary.net_revenue
 
+    total_net = sum(reconciled_net.values(), Decimal("0"))
     lines.append("-" * 38)
-    lines.append(f"TOTAL customers={len(ranked)} orders={total_orders} net={_money(total_net)}")
+    lines.append(
+        f"TOTAL customers={len(ranked)} orders={total_orders} net={_money(total_net, currency)}"
+    )
     return lines
 
 
-def _render_country_section(countries: Mapping[str, CountrySummary]) -> list[str]:
+def _render_country_section(
+    countries: Mapping[str, CountrySummary], *, currency: str, rate: Decimal
+) -> list[str]:
     lines = ["By country (net revenue descending)", "-" * 38]
     ranked = sorted(countries.values(), key=lambda c: c.net_revenue, reverse=True)
 
+    net_in_currency = {c.country: c.net_revenue * rate for c in ranked}
+    reconciled_net = apportion(net_in_currency)
+
     total_orders = 0
-    total_net = Decimal("0")
     for summary in ranked:
+        country_net = reconciled_net[summary.country]
+        customer_net_in_currency = {
+            customer_id: net * rate for customer_id, net in summary.customer_net_totals().items()
+        }
+        reconciled_customer_net = apportion(customer_net_in_currency, target_total=country_net)
+        top_ids = [customer_id for customer_id, _ in summary.top_customers()]
         top = ", ".join(
-            f"{customer_id} ({_money(net)})" for customer_id, net in summary.top_customers()
+            f"{customer_id} ({_money(reconciled_customer_net[customer_id], currency)})"
+            for customer_id in top_ids
         )
         lines.append(
             f"{summary.country or '(unknown)':<20} orders={summary.order_count:<5} "
-            f"net={_money(summary.net_revenue):>16} top_customers=[{top}]"
+            f"net={_money(country_net, currency):>16} top_customers=[{top}]"
         )
         total_orders += summary.order_count
-        total_net += summary.net_revenue
 
+    total_net = sum(reconciled_net.values(), Decimal("0"))
     lines.append("-" * 38)
-    lines.append(f"TOTAL countries={len(ranked)} orders={total_orders} net={_money(total_net)}")
+    lines.append(
+        f"TOTAL countries={len(ranked)} orders={total_orders} net={_money(total_net, currency)}"
+    )
     return lines
 
 
@@ -385,19 +495,34 @@ def build_arg_parser() -> argparse.ArgumentParser:
         default=None,
         help="write the report to this file instead of stdout",
     )
+    parser.add_argument(
+        "--currency",
+        default="EUR",
+        help=(
+            "render monetary figures in this currency instead of EUR, "
+            "converted using the same --rates table (default: EUR)"
+        ),
+    )
     return parser
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    args = build_arg_parser().parse_args(argv)
+    parser = build_arg_parser()
+    args = parser.parse_args(argv)
 
     rates = _load_rates(args.rates)
+    try:
+        rate = conversion_factor(args.currency, rates)
+    except ValueError as exc:
+        parser.error(str(exc))
+    currency = args.currency.strip().upper()
+
     orders = load_orders(args.csv_path, rates)
     orders = filter_orders(orders, start=args.start, end=args.end, statuses=args.statuses)
 
     customers = aggregate_by_customer(orders)
     countries = aggregate_by_country(orders)
-    report = render_report(customers, countries)
+    report = render_report(customers, countries, currency=currency, rate=rate)
 
     if args.output:
         with open(args.output, "w", encoding="utf-8") as handle:

@@ -381,12 +381,13 @@ class ComparisonResult:
                 f"{self.model_a} and {self.model_b} share no example_ids; "
                 "cannot compare."
             )
+        p_str = "< 1e-300" if self.p_value == 0.0 else f"{self.p_value:.4g}"
         if not self.significant:
             return (
                 f"No significant difference between {self.model_a} "
                 f"({self.accuracy_a:.3%}) and {self.model_b} "
                 f"({self.accuracy_b:.3%}) at alpha={self.alpha} "
-                f"(p={self.p_value:.4g})."
+                f"(p={p_str})."
             )
         better, worse = (
             (self.model_a, self.model_b)
@@ -395,7 +396,7 @@ class ComparisonResult:
         )
         return (
             f"{better} is significantly better than {worse} at "
-            f"alpha={self.alpha} (p={self.p_value:.4g})."
+            f"alpha={self.alpha} (p={p_str})."
         )
 
 
