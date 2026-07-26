@@ -112,6 +112,60 @@ Config:
 enabled = true
 ```
 
+### `CMT-006` / `CMT-007`: docstrings that exist, and that say something
+
+Default-off. **Opinionated.** Lives in its own `docstrings` check.
+
+Every other rule in the comment family subtracts: `CMT-001` deletes
+commented-out code, `CMT-002` caps comment length, `CMT-005` deletes
+comments that restate the next line, `PROSE-001` / `PROSE-003` strip em
+dashes and emoji. The cheapest way to satisfy all of them is to write
+nothing. These two point the other way.
+
+- `CMT-006`: a public function or class whose span reaches `min_lines`
+  (default 5) carries a docstring. Dunders, private names, `test_*` files,
+  `__init__.py`, `conftest.py`, `alembic/` and `migrations/` are out of
+  scope.
+- `CMT-007`: that docstring says more than the signature. A docstring is
+  vacuous when every content word in it is already carried by the
+  definition's name, its parameters, or its enclosing class. Padding does
+  not help, because padding is restatement.
+
+`CMT-007` reuses the vocabulary machinery behind `CMT-005`: identifier
+splitting, stemming, and the 11-category allowlist that exempts a comment
+carrying a why, a caveat, a unit or a reference. Two additions on top:
+
+- **Abbreviation coverage.** A stemmer links `process` to `processing` but
+  not to `proc`, so a docstring word also counts as restatement when it
+  extends a signature stem of at least 3 characters, or is extended by
+  one. The floor stops a two-letter name such as `go` swallowing `govern`.
+- **Emptiness before allowlist.** A docstring with no content word left
+  after filler removal is vacuous whatever the allowlist says, so
+  `This is a helper function.` is not rescued by it.
+
+Measured against the 23-definition corpus under
+`evals/corpora/docstrings_vacuous/` with `evals/score_cmt007.py`:
+**P = 1.000 / R = 1.000 / F1 = 1.000** (TP = 9, FP = 0, FN = 0, TN = 14).
+That corpus was written alongside the rule and tuned against, so treat the
+figure as a regression guard rather than an unbiased estimate. The
+independent evidence is held-out: `CMT-007` returns **zero** findings over
+the 3321 lines of generated code in `evals/readability/runs/` and
+`evals/articulacy/runs*/`, and zero over LaNorme's own `src/` with
+`require_private` on, while `CMT-006` finds 114 missing docstrings in the
+same generated corpora.
+
+`CMT-007` is a guard, not a finder. Its job is to stop `CMT-006` being
+satisfied by `"""Go."""`; on code written in good faith it should stay
+silent, and on this evidence it does.
+
+Config:
+```toml
+[tool.lanorme.docstrings]
+enabled         = true
+min_lines       = 5      # definitions shorter than this need no docstring
+require_private = false  # also require them on _private definitions
+```
+
 ### `PROSE-001` / `PROSE-003` on comments and docstrings
 
 Off until enabled. The same rule codes that the `prose` check emits on

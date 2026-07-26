@@ -87,6 +87,7 @@ On by default, on any project, no config needed:
 | Rule | Catches |
 |---|---|
 | `CMT-001/002` | commented-out code, over-long comment blocks |
+| `CMT-006/007` | missing docstrings, and docstrings that only restate the signature |
 | `DRY-001` | near-duplicate function bodies |
 | `SIZE-001..003` / `COMPLEXITY-001` / `PARAM-001` | file, function and class size; cyclomatic complexity; parameter count |
 | `IMPORT-001` / `ENDPOINT-001` | imports inside function bodies; deeply nested endpoints |

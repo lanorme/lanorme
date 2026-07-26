@@ -14,6 +14,8 @@ notes for each rule are in the [rule reference](../RULES.md).
 | `CMT-001` | comments | no |
 | `CMT-002` | comments | no |
 | `CMT-005` | restating | yes |
+| `CMT-006` | docstrings | yes |
+| `CMT-007` | docstrings | yes |
 | `COMPLEXITY-001` | file_limits | no |
 | `CRYPTO-001` | security_calls | no |
 | `DEBUG-001` | security_calls | no |

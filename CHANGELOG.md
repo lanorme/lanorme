@@ -9,6 +9,25 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
 
 ## [Unreleased]
 
+### Added
+
+- `CMT-006` / `CMT-007` in a new opt-in `docstrings` check. `CMT-006` requires
+  a docstring on a public definition whose span reaches `min_lines` (default
+  5); `CMT-007` requires that docstring to say more than the signature already
+  does, flagging one whose every content word is carried by the definition's
+  name, parameters or enclosing class. `CMT-007` reuses the identifier
+  splitting, stemming and allowlist behind `CMT-005`, adding abbreviation
+  coverage (so `"""Process."""` on `proc` is caught, which stemming alone
+  misses) and settling emptiness before the allowlist (so
+  `"""This is a helper function."""` is not rescued by it). Both default off:
+
+      [tool.lanorme.docstrings]
+      enabled = true
+
+  The pair exists because every other comment rule subtracts, so the cheapest
+  way to satisfy the family was to write nothing. `CMT-007` is what stops
+  `CMT-006` being answered with `"""Go."""`.
+
 ## [0.14.2]
 
 ### Added
