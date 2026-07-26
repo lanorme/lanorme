@@ -1,0 +1,4 @@
+# Stock LaNorme, as a new project gets it: no opt-in rules enabled.
+# Present so the eval run tree stops the config walk-up and does not
+# inherit LaNorme's own pyproject settings.
+ignore = ["LAYER", "PORT", "TERM"]

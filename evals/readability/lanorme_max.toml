@@ -1,0 +1,29 @@
+# Every opinionated rule LaNorme ships, turned on. The upper bound on what
+# the tool can currently say about a file.
+ignore = ["LAYER", "PORT", "TERM"]
+
+[comments]
+em_dash = true
+emoji = true
+
+[restating]
+enabled = true
+
+[attribute_access]
+enabled = true
+
+[named_args]
+enabled = true
+
+[similarity]
+enabled = true
+
+[test_style]
+enabled = true
+
+[prose]
+enabled = true
+
+[naming_consistency]
+repo_crud = true
+service_crud = true

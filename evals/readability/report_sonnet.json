@@ -1,0 +1,326 @@
+{
+  "model": "sonnet",
+  "samples": [
+    {
+      "task": "mlre_01_data_pipeline",
+      "lanorme": {
+        "default": {
+          "SIZE-001": 1,
+          "SIZE-002": 2,
+          "COMPLEXITY-001": 2,
+          "PARAM-001": 1,
+          "NAMING-004": 1,
+          "CRYPTO-001": 1,
+          "TYPE-001": 1
+        },
+        "max": {
+          "ATTR-001": 2,
+          "SIZE-001": 1,
+          "SIZE-002": 2,
+          "COMPLEXITY-001": 2,
+          "PARAM-001": 1,
+          "KWARG-001": 12,
+          "NAMING-004": 1,
+          "CRYPTO-001": 1,
+          "TYPE-001": 1
+        }
+      },
+      "readability": [
+        {
+          "path": "prepare_pretrain_corpus.py",
+          "effective_lines": 457,
+          "short_name_rate": 0.044,
+          "short_names": [
+            "d",
+            "f",
+            "h",
+            "m",
+            "p",
+            "s",
+            "v",
+            "w"
+          ],
+          "comments_per_100_lines": 10.28,
+          "docstring_coverage": 0.382,
+          "undocumented_definitions": 21,
+          "trivial_docstrings": 0,
+          "heavy_comprehensions": 0,
+          "max_comprehension_load": 3,
+          "max_expression_depth": 7
+        }
+      ]
+    },
+    {
+      "task": "mlre_02_train_loop",
+      "lanorme": {
+        "default": {
+          "SIZE-002": 1,
+          "COMPLEXITY-001": 1,
+          "SIZE-001": 1,
+          "PARAM-001": 2,
+          "TYPE-001": 6
+        },
+        "max": {
+          "ATTR-001": 1,
+          "SIZE-002": 1,
+          "COMPLEXITY-001": 1,
+          "SIZE-001": 1,
+          "PARAM-001": 2,
+          "KWARG-001": 9,
+          "TYPE-001": 6
+        }
+      },
+      "readability": [
+        {
+          "path": "train.py",
+          "effective_lines": 362,
+          "short_name_rate": 0.01,
+          "short_names": [
+            "p",
+            "v"
+          ],
+          "comments_per_100_lines": 14.92,
+          "docstring_coverage": 0.077,
+          "undocumented_definitions": 24,
+          "trivial_docstrings": 0,
+          "heavy_comprehensions": 0,
+          "max_comprehension_load": 3,
+          "max_expression_depth": 7
+        }
+      ]
+    },
+    {
+      "task": "mlre_03_eval_harness",
+      "lanorme": {
+        "default": {
+          "SIZE-001": 1,
+          "SIZE-002": 1,
+          "COMPLEXITY-001": 1,
+          "PARAM-001": 3,
+          "TYPE-001": 8,
+          "TYPE-003": 3
+        },
+        "max": {
+          "SIZE-001": 1,
+          "SIZE-002": 1,
+          "COMPLEXITY-001": 1,
+          "PARAM-001": 3,
+          "KWARG-001": 19,
+          "TYPE-001": 8,
+          "TYPE-003": 3
+        }
+      },
+      "readability": [
+        {
+          "path": "benchmark_eval.py",
+          "effective_lines": 432,
+          "short_name_rate": 0.048,
+          "short_names": [
+            "a",
+            "b",
+            "c",
+            "ci",
+            "ex",
+            "fd"
+          ],
+          "comments_per_100_lines": 7.87,
+          "docstring_coverage": 0.567,
+          "undocumented_definitions": 13,
+          "trivial_docstrings": 0,
+          "heavy_comprehensions": 0,
+          "max_comprehension_load": 3,
+          "max_expression_depth": 9
+        }
+      ]
+    },
+    {
+      "task": "mlre_04_ablation_sweep",
+      "lanorme": {
+        "default": {
+          "SIZE-001": 1,
+          "SIZE-002": 3,
+          "COMPLEXITY-001": 3,
+          "PARAM-001": 1,
+          "IMPORT-001": 1,
+          "TYPE-001": 24
+        },
+        "max": {
+          "SIZE-001": 1,
+          "SIZE-002": 3,
+          "COMPLEXITY-001": 3,
+          "PARAM-001": 1,
+          "KWARG-001": 15,
+          "IMPORT-001": 1,
+          "TYPE-001": 24
+        }
+      },
+      "readability": [
+        {
+          "path": "sweep.py",
+          "effective_lines": 690,
+          "short_name_rate": 0.098,
+          "short_names": [
+            "a",
+            "a0",
+            "b",
+            "c",
+            "c0",
+            "f",
+            "kv",
+            "np",
+            "ok",
+            "p",
+            "p0",
+            "r",
+            "rc",
+            "v"
+          ],
+          "comments_per_100_lines": 3.77,
+          "docstring_coverage": 0.122,
+          "undocumented_definitions": 36,
+          "trivial_docstrings": 0,
+          "heavy_comprehensions": 0,
+          "max_comprehension_load": 3,
+          "max_expression_depth": 7
+        }
+      ]
+    },
+    {
+      "task": "swe_01_orders_report",
+      "lanorme": {
+        "default": {
+          "COMPLEXITY-001": 1,
+          "SIZE-001": 1
+        },
+        "max": {
+          "COMPLEXITY-001": 1,
+          "SIZE-001": 1,
+          "KWARG-001": 5
+        }
+      },
+      "readability": [
+        {
+          "path": "orders_report.py",
+          "effective_lines": 299,
+          "short_name_rate": 0.019,
+          "short_names": [
+            "c",
+            "kv"
+          ],
+          "comments_per_100_lines": 6.02,
+          "docstring_coverage": 0.148,
+          "undocumented_definitions": 23,
+          "trivial_docstrings": 0,
+          "heavy_comprehensions": 0,
+          "max_comprehension_load": 4,
+          "max_expression_depth": 7
+        }
+      ]
+    },
+    {
+      "task": "swe_02_api_client",
+      "lanorme": {
+        "default": {
+          "PARAM-001": 2,
+          "SIZE-001": 1,
+          "SIZE-003": 1,
+          "TYPE-003": 2
+        },
+        "max": {
+          "PARAM-001": 2,
+          "SIZE-001": 1,
+          "SIZE-003": 1,
+          "KWARG-001": 7,
+          "TYPE-003": 2
+        }
+      },
+      "readability": [
+        {
+          "path": "warehouse_client.py",
+          "effective_lines": 282,
+          "short_name_rate": 0.006,
+          "short_names": [
+            "v"
+          ],
+          "comments_per_100_lines": 6.03,
+          "docstring_coverage": 0.385,
+          "undocumented_definitions": 24,
+          "trivial_docstrings": 4,
+          "heavy_comprehensions": 0,
+          "max_comprehension_load": 2,
+          "max_expression_depth": 7
+        }
+      ]
+    },
+    {
+      "task": "swe_03_config_migration",
+      "lanorme": {
+        "default": {
+          "SIZE-001": 1,
+          "SECRETPY-001": 1,
+          "TYPE-001": 10
+        },
+        "max": {
+          "SIZE-001": 1,
+          "KWARG-001": 10,
+          "SECRETPY-001": 1,
+          "TYPE-001": 10
+        }
+      },
+      "readability": [
+        {
+          "path": "config_migrate.py",
+          "effective_lines": 298,
+          "short_name_rate": 0.0,
+          "short_names": [],
+          "comments_per_100_lines": 4.7,
+          "docstring_coverage": 0.316,
+          "undocumented_definitions": 13,
+          "trivial_docstrings": 0,
+          "heavy_comprehensions": 0,
+          "max_comprehension_load": 2,
+          "max_expression_depth": 8
+        }
+      ]
+    },
+    {
+      "task": "swe_04_log_analysis",
+      "lanorme": {
+        "default": {
+          "SIZE-001": 1,
+          "COMPLEXITY-001": 1,
+          "TYPE-002": 3
+        },
+        "max": {
+          "SIZE-001": 1,
+          "COMPLEXITY-001": 1,
+          "KWARG-001": 5,
+          "TYPE-002": 3
+        }
+      },
+      "readability": [
+        {
+          "path": "access_log_analysis.py",
+          "effective_lines": 501,
+          "short_name_rate": 0.054,
+          "short_names": [
+            "kv",
+            "o",
+            "p",
+            "r",
+            "v",
+            "w",
+            "ws"
+          ],
+          "comments_per_100_lines": 6.39,
+          "docstring_coverage": 0.297,
+          "undocumented_definitions": 26,
+          "trivial_docstrings": 0,
+          "heavy_comprehensions": 0,
+          "max_comprehension_load": 4,
+          "max_expression_depth": 7
+        }
+      ]
+    }
+  ]
+}

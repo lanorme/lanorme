@@ -70,6 +70,7 @@ ignore = ["LAYER", "PORT", "TERM"]
 exclude = [
     "tests/fixtures/*",          # deliberately dirty test inputs
     "evals/corpora/*",           # deliberately dirty labelled eval corpora
+    "evals/readability/runs/*",  # verbatim model output, the readability eval subject
     "benchmarks/.corpora/*",     # downloaded third-party corpora
     "evals/score_*.py",          # per-check scorers share boilerplate by design
     "docs/cmt005-design.md",     # in-progress design note for the CMT-005 rule
