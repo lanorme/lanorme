@@ -6,6 +6,8 @@ import enum
 from dataclasses import dataclass, field
 from typing import Any
 
+from ._resources import ResourceUsage
+
 
 class Status(enum.Enum):
     """A task's state during and after a run.
@@ -52,12 +54,15 @@ class TaskResult:
 
 @dataclass
 class RunResult:
-    """The final outcome of a run: one :class:`TaskResult` per task."""
+    """The final outcome of a run: one :class:`TaskResult` per task, plus
+    how busy each declared resource was over the run (``resource_usage``,
+    keyed by resource name; empty if the run declared no resource pool)."""
 
     results: dict[str, TaskResult] = field(default_factory=dict)
     cancelled: bool = False
     started_at: float = 0.0
     ended_at: float = 0.0
+    resource_usage: dict[str, ResourceUsage] = field(default_factory=dict)
 
     @property
     def duration(self) -> float:

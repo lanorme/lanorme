@@ -209,24 +209,95 @@ class Run:
             self._started = True
 
         self._started_at = time.monotonic()
+        self._pool.begin(self._started_at)
         if not self._tasks:
             self._finish()
             return
 
         with self._lock:
-            ready = [
-                name for name, count in self._remaining_deps.items() if count == 0
-            ]
-            for name in ready:
-                self._mark_running(name)
-        for name in ready:
+            for name, count in self._remaining_deps.items():
+                if count == 0:
+                    self._push_ready(name)
+            to_submit = self._dispatch_locked()
+            self._maybe_finish_locked()
+        for name in to_submit:
             self._submit(name)
 
     def _mark_running(self, name: str) -> None:
-        """Must be called with ``self._lock`` held."""
+        """Must be called with ``self._lock`` held.
+
+        Idempotent on ``started_at``: a retried task is dispatched again
+        (its resources and worker slot were given back for the backoff
+        wait), but its ``started_at`` -- and so its reported ``duration`` --
+        should still span from its very first attempt, not reset on each
+        retry.
+        """
         result = self._results[name]
         result.status = Status.RUNNING
-        result.started_at = time.monotonic()
+        if result.started_at is None:
+            result.started_at = time.monotonic()
+
+    def _push_ready(self, name: str) -> None:
+        """Add ``name`` to the ready queue. Must be called with ``self._lock``
+        held. Does not mark it running: :meth:`_dispatch_locked` does that
+        only once a worker slot and its resources are actually granted."""
+        task = self._tasks[name]
+        heapq.heappush(self._ready_heap, (-task.priority, self._sequence[name], name))
+
+    def _dispatch_locked(self) -> list[str]:
+        """Admit as many ready tasks as fit, in priority order.
+
+        A task is skipped over (not admitted, but left ready) if its
+        resources aren't currently free, so a lower-priority task that fits
+        can still start (backfill) rather than the run stalling behind one
+        that doesn't. Must be called with ``self._lock`` held; returns the
+        names to hand to the executor once the lock is released.
+        """
+        admitted: list[str] = []
+        deferred: list[tuple[int, int, str]] = []
+        while self._ready_heap and self._active_workers < self._max_workers:
+            entry = heapq.heappop(self._ready_heap)
+            name = entry[2]
+            if self._results[name].status in TERMINAL_STATUSES:
+                # Already finalised elsewhere (e.g. cancel()); drop it. A
+                # freshly-ready task is PENDING; a retried one is RUNNING
+                # (see _mark_running) -- both are still admissible here.
+                continue
+            task = self._tasks[name]
+            if self._pool.fits(task.resources):
+                self._pool.acquire(task.resources)
+                self._active_workers += 1
+                self._mark_running(name)
+                admitted.append(name)
+            else:
+                deferred.append(entry)
+        for entry in deferred:
+            heapq.heappush(self._ready_heap, entry)
+
+        if not admitted and self._ready_heap and self._is_stuck_locked():
+            self._resolve_deadlock_locked()
+        return admitted
+
+    def _is_stuck_locked(self) -> bool:
+        """Whether nothing left running or retrying could ever free the
+        resources the remaining ready tasks are waiting on.
+
+        Must be called with ``self._lock`` held. This should be unreachable
+        in practice: :meth:`Scheduler.validate` already refuses any task
+        whose requirement exceeds the pool's total capacity, which is the
+        only way a resource wait can never resolve. It stays as a runtime
+        safety net.
+        """
+        return self._active_workers == 0 and not self._pending_retries
+
+    def _resolve_deadlock_locked(self) -> None:
+        """Fail every stuck ready task (and its descendants) instead of
+        leaving the run to hang forever. Must be called with ``self._lock``
+        held."""
+        stuck = [entry[2] for entry in self._ready_heap]
+        self._ready_heap.clear()
+        for name in stuck:
+            self._finalize_failed(name, ResourceDeadlockError(name))
 
     def _submit(self, name: str) -> None:
         self._executor.submit(self._run_one, name)
@@ -244,9 +315,17 @@ class Run:
         else:
             self._on_success(name, value)
 
+    def _release(self, name: str) -> None:
+        """Return a finished attempt's resources and worker slot to the
+        pool. Must be called with ``self._lock`` held, exactly once per
+        attempt that was admitted by :meth:`_dispatch_locked`."""
+        self._pool.release(self._tasks[name].resources)
+        self._active_workers -= 1
+
     def _on_success(self, name: str, value) -> None:
         to_submit: list[str] = []
         with self._lock:
+            self._release(name)
             result = self._results[name]
             result.status = Status.SUCCEEDED
             result.ended_at = time.monotonic()
@@ -260,16 +339,18 @@ class Run:
                     and self._results[dependent].status is Status.PENDING
                     and not self._cancel_event.is_set()
                 ):
-                    self._mark_running(dependent)
-                    to_submit.append(dependent)
+                    self._push_ready(dependent)
 
+            to_submit = self._dispatch_locked()
             self._maybe_finish_locked()
 
         for dependent in to_submit:
             self._submit(dependent)
 
     def _on_failure(self, name: str, exc: Exception) -> None:
+        to_submit: list[str] = []
         with self._lock:
+            self._release(name)
             task = self._tasks[name]
             attempt = self._attempts[name]
             result = self._results[name]
@@ -284,19 +365,28 @@ class Run:
             else:
                 timer = None
                 self._finalize_failed(name, exc)
-                self._maybe_finish_locked()
+
+            to_submit = self._dispatch_locked()
+            self._maybe_finish_locked()
 
         if timer is not None:
             timer.start()
+        for dependent in to_submit:
+            self._submit(dependent)
 
     def _retry(self, name: str) -> None:
+        to_submit: list[str] = []
         with self._lock:
             self._pending_retries.pop(name, None)
             if self._cancel_event.is_set():
                 self._finalize_failed(name, RunCancelledError(name))
                 self._maybe_finish_locked()
                 return
-        self._submit(name)
+            self._push_ready(name)
+            to_submit = self._dispatch_locked()
+            self._maybe_finish_locked()
+        for dependent in to_submit:
+            self._submit(dependent)
 
     def _finalize_failed(self, name: str, exc: BaseException) -> None:
         """Must be called with ``self._lock`` held."""
@@ -349,11 +439,13 @@ class Run:
         for name, result in self._results.items():
             if result.attempts == 0:
                 result.attempts = self._attempts.get(name, 0)
+        run_duration = self._ended_at - self._started_at
         self._run_result = RunResult(
             results={n: _copy_result(r) for n, r in self._results.items()},
             cancelled=self._cancel_event.is_set(),
             started_at=self._started_at,
             ended_at=self._ended_at,
+            resource_usage=self._pool.report(self._ended_at, run_duration),
         )
         self._done_event.set()
         self._executor.shutdown(wait=False, cancel_futures=True)
