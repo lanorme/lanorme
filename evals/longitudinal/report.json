@@ -32,6 +32,25 @@
     "short_name_rate": 0.0229
   },
   {
+    "project": "featurestore",
+    "turn": 3,
+    "files": 10,
+    "lines": 928,
+    "findings": {
+      "COMPLEXITY-001": 1,
+      "PARAM-001": 6,
+      "SIZE-003": 2,
+      "SIZE-002": 3,
+      "SIZE-001": 1,
+      "CMT-006": 1,
+      "TYPE-001": 4
+    },
+    "docstring_coverage": 0.585,
+    "undocumented": 33,
+    "comments_per_100": 2.69,
+    "short_name_rate": 0.0213
+  },
+  {
     "project": "ledger",
     "turn": 1,
     "files": 5,

@@ -24,10 +24,12 @@ that was rejected, and will keep re-presenting an accepted pairing as
 from __future__ import annotations
 
 import dataclasses
+import decimal
 import difflib
 from collections.abc import Callable, Iterable
 
-from .errors import UnknownPostingError
+from .currency import CurrencyMode, convert_amount
+from .errors import MissingExchangeRateError, UnknownPostingError
 from .models import Account, Posting
 from .reconciliation_models import (
     Match,
@@ -99,6 +101,8 @@ class Reconciler:
         statement_lines: Iterable[StatementLine],
         date_window_days: int = 3,
         fuzzy_threshold: float = 0.6,
+        currency: CurrencyMode = CurrencyMode.ACCOUNT,
+        rate: decimal.Decimal | None = None,
     ) -> ReconciliationReport:
         """Match a bank statement against this account's ledger postings.
 
@@ -113,6 +117,20 @@ class Reconciler:
         directly, without being re-derived from amounts or dates. Pairings
         already rejected are never proposed again, though both sides
         remain free to match something else.
+
+        Matching itself always happens in the account's own currency, since
+        that is what both the bank statement and the ledger's postings are
+        actually denominated in. ``currency`` only affects how the
+        *returned* report's amounts are expressed: with
+        ``CurrencyMode.REPORTING`` every figure is converted through
+        ``rate`` (reporting-currency units per one unit of the account's
+        currency) into the ledger's reporting currency. ``rate`` is
+        required whenever the account's currency differs from the
+        ledger's; a same-currency account needs none. This is purely a
+        presentation transform -- match identities (the statement line's
+        ``external_id`` and the posting's ``ref``) are untouched, so a
+        report requested in reporting currency can still be passed to
+        ``accept``/``reject`` exactly like the native one.
         """
         account = self._ledger.get_account(account_id)
         remaining_lines = {line.external_id: line for line in statement_lines}
@@ -149,13 +167,16 @@ class Reconciler:
             scorer=lambda line, posting: self._fuzzy_score(line, posting, fuzzy_threshold),
         )
 
-        return ReconciliationReport(
+        report = ReconciliationReport(
             account_id=account_id,
             matches=tuple(matches),
             unmatched_statement_lines=tuple(remaining_lines.values()),
             unmatched_postings=tuple(remaining_postings.values()),
             closing_difference=self._closing_difference(remaining_lines, remaining_postings),
         )
+        if currency is CurrencyMode.REPORTING:
+            report = self._in_reporting_currency(report, account, rate)
+        return report
 
     # -- human decisions ------------------------------------------------------
 
@@ -287,6 +308,65 @@ class Reconciler:
             if decision.decision is MatchDecision.REJECTED
         }
 
+    # -- currency -------------------------------------------------------------
+
+    def _in_reporting_currency(
+        self, report: ReconciliationReport, account: Account, rate: decimal.Decimal | None
+    ) -> ReconciliationReport:
+        effective_rate = self._resolve_rate(account, rate)
+        if effective_rate == 1:
+            return report
+
+        converted_lines = tuple(
+            self._convert_line(line, effective_rate)
+            for line in report.unmatched_statement_lines
+        )
+        converted_postings = tuple(
+            self._convert_posting(posting, effective_rate)
+            for posting in report.unmatched_postings
+        )
+        matches = tuple(
+            dataclasses.replace(
+                match,
+                statement_line=self._convert_line(match.statement_line, effective_rate),
+                posting=self._convert_posting(match.posting, effective_rate),
+            )
+            for match in report.matches
+        )
+        closing_difference = self._closing_difference(
+            {line.external_id: line for line in converted_lines},
+            {posting.ref: posting for posting in converted_postings},
+        )
+        return dataclasses.replace(
+            report,
+            matches=matches,
+            unmatched_statement_lines=converted_lines,
+            unmatched_postings=converted_postings,
+            closing_difference=closing_difference,
+        )
+
+    def _resolve_rate(
+        self, account: Account, rate: decimal.Decimal | None
+    ) -> decimal.Decimal:
+        if account.currency == self._ledger.reporting_currency:
+            return decimal.Decimal(1)
+        if rate is None:
+            raise MissingExchangeRateError(
+                f"account {account.id!r} ({account.name}) is in {account.currency}; "
+                f"pass a rate to report in {self._ledger.reporting_currency}"
+            )
+        return decimal.Decimal(rate)
+
+    @staticmethod
+    def _convert_line(line: StatementLine, rate: decimal.Decimal) -> StatementLine:
+        return dataclasses.replace(line, amount_minor=convert_amount(line.amount_minor, rate))
+
+    @staticmethod
+    def _convert_posting(posting: PostingSummary, rate: decimal.Decimal) -> PostingSummary:
+        return dataclasses.replace(
+            posting, signed_amount=convert_amount(posting.signed_amount, rate)
+        )
+
     # -- internals --------------------------------------------------------------
 
     def _posting_summaries(
@@ -294,6 +374,11 @@ class Reconciler:
     ) -> dict[PostingRef, PostingSummary]:
         summaries = {}
         for entry, index, posting in self._ledger.postings_for_account(account_id):
+            if entry.is_revaluation:
+                # A revaluation posting is a book-only translation
+                # adjustment, not a real cash movement, so it can never
+                # correspond to a bank statement line.
+                continue
             ref = PostingRef(entry.id, index)
             summaries[ref] = PostingSummary(
                 ref=ref,

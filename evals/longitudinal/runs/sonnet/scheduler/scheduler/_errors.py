@@ -81,6 +81,25 @@ class ResourceDeadlockError(SchedulerError):
         )
 
 
+class JournalMismatchError(SchedulerError):
+    """Raised when a journal names tasks the current graph never declared.
+
+    This is the resume-time guard against pointing a run at the wrong
+    journal file (or replaying a journal after the graph's shape changed):
+    rather than silently ignoring history for tasks that no longer exist,
+    the run refuses to start.
+    """
+
+    def __init__(self, unknown_tasks: list[str]) -> None:
+        self.unknown_tasks = list(unknown_tasks)
+        names = ", ".join(repr(n) for n in self.unknown_tasks)
+        super().__init__(
+            f"journal records completed task(s) {names} that this graph "
+            "never declared -- wrong journal file, or the graph changed "
+            "since it was written"
+        )
+
+
 class RunAlreadyStartedError(SchedulerError):
     """Raised when a run is started more than once."""
 

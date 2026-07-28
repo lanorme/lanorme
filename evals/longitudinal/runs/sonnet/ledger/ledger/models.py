@@ -4,7 +4,11 @@ from __future__ import annotations
 
 import dataclasses
 import datetime
+import decimal
 import enum
+from collections.abc import Mapping
+
+from .currency import Currency, validate_currency
 
 
 class AccountType(enum.Enum):
@@ -47,14 +51,19 @@ def normal_balance(account_type: AccountType) -> Side:
 class Account:
     """A ledger account.
 
-    A closed account keeps its history and balance but may no longer
-    receive new postings.
+    Every account carries a currency; its postings are always recorded in
+    that currency (see ``Ledger.post``). A closed account keeps its history
+    and balance but may no longer receive new postings.
     """
 
     id: str
     name: str
     type: AccountType
+    currency: Currency
     closed: bool = False
+
+    def __post_init__(self) -> None:
+        validate_currency(self.currency)
 
     @property
     def normal_balance(self) -> Side:
@@ -86,12 +95,26 @@ class Posting:
 
 @dataclasses.dataclass(frozen=True)
 class JournalEntry:
-    """A committed, balanced journal entry made of two or more postings."""
+    """A committed, balanced journal entry made of two or more postings.
+
+    ``rates`` records, for every non-reporting-currency account this entry
+    touches, the rate (destination-currency units per one unit of that
+    currency) used to translate its postings into the reporting currency --
+    both to check that a multi-currency entry balances at post time, and
+    later so a reporting-currency balance or trial balance can reconstruct
+    what this entry was booked as worth. ``is_revaluation`` marks an entry
+    built by period-close revaluation rather than by ``Ledger.post``: its
+    postings restate an existing foreign-currency balance's reporting-
+    currency equivalent rather than moving money, so they are excluded from
+    an account-currency balance and from bank reconciliation.
+    """
 
     id: str
     date: datetime.date
     memo: str
     postings: tuple[Posting, ...]
+    rates: Mapping[Currency, decimal.Decimal] = dataclasses.field(default_factory=dict)
+    is_revaluation: bool = False
 
     def total(self, side: Side) -> int:
         """Sum of this entry's postings on the given side, in minor units."""

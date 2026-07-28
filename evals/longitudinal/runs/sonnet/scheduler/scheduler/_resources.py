@@ -24,6 +24,20 @@ Resources = Mapping[str, float]
 _EPSILON = 1e-9
 
 
+@dataclass(frozen=True)
+class ResourceSnapshot:
+    """An instantaneous (not time-integrated) read of one resource's usage,
+    for progress reporting while a run is still in flight."""
+
+    resource: str
+    used: float
+    capacity: float
+
+    @property
+    def free(self) -> float:
+        return self.capacity - self.used
+
+
 @dataclass
 class ResourceUsage:
     """Utilisation of one named resource over the course of a run.

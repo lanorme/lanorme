@@ -44,13 +44,43 @@ rejected pair::
     )
     for match in report.matches:
         reconciler.accept(cash.id, match)
+
+Every account carries a currency (``AccountType`` needs no currency of its
+own; it is set per account, defaulting to the ledger's reporting currency).
+An entry may span currencies as long as it balances in the reporting
+currency at the rates it supplies::
+
+    book = Ledger(reporting_currency="USD")
+    cash_usd = book.open_account("Cash (USD)", AccountType.ASSET)
+    cash_eur = book.open_account("Cash (EUR)", AccountType.ASSET, currency="EUR")
+    fx_expense = book.open_account("FX Fees", AccountType.EXPENSE)
+
+    book.post(
+        date=date(2026, 1, 5),
+        memo="Convert EUR to USD",
+        postings=[
+            PostingRequest(cash_usd.id, Side.DEBIT, 10_800),
+            PostingRequest(cash_eur.id, Side.CREDIT, 10_000),
+        ],
+        rates={"EUR": Decimal("1.08")},
+    )
+
+    book.balance(cash_eur.id)                                  # 10000, in EUR
+    book.balance(cash_eur.id, currency=CurrencyMode.REPORTING)  # 10800, in USD
+
+``Ledger.close_period`` can revalue foreign-currency balances at a closing
+rate, posting the unrealised gain or loss to a configured account, before
+freezing the period to new postings.
 """
 
+from .currency import Currency, CurrencyMode, validate_currency
 from .errors import (
     AccountClosedError,
     InvalidEntryError,
     LedgerError,
+    MissingExchangeRateError,
     PeriodClosedError,
+    RevaluationConfigurationError,
     UnbalancedEntryError,
     UnknownAccountError,
     UnknownPostingError,
@@ -67,13 +97,17 @@ from .reconciliation_models import (
     StatementLine,
 )
 from .reconciliation_store import InMemoryReconciliationStore, ReconciliationStore
+from .revaluation import AccountRevaluation, RevaluationSummary
 from .service import Ledger, PostingRequest, TrialBalance, TrialBalanceLine
 from .store import InMemoryLedgerStore, LedgerStore
 
 __all__ = [
     "Account",
     "AccountClosedError",
+    "AccountRevaluation",
     "AccountType",
+    "Currency",
+    "CurrencyMode",
     "InMemoryLedgerStore",
     "InMemoryReconciliationStore",
     "InvalidEntryError",
@@ -84,6 +118,7 @@ __all__ = [
     "Match",
     "MatchDecision",
     "MatchRule",
+    "MissingExchangeRateError",
     "PeriodClosedError",
     "Posting",
     "PostingRef",
@@ -92,6 +127,8 @@ __all__ = [
     "Reconciler",
     "ReconciliationReport",
     "ReconciliationStore",
+    "RevaluationConfigurationError",
+    "RevaluationSummary",
     "Side",
     "StatementLine",
     "TrialBalance",
@@ -99,4 +136,5 @@ __all__ = [
     "UnbalancedEntryError",
     "UnknownAccountError",
     "UnknownPostingError",
+    "validate_currency",
 ]
