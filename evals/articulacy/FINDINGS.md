@@ -76,7 +76,10 @@ decision made badly, in a way that is worth building a corpus around.
 
 In the control arm the disclosures live in module docstrings. That is exactly
 the artefact the readability eval measured at 31% median coverage across 180
-undocumented definitions, with no rule in the tool able to notice.
+undocumented definitions, with no rule in the tool able to notice. (That 31%
+is a single-file figure; `evals/longitudinal/` later measured 52 to 69 per
+cent on packages. The point here is unaffected: whatever the coverage, no
+rule notices a docstring being deleted.)
 
 So on this corpus the articulacy is real and completely unprotected. It rests
 on the model's disposition, not on anything the repository enforces, and

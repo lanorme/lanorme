@@ -31,6 +31,15 @@ cent of its definitions; `sweep.py` leaves 36 definitions with no docstring at
 all. LaNorme has nothing to say about any of it, because it has no rule that
 can.
 
+> **Amended after the longitudinal eval.** That 31 per cent is substantially
+> an artefact of the task format, not a general property of generated code.
+> Every task in this corpus asks for a single 300 to 500 line file. When
+> `evals/longitudinal/` asks the same model for a *package*, docstring
+> coverage runs 52 to 69 per cent and rises with every turn. Module
+> boundaries carry documentation pressure a monolithic script does not. The
+> measurement stands; the generalisation "agents underdocument" does not.
+> What the evidence supports is "agents underdocument long single files".
+
 ## The three complaints, tested
 
 **"Not enough comments" reproduces, and it is the real gap.** Median
@@ -104,9 +113,14 @@ calling convention, and nothing else.
 
 Four rules, in the order their evidence supports:
 
-1. **`CMT-003`, a docstring requirement** on public functions, classes and
-   modules above a size floor, plus a trivial-docstring check so `"""Go."""`
-   does not satisfy it. This is the largest measured gap, 180 instances.
+1. **A docstring requirement** on public functions, classes and modules
+   above a size floor, plus a trivial-docstring check so `"""Go."""` does
+   not satisfy it. This is the largest measured gap, 180 instances.
+   *Shipped as `CMT-006` / `CMT-007`. The codes `CMT-003` / `CMT-004`
+   proposed here were already retired under `PROSE-001` / `PROSE-003`, so
+   reusing them would have been a silent breaking change. On the
+   longitudinal corpus the pair fires seven times in 5000 lines: a floor
+   against the bad case, not a detector of the common one.*
 2. **Relax `CMT-002`'s block cap.** A 6-line limit on consecutive comments
    penalises exactly the explanation a hard piece of code needs. Either raise
    it substantially or exempt blocks that sit above a definition.
