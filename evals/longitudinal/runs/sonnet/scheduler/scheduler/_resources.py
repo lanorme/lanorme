@@ -118,6 +118,24 @@ class ResourcePool:
                 continue
             self._used[name] = self._used.get(name, 0.0) - amount
 
+    def snapshot(self) -> dict[str, ResourceSnapshot]:
+        """A non-mutating, instantaneous peek at current usage, for
+        progress reporting mid-run.
+
+        Unlike :meth:`report`, this does not fold elapsed time into the
+        running utilisation integral, so it may be called as often as
+        wanted without affecting the eventual :meth:`report`.
+        """
+        names = set(self._capacities) | set(self._used)
+        return {
+            name: ResourceSnapshot(
+                resource=name,
+                used=self._used.get(name, 0.0),
+                capacity=self._capacities.get(name, 0.0),
+            )
+            for name in names
+        }
+
     def _advance(self, now: float) -> None:
         """Fold the time since the last change into the running integral."""
         elapsed = now - self._last_ts
