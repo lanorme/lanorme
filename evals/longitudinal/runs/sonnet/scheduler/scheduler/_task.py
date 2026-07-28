@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import inspect
 import threading
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -56,6 +56,13 @@ class Task:
     argument if its signature accepts one -- this lets a task cooperatively
     notice cancellation via ``ctx.cancel_event`` without forcing every task
     to take a parameter it doesn't need.
+
+    ``resources`` names what the task needs from the run's resource pool
+    (for example ``{"gpu": 1, "memory_gb": 8}``) -- it waits until that much
+    of each is free before it starts, and gives it back the moment its
+    attempt ends. ``priority`` breaks ties among several tasks that are all
+    ready to run: higher runs first; among equal priorities, whichever task
+    was declared first (via :meth:`Scheduler.add_task`) runs first.
     """
 
     name: str
@@ -63,10 +70,18 @@ class Task:
     depends_on: tuple[str, ...] = ()
     max_retries: int = 0
     backoff: Backoff = field(default_factory=Backoff)
+    resources: Mapping[str, float] = field(default_factory=dict)
+    priority: int = 0
 
     def __post_init__(self) -> None:
         if self.max_retries < 0:
             raise ValueError("max_retries must be >= 0")
+        for name, amount in self.resources.items():
+            if amount < 0:
+                raise ValueError(
+                    f"task {self.name!r} has a negative requirement for "
+                    f"resource {name!r}: {amount!r}"
+                )
 
 
 def call_task(fn: Callable[..., Any], ctx: TaskContext) -> Any:

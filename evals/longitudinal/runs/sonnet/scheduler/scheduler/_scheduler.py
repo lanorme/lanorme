@@ -2,28 +2,41 @@
 
 Orchestration lives in :class:`Run`. A single :class:`threading.RLock` guards
 all of a run's mutable bookkeeping (per-task status, remaining-dependency
-counts, pending retry timers); task callables themselves execute outside the
-lock, on a bounded :class:`~concurrent.futures.ThreadPoolExecutor`. Retries
-wait out their backoff on a :class:`threading.Timer` rather than by sleeping
-inside a worker thread, so a task waiting to retry does not occupy one of the
-limited worker slots.
+counts, pending retry timers, the resource pool, the ready queue); task
+callables themselves execute outside the lock, on a bounded
+:class:`~concurrent.futures.ThreadPoolExecutor`. Retries wait out their
+backoff on a :class:`threading.Timer` rather than by sleeping inside a worker
+thread, so a task waiting to retry does not occupy one of the limited worker
+slots (or hold any resources).
+
+A task becoming ready (all dependencies satisfied) no longer means it starts
+immediately: it is pushed onto a priority queue, and a dispatch pass -- run
+after every state change -- admits ready tasks in priority order (ties broken
+by declaration order) as long as a worker slot and their declared resources
+are both free. A lower-priority task that fits is admitted ahead of a
+higher-priority one that doesn't (backfill), so resource contention on one
+task never stalls unrelated work.
 """
 
 from __future__ import annotations
 
+import heapq
 import threading
 import time
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from concurrent.futures import ThreadPoolExecutor
 
 from ._errors import (
     CycleError,
     DuplicateTaskError,
+    ResourceDeadlockError,
     RunAlreadyStartedError,
     RunCancelledError,
     UnknownDependencyError,
+    UnsatisfiableResourceError,
 )
 from ._graph import find_cycle
+from ._resources import Resources, ResourcePool
 from ._result import TERMINAL_STATUSES, RunResult, Status, TaskResult
 from ._task import Backoff, Task, TaskContext, call_task
 
@@ -31,10 +44,11 @@ from ._task import Backoff, Task, TaskContext, call_task
 class Scheduler:
     """Declares tasks and starts runs of the resulting DAG."""
 
-    def __init__(self, max_workers: int = 4) -> None:
+    def __init__(self, max_workers: int = 4, resources: Resources | None = None) -> None:
         if max_workers < 1:
             raise ValueError("max_workers must be >= 1")
         self._max_workers = max_workers
+        self._resources: dict[str, float] = dict(resources or {})
         self._tasks: dict[str, Task] = {}
 
     def add_task(
@@ -45,10 +59,14 @@ class Scheduler:
         depends_on: Iterable[str] = (),
         max_retries: int = 0,
         backoff: Backoff | None = None,
+        resources: Resources | None = None,
+        priority: int = 0,
     ) -> Task:
-        """Declare a task. Order does not matter: dependencies may be
-        declared before or after the tasks that depend on them, since the
-        graph is only validated when a run starts."""
+        """Declare a task. Order does not matter for dependencies: they may
+        be declared before or after the tasks that depend on them, since the
+        graph is only validated when a run starts. Declaration order *does*
+        matter for ``priority``: it is the deterministic tiebreak between
+        tasks that end up with equal priority."""
         if name in self._tasks:
             raise DuplicateTaskError(name)
         task = Task(
@@ -57,16 +75,20 @@ class Scheduler:
             depends_on=tuple(depends_on),
             max_retries=max_retries,
             backoff=backoff if backoff is not None else Backoff(),
+            resources=dict(resources or {}),
+            priority=priority,
         )
         self._tasks[name] = task
         return task
 
     def validate(self) -> None:
-        """Check the declared graph for unknown dependencies and cycles.
+        """Check the declared graph for unknown dependencies, cycles, and
+        resource requirements that could never be satisfied.
 
-        Raises :class:`UnknownDependencyError` or :class:`CycleError`. Called
-        automatically by :meth:`run`; exposed so callers can check a graph
-        without starting it.
+        Raises :class:`UnknownDependencyError`, :class:`CycleError`, or
+        :class:`UnsatisfiableResourceError`. Called automatically by
+        :meth:`run`; exposed so callers can check a graph without starting
+        it.
         """
         for task in self._tasks.values():
             for dep in task.depends_on:
@@ -78,12 +100,19 @@ class Scheduler:
         if cycle is not None:
             raise CycleError(cycle)
 
+        pool = ResourcePool(self._resources)
+        for task in self._tasks.values():
+            unsatisfiable = pool.unsatisfiable(task.resources)
+            if unsatisfiable is not None:
+                resource, requested, capacity = unsatisfiable
+                raise UnsatisfiableResourceError(task.name, resource, requested, capacity)
+
     def run(self) -> Run:
         """Validate the graph and start a run. Returns immediately with a
         :class:`Run` handle; call :meth:`Run.wait` to block for the result
         or :meth:`Run.cancel` to stop it early."""
         self.validate()
-        run = Run(dict(self._tasks), self._max_workers)
+        run = Run(dict(self._tasks), self._max_workers, self._resources)
         run._start()
         return run
 
@@ -94,7 +123,9 @@ class Run:
     Do not construct directly; obtain one from :meth:`Scheduler.run`.
     """
 
-    def __init__(self, tasks: dict[str, Task], max_workers: int) -> None:
+    def __init__(
+        self, tasks: dict[str, Task], max_workers: int, resources: Mapping[str, float]
+    ) -> None:
         self._tasks = tasks
         self._dependents: dict[str, list[str]] = {name: [] for name in tasks}
         for name, task in tasks.items():
@@ -107,6 +138,14 @@ class Run:
         self._attempts = {name: 0 for name in tasks}
         self._results = {name: TaskResult(name=name) for name in tasks}
         self._remaining_count = len(tasks)
+        self._sequence = {name: i for i, name in enumerate(tasks)}
+
+        self._max_workers = max_workers
+        self._active_workers = 0
+        # Min-heap of (-priority, sequence, name): higher priority first,
+        # ties broken by declaration order.
+        self._ready_heap: list[tuple[int, int, str]] = []
+        self._pool = ResourcePool(resources)
 
         self._lock = threading.RLock()
         self._cancel_event = threading.Event()
