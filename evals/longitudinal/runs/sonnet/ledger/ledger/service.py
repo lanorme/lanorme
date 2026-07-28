@@ -92,6 +92,24 @@ class Ledger:
         """Every account known to the ledger."""
         return self._store.list_accounts()
 
+    def postings_for_account(
+        self, account_id: str
+    ) -> list[tuple[JournalEntry, int, Posting]]:
+        """Every posting against this account, with its entry and index.
+
+        The index is the posting's position within ``entry.postings``;
+        ``Posting`` itself carries no id, so ``(entry.id, index)`` is the
+        smallest handle that identifies one specific posting, which is what
+        bank reconciliation needs to refer back to a match.
+        """
+        self._require_account(account_id)
+        return [
+            (entry, index, posting)
+            for entry in self._store.list_entries()
+            for index, posting in enumerate(entry.postings)
+            if posting.account_id == account_id
+        ]
+
     # -- periods ------------------------------------------------------------
 
     def close_period(self, start: datetime.date, end: datetime.date) -> None:
