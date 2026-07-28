@@ -1,0 +1,15 @@
+[
+  {
+    "project": "ledger",
+    "turn": 1,
+    "files": 5,
+    "lines": 334,
+    "findings": {
+      "SIZE-003": 1
+    },
+    "docstring_coverage": 0.623,
+    "undocumented": 17,
+    "comments_per_100": 1.5,
+    "short_name_rate": 0.0
+  }
+]
