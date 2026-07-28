@@ -74,5 +74,23 @@
     "undocumented": 24,
     "comments_per_100": 2.34,
     "short_name_rate": 0.0283
+  },
+  {
+    "project": "scheduler",
+    "turn": 2,
+    "files": 7,
+    "lines": 675,
+    "findings": {
+      "SIZE-001": 1,
+      "SIZE-003": 1,
+      "PARAM-001": 1,
+      "CMT-007": 1,
+      "NAMING-004": 1,
+      "SUPPRESS-001": 1
+    },
+    "docstring_coverage": 0.586,
+    "undocumented": 27,
+    "comments_per_100": 2.52,
+    "short_name_rate": 0.0197
   }
 ]
