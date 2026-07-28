@@ -1,5 +1,20 @@
 [
   {
+    "project": "featurestore",
+    "turn": 1,
+    "files": 6,
+    "lines": 267,
+    "findings": {
+      "COMPLEXITY-001": 1,
+      "PARAM-001": 1,
+      "TYPE-001": 2
+    },
+    "docstring_coverage": 0.523,
+    "undocumented": 12,
+    "comments_per_100": 3.37,
+    "short_name_rate": 0.031
+  },
+  {
     "project": "ledger",
     "turn": 1,
     "files": 5,
@@ -11,5 +26,20 @@
     "undocumented": 17,
     "comments_per_100": 1.5,
     "short_name_rate": 0.0
+  },
+  {
+    "project": "scheduler",
+    "turn": 1,
+    "files": 6,
+    "lines": 471,
+    "findings": {
+      "SIZE-003": 1,
+      "PARAM-001": 1,
+      "SUPPRESS-001": 1
+    },
+    "docstring_coverage": 0.525,
+    "undocumented": 24,
+    "comments_per_100": 2.34,
+    "short_name_rate": 0.0283
   }
 ]
