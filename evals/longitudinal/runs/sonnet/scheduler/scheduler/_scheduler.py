@@ -16,6 +16,15 @@ by declaration order) as long as a worker slot and their declared resources
 are both free. A lower-priority task that fits is admitted ahead of a
 higher-priority one that doesn't (backfill), so resource contention on one
 task never stalls unrelated work.
+
+Every transition a task goes through is also recorded as a structured
+:class:`~scheduler._events.Event` (see ``_events.py``), kept in memory for
+the length of the run and, if the run was given a ``journal_path``, appended
+durably to that file as it happens (see ``_journal.py``). That journal is
+what lets a killed run be resumed later without re-running whatever had
+already succeeded (see ``_recovery.py``): passing the same ``journal_path``
+back to :meth:`Scheduler.run` replays it first, and any task it names as
+succeeded is treated as already done rather than re-executed.
 """
 
 from __future__ import annotations
@@ -25,19 +34,27 @@ import threading
 import time
 from collections.abc import Iterable, Mapping
 from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
+from typing import Any
 
 from ._errors import (
     CycleError,
     DuplicateTaskError,
+    JournalMismatchError,
     ResourceDeadlockError,
     RunAlreadyStartedError,
     RunCancelledError,
     UnknownDependencyError,
     UnsatisfiableResourceError,
 )
+from ._events import Event, EventType
 from ._graph import find_cycle
+from ._journal import NULL_JOURNAL, Journal, JournalLike
+from ._progress import Progress
+from ._recovery import replay
 from ._resources import Resources, ResourcePool
 from ._result import TERMINAL_STATUSES, RunResult, Status, TaskResult
+from ._summary import build_summary
 from ._task import Backoff, Task, TaskContext, call_task
 
 
@@ -107,12 +124,52 @@ class Scheduler:
                 resource, requested, capacity = unsatisfiable
                 raise UnsatisfiableResourceError(task.name, resource, requested, capacity)
 
-    def run(self) -> Run:
+    def run(
+        self,
+        *,
+        journal_path: str | Path | None = None,
+        resume: bool = True,
+    ) -> Run:
         """Validate the graph and start a run. Returns immediately with a
         :class:`Run` handle; call :meth:`Run.wait` to block for the result
-        or :meth:`Run.cancel` to stop it early."""
+        or :meth:`Run.cancel` to stop it early.
+
+        If ``journal_path`` is given, every task state transition is
+        appended durably to that file as it happens (see
+        :class:`~scheduler._journal.Journal`). If it already contains a
+        previous run of this same graph and ``resume`` is true (the
+        default), that history is replayed first: any task it records as
+        having succeeded is treated as already done and is not re-executed,
+        which is what lets a run killed mid-flight be restarted without
+        redoing finished work. Pass ``resume=False`` to ignore and discard
+        an existing journal at ``journal_path`` and start clean. Raises
+        :class:`~scheduler._errors.JournalMismatchError` if the journal
+        names a task this graph never declared.
+        """
         self.validate()
-        run = Run(dict(self._tasks), self._max_workers, self._resources)
+
+        completed: dict[str, TaskResult] = {}
+        next_seq = 0
+        if journal_path is not None and resume:
+            replayed = replay(journal_path)
+            completed = replayed.completed
+            next_seq = replayed.next_seq
+            unknown = sorted(set(completed) - set(self._tasks))
+            if unknown:
+                raise JournalMismatchError(unknown)
+
+        journal: JournalLike = NULL_JOURNAL
+        if journal_path is not None:
+            journal = Journal(journal_path, truncate=not resume)
+
+        run = Run(
+            dict(self._tasks),
+            self._max_workers,
+            self._resources,
+            journal=journal,
+            completed=completed,
+            next_seq=next_seq,
+        )
         run._start()
         return run
 
@@ -124,7 +181,14 @@ class Run:
     """
 
     def __init__(
-        self, tasks: dict[str, Task], max_workers: int, resources: Mapping[str, float]
+        self,
+        tasks: dict[str, Task],
+        max_workers: int,
+        resources: Mapping[str, float],
+        *,
+        journal: JournalLike = NULL_JOURNAL,
+        completed: Mapping[str, TaskResult] | None = None,
+        next_seq: int = 0,
     ) -> None:
         self._tasks = tasks
         self._dependents: dict[str, list[str]] = {name: [] for name in tasks}
@@ -137,6 +201,13 @@ class Run:
         }
         self._attempts = {name: 0 for name in tasks}
         self._results = {name: TaskResult(name=name) for name in tasks}
+        # Tasks a journal replay recovered as already-succeeded: substitute
+        # their recovered result and remember which they were so `_start`
+        # can fold them in as done without re-running them.
+        self._completed: dict[str, TaskResult] = dict(completed or {})
+        for name, result in self._completed.items():
+            self._results[name] = result
+            self._attempts[name] = result.attempts
         self._remaining_count = len(tasks)
         self._sequence = {name: i for i, name in enumerate(tasks)}
 
@@ -158,6 +229,17 @@ class Run:
         self._run_result: RunResult | None = None
         self._start_lock = threading.Lock()
         self._started = False
+
+        # Observability: when a task most recently became ready (for
+        # queue_time) and when its current attempt started (for run_time).
+        self._ready_since: dict[str, float] = {}
+        self._attempt_started_at: dict[str, float] = {}
+        # Durability: the structured event log, always kept in memory and,
+        # if `journal` is a real Journal rather than the null one, also
+        # appended to disk as each event happens.
+        self._journal = journal
+        self._events: list[Event] = []
+        self._next_seq = next_seq
 
     # -- public API --------------------------------------------------
 
@@ -200,6 +282,51 @@ class Run:
     def done(self) -> bool:
         return self._done_event.is_set()
 
+    @property
+    def progress(self) -> Progress:
+        """A thread-safe, point-in-time snapshot of this run.
+
+        Safe to call from any thread, at any time -- while the run is still
+        in flight (concurrently with its worker and timer threads) or after
+        it has finished -- since it only ever briefly holds the run's own
+        lock to copy out a consistent set of counts.
+        """
+        with self._lock:
+            counts = dict.fromkeys(Status, 0)
+            running_tasks = []
+            for name, result in self._results.items():
+                counts[result.status] += 1
+                if result.status is Status.RUNNING:
+                    running_tasks.append(name)
+            if self._done_event.is_set():
+                elapsed = self._ended_at - self._started_at
+            elif self._started_at:
+                elapsed = time.monotonic() - self._started_at
+            else:
+                elapsed = 0.0
+            resource_usage = self._pool.snapshot()
+
+        return Progress(
+            total=len(self._results),
+            pending=counts[Status.PENDING],
+            running=counts[Status.RUNNING],
+            succeeded=counts[Status.SUCCEEDED],
+            failed=counts[Status.FAILED],
+            skipped=counts[Status.SKIPPED],
+            running_tasks=tuple(running_tasks),
+            elapsed=elapsed,
+            resource_usage=resource_usage,
+        )
+
+    @property
+    def events(self) -> list[Event]:
+        """Every structured event recorded so far, in the order it
+        happened. Safe to call from any thread, including while the run is
+        still in flight; a finished run's full log is also on its
+        :class:`~scheduler._result.RunResult` as ``events``."""
+        with self._lock:
+            return list(self._events)
+
     # -- orchestration -------------------------------------------------
 
     def _start(self) -> None:
@@ -210,13 +337,25 @@ class Run:
 
         self._started_at = time.monotonic()
         self._pool.begin(self._started_at)
+
+        if self._completed:
+            with self._lock:
+                for name in self._completed:
+                    result = self._results[name]
+                    result.started_at = self._started_at
+                    result.ended_at = self._started_at
+                    self._remaining_count -= 1
+                    for dependent in self._dependents[name]:
+                        self._remaining_deps[dependent] -= 1
+                    self._record(name, EventType.RESUMED, attempt=result.attempts)
+
         if not self._tasks:
             self._finish()
             return
 
         with self._lock:
             for name, count in self._remaining_deps.items():
-                if count == 0:
+                if count == 0 and self._results[name].status is Status.PENDING:
                     self._push_ready(name)
             to_submit = self._dispatch_locked()
             self._maybe_finish_locked()
@@ -242,7 +381,9 @@ class Run:
         held. Does not mark it running: :meth:`_dispatch_locked` does that
         only once a worker slot and its resources are actually granted."""
         task = self._tasks[name]
+        self._ready_since[name] = time.monotonic()
         heapq.heappush(self._ready_heap, (-task.priority, self._sequence[name], name))
+        self._record(name, EventType.QUEUED, attempt=self._attempts[name] + 1)
 
     def _dispatch_locked(self) -> list[str]:
         """Admit as many ready tasks as fit, in priority order.
@@ -268,6 +409,13 @@ class Run:
                 self._pool.acquire(task.resources)
                 self._active_workers += 1
                 self._mark_running(name)
+                now = time.monotonic()
+                ready_since = self._ready_since.pop(name, None)
+                if ready_since is not None:
+                    self._results[name].queue_time += now - ready_since
+                self._attempts[name] += 1
+                self._attempt_started_at[name] = now
+                self._record(name, EventType.STARTED, attempt=self._attempts[name])
                 admitted.append(name)
             else:
                 deferred.append(entry)
@@ -303,8 +451,10 @@ class Run:
         self._executor.submit(self._run_one, name)
 
     def _run_one(self, name: str) -> None:
+        # The attempt counter was already advanced in `_dispatch_locked`,
+        # at the moment this attempt was admitted (so the STARTED event
+        # carries the right attempt number); just read it back here.
         with self._lock:
-            self._attempts[name] += 1
             attempt = self._attempts[name]
         ctx = TaskContext(name=name, attempt=attempt, cancel_event=self._cancel_event)
         task = self._tasks[name]
@@ -327,10 +477,15 @@ class Run:
         with self._lock:
             self._release(name)
             result = self._results[name]
+            now = time.monotonic()
+            attempt_started = self._attempt_started_at.pop(name, None)
+            if attempt_started is not None:
+                result.run_time += now - attempt_started
             result.status = Status.SUCCEEDED
-            result.ended_at = time.monotonic()
+            result.ended_at = now
             result.value = value
             self._remaining_count -= 1
+            self._record(name, EventType.SUCCEEDED, attempt=self._attempts[name])
 
             for dependent in self._dependents[name]:
                 self._remaining_deps[dependent] -= 1
@@ -355,10 +510,18 @@ class Run:
             attempt = self._attempts[name]
             result = self._results[name]
             result.error = exc
+            now = time.monotonic()
+            attempt_started = self._attempt_started_at.pop(name, None)
+            if attempt_started is not None:
+                result.run_time += now - attempt_started
+            self._record(name, EventType.ATTEMPT_FAILED, attempt=attempt, error=exc)
 
             retries_left = attempt <= task.max_retries
             if retries_left and not self._cancel_event.is_set():
                 delay = task.backoff.delay_for(attempt)
+                self._record(
+                    name, EventType.RETRY_SCHEDULED, attempt=attempt, delay=delay
+                )
                 timer = threading.Timer(delay, self._retry, args=(name,))
                 timer.daemon = True
                 self._pending_retries[name] = timer

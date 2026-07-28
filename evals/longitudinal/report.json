@@ -80,6 +80,24 @@
     "short_name_rate": 0.0106
   },
   {
+    "project": "ledger",
+    "turn": 3,
+    "files": 10,
+    "lines": 1032,
+    "findings": {
+      "SIZE-001": 2,
+      "SIZE-002": 2,
+      "SIZE-003": 2,
+      "PARAM-001": 2,
+      "COMPLEXITY-001": 1,
+      "CMT-006": 2
+    },
+    "docstring_coverage": 0.683,
+    "undocumented": 41,
+    "comments_per_100": 2.13,
+    "short_name_rate": 0.007
+  },
+  {
     "project": "scheduler",
     "turn": 1,
     "files": 6,
