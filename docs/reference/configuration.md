@@ -85,7 +85,7 @@ baseline = "lanorme-baseline.json"
 
 ## `source_root`
 
-The top-level package directory when ports, adapters and layers live under a nested package; the architecture checks interpret their paths relative to it.
+The top-level package directory when ports, adapters and layers live under a nested package; the architecture checks interpret their paths relative to it, and `AUTHN-001` finds the `api/` layer under it.
 
 ```toml
 source_root = "src/myapp"

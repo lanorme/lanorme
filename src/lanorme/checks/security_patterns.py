@@ -6,6 +6,11 @@ Checks:
 
 SECRETPY-001 (hardcoded secrets) lives in ``secrets.py`` as a sibling check.
 
+AUTHN-001 scans the ``api/`` layer only. When the package sits under a nested
+directory (a src layout), set the top-level ``[tool.lanorme] source_root``
+(e.g. ``"src/myapp"``) so ``api/`` is located relative to it; without that the
+layer is never found and no endpoint is inspected.
+
 Run:
     lanorme check . --check=security_patterns
 """
@@ -364,12 +369,34 @@ class SecurityPatternsCheck:
 
     name: str = "security_patterns"
     description: str = "Web-security checks: auth dependency and raw SQL"
+    source_root: str = ""
     rules: list[str] = field(
         default_factory=lambda: [
             "AUTHN-001: Mutation endpoints must have auth dependency",
             "SQL-001: No raw SQL — use an ORM or parameterized queries",
         ]
     )
+
+    def configure(self, *, settings: dict[str, object]) -> None:
+        """Apply ``[tool.lanorme.security_patterns]`` configuration."""
+        source_root = settings.get("source_root")
+        if isinstance(source_root, str):
+            self.source_root = source_root.replace("\\", "/").strip("/")
+
+    def _layer_relative(self, *, relative_file: str) -> str:
+        """Re-anchor *relative_file* at the architectural source root.
+
+        ``source_root`` is written relative to the project root ("src/myapp"),
+        so under a src layout the ``api/`` layer is reached only after that
+        prefix. This check is file-scoped, though, so a per-directory region can
+        hand it a ``src_root`` that already sits inside the package; stripping
+        the prefix when it is present, rather than demanding every file live
+        under it, keeps the ``api/`` gate working from either anchor.
+        """
+        prefix = f"{self.source_root}/"
+        if self.source_root and relative_file.startswith(prefix):
+            return relative_file[len(prefix) :]
+        return relative_file
 
     def run(self, *, src_root: str) -> CheckResult:
         """Scan all Python files under src/ for security violations."""
@@ -386,7 +413,7 @@ class SecurityPatternsCheck:
 
                 # AUTHN-001: Only check endpoint files (api/ layer).
                 file_violations: list[Violation] = []
-                if relative_file.startswith("api/"):
+                if self._layer_relative(relative_file=relative_file).startswith("api/"):
                     file_violations.extend(
                         _check_auth_on_mutations(tree=tree, relative_file=relative_file)
                     )

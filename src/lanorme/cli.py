@@ -61,9 +61,9 @@ from lanorme.regions import (
     snapshot_defaults,
 )
 
-# Top-level ``source_root`` is injected into these two layout-aware checks only;
+# Top-level ``source_root`` is injected into these layout-aware checks only;
 # every other check scans the full target tree.
-_SOURCE_ROOT_CHECKS = frozenset({"layer_deps", "port_coverage"})
+_SOURCE_ROOT_CHECKS = frozenset({"layer_deps", "port_coverage", "security_patterns"})
 
 
 # --------------------------------------------------------------------------- #
@@ -92,9 +92,10 @@ def _load_plugin_modules(modules: list[str]) -> None:
 def _apply_check_config(*, config: dict[str, object]) -> None:
     """Pass each ``[tool.lanorme.<check>]`` sub-table to that check's configure().
 
-    The top-level ``source_root`` is merged into the settings of the two
-    layout-aware checks (``layer_deps`` / ``port_coverage``) so a single
-    ``lanorme check .`` from the repo root can classify layers under a nested
+    The top-level ``source_root`` is merged into the settings of the
+    layout-aware checks (``layer_deps`` / ``port_coverage``, and
+    ``security_patterns`` for the ``api/`` layer AUTHN-001 scans) so a single
+    ``lanorme check .`` from the repo root can locate layers under a nested
     package directory while every other check keeps scanning the whole tree.
     """
     source_root = config.get("source_root")

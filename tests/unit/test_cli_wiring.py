@@ -1,13 +1,16 @@
 """Tests for the CLI config-wiring the unit checks cannot exercise directly.
 
 These lock the parts that live in ``cli.py``: that ``source_root`` is injected
-into the two layout-aware checks and *only* those, and that a configured
+into the layout-aware checks and *only* those, and that a configured
 ``exclude`` reaches the discovery layer through ``main``.
 """
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
+
+import pytest
 
 from lanorme import CheckResult, Status, Violation, _registry, discovery, get_check, register
 from lanorme.cli import _apply_check_config, main
@@ -42,13 +45,42 @@ def test_source_root_injected_only_into_layout_checks():
             }
         )
 
-        # Assert: the two layout-aware checks receive it; the spy does not.
+        # Assert: the layout-aware checks receive it; the spy does not.
         assert get_check("layer_deps").source_root == "src/pkg"
         assert get_check("port_coverage").source_root == "src/pkg"
+        assert get_check("security_patterns").source_root == "src/pkg"
         assert spy.received == {"some_key": 1}
         assert "source_root" not in spy.received
     finally:
         _registry.pop("spy_check", None)
+
+
+def test_authn_fires_on_a_src_layout_project_through_the_cli(tmp_path: Path, capsys):
+    # Arrange: the reported repro. A src-layout project whose only endpoint is
+    # an unauthenticated mutation, declaring source_root the way the docs say.
+    (tmp_path / "pyproject.toml").write_text(
+        '[tool.lanorme]\nsource_root = "src/mypkg"\n', encoding="utf-8"
+    )
+    routers = tmp_path / "src" / "mypkg" / "api" / "routers"
+    routers.mkdir(parents=True)
+    (routers / "things.py").write_text(
+        '@router.put("/things/{thing_id}")\n'
+        "async def receive_thing(thing_id: int, payload: dict):\n"
+        "    return payload\n",
+        encoding="utf-8",
+    )
+
+    # Act: the run fails on the finding rather than reporting a clean pass.
+    with pytest.raises(SystemExit) as exc:
+        main(["check", str(tmp_path), "--check", "security_patterns", "--json"])
+
+    # Assert.
+    assert exc.value.code == 1
+    results = json.loads(capsys.readouterr().out)
+    codes = [
+        v["rule"].split(":", 1)[0] for result in results for v in result["violations"]
+    ]
+    assert "AUTHN-001" in codes
 
 
 def test_main_publishes_configured_excludes_to_discovery(tmp_path: Path, capsys):
