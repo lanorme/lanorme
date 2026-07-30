@@ -9,6 +9,8 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
 
 ## [Unreleased]
 
+## [0.16.0]
+
 ### Fixed
 
 - `AUTHN-001` now inspects endpoints on a src-layout project. The rule scans
