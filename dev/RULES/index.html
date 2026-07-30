@@ -2249,7 +2249,10 @@ for legitimate uses (e.g. a pickle load on a trusted local cache) or
   handlers must have an auth dependency (a parameter annotated with
   <code>Depends(get_current_user)</code> or <code>Depends(require_*)</code>). FastAPI-shaped;
   the rule checks for <strong>authentication presence only</strong>, not
-  authorisation. Only endpoint files under <code>api/</code> are scanned. Exempt
+  authorisation. Only endpoint files under <code>api/</code> are scanned; when the
+  package sits under a nested directory (a src layout), set the top-level
+  <code>[tool.lanorme] source_root</code> (e.g. <code>"src/myapp"</code>) so the layer is found
+  relative to it, or no endpoint is inspected at all. Exempt
   endpoints: <code>login</code>, <code>logout</code>, <code>refresh</code>, <code>token</code>.</li>
 <li><code>SQL-001</code>: default-on. AST-based: only flags SQL string literals that
   reach a database execution sink (<code>.execute</code> / <code>.executemany</code> /
