@@ -9,6 +9,22 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
 
 ## [Unreleased]
 
+### Fixed
+
+- `AUTHN-001` now inspects endpoints on a src-layout project. The rule scans
+  the `api/` layer only, and it looked for that layer at the top of the scan
+  target, so a package under `src/mypkg/api/` matched nothing: the check
+  reported a clean pass without reading a single endpoint. `security_patterns`
+  now accepts the top-level `source_root` alongside `layer_deps` and
+  `port_coverage`, so `source_root = "src/mypkg"` locates the layer:
+
+      [tool.lanorme]
+      source_root = "src/mypkg"
+
+  A project laid out this way may see `AUTHN-001` findings for the first time,
+  on endpoints that were never checked rather than on new code. `SQL-001`,
+  which scans the whole tree, is unaffected.
+
 ## [0.15.0]
 
 ### Added

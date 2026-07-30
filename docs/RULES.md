@@ -672,7 +672,10 @@ Each rule has a positive + negative unit test under
   handlers must have an auth dependency (a parameter annotated with
   `Depends(get_current_user)` or `Depends(require_*)`). FastAPI-shaped;
   the rule checks for **authentication presence only**, not
-  authorisation. Only endpoint files under `api/` are scanned. Exempt
+  authorisation. Only endpoint files under `api/` are scanned; when the
+  package sits under a nested directory (a src layout), set the top-level
+  `[tool.lanorme] source_root` (e.g. `"src/myapp"`) so the layer is found
+  relative to it, or no endpoint is inspected at all. Exempt
   endpoints: `login`, `logout`, `refresh`, `token`.
 - `SQL-001`: default-on. AST-based: only flags SQL string literals that
   reach a database execution sink (`.execute` / `.executemany` /

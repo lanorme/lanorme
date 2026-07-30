@@ -127,7 +127,7 @@ CONFIG_KEYS: tuple[ConfigKey, ...] = (
         json_schema={"type": "string"},
         default="the scan root",
         feature="Architecture",
-        summary="The top-level package directory when ports, adapters and layers live under a nested package; the architecture checks interpret their paths relative to it.",
+        summary="The top-level package directory when ports, adapters and layers live under a nested package; the architecture checks interpret their paths relative to it, and `AUTHN-001` finds the `api/` layer under it.",
         example='source_root = "src/myapp"',
     ),
     ConfigKey(

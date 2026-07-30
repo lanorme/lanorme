@@ -63,7 +63,7 @@
     },
     "source_root": {
       "type": "string",
-      "description": "The top-level package directory when ports, adapters and layers live under a nested package; the architecture checks interpret their paths relative to it."
+      "description": "The top-level package directory when ports, adapters and layers live under a nested package; the architecture checks interpret their paths relative to it, and `AUTHN-001` finds the `api/` layer under it."
     },
     "plugins": {
       "type": "array",

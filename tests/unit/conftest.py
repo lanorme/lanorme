@@ -33,7 +33,7 @@ def _reset_global_state(monkeypatch):
     discovery.set_excludes(())
     yield
     discovery.set_excludes(())
-    for name in ("layer_deps", "port_coverage"):
+    for name in ("layer_deps", "port_coverage", "security_patterns"):
         check = get_check(name)
         if check is not None:
             check.source_root = ""
