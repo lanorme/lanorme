@@ -73,7 +73,7 @@ def _describe(rule: str) -> str:
     """The static rule description, with no per-finding (and so no secret) text.
 
     ``Violation.rule`` is a fixed string such as
-    ``"SIZE-001: File approaching 500 effective lines"``; the dynamic detail
+    ``"SIZE-001: File approaching the effective line limit"``; the dynamic detail
     lives in ``Violation.message``. Storing the description keeps the committed
     file readable for review without ever recording a value or a source snippet.
     """
