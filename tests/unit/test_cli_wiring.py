@@ -13,7 +13,8 @@ from pathlib import Path
 import pytest
 
 from lanorme import CheckResult, Status, Violation, _registry, discovery, get_check, register
-from lanorme.cli import _apply_check_config, main
+from lanorme.checkconfig import apply_check_config
+from lanorme.cli import main
 from lanorme.reporting import _emit_github
 
 
@@ -37,7 +38,7 @@ def test_source_root_injected_only_into_layout_checks():
     register(spy)
     try:
         # Act.
-        _apply_check_config(
+        apply_check_config(
             config={
                 "source_root": "src/pkg",
                 "layer_deps": {"composition_root": ["api/dependencies.py"]},

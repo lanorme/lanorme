@@ -36,6 +36,20 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
   The keys cascade, so a nested `lanorme.toml` gives one subtree its own limits
   while the rest of the repository keeps the strict ones.
 
+### Fixed
+
+- A per-check setting whose value cannot be coerced now reports a
+  configuration error instead of a traceback. Every `configure()` coerces its
+  input, so `max_block_lines = "lots"` unwound a raw `ValueError` out of the
+  check and through the CLI. The run now names the table and the key, and exits
+  2 like every other configuration failure:
+
+      ERROR: invalid value for [tool.lanorme.comments] max_block_lines:
+      invalid literal for int() with base 10: 'lots'
+
+  The handling sits in the shared config plumbing, so it covers every check and
+  a nested `lanorme.toml` as well as the root one.
+
 ### Changed
 
 - The `file_limits` rule strings no longer carry the threshold. `SIZE-001` now

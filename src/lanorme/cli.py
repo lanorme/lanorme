@@ -30,7 +30,6 @@ from lanorme import baseline, reporting
 from lanorme import (
     Check,
     CheckResult,
-    Configurable,
     Status,
     __version__,
     get_all_checks,
@@ -38,6 +37,7 @@ from lanorme import (
     run_all,
     run_check,
 )
+from lanorme.checkconfig import apply_check_config
 from lanorme.discovery import set_excludes
 from lanorme.filtering import (
     _apply_excludes,
@@ -61,11 +61,6 @@ from lanorme.regions import (
     snapshot_defaults,
 )
 
-# Top-level ``source_root`` is injected into these layout-aware checks only;
-# every other check scans the full target tree.
-_SOURCE_ROOT_CHECKS = frozenset({"layer_deps", "port_coverage", "security_patterns"})
-
-
 # --------------------------------------------------------------------------- #
 # Check discovery
 # --------------------------------------------------------------------------- #
@@ -88,31 +83,6 @@ def _load_plugin_modules(modules: list[str]) -> None:
     for module in modules:
         importlib.import_module(module)
 
-
-def _apply_check_config(*, config: dict[str, object]) -> None:
-    """Pass each ``[tool.lanorme.<check>]`` sub-table to that check's configure().
-
-    The top-level ``source_root`` is merged into the settings of the
-    layout-aware checks (``layer_deps`` / ``port_coverage``, and
-    ``security_patterns`` for the ``api/`` layer AUTHN-001 scans) so a single
-    ``lanorme check .`` from the repo root can locate layers under a nested
-    package directory while every other check keeps scanning the whole tree.
-    """
-    source_root = config.get("source_root")
-    for name, check in get_all_checks().items():
-        if not isinstance(check, Configurable):
-            continue
-        section = config.get(name)
-        settings = dict(section) if isinstance(section, dict) else {}
-        if (
-            name in _SOURCE_ROOT_CHECKS
-            and isinstance(source_root, str)
-            and source_root
-            and "source_root" not in settings
-        ):
-            settings["source_root"] = source_root
-        if settings:
-            check.configure(settings=settings)
 
 
 # --------------------------------------------------------------------------- #
@@ -344,7 +314,7 @@ def _run_regions(
     by_name: dict[str, CheckResult] = {}
 
     restore_defaults(checks=checks, snapshot=pristine)
-    _apply_check_config(config=root_config)
+    apply_check_config(config=root_config)
     set_excludes(exclude)
     for name, check in checks.items():
         if is_tree_scoped(check):
@@ -353,7 +323,7 @@ def _run_regions(
     root_dir = scan_root.resolve()
     for region in regions:
         restore_defaults(checks=checks, snapshot=pristine)
-        _apply_check_config(config=region.merged)
+        apply_check_config(config=region.merged)
         region_excludes = child_exclude_globs(region=region, regions=regions)
         # The user's excludes are written relative to the scan root, so they
         # prune correctly only in the root region's walk (rooted there). Nested
@@ -503,7 +473,7 @@ def _command_check(*, args: argparse.Namespace) -> None:
     checks = get_all_checks()
     pristine = snapshot_defaults(checks)
     restore_defaults(checks=checks, snapshot=pristine)
-    _apply_check_config(config=config)
+    apply_check_config(config=config)
 
     if args.show_config:
         reporting.print_config(config=config, source=config_source, project_root=project_root)
@@ -539,7 +509,7 @@ def _command_baseline(*, args: argparse.Namespace) -> None:
     checks = get_all_checks()
     pristine = snapshot_defaults(checks)
     restore_defaults(checks=checks, snapshot=pristine)
-    _apply_check_config(config=config)
+    apply_check_config(config=config)
 
     baseline_path = _baseline_path(config=config, project_root=project_root)
     if baseline_path is None:
