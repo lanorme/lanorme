@@ -68,6 +68,12 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
 
       lanorme baseline write
 
+  `check` now says so itself rather than leaving the resurfaced findings to
+  look new. When a baseline entry matched nothing and a finding for that same
+  file and rule went unmatched, the run names the pair and points at
+  `baseline write`. It stays quiet when the entry still matches, so debt that
+  is genuinely new is never explained away.
+
 ## [0.16.0]
 
 ### Fixed

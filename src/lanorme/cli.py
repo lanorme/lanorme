@@ -439,6 +439,7 @@ def _run_and_report(
         return
 
     baseline_path = _baseline_path(config=config, project_root=project_root)
+    drifted: list[tuple[str, str]] = []
     if baseline_path is not None and not args.no_baseline:
         if not baseline_path.exists():
             print(
@@ -447,12 +448,18 @@ def _run_and_report(
                 file=sys.stderr,
             )
             sys.exit(2)
+        # Drift reads the raw findings: it has to see what the baseline did
+        # match to tell a moved anchor from debt that is genuinely new.
+        drifted = baseline.drifted_codes(
+            results=results, project_root=project_root, baseline_path=baseline_path
+        )
         results = baseline.suppress(
             results=results, project_root=project_root, baseline_path=baseline_path
         )
 
     results = _apply_promotions(results=results, promote=promote)
     reporting.emit(results=results, output_format=output_format)
+    reporting.print_baseline_drift(drifted=drifted, output_format=output_format)
 
     if any(r.status == Status.FAIL for r in results):
         sys.exit(1)

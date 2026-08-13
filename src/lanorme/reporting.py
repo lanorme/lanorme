@@ -103,6 +103,31 @@ def resolve_output_format(*, explicit: str | None, as_json: bool) -> str:
     return "concise"
 
 
+def print_baseline_drift(*, drifted: list[tuple[str, str]], output_format: str) -> None:
+    """Explain findings whose baseline entry stopped matching them.
+
+    Without this, an upgrade that rewords a rule description presents recorded
+    debt as a fresh violation: the code did not change, the anchor did. The
+    machine-readable formats stay a pure finding stream, so the note is for the
+    human ones only.
+    """
+    if not drifted or output_format in {"json", "ndjson", "github"}:
+        return
+    count = len(drifted)
+    print(
+        f"\nNote: {count} finding{'' if count == 1 else 's'} above "
+        f"{'has' if count == 1 else 'have'} a baseline entry that no longer matches:"
+    )
+    for file, code in drifted:
+        print(f"  {file}  {code}")
+    print(
+        "  The baseline records these already, so this is existing debt rather "
+        "than new.\n"
+        "  Run 'lanorme baseline status' to confirm, then 'lanorme baseline "
+        "write' to re-anchor."
+    )
+
+
 def emit(*, results: list[CheckResult], output_format: str) -> None:
     """Dispatch results to the requested output format."""
     if output_format == "json":
