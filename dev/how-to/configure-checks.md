@@ -127,7 +127,7 @@ reports `PARAM-001`:
 $ lanorme check . --select PARAM-001
 [FAIL] file_limits
   VIOLATION: tests/factories.py:1 — Function 'build' has parameter count 9 (limit: 8)
-    Rule: PARAM-001: Function exceeds 8 parameters
+    Rule: PARAM-001: Function exceeds the parameter limit
     Fix: Group related parameters into a dataclass or TypedDict
 --- file_limits: 1 violations, 0 warnings ---
 

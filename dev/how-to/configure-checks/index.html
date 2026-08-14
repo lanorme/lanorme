@@ -1262,7 +1262,7 @@ reports <code>PARAM-001</code>:</p>
 <div class="highlight"><pre><span></span><code><span class="gp">$ </span>lanorme<span class="w"> </span>check<span class="w"> </span>.<span class="w"> </span>--select<span class="w"> </span>PARAM-001
 <span class="go">[FAIL] file_limits</span>
 <span class="go">  VIOLATION: tests/factories.py:1 — Function &#39;build&#39; has parameter count 9 (limit: 8)</span>
-<span class="go">    Rule: PARAM-001: Function exceeds 8 parameters</span>
+<span class="go">    Rule: PARAM-001: Function exceeds the parameter limit</span>
 <span class="go">    Fix: Group related parameters into a dataclass or TypedDict</span>
 <span class="go">--- file_limits: 1 violations, 0 warnings ---</span>
 

@@ -575,6 +575,37 @@ All default-on.
 Skips `__init__.py`, `conftest.py`, `alembic/`, `migrations/`, and
 `test_*` files.
 
+Every threshold above is a default, not a fixed number. A project sets its
+own without giving up the rule:
+
+```toml
+[tool.lanorme.file_limits]
+file_warn_lines = 400
+file_error_lines = 600
+func_warn_lines = 60
+func_error_lines = 100
+class_method_warn = 15
+complexity_warn = 12
+complexity_error = 20
+param_warn = 6
+param_error = 10
+```
+
+Each key is optional and an unset key keeps its default, so a project
+declares only what differs. There is no `enabled` key: these retune the
+limits rather than switch the rules off. A warn threshold set above its
+error threshold describes no reachable band, so the error value wins for
+both and everything at the limit reports an error rather than a warning.
+
+Under cascading config a nested `lanorme.toml` sets its own limits for the
+files below it, which is how a legacy subtree keeps a looser ceiling while
+the rest of the repository holds the strict one.
+
+The rule strings carry no number (`SIZE-001: File exceeds the effective
+line limit`, not `... exceeds 500 effective lines`), so retuning a
+threshold does not move a finding's baseline anchor. The number a finding
+was measured against appears in its message.
+
 ---
 
 ## Forbidden paths: `PATH-001`

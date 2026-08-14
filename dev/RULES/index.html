@@ -1969,6 +1969,31 @@ attribute sets and error-message-only drift.</p>
 </ul>
 <p>Skips <code>__init__.py</code>, <code>conftest.py</code>, <code>alembic/</code>, <code>migrations/</code>, and
 <code>test_*</code> files.</p>
+<p>Every threshold above is a default, not a fixed number. A project sets its
+own without giving up the rule:</p>
+<div class="highlight"><pre><span></span><code><span class="k">[tool.lanorme.file_limits]</span>
+<span class="n">file_warn_lines</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">400</span>
+<span class="n">file_error_lines</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">600</span>
+<span class="n">func_warn_lines</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">60</span>
+<span class="n">func_error_lines</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">100</span>
+<span class="n">class_method_warn</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">15</span>
+<span class="n">complexity_warn</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">12</span>
+<span class="n">complexity_error</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">20</span>
+<span class="n">param_warn</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">6</span>
+<span class="n">param_error</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">10</span>
+</code></pre></div>
+<p>Each key is optional and an unset key keeps its default, so a project
+declares only what differs. There is no <code>enabled</code> key: these retune the
+limits rather than switch the rules off. A warn threshold set above its
+error threshold describes no reachable band, so the error value wins for
+both and everything at the limit reports an error rather than a warning.</p>
+<p>Under cascading config a nested <code>lanorme.toml</code> sets its own limits for the
+files below it, which is how a legacy subtree keeps a looser ceiling while
+the rest of the repository holds the strict one.</p>
+<p>The rule strings carry no number (<code>SIZE-001: File exceeds the effective
+line limit</code>, not <code>... exceeds 500 effective lines</code>), so retuning a
+threshold does not move a finding's baseline anchor. The number a finding
+was measured against appears in its message.</p>
 <hr />
 <h2 id="forbidden-paths-path-001">Forbidden paths: <code>PATH-001</code><a class="headerlink" href="#forbidden-paths-path-001" title="Permanent link">&para;</a></h2>
 <p>Inert until configured.</p>

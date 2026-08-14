@@ -115,7 +115,7 @@ lanorme check .
 
 [WARN] file_limits
   VIOLATION: myapp/users.py:13 — Function 'process' has parameter count 6 (warn: 5)
-    Rule: PARAM-001: Function approaching 8 parameters
+    Rule: PARAM-001: Function approaching the parameter limit
     Fix: Consider grouping related parameters into a dataclass or TypedDict
 --- file_limits: 0 violations, 1 warnings ---
 
@@ -162,7 +162,7 @@ lanorme check .
 
 [FAIL] file_limits
   VIOLATION: myapp/users.py:13 — Function 'process' has parameter count 6 (warn: 5)
-    Rule: PARAM-001: Function approaching 8 parameters
+    Rule: PARAM-001: Function approaching the parameter limit
     Fix: Consider grouping related parameters into a dataclass or TypedDict
 --- file_limits: 1 violations, 0 warnings ---
 
@@ -310,7 +310,7 @@ lanorme check --no-baseline .
 
 [FAIL] file_limits
   VIOLATION: myapp/users.py:13 — Function 'process' has parameter count 6 (warn: 5)
-    Rule: PARAM-001: Function approaching 8 parameters
+    Rule: PARAM-001: Function approaching the parameter limit
     Fix: Consider grouping related parameters into a dataclass or TypedDict
 --- file_limits: 1 violations, 0 warnings ---
 
