@@ -73,7 +73,7 @@ def _describe(rule: str) -> str:
     """The static rule description, with no per-finding (and so no secret) text.
 
     ``Violation.rule`` is a fixed string such as
-    ``"SIZE-001: File approaching 500 effective lines"``; the dynamic detail
+    ``"SIZE-001: File approaching the effective line limit"``; the dynamic detail
     lives in ``Violation.message``. Storing the description keeps the committed
     file readable for review without ever recording a value or a source snippet.
     """
@@ -267,6 +267,43 @@ def suppress(
             CheckResult(check=result.check, status=status, violations=violations, warnings=warnings)
         )
     return filtered
+
+
+def drifted_codes(
+    *, results: list[CheckResult], project_root: Path, baseline_path: Path
+) -> list[tuple[str, str]]:
+    """``(file, code)`` pairs whose baseline entry stopped matching its finding.
+
+    Call with the raw results, before :func:`suppress`. Drift is the conjunction
+    of two facts about one file and rule: the baseline holds an entry that
+    matched nothing this run, and a finding of that same file and rule did not
+    match the baseline either. Together they say the entry's anchor moved, so
+    the finding is recorded debt the baseline no longer recognises rather than
+    something new. An upgrade that rewords a rule description does exactly this.
+
+    Requiring the entry to be stale is what keeps genuinely new debt out: a file
+    whose recorded entries all still match reports nothing here, even when a
+    further finding of the same rule appears alongside them.
+    """
+    index = load_index(baseline_path)
+    if not index:
+        return []
+    cache: dict[str, list[str]] = {}
+
+    matched: set[tuple[str, str, str]] = set()
+    unmatched: set[tuple[str, str]] = set()
+    for result in results:
+        for finding in [*result.violations, *result.warnings]:
+            if not finding.file:
+                continue
+            key = _finding_key(project_root=project_root, finding=finding, cache=cache)
+            if key in index:
+                matched.add(key)
+            else:
+                unmatched.add((key[0], key[1]))
+
+    stale = {(file, code) for file, code, _hash in index if (file, code, _hash) not in matched}
+    return sorted(stale & unmatched)
 
 
 # --------------------------------------------------------------------------- #

@@ -164,6 +164,14 @@ keeps every result unchanged, a **minor** can newly fail a previously-passing
 codebase (every pre-1.0 breaking change lands here), and a **major** is the
 stability commitment. Every change is listed in [`CHANGELOG.md`](CHANGELOG.md).
 
+A rule's human-readable description is not part of that surface and may be
+reworded in a minor release. A file-level finding anchors on its description,
+so rewording one detaches the matching entries in a committed baseline and
+those findings report again until you run `lanorme baseline write` once. The
+run tells you when this has happened, naming the file and rule rather than
+letting old debt look new, and the changelog entry says so for the release that
+causes it.
+
 ## Licence
 
 MIT. See [`LICENSE`](LICENSE).

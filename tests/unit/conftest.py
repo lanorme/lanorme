@@ -20,7 +20,7 @@ def _reset_global_state(monkeypatch):
 
     Two leaks to guard: the module-global exclude list published by the CLI,
     and the ``source_root`` field on the registry-singleton checks, which
-    ``_apply_check_config`` mutates in place (the protocol carries no config).
+    ``apply_check_config`` mutates in place (the protocol carries no config).
     Either would otherwise bleed from one test into the next in the same
     interpreter.
 

@@ -9,6 +9,71 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
 
 ## [Unreleased]
 
+### Added
+
+- `[tool.lanorme.file_limits]` makes every house limit a per-project number.
+  Nine optional keys, each defaulting to the value shipped today, so a project
+  that adds nothing sees no change:
+
+      [tool.lanorme.file_limits]
+      file_warn_lines = 400
+      file_error_lines = 600
+      func_warn_lines = 60
+      func_error_lines = 100
+      class_method_warn = 15
+      complexity_warn = 12
+      complexity_error = 20
+      param_warn = 6
+      param_error = 10
+
+  `file_limits` was the last file-level check with no settings, so `SIZE-001`,
+  `SIZE-002`, `SIZE-003`, `COMPLEXITY-001` and `PARAM-001` could only be
+  silenced, never retuned: a codebase that would happily hold a 400-line
+  ceiling had to `ignore` the rule and enforce nothing. There is no `enabled`
+  key; the check stays default-on. A warn threshold set above its error
+  threshold describes no reachable band, so the error value wins for both.
+
+  The keys cascade, so a nested `lanorme.toml` gives one subtree its own limits
+  while the rest of the repository keeps the strict ones.
+
+### Fixed
+
+- A per-check setting whose value cannot be coerced now reports a
+  configuration error instead of a traceback. Every `configure()` coerces its
+  input, so `max_block_lines = "lots"` unwound a raw `ValueError` out of the
+  check and through the CLI. The run now names the table and the key, and exits
+  2 like every other configuration failure:
+
+      ERROR: invalid value for [tool.lanorme.comments] max_block_lines:
+      invalid literal for int() with base 10: 'lots'
+
+  The handling sits in the shared config plumbing, so it covers every check and
+  a nested `lanorme.toml` as well as the root one.
+
+### Changed
+
+- The `file_limits` rule strings no longer carry the threshold. `SIZE-001` now
+  reads `File exceeds the effective line limit` rather than `File exceeds 500
+  effective lines`, and `SIZE-002`, `COMPLEXITY-001` and `PARAM-001` change the
+  same way. The number a finding was measured against stays in its message.
+
+  This is what keeps a configured threshold from moving a baseline anchor. A
+  file-level finding anchors on a hash of its rule description, so a threshold
+  inside that string would have made every project that retunes a limit miss
+  its own committed baseline entries.
+
+  **Regenerate the baseline once on upgrade** if you commit one that records
+  `SIZE-001` findings, because the old anchors no longer match and those
+  findings resurface:
+
+      lanorme baseline write
+
+  `check` now says so itself rather than leaving the resurfaced findings to
+  look new. When a baseline entry matched nothing and a finding for that same
+  file and rule went unmatched, the run names the pair and points at
+  `baseline write`. It stays quiet when the entry still matches, so debt that
+  is genuinely new is never explained away.
+
 ## [0.16.0]
 
 ### Fixed
