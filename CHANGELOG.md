@@ -9,6 +9,8 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
 
 ## [Unreleased]
 
+## [0.17.0]
+
 ### Added
 
 - `[tool.lanorme.file_limits]` makes every house limit a per-project number.
