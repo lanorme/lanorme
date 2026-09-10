@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "system-map",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "8731",
+        "--directory",
+        "/private/tmp/claude-501/-Users-abo-tresol-Documents-open-source-projects-lanorme/ddf483ec-c225-468a-b20b-42ffb6c8b848/scratchpad"
+      ],
+      "port": 8731
+    }
+  ]
+}
