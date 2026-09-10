@@ -137,3 +137,21 @@ def test_high_entropy_value_overrides_placeholder_marker(write):
     assert result.status == Status.FAIL
     assert len(result.violations) == 1
     assert result.violations[0].message == "Hardcoded credential value bound to 'secret_key'"
+
+
+# --- Skip directories are matched inside the root, never above it ---------
+
+
+def test_root_under_a_skip_named_ancestor_is_still_scanned(tmp_path: Path):
+    # Arrange: a real credential in a project checked out under a build/ dir.
+    root = tmp_path / "build" / "project"
+    root.mkdir(parents=True)
+    (root / "config.py").write_text('password = "s3cr3t-prod-value"\n', encoding="utf-8")
+
+    # Act: scan the project, not its ancestor.
+    result = SecretsCheck().run(src_root=str(root))
+
+    # Assert: the ancestor is the user's filesystem, not the project layout.
+    assert result.status == Status.FAIL
+    assert [v.code for v in result.violations] == ["SECRETPY-001"]
+    assert result.violations[0].file == "config.py"

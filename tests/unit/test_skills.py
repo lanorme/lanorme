@@ -272,3 +272,15 @@ def test_disabled_check_is_silent(tmp_path: Path):
     result = check.run(src_root=str(tmp_path))
     # Assert
     assert result.status == Status.PASS and not result.violations
+
+
+# --- Skip directories are matched inside the root, never above it ---------- #
+
+
+def test_root_under_a_skip_named_ancestor_is_still_scanned(tmp_path: Path):
+    # Arrange: a broken skill in a project checked out under a build/ dir.
+    root = tmp_path / "build" / "project"
+    # Act: scan the project, not its ancestor.
+    result = _run(root, dirname="bad", content="no frontmatter")
+    # Assert: the ancestor is the user's filesystem, not the project layout.
+    assert "SKILL-001" in _codes(result)

@@ -426,7 +426,10 @@ class CommentsCheck:
         violations: list[Violation] = []
         root = Path(src_root)
         for py_file in iter_py_files(root):
-            if any(part in _SKIP_DIRS for part in py_file.parts):
+            # Match skip directories inside the root only: the absolute path's
+            # ancestors are the user's filesystem, not the project layout.
+            relative = py_file.relative_to(root)
+            if any(part in _SKIP_DIRS for part in relative.parts):
                 continue
             try:
                 source = py_file.read_text(encoding="utf-8")
@@ -439,7 +442,7 @@ class CommentsCheck:
                     tree=tree,
                     comments=_collect_comments(source=source, source_lines=source_lines),
                     source_lines=source_lines,
-                    relative_file=py_file.relative_to(root).as_posix(),
+                    relative_file=relative.as_posix(),
                 )
             )
 

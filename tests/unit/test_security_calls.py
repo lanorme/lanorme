@@ -180,3 +180,17 @@ def test_debug_001_does_not_fire_on_normal_app_run(tmp_path, tmp_py_file):
 
     # Assert
     assert "DEBUG-001" not in _codes(result.violations)
+
+
+def test_root_under_a_skip_named_ancestor_is_still_scanned(tmp_path, tmp_py_file):
+    # Arrange
+    tmp_py_file(
+        name="build/project/bad.py",
+        body="import subprocess\nsubprocess.run('ls -la', shell=True)\n",
+    )
+
+    # Act
+    result = SecurityCallsCheck().run(src_root=str(tmp_path / "build" / "project"))
+
+    # Assert
+    assert "SHELL-001" in _codes(result.violations)

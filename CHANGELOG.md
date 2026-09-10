@@ -9,6 +9,20 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
 
 ## [Unreleased]
 
+### Fixed
+
+- The skip-list bug fixed in 0.18.0 for `NAMING-005` and its siblings also
+  affected `CMT-001`, `CMT-002`, `CMT-005`,
+  `SUPPRESS-001`, `SUPPRESS-002`, `SECRETPY-001`, `SHELL-001`, `DESERIAL-001`,
+  `EVAL-001`, `CRYPTO-001`, `TLS-001`, `DEBUG-001`, `SKILL-001` to `SKILL-006`,
+  `DOCS-001` to `DOCS-008`, `PROSE-001` to `PROSE-004`, `SIMILAR-001`,
+  `DRY-001`, `SIZE-001` to `SIZE-003`, `COMPLEXITY-001` and `PARAM-001`. The
+  default-on rules among them (`CMT-001`, `CMT-002`, `SECRETPY-001`, the six
+  security-call rules, the `SKILL` rules, `DRY-001` and the file limits) went
+  silent on such a checkout, so it passed with no findings at all. Each check
+  now matches its skip list against the path inside the root; the docs check
+  matches against the path inside `docs_root`.
+
 ## [0.18.0]
 
 ### Added

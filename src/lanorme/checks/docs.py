@@ -439,10 +439,15 @@ class DocsCheck:
         pages: list[Path] = []
 
         for path in iter_files(docs_dir, suffix=".md"):
-            if not path.is_file() or any(part in _SKIP_PARTS for part in path.parts):
+            if not path.is_file():
+                continue
+            # Match skip directories inside the docs tree only: the absolute
+            # path's ancestors are the user's filesystem, not the project layout.
+            relative = path.relative_to(docs_dir)
+            if any(part in _SKIP_PARTS for part in relative.parts):
                 continue
             pages.append(path)
-            rel_posix = path.relative_to(docs_dir).as_posix()
+            rel_posix = relative.as_posix()
             file = path.relative_to(root).as_posix()
             try:
                 lines = path.read_text(encoding="utf-8").splitlines()
