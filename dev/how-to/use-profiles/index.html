@@ -1216,7 +1216,7 @@ an architecture style.</p>
 <tbody>
 <tr>
 <td><code>strict</code></td>
-<td>Turns on every opt-in (default-off) generic check and sets <code>promote = ["ALL"]</code>, so all advisory warnings become build-failing errors.</td>
+<td>Turns on every check that ships with its <code>enabled</code> switch off and sets <code>promote = ["ALL"]</code>, so all advisory warnings become build-failing errors.</td>
 </tr>
 <tr>
 <td><code>hexagonal</code></td>
@@ -1232,12 +1232,25 @@ an architecture style.</p>
 </tr>
 </tbody>
 </table>
-<p><code>strict</code> switches on the generic opt-in checks (<code>named_args</code>, <code>test_style</code>,
-<code>attribute_access</code>, <code>restating</code>, <code>similarity</code>, <code>prose</code>) and promotes all
-warnings. It does not turn on the architecture checks: <code>layer_deps</code> and
-<code>port_coverage</code> stay off because <code>strict</code> carries no layout for them. Pick one
-of <code>hexagonal</code>, <code>clean</code> or <code>layered</code> to enforce architecture, and compose it
-with <code>strict</code> if you want both.</p>
+<p><code>strict</code> switches on every check that ships default-off (<code>named_args</code>,
+<code>test_style</code>, <code>attribute_access</code>, <code>restating</code>, <code>similarity</code>, <code>prose</code>,
+<code>docstrings</code>, <code>naming_scope</code>, <code>suppressions</code>, <code>docs</code>) and promotes all
+warnings. Two of those carry assumptions worth knowing before you adopt it:</p>
+<ul>
+<li><code>suppressions</code> starts with a budget of zero, so any existing <code># noqa</code> fails
+  the build until you set <code>max_total</code> to today's count and ratchet it down.
+  The <code>SUPPRESS</code> codes cannot be silenced inline, only in config.</li>
+<li><code>docs</code> expects the Markdown under <code>docs/</code> to follow a Diataxis layout, and is
+  inert when that directory is absent. Set <code>docs_root</code>, <code>sections</code> or
+  <code>known_top_level</code> where your tree differs.</li>
+</ul>
+<p>Any one of them can be switched back off with a local table such as
+<code>[tool.lanorme.docs] enabled = false</code>, which wins over the profile because
+tables merge key by key.</p>
+<p>It does not turn on the architecture checks: <code>layer_deps</code> and <code>port_coverage</code>
+have no <code>enabled</code> switch and stay inert because <code>strict</code> carries no layout for
+them. Pick one of <code>hexagonal</code>, <code>clean</code> or <code>layered</code> to enforce architecture,
+and compose it with <code>strict</code> if you want both.</p>
 <p>The architecture profiles are mutually exclusive in practice: each configures
 <code>layer_deps</code> for a different layer layout, so extend exactly one of them.</p>
 <h2 id="compose-several-profiles">Compose several profiles<a class="headerlink" href="#compose-several-profiles" title="Permanent link">&para;</a></h2>
@@ -1246,7 +1259,7 @@ plus an architecture style:</p>
 <div class="highlight"><pre><span></span><code><span class="k">[tool.lanorme]</span>
 <span class="n">extends</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;strict&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;hexagonal&quot;</span><span class="p">]</span>
 </code></pre></div>
-<p>This gives you every generic opt-in check, <code>promote = ["ALL"]</code>, the hexagonal
+<p>This gives you every default-off check, <code>promote = ["ALL"]</code>, the hexagonal
 layer rules, and port coverage, all from two profile names.</p>
 <h2 id="extend-a-local-toml">Extend a local <code>.toml</code><a class="headerlink" href="#extend-a-local-toml" title="Permanent link">&para;</a></h2>
 <p>An <code>extends</code> entry that ends in <code>.toml</code>, or contains a path separator, is read

@@ -1317,7 +1317,7 @@ two effective commands: one baseline, one check.</p>
     G -- yes --&gt; H[Fails the gate]
     G -- no --&gt; I[Stays green]</code></pre>
 <h2 id="what-you-will-build">What you will build<a class="headerlink" href="#what-you-will-build" title="Permanent link">&para;</a></h2>
-<p>A small project with three findings already in it. By the end:</p>
+<p>A small project with a few findings already in it. By the end:</p>
 <ul>
 <li><code>[tool.lanorme]</code> extends the <code>strict</code> profile.</li>
 <li>A committed <code>lanorme-baseline.json</code> records the starting debt.</li>
@@ -1373,19 +1373,19 @@ line and a function that takes too many positional parameters.</p>
 <p>Run LaNorme against the project. Expect findings; that is the point.</p>
 <div class="highlight"><pre><span></span><code>lanorme<span class="w"> </span>check<span class="w"> </span>.
 </code></pre></div>
-<div class="highlight"><pre><span></span><code>[FAIL] comments
-  VIOLATION: myapp/users.py:5 — Commented-out code: old = lookup(id)
-    Rule: CMT-001
-    Fix: Delete it; version control remembers
---- comments: 1 violations, 0 warnings ---
-
-[WARN] file_limits
+<div class="highlight"><pre><span></span><code>[WARN] file_limits
   VIOLATION: myapp/users.py:13 — Function &#39;process&#39; has parameter count 6 (warn: 5)
     Rule: PARAM-001: Function approaching the parameter limit
     Fix: Consider grouping related parameters into a dataclass or TypedDict
 --- file_limits: 0 violations, 1 warnings ---
 
-Summary: 25 checks — 23 passed, 1 warnings, 1 failed.
+[FAIL] comments
+  VIOLATION: myapp/users.py:5 — Commented-out code: old = lookup(id)
+    Rule: CMT-001
+    Fix: Delete it; version control remembers
+--- comments: 1 violations, 0 warnings ---
+
+Summary: 28 checks — 26 passed, 1 warnings, 1 failed.
 </code></pre></div>
 <p>The exit code is <code>1</code> because at least one finding was reported. The default
 <code>concise</code> format shows only checks that found something, plus a summary. Other
@@ -1413,17 +1413,23 @@ as demanding as it gets from day one. Add it to <code>[tool.lanorme]</code>:</p>
 <p>Run the check again:</p>
 <div class="highlight"><pre><span></span><code>lanorme<span class="w"> </span>check<span class="w"> </span>.
 </code></pre></div>
-<div class="highlight"><pre><span></span><code>[FAIL] comments
+<div class="highlight"><pre><span></span><code>[FAIL] file_limits
+  VIOLATION: myapp/users.py:13 — Function &#39;process&#39; has parameter count 6 (warn: 5)
+    Rule: PARAM-001: Function approaching the parameter limit
+    Fix: Consider grouping related parameters into a dataclass or TypedDict
+--- file_limits: 1 violations, 0 warnings ---
+
+[FAIL] comments
   VIOLATION: myapp/users.py:5 — Commented-out code: old = lookup(id)
     Rule: CMT-001
     Fix: Delete it; version control remembers
 --- comments: 1 violations, 0 warnings ---
 
-[FAIL] file_limits
-  VIOLATION: myapp/users.py:13 — Function &#39;process&#39; has parameter count 6 (warn: 5)
-    Rule: PARAM-001: Function approaching the parameter limit
-    Fix: Consider grouping related parameters into a dataclass or TypedDict
---- file_limits: 1 violations, 0 warnings ---
+[FAIL] docstrings
+  VIOLATION: myapp/users.py:13 — Function &#39;process&#39; has no docstring
+    Rule: CMT-006: Public definitions past the size floor need a docstring
+    Fix: Say what it is for, or what a caller needs to know that the signature does not show
+--- docstrings: 1 violations, 0 warnings ---
 
 [FAIL] named_args
   VIOLATION: myapp/users.py:13 — Function &#39;process&#39; has 6 positional params without bare *
@@ -1431,11 +1437,12 @@ as demanding as it gets from day one. Add it to <code>[tool.lanorme]</code>:</p>
     Fix: Add a bare * separator: def foo(self, *, param1: str, param2: int)
 --- named_args: 1 violations, 0 warnings ---
 
-Summary: 25 checks — 22 passed, 0 warnings, 3 failed.
+Summary: 28 checks — 24 passed, 0 warnings, 4 failed.
 </code></pre></div>
-<p>Three failures now. The <code>PARAM-001</code> warning has become an error, and the opt-in
-<code>KWARG-001</code> check has switched on and found the same function. On a real
-codebase the count is usually larger. Fixing every one before you can merge is
+<p>Four failures now. The <code>PARAM-001</code> warning has become an error, and two opt-in
+checks have switched on and found the same function: <code>CMT-006</code> for its missing
+docstring and <code>KWARG-001</code> for its positional parameters. On a real codebase the
+count is usually larger. Fixing every one before you can merge is
 the wall most teams hit, and the reason adoption stalls. The baseline is the way
 through it.</p>
 <p>Bundled profiles are <code>strict</code>, <code>hexagonal</code>, <code>clean</code>, and <code>layered</code>. You can also
@@ -1448,7 +1455,7 @@ a file. Anything in that file is suppressed on later runs, so only findings that
 are not already recorded report.</p>
 <div class="highlight"><pre><span></span><code>lanorme<span class="w"> </span>baseline<span class="w"> </span>write
 </code></pre></div>
-<div class="highlight"><pre><span></span><code>Wrote 3 baseline entries (3 findings): +3 new, -0 pruned (was 0).
+<div class="highlight"><pre><span></span><code>Wrote 4 baseline entries (4 findings): +4 new, -0 pruned (was 0).
 
 Add this to your configuration and commit the file like a lockfile:
 
@@ -1482,7 +1489,7 @@ git<span class="w"> </span>commit<span class="w"> </span>-m<span class="w"> </sp
 passes:</p>
 <div class="highlight"><pre><span></span><code>lanorme<span class="w"> </span>check<span class="w"> </span>.
 </code></pre></div>
-<div class="highlight"><pre><span></span><code>All 25 checks passed.
+<div class="highlight"><pre><span></span><code>All 28 checks passed.
 </code></pre></div>
 <div class="highlight"><pre><span></span><code>Exit code: 0
 </code></pre></div>
@@ -1504,7 +1511,7 @@ module with a fresh commented-out line:</p>
     Fix: Delete it; version control remembers
 --- comments: 1 violations, 0 warnings ---
 
-Summary: 25 checks — 24 passed, 0 warnings, 1 failed.
+Summary: 28 checks — 27 passed, 0 warnings, 1 failed.
 </code></pre></div>
 <p>Only the new finding in <code>myapp/orders.py</code> reports. The recorded debt in
 <code>myapp/users.py</code> stays quiet. New code is held to the full strict profile; old
@@ -1516,7 +1523,13 @@ green again.</p>
 a check that ignores the baseline for that run:</p>
 <div class="highlight"><pre><span></span><code>lanorme<span class="w"> </span>check<span class="w"> </span>--no-baseline<span class="w"> </span>.
 </code></pre></div>
-<div class="highlight"><pre><span></span><code>[FAIL] comments
+<div class="highlight"><pre><span></span><code>[FAIL] file_limits
+  VIOLATION: myapp/users.py:13 — Function &#39;process&#39; has parameter count 6 (warn: 5)
+    Rule: PARAM-001: Function approaching the parameter limit
+    Fix: Consider grouping related parameters into a dataclass or TypedDict
+--- file_limits: 1 violations, 0 warnings ---
+
+[FAIL] comments
   VIOLATION: myapp/orders.py:2 — Commented-out code: total = compute(cart)
     Rule: CMT-001
     Fix: Delete it; version control remembers
@@ -1525,11 +1538,11 @@ a check that ignores the baseline for that run:</p>
     Fix: Delete it; version control remembers
 --- comments: 2 violations, 0 warnings ---
 
-[FAIL] file_limits
-  VIOLATION: myapp/users.py:13 — Function &#39;process&#39; has parameter count 6 (warn: 5)
-    Rule: PARAM-001: Function approaching the parameter limit
-    Fix: Consider grouping related parameters into a dataclass or TypedDict
---- file_limits: 1 violations, 0 warnings ---
+[FAIL] docstrings
+  VIOLATION: myapp/users.py:13 — Function &#39;process&#39; has no docstring
+    Rule: CMT-006: Public definitions past the size floor need a docstring
+    Fix: Say what it is for, or what a caller needs to know that the signature does not show
+--- docstrings: 1 violations, 0 warnings ---
 
 [FAIL] named_args
   VIOLATION: myapp/users.py:13 — Function &#39;process&#39; has 6 positional params without bare *
@@ -1537,9 +1550,9 @@ a check that ignores the baseline for that run:</p>
     Fix: Add a bare * separator: def foo(self, *, param1: str, param2: int)
 --- named_args: 1 violations, 0 warnings ---
 
-Summary: 25 checks — 22 passed, 0 warnings, 3 failed.
+Summary: 28 checks — 24 passed, 0 warnings, 4 failed.
 </code></pre></div>
-<p>That is the full picture: the new finding plus the three recorded ones. It is
+<p>That is the full picture: the new finding plus the four recorded ones. It is
 your backlog whenever you want to chip away at the debt.</p>
 <p>As you pay debt down, recorded entries that no longer match anything become
 stale. <code>lanorme baseline status</code> lists them. Pay one item down first by removing
