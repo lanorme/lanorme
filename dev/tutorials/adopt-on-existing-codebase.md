@@ -119,7 +119,7 @@ lanorme check .
     Fix: Delete it; version control remembers
 --- comments: 1 violations, 0 warnings ---
 
-Summary: 28 checks — 26 passed, 1 warnings, 1 failed.
+Summary: 30 checks — 28 passed, 1 warnings, 1 failed.
 ```
 
 The exit code is `1` because at least one finding was reported. The default
@@ -178,7 +178,7 @@ lanorme check .
     Fix: Add a bare * separator: def foo(self, *, param1: str, param2: int)
 --- named_args: 1 violations, 0 warnings ---
 
-Summary: 28 checks — 24 passed, 0 warnings, 4 failed.
+Summary: 30 checks — 26 passed, 0 warnings, 4 failed.
 ```
 
 Four failures now. The `PARAM-001` warning has become an error, and two opt-in
@@ -253,7 +253,7 @@ lanorme check .
 ```
 
 ```text
-All 28 checks passed.
+All 30 checks passed.
 ```
 
 ```text
@@ -286,7 +286,7 @@ lanorme check .
     Fix: Delete it; version control remembers
 --- comments: 1 violations, 0 warnings ---
 
-Summary: 28 checks — 27 passed, 0 warnings, 1 failed.
+Summary: 30 checks — 29 passed, 0 warnings, 1 failed.
 ```
 
 Only the new finding in `myapp/orders.py` reports. The recorded debt in
@@ -333,7 +333,7 @@ lanorme check --no-baseline .
     Fix: Add a bare * separator: def foo(self, *, param1: str, param2: int)
 --- named_args: 1 violations, 0 warnings ---
 
-Summary: 28 checks — 24 passed, 0 warnings, 4 failed.
+Summary: 30 checks — 26 passed, 0 warnings, 4 failed.
 ```
 
 That is the full picture: the new finding plus the four recorded ones. It is

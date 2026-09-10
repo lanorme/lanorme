@@ -1385,7 +1385,7 @@ line and a function that takes too many positional parameters.</p>
     Fix: Delete it; version control remembers
 --- comments: 1 violations, 0 warnings ---
 
-Summary: 28 checks — 26 passed, 1 warnings, 1 failed.
+Summary: 30 checks — 28 passed, 1 warnings, 1 failed.
 </code></pre></div>
 <p>The exit code is <code>1</code> because at least one finding was reported. The default
 <code>concise</code> format shows only checks that found something, plus a summary. Other
@@ -1437,7 +1437,7 @@ as demanding as it gets from day one. Add it to <code>[tool.lanorme]</code>:</p>
     Fix: Add a bare * separator: def foo(self, *, param1: str, param2: int)
 --- named_args: 1 violations, 0 warnings ---
 
-Summary: 28 checks — 24 passed, 0 warnings, 4 failed.
+Summary: 30 checks — 26 passed, 0 warnings, 4 failed.
 </code></pre></div>
 <p>Four failures now. The <code>PARAM-001</code> warning has become an error, and two opt-in
 checks have switched on and found the same function: <code>CMT-006</code> for its missing
@@ -1489,7 +1489,7 @@ git<span class="w"> </span>commit<span class="w"> </span>-m<span class="w"> </sp
 passes:</p>
 <div class="highlight"><pre><span></span><code>lanorme<span class="w"> </span>check<span class="w"> </span>.
 </code></pre></div>
-<div class="highlight"><pre><span></span><code>All 28 checks passed.
+<div class="highlight"><pre><span></span><code>All 30 checks passed.
 </code></pre></div>
 <div class="highlight"><pre><span></span><code>Exit code: 0
 </code></pre></div>
@@ -1511,7 +1511,7 @@ module with a fresh commented-out line:</p>
     Fix: Delete it; version control remembers
 --- comments: 1 violations, 0 warnings ---
 
-Summary: 28 checks — 27 passed, 0 warnings, 1 failed.
+Summary: 30 checks — 29 passed, 0 warnings, 1 failed.
 </code></pre></div>
 <p>Only the new finding in <code>myapp/orders.py</code> reports. The recorded debt in
 <code>myapp/users.py</code> stays quiet. New code is held to the full strict profile; old
@@ -1550,7 +1550,7 @@ a check that ignores the baseline for that run:</p>
     Fix: Add a bare * separator: def foo(self, *, param1: str, param2: int)
 --- named_args: 1 violations, 0 warnings ---
 
-Summary: 28 checks — 24 passed, 0 warnings, 4 failed.
+Summary: 30 checks — 26 passed, 0 warnings, 4 failed.
 </code></pre></div>
 <p>That is the full picture: the new finding plus the four recorded ones. It is
 your backlog whenever you want to chip away at the debt.</p>

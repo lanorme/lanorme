@@ -1421,7 +1421,9 @@ check and reports it as a warning so one bug cannot sink the whole run, but a
 clean check should not rely on that safety net.</p>
 <h2 id="a-worked-example">A worked example<a class="headerlink" href="#a-worked-example" title="Permanent link">&para;</a></h2>
 <p>This check fails when a module is named exactly <code>utils.py</code>, on the house rule
-that every module should be named after what it does.</p>
+that every module should be named after what it does. LaNorme ships the same
+rule built in as <code>NAMING-010</code> in the opt-in <code>naming_clean_code</code> check; it stays
+here as the example because it is the smallest complete check.</p>
 <div class="highlight"><pre><span></span><code><span class="c1"># house_rules.py</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
