@@ -1052,13 +1052,13 @@
 
 
 <h1 id="lanorme">LaNorme<a class="headerlink" href="#lanorme" title="Permanent link">&para;</a></h1>
-<p>LaNorme makes a codebase standard executable. It is a precision-first,
-stdlib-only Python linter that turns the rules your team has agreed on into
-checks that run on every commit. It has zero runtime dependencies.</p>
+<p>LaNorme makes a codebase's standard executable. It is a precision-first
+Python linter with zero runtime dependencies (standard library only) that
+turns the rules your team has agreed on into checks that run on every commit.</p>
 <p>Precision comes first. A false positive is the cardinal sin: a check that
 cries wolf trains people to ignore it, so LaNorme would rather stay silent
-than flag code that is fine. Advisory findings are warnings until you choose
-to make them build-failing.</p>
+than flag code that is fine. Opinionated rules report as warnings, which keep
+the exit code at <code>0</code>, until you promote them to errors.</p>
 <h2 id="30-second-example">30-second example<a class="headerlink" href="#30-second-example" title="Permanent link">&para;</a></h2>
 <p>Install LaNorme as a development dependency:</p>
 <div class="highlight"><pre><span></span><code>uv<span class="w"> </span>add<span class="w"> </span>--dev<span class="w"> </span>lanorme
@@ -1070,25 +1070,30 @@ to make them build-failing.</p>
 <div class="highlight"><pre><span></span><code>lanorme<span class="w"> </span>check<span class="w"> </span>.
 </code></pre></div>
 <p>A clean run reports that every check passed and exits <code>0</code>:</p>
-<div class="highlight"><pre><span></span><code>All 25 checks passed.
+<div class="highlight"><pre><span></span><code>All 30 checks passed.
 </code></pre></div>
-<p>Exit codes are <code>0</code> when clean, <code>1</code> when there are findings, and <code>2</code> on a
+<p>Exit codes are <code>0</code> when no check fails (warnings alone leave it at <code>0</code>), <code>1</code>
+when a check fails (a violation, or a warning you have promoted), and <code>2</code> on a
 usage or configuration error, so the command drops straight into a pre-commit
 hook or CI step.</p>
 <p>Two shortcuts help while you work:</p>
 <ul>
 <li><code>lanorme rule &lt;CODE&gt;</code> prints a single rule's reference section in the
   terminal, for example <code>lanorme rule DRY-001</code>.</li>
-<li>Appending <code>.md</code> to any page URL on this site returns that page as raw
-  Markdown.</li>
+<li>Every page on this site is also published as raw Markdown at its source
+  path: replace the trailing <code>/</code> of a page URL with <code>.md</code>, and use <code>index.md</code>
+  for the home page and each section landing page. The "View as Markdown"
+  button on a page opens the same file.</li>
 </ul>
 <h2 id="where-to-go-next">Where to go next<a class="headerlink" href="#where-to-go-next" title="Permanent link">&para;</a></h2>
 <ul>
 <li><a href="tutorials/adopt-on-existing-codebase/">Adopt LaNorme on an existing codebase</a>:
   a tutorial that records a baseline so only new findings fail the build while
-  existing debt stays visible.</li>
-<li><a href="how-to/">How-to guides</a>: task-focused recipes for promoting
-  advisories, excluding paths, and wiring CI.</li>
+  the recorded debt stays quiet (see all of it any time with
+  <code>lanorme check --no-baseline</code> or <code>lanorme baseline status</code>).</li>
+<li><a href="how-to/">How-to guides</a>: task-focused recipes for choosing which
+  checks run and excluding paths, promoting warnings to errors, using
+  configuration profiles, and writing a custom check.</li>
 <li>Reference: the <a href="reference/configuration/">configuration reference</a> for
   every <code>[tool.lanorme]</code> key, and <a href="RULES/">the rules</a> for each check and its
   per-check settings.</li>

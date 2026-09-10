@@ -73,7 +73,7 @@ $ lanorme check orders.py --select TYPE-004
     Fix: Add a return annotation (for example '-> ResultType') to the signature
 --- strong_types: 0 violations, 1 warnings ---
 
-Summary: 25 checks — 24 passed, 1 warnings, 0 failed.
+Summary: 30 checks — 29 passed, 1 warnings, 0 failed.
 $ echo $?
 0
 ```
@@ -88,7 +88,7 @@ $ lanorme check orders.py --select TYPE-004 --promote TYPE-004
     Fix: Add a return annotation (for example '-> ResultType') to the signature
 --- strong_types: 1 violations, 0 warnings ---
 
-Summary: 25 checks — 24 passed, 0 warnings, 1 failed.
+Summary: 30 checks — 29 passed, 0 warnings, 1 failed.
 $ echo $?
 1
 ```
@@ -114,7 +114,7 @@ def total_price(quantity: int, unit_price: float):  # noqa: TYPE-004
 
 ```console
 $ lanorme check orders.py --select TYPE-004 --promote ALL
-All 25 checks passed.
+All 30 checks passed.
 $ echo $?
 0
 ```
@@ -124,15 +124,15 @@ nothing to promote:
 
 ```console
 $ lanorme check orders.py --select TYPE-004 --ignore TYPE-004 --promote TYPE-004
-All 25 checks passed.
+All 30 checks passed.
 $ echo $?
 0
 ```
 
->!!! note
->    This ordering means promotion cannot resurrect a finding you have
->    deliberately suppressed. If you want a suppressed warning to fail the
->    build, remove the suppression first, then promote.
+!!! note
+    This ordering means promotion cannot resurrect a finding you have
+    deliberately suppressed. If you want a suppressed warning to fail the
+    build, remove the suppression first, then promote.
 
 ## Skip notices are never promoted
 

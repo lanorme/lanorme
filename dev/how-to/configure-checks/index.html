@@ -1185,20 +1185,19 @@ a single run. For the full key list and types, see the
 <a href="../../reference/configuration/">configuration reference</a>. Rule codes and
 categories are listed by <code>lanorme rules</code>; per-check settings live in the
 <a href="../../RULES/">rule reference</a>.</p>
-<blockquote>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-</div>
 <p>The recipes below use the <code>pyproject.toml</code> layout. In a standalone
-   <code>lanorme.toml</code> / <code>.lanorme.toml</code> the <code>tool.lanorme</code> prefix is dropped:
-   top-level scalar keys go bare (<code>select = [...]</code>) and sub-tables lose the
-   prefix too, so <code>[tool.lanorme.per-file-ignores]</code> becomes
-   <code>[per-file-ignores]</code>. Using the prefixed header in a <code>lanorme.toml</code> is a
-   silent no-op — the table is ignored and no error is raised. See the
-   <a href="../../reference/cli/#config-discovery">config discovery</a> note in the CLI
-   reference.</p>
-</blockquote>
-<p>Targets are rule codes (<code>EVAL-001</code>), categories (<code>SEC</code>, <code>SECRETPY</code>), or <code>ALL</code>.</p>
+<code>lanorme.toml</code> / <code>.lanorme.toml</code> the <code>tool.lanorme</code> prefix is dropped:
+top-level scalar keys go bare (<code>select = [...]</code>) and sub-tables lose the
+prefix too, so <code>[tool.lanorme.per-file-ignores]</code> becomes
+<code>[per-file-ignores]</code>. Using the prefixed header in a <code>lanorme.toml</code> is a
+silent no-op — the table is ignored and no error is raised. See the
+<a href="../../reference/cli/#config-discovery">config discovery</a> note in the CLI
+reference.</p>
+</div>
+<p>Targets are rule codes (<code>EVAL-001</code>), categories (the part before the dash:
+<code>CMT</code>, <code>SECRETPY</code>), or <code>ALL</code>. <code>lanorme rules</code> lists every code.</p>
 <h2 id="run-only-some-checks">Run only some checks<a class="headerlink" href="#run-only-some-checks" title="Permanent link">&para;</a></h2>
 <p>Goal: run a chosen subset and skip everything else.</p>
 <div class="highlight"><pre><span></span><code><span class="k">[tool.lanorme]</span>
@@ -1212,18 +1211,16 @@ categories are listed by <code>lanorme rules</code>; per-check settings live in 
 <span class="go">    Fix: Use ast.literal_eval for trusted-shape parsing, or build a dispatch table</span>
 <span class="go">--- security_calls: 1 violations, 0 warnings ---</span>
 
-<span class="go">Summary: 25 checks — 24 passed, 0 warnings, 1 failed.</span>
+<span class="go">Summary: 30 checks — 29 passed, 0 warnings, 1 failed.</span>
 </code></pre></div>
-<p>A category selects every code under it: <code>--select SEC</code> runs the whole
-security group; <code>--select ALL</code> runs everything enabled.</p>
-<blockquote>
+<p>A category selects every code under it: <code>--select CMT</code> runs every comment
+rule; <code>--select ALL</code> runs everything enabled.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-</div>
 <p>Opt-in checks stay off even when named in <code>select</code>. Enable them first
-   with <code>[tool.lanorme.&lt;check&gt;] enabled = true</code> (for example
-   <code>[tool.lanorme.prose]</code>). See the <a href="../../RULES/">rule reference</a>.</p>
-</blockquote>
+with <code>[tool.lanorme.&lt;check&gt;] enabled = true</code> (for example
+<code>[tool.lanorme.prose]</code>). See the <a href="../../RULES/">rule reference</a>.</p>
+</div>
 <h2 id="skip-a-rule-everywhere">Skip a rule everywhere<a class="headerlink" href="#skip-a-rule-everywhere" title="Permanent link">&para;</a></h2>
 <p>Goal: keep the full run but drop one rule (or one category) you do not want.</p>
 <div class="highlight"><pre><span></span><code><span class="k">[tool.lanorme]</span>
@@ -1231,7 +1228,7 @@ security group; <code>--select ALL</code> runs everything enabled.</p>
 </code></pre></div>
 <p>Equivalent flag: <code>--ignore</code> takes a comma-separated list.</p>
 <div class="highlight"><pre><span></span><code><span class="gp">$ </span>lanorme<span class="w"> </span>check<span class="w"> </span>src<span class="w"> </span>--select<span class="w"> </span>file_limits<span class="w"> </span>--ignore<span class="w"> </span>PARAM-001
-<span class="go">All 25 checks passed.</span>
+<span class="go">All 30 checks passed.</span>
 </code></pre></div>
 <p><code>ignore</code> applies after <code>select</code>, so a rule that is both selected and ignored
 is skipped.</p>
@@ -1244,11 +1241,25 @@ is skipped.</p>
 <p>Globs match the path relative to the project root. A leading <code>**/</code> matches a
 directory at any depth, so <code>**/migrations/*</code> excludes <code>src/pkg/migrations/</code>:</p>
 <div class="highlight"><pre><span></span><code><span class="gp">$ </span>lanorme<span class="w"> </span>check<span class="w"> </span>.<span class="w"> </span>--select<span class="w"> </span>EVAL-001
+<span class="go">[FAIL] security_calls</span>
 <span class="go">  VIOLATION: src/pkg/main.py:1 — eval() on a non-literal argument is an RCE primitive</span>
+<span class="go">    Rule: EVAL-001</span>
+<span class="go">    Fix: Use ast.literal_eval for trusted-shape parsing, or build a dispatch table</span>
 <span class="go">  VIOLATION: src/pkg/migrations/m.py:1 — eval() on a non-literal argument is an RCE primitive</span>
+<span class="go">    Rule: EVAL-001</span>
+<span class="go">    Fix: Use ast.literal_eval for trusted-shape parsing, or build a dispatch table</span>
+<span class="go">--- security_calls: 2 violations, 0 warnings ---</span>
+
+<span class="go">Summary: 30 checks — 29 passed, 0 warnings, 1 failed.</span>
 
 <span class="gp">$ </span>lanorme<span class="w"> </span>check<span class="w"> </span>.<span class="w"> </span>--select<span class="w"> </span>EVAL-001<span class="w"> </span>--exclude<span class="w"> </span><span class="s1">&#39;**/migrations/*&#39;</span>
+<span class="go">[FAIL] security_calls</span>
 <span class="go">  VIOLATION: src/pkg/main.py:1 — eval() on a non-literal argument is an RCE primitive</span>
+<span class="go">    Rule: EVAL-001</span>
+<span class="go">    Fix: Use ast.literal_eval for trusted-shape parsing, or build a dispatch table</span>
+<span class="go">--- security_calls: 1 violations, 0 warnings ---</span>
+
+<span class="go">Summary: 30 checks — 29 passed, 0 warnings, 1 failed.</span>
 </code></pre></div>
 <p>Match the depth you have. To exclude a <code>migrations/</code> directory sitting at the
 project root, use <code>migrations/*</code>; the leading <code>**/</code> form needs a parent
@@ -1266,7 +1277,7 @@ reports <code>PARAM-001</code>:</p>
 <span class="go">    Fix: Group related parameters into a dataclass or TypedDict</span>
 <span class="go">--- file_limits: 1 violations, 0 warnings ---</span>
 
-<span class="go">Summary: 25 checks — 24 passed, 0 warnings, 1 failed.</span>
+<span class="go">Summary: 30 checks — 29 passed, 0 warnings, 1 failed.</span>
 </code></pre></div>
 <p>The key is a glob; the value is a list of codes or categories suppressed for
 matching files. In <code>pyproject.toml</code> the table carries the <code>tool.lanorme</code>
@@ -1281,7 +1292,7 @@ header is bare — the prefixed form is silently ignored there:</p>
 </code></pre></div>
 <p>With either form in place, the matching file is no longer reported:</p>
 <div class="highlight"><pre><span></span><code><span class="gp">$ </span>lanorme<span class="w"> </span>check<span class="w"> </span>.<span class="w"> </span>--select<span class="w"> </span>PARAM-001
-<span class="go">All 25 checks passed.</span>
+<span class="go">All 30 checks passed.</span>
 </code></pre></div>
 <p>Confirm the discovered config and effective per-check settings with
 <code>lanorme check --show-config</code>.</p>
@@ -1303,7 +1314,9 @@ cannot parse the hyphen in a code like <code>TYPE-001</code>, so a shared <code>
 TYPE-001</code> makes ruff report an invalid directive, while <code># lanorme: ignore</code>
 carries no <code>noqa</code> token for ruff to read.</p>
 <p>A code in either directive may be an exact code (<code>EVAL-001</code>), a category
-(<code>SEC</code>), or <code>ALL</code>, matching the other config targets.</p>
+(<code>CMT</code>), or <code>ALL</code>, matching the other config targets. A finding reported at
+line <code>0</code> is about the whole file (a junk-drawer module, say) and has no line
+to carry a directive; silence it with <code>per-file-ignores</code> instead.</p>
 <p>Given this file checked with <code>--select EVAL-001</code>:</p>
 <div class="highlight"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">f</span><span class="p">():</span>
     <span class="n">x</span> <span class="o">=</span> <span class="nb">eval</span><span class="p">(</span><span class="nb">input</span><span class="p">())</span>                 <span class="c1"># line 2: reported</span>
@@ -1323,17 +1336,21 @@ code and does not silence the <code>eval</code>.</p>
 <div class="highlight"><pre><span></span><code><span class="gp">$ </span>lanorme<span class="w"> </span>check<span class="w"> </span>a.py<span class="w"> </span>--select<span class="w"> </span>EVAL-001
 <span class="go">[FAIL] security_calls</span>
 <span class="go">  VIOLATION: a.py:2 — eval() on a non-literal argument is an RCE primitive</span>
+<span class="go">    Rule: EVAL-001</span>
+<span class="go">    Fix: Use ast.literal_eval for trusted-shape parsing, or build a dispatch table</span>
 <span class="go">  VIOLATION: a.py:11 — eval() on a non-literal argument is an RCE primitive</span>
+<span class="go">    Rule: EVAL-001</span>
+<span class="go">    Fix: Use ast.literal_eval for trusted-shape parsing, or build a dispatch table</span>
 <span class="go">--- security_calls: 2 violations, 0 warnings ---</span>
 
-<span class="go">Summary: 25 checks — 24 passed, 0 warnings, 1 failed.</span>
+<span class="go">Summary: 30 checks — 29 passed, 0 warnings, 1 failed.</span>
 </code></pre></div>
 <h2 id="exit-codes">Exit codes<a class="headerlink" href="#exit-codes" title="Permanent link">&para;</a></h2>
 <p><code>lanorme check</code> exits <code>0</code> when clean, <code>1</code> when there are findings, and <code>2</code> on
 a usage or config error. This drives CI: a silenced finding leaves the run
 clean.</p>
 <div class="highlight"><pre><span></span><code><span class="gp">$ </span>lanorme<span class="w"> </span>check<span class="w"> </span>src<span class="w"> </span>--select<span class="w"> </span>EVAL-001<span class="w">   </span><span class="c1"># no eval in src</span>
-<span class="go">All 25 checks passed.</span>
+<span class="go">All 30 checks passed.</span>
 <span class="gp">$ </span><span class="nb">echo</span><span class="w"> </span><span class="nv">$?</span>
 <span class="go">0</span>
 </code></pre></div>

@@ -2,11 +2,10 @@
 
 This reference describes every `lanorme` command, subcommand, argument, and flag, together with the config-discovery order, output formats, and exit codes.
 
-Every `lanorme` command, its arguments, and its flags. The descriptions
-reflect `lanorme <command> --help` exactly. For the configuration keys that
-the flags override, see the [configuration reference](configuration.md). For
-what each rule catches, see the [rule reference](../RULES.md) and the
-[rule index](rules-index.md).
+The descriptions follow `lanorme <command> --help`, with the config key each
+flag overrides added. For the configuration keys themselves, see the
+[configuration reference](configuration.md). For what each rule catches, see
+the [rule reference](../RULES.md) and the [rule index](rules-index.md).
 
 ## Synopsis
 
@@ -17,7 +16,7 @@ lanorme [-h] [--version] {check,baseline,rules,rule} ...
 | Option | Effect |
 | --- | --- |
 | `-h`, `--help` | Show help and exit. |
-| `--version` | Print the program version and exit (for example `lanorme 0.12.0`). |
+| `--version` | Print the program version and exit, as `lanorme X.Y.Z`. |
 
 The four subcommands:
 
@@ -49,6 +48,13 @@ walking up from the scan path:
    file, with no table prefix.
 2. `.lanorme.toml`, same top-level layout.
 3. A `[tool.lanorme]` table in `pyproject.toml`.
+
+All three are tried in each directory before walking up to its parent, in that
+order, so a `lanorme.toml` wins over a `pyproject.toml` table beside it. The
+directory the config was found in is the project root: every finding is
+reported relative to it, whichever directory the command ran from, and
+`per-file-ignores` and `exclude` globs match against those paths. A file that
+is not valid TOML is a configuration error and exits `2`.
 
 ```toml
 # lanorme.toml: keys at the top level
@@ -100,10 +106,17 @@ lanorme check [-h] [--check SINGLE] [--select SELECT] [--ignore IGNORE]
 | `--json` | Alias for `--output-format=json`. |
 | `--no-baseline` | Ignore the configured baseline for this run and report the whole debt. |
 
-A category name (such as `SEC`) covers every code in it; `ALL` covers every
-code. The selection, ignore, exclude and promote keys are documented in the
+For `--select`, `--ignore` and `--promote`, a category name (the part of a code
+before the dash, such as `CMT`) covers every code in it and `ALL` covers every
+code. `--check` takes a single check name, rule code or category, runs it at
+the root config without per-directory cascading, and ignores `--select`. The
+selection, ignore, exclude and promote keys are documented in the
 [configuration reference](configuration.md); a CLI flag wins over its config
 key for that run.
+
+`paths` may mix files and directories. The scan walks their common ancestor,
+so checks that compare files still see the siblings, and the report is then
+narrowed to the named targets.
 
 ### Promotion
 
@@ -115,7 +128,10 @@ warnings turns them into violations and the run exits `1`.
 $ lanorme check --check SIZE-003 .
 [WARN] file_limits
   VIOLATION: big.py:1 — Class 'C' has 11 methods (warn: 10)
+    Rule: SIZE-003: Class has too many methods
+    Fix: Consider decomposing into smaller, focused classes
 --- file_limits: 0 violations, 1 warnings ---
+
 Summary: 1 checks — 0 passed, 1 warnings, 0 failed.
 $ echo $?
 0
@@ -125,7 +141,10 @@ $ echo $?
 $ lanorme check --check SIZE-003 --promote ALL .
 [FAIL] file_limits
   VIOLATION: big.py:1 — Class 'C' has 11 methods (warn: 10)
+    Rule: SIZE-003: Class has too many methods
+    Fix: Consider decomposing into smaller, focused classes
 --- file_limits: 1 violations, 0 warnings ---
+
 Summary: 1 checks — 0 passed, 0 warnings, 1 failed.
 $ echo $?
 1
@@ -154,9 +173,13 @@ lanorme baseline [-h] {write,status} [paths ...]
 | `{write,status}` | `write` records current findings; `status` lists stale entries. |
 | `paths` | Project root to scan. Default: `.` |
 
-`baseline` runs over the whole project root. Passing file targets or
-selection flags is refused with exit `2`, because a narrowed write would
-regenerate the baseline from a partial run and prune everything out of scope.
+`baseline` runs over the whole project root and accepts no selection flags.
+Passing a file target, or a directory other than the project root, is refused
+with exit `2`, because a narrowed write would regenerate the baseline from a
+partial run and prune everything out of scope. The file it writes is a JSON
+object with a `version` and an `entries` list; each entry carries the file,
+the rule code, an anchor (a hash of the source line at the finding), the
+severity, the message and a count.
 
 ```console
 $ lanorme baseline write a.py
@@ -216,17 +239,21 @@ List all registered rules and exit.
 lanorme rules [-h]
 ```
 
-Output groups every rule code under its check, in registry order. Opt-in
-checks appear in the list but emit nothing until enabled.
+Output groups every rule code under its check, with checks sorted by name.
+Opt-in checks appear in the list but emit nothing until enabled. The `-000`
+notices a check can emit when it skips a file (`TYPE-000: parse error`) and
+the `RUN-000` notice for a check that raised are not rules and are not listed.
 
 ```console
 $ lanorme rules
 
+...
 ## comments — Concise, clean comments (commented-out code, verbosity, style)
   CMT-001: No commented-out code
   CMT-002: No verbose comments (block or line too long)
   PROSE-001: No em dashes in comments or docstrings (opt-in)
   PROSE-003: No emoji in comments or docstrings (opt-in)
+...
 ```
 
 The same data, with the opt-in column, is in the
@@ -244,7 +271,7 @@ lanorme rule [-h] code
 
 | Argument | Description |
 | --- | --- |
-| `code` | The rule code to look up (for example `CMT-001`, `SQL-001`). |
+| `code` | The rule code to look up (for example `CMT-001`, `SQL-001`). Case does not matter. |
 
 ```console
 $ lanorme rule CMT-001
@@ -253,9 +280,12 @@ $ lanorme rule CMT-001
 Default-on. Walks every `#` comment and parses its text as Python; if the
 result is one of `_CODE_NODES` (imports, assigns, defs, control flow,
 returns / raises / asserts, ...), the comment is treated as disabled code.
+...
 ```
 
-An unknown code prints a not-found notice and exits `2`:
+A code with no section of its own prints its category's section instead, so
+`lanorme rule shell-001` prints the whole security-calls section. An unknown
+code prints a not-found notice and exits `2`:
 
 ```console
 $ lanorme rule NOPE-999
@@ -269,10 +299,10 @@ No reference section found for 'NOPE-999'. Run 'lanorme rules' for the list of e
 | Format | Shape |
 | --- | --- |
 | `concise` | Default. Only checks with findings, plus a one-line summary. |
-| `full` | Every check, including those that passed. |
+| `full` | Every check, including those that passed, with no summary line. |
 | `json` | One JSON object per check (a single array). `--json` is the alias. |
 | `ndjson` | One finding per line, as JSON. |
-| `github` | GitHub Actions workflow commands. Auto-selected when `GITHUB_ACTIONS=true`. |
+| `github` | GitHub Actions workflow commands: `::error` for a violation, `::warning` for an advisory. Auto-selected when `GITHUB_ACTIONS=true`. |
 
 `concise` reports only checks with findings and ends with a summary:
 
@@ -284,7 +314,7 @@ $ lanorme check bad.py
     Fix: Delete it; version control remembers
 --- comments: 1 violations, 0 warnings ---
 
-Summary: 25 checks — 24 passed, 0 warnings, 1 failed.
+Summary: 30 checks — 29 passed, 0 warnings, 1 failed.
 ```
 
 `json` emits one object per check, with `violations` and `warnings` arrays:
@@ -292,6 +322,7 @@ Summary: 25 checks — 24 passed, 0 warnings, 1 failed.
 ```console
 $ lanorme check --json bad.py
 [
+  ...
   {
     "check": "comments",
     "status": "FAIL",
@@ -330,11 +361,9 @@ $ lanorme check --output-format github bad.py
 | `1` | Violations found. |
 | `2` | Usage or configuration error. |
 
-Exit `2` covers an unknown subcommand, an invalid flag value (such as a bad
-`--output-format` choice), a nonexistent scan path, a `baseline` write or
-status given file targets, a configured baseline file that does not exist,
-and `lanorme rule <CODE>` with an unknown code.
-
->!!! note
->    `lanorme rule <CODE>` with an unknown code exits `2`. The lookup found
->    nothing, so it is reported as a not-found error rather than a clean run.
+Exit `2` covers no subcommand at all, an unknown subcommand, an invalid flag
+value (such as a bad `--output-format` choice or an unknown `--check` name), a
+nonexistent scan path, a `baseline` write or status given file targets, a
+configured baseline file that does not exist, a config file that is not valid
+TOML, an invalid per-check value, an unknown profile, and `lanorme rule <CODE>`
+with an unknown code.

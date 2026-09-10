@@ -1171,7 +1171,7 @@ lanorme<span class="w"> </span>check<span class="w"> </span>src<span class="w"> 
 <span class="go">    Fix: Add a return annotation (for example &#39;-&gt; ResultType&#39;) to the signature</span>
 <span class="go">--- strong_types: 0 violations, 1 warnings ---</span>
 
-<span class="go">Summary: 25 checks — 24 passed, 1 warnings, 0 failed.</span>
+<span class="go">Summary: 30 checks — 29 passed, 1 warnings, 0 failed.</span>
 <span class="gp">$ </span><span class="nb">echo</span><span class="w"> </span><span class="nv">$?</span>
 <span class="go">0</span>
 </code></pre></div>
@@ -1183,7 +1183,7 @@ lanorme<span class="w"> </span>check<span class="w"> </span>src<span class="w"> 
 <span class="go">    Fix: Add a return annotation (for example &#39;-&gt; ResultType&#39;) to the signature</span>
 <span class="go">--- strong_types: 1 violations, 0 warnings ---</span>
 
-<span class="go">Summary: 25 checks — 24 passed, 0 warnings, 1 failed.</span>
+<span class="go">Summary: 30 checks — 29 passed, 0 warnings, 1 failed.</span>
 <span class="gp">$ </span><span class="nb">echo</span><span class="w"> </span><span class="nv">$?</span>
 <span class="go">1</span>
 </code></pre></div>
@@ -1201,25 +1201,23 @@ to escalate and the run passes:</p>
     <span class="k">return</span> <span class="n">quantity</span> <span class="o">*</span> <span class="n">unit_price</span>
 </code></pre></div>
 <div class="highlight"><pre><span></span><code><span class="gp">$ </span>lanorme<span class="w"> </span>check<span class="w"> </span>orders.py<span class="w"> </span>--select<span class="w"> </span>TYPE-004<span class="w"> </span>--promote<span class="w"> </span>ALL
-<span class="go">All 25 checks passed.</span>
+<span class="go">All 30 checks passed.</span>
 <span class="gp">$ </span><span class="nb">echo</span><span class="w"> </span><span class="nv">$?</span>
 <span class="go">0</span>
 </code></pre></div>
 <p>The same holds for <code>ignore</code>. Ignoring and promoting the same code leaves
 nothing to promote:</p>
 <div class="highlight"><pre><span></span><code><span class="gp">$ </span>lanorme<span class="w"> </span>check<span class="w"> </span>orders.py<span class="w"> </span>--select<span class="w"> </span>TYPE-004<span class="w"> </span>--ignore<span class="w"> </span>TYPE-004<span class="w"> </span>--promote<span class="w"> </span>TYPE-004
-<span class="go">All 25 checks passed.</span>
+<span class="go">All 30 checks passed.</span>
 <span class="gp">$ </span><span class="nb">echo</span><span class="w"> </span><span class="nv">$?</span>
 <span class="go">0</span>
 </code></pre></div>
-<blockquote>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-</div>
 <p>This ordering means promotion cannot resurrect a finding you have
-   deliberately suppressed. If you want a suppressed warning to fail the
-   build, remove the suppression first, then promote.</p>
-</blockquote>
+deliberately suppressed. If you want a suppressed warning to fail the
+build, remove the suppression first, then promote.</p>
+</div>
 <h2 id="skip-notices-are-never-promoted">Skip notices are never promoted<a class="headerlink" href="#skip-notices-are-never-promoted" title="Permanent link">&para;</a></h2>
 <p>A <code>-000</code> code (for example <code>TYPE-000</code>, <code>DRY-000</code>, <code>LAYER-000</code>) is a
 skip or parse-error notice, not a finding. It means "could not analyse this

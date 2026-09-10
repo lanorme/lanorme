@@ -648,10 +648,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#override-cli-flags-still-apply" class="md-nav__link">
+  <a href="#command-line-flags-still-override" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Override CLI flags still apply
+        Command-line flags still override
       
     </span>
   </a>
@@ -1124,10 +1124,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#override-cli-flags-still-apply" class="md-nav__link">
+  <a href="#command-line-flags-still-override" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Override CLI flags still apply
+        Command-line flags still override
       
     </span>
   </a>
@@ -1196,11 +1196,12 @@ turn on a coherent set of checks in one line, then override individual keys
 locally where a project differs. For the full meaning of every key a profile can
 set, see the <a href="../../reference/configuration/">configuration reference</a>.</p>
 <h2 id="adopt-a-single-profile">Adopt a single profile<a class="headerlink" href="#adopt-a-single-profile" title="Permanent link">&para;</a></h2>
-<p>Add <code>extends</code> to the <code>[tool.lanorme]</code> table in <code>pyproject.toml</code> (or to a
-<code>lanorme.toml</code> / <code>.lanorme.toml</code> file):</p>
+<p>Add <code>extends</code> to the <code>[tool.lanorme]</code> table in <code>pyproject.toml</code>:</p>
 <div class="highlight"><pre><span></span><code><span class="k">[tool.lanorme]</span>
 <span class="n">extends</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;strict&quot;</span><span class="p">]</span>
 </code></pre></div>
+<p>In a standalone <code>lanorme.toml</code> or <code>.lanorme.toml</code>, write the same keys at the
+top level with no <code>[tool.lanorme]</code> header; a header there is silently ignored.</p>
 <p><code>extends</code> takes one profile name or a list. A single name may also be given as
 a bare string (<code>extends = "strict"</code>).</p>
 <h2 id="the-bundled-profiles">The bundled profiles<a class="headerlink" href="#the-bundled-profiles" title="Permanent link">&para;</a></h2>
@@ -1220,7 +1221,7 @@ an architecture style.</p>
 </tr>
 <tr>
 <td><code>hexagonal</code></td>
-<td>Configures <code>layer_deps</code> for a four-layer ports-and-adapters backend and turns on <code>port_coverage</code>.</td>
+<td>Sets <code>layer_deps</code> to a four-layer ports-and-adapters layout with explicit composition-root globs, and points <code>port_coverage</code> at <code>infrastructure/</code> as the adapter root (the built-in default is <code>infrastructure/services</code>).</td>
 </tr>
 <tr>
 <td><code>clean</code></td>
@@ -1232,10 +1233,10 @@ an architecture style.</p>
 </tr>
 </tbody>
 </table>
-<p><code>strict</code> switches on every check that ships default-off (<code>named_args</code>,
-<code>test_style</code>, <code>attribute_access</code>, <code>restating</code>, <code>similarity</code>, <code>prose</code>,
-<code>docstrings</code>, <code>naming_scope</code>, <code>suppressions</code>, <code>docs</code>, <code>naming_clean_code</code>) and
-promotes all warnings. Two of those carry assumptions worth knowing before you adopt it:</p>
+<p>The default-off checks <code>strict</code> enables are <code>named_args</code>, <code>test_style</code>,
+<code>attribute_access</code>, <code>restating</code>, <code>similarity</code>, <code>prose</code>, <code>docstrings</code>,
+<code>naming_scope</code>, <code>suppressions</code>, <code>docs</code> and <code>naming_clean_code</code>. Two of those
+carry assumptions worth knowing before you adopt it:</p>
 <ul>
 <li><code>suppressions</code> starts with a budget of zero, so any existing <code># noqa</code> fails
   the build until you set <code>max_total</code> to today's count and ratchet it down.
@@ -1247,10 +1248,12 @@ promotes all warnings. Two of those carry assumptions worth knowing before you a
 <p>Any one of them can be switched back off with a local table such as
 <code>[tool.lanorme.docs] enabled = false</code>, which wins over the profile because
 tables merge key by key.</p>
-<p>It does not turn on the architecture checks: <code>layer_deps</code> and <code>port_coverage</code>
-have no <code>enabled</code> switch and stay inert because <code>strict</code> carries no layout for
-them. Pick one of <code>hexagonal</code>, <code>clean</code> or <code>layered</code> to enforce architecture,
-and compose it with <code>strict</code> if you want both.</p>
+<p>It does not add architecture rules. <code>layer_deps</code> and <code>port_coverage</code> have no
+<code>enabled</code> switch and always run with their built-in hexagonal layout (<code>domain</code>,
+<code>application</code>, <code>infrastructure</code>, <code>api</code>; ports under <code>application/ports</code>,
+adapters under <code>infrastructure/services</code>), which only bites on a tree that
+uses those directory names. Pick <code>hexagonal</code>, <code>clean</code> or <code>layered</code> to set the
+layout your tree uses, and compose it with <code>strict</code> if you want both.</p>
 <p>The architecture profiles are mutually exclusive in practice: each configures
 <code>layer_deps</code> for a different layer layout, so extend exactly one of them.</p>
 <h2 id="compose-several-profiles">Compose several profiles<a class="headerlink" href="#compose-several-profiles" title="Permanent link">&para;</a></h2>
@@ -1260,7 +1263,7 @@ plus an architecture style:</p>
 <span class="n">extends</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;strict&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;hexagonal&quot;</span><span class="p">]</span>
 </code></pre></div>
 <p>This gives you every default-off check, <code>promote = ["ALL"]</code>, the hexagonal
-layer rules, and port coverage, all from two profile names.</p>
+layer rules and adapter roots, all from two profile names.</p>
 <h2 id="extend-a-local-toml">Extend a local <code>.toml</code><a class="headerlink" href="#extend-a-local-toml" title="Permanent link">&para;</a></h2>
 <p>An <code>extends</code> entry that ends in <code>.toml</code>, or contains a path separator, is read
 as a file relative to the project root instead of a bundled name. Use this to
@@ -1328,18 +1331,17 @@ project config:</p>
   <code>[tool.lanorme.prose]</code> table wins.</li>
 </ul>
 <p>The <code>config file</code> and <code>project root</code> paths vary per machine.</p>
-<blockquote>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>An unknown profile name is a configuration error. <code>lanorme check</code>
 prints the available bundled names and exits with code 2 (usage or
-config error), the same exit code as malformed config.</p>
+config error), the same exit code as a config file that is not valid
+TOML, an invalid config value, or a missing local profile file.</p>
 </div>
-</blockquote>
-<h2 id="override-cli-flags-still-apply">Override CLI flags still apply<a class="headerlink" href="#override-cli-flags-still-apply" title="Permanent link">&para;</a></h2>
-<p>Command-line flags override config, including anything a profile sets. To run a
-single category once without editing the profile, pass <code>--select</code> or
-<code>--ignore</code>:</p>
+<h2 id="command-line-flags-still-override">Command-line flags still override<a class="headerlink" href="#command-line-flags-still-override" title="Permanent link">&para;</a></h2>
+<p>Command-line flags override config, including anything a profile sets. To
+include or skip a category for one run without editing the profile, pass
+<code>--select</code> or <code>--ignore</code>:</p>
 <div class="highlight"><pre><span></span><code><span class="gp">$ </span>lanorme<span class="w"> </span>check<span class="w"> </span>src<span class="w"> </span>--ignore<span class="w"> </span>PORT
 </code></pre></div>
 <p>The <code>--promote</code> flag does the same for severity, so you can escalate or hold

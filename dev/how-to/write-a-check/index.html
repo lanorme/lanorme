@@ -1471,13 +1471,11 @@ here as the example because it is the smallest complete check.</p>
 <span class="go">All 1 checks passed.</span>
 </code></pre></div>
 <p>The exit code is <code>0</code>.</p>
-<blockquote>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-</div>
 <p><code>--plugin</code> is repeatable (<code>--plugin a --plugin b</code>), not comma-separated.
-   Pass the dotted module path, for example <code>--plugin myproject.checks.house_rules</code>.</p>
-</blockquote>
+Pass the dotted module path, for example <code>--plugin myproject.checks.house_rules</code>.</p>
+</div>
 <h3 id="make-it-an-advisory">Make it an advisory<a class="headerlink" href="#make-it-an-advisory" title="Permanent link">&para;</a></h3>
 <p>To report without failing the build, put findings in <code>warnings</code> and return
 <code>Status.WARN</code>:</p>

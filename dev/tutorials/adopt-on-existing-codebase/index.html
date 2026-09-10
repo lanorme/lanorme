@@ -1298,14 +1298,12 @@
 
 
 <h1 id="adopt-lanorme-on-an-existing-codebase">Adopt LaNorme on an existing codebase<a class="headerlink" href="#adopt-lanorme-on-an-existing-codebase" title="Permanent link">&para;</a></h1>
-<p>This tutorial takes a real, messy project to a green strict gate by learning
-through doing. You will run LaNorme, see it find genuine problems, record the
-existing debt as a baseline, and end with a build that passes while still
-holding every new line to the strict profile.</p>
+<p>This tutorial takes a small project with existing findings to a green strict
+gate. You will run LaNorme, record the debt as a baseline, and end with a build
+that passes while holding every new line to the strict profile.</p>
 <p>The payoff: from the first commit, only new code has to meet the standard. The
 debt you started with stays recorded and quiet until you choose to pay it down.</p>
-<p>You will need Python 3.13 or newer and a terminal. The whole tutorial fits in
-two effective commands: one baseline, one check.</p>
+<p>You will need Python 3.13 or newer and a terminal.</p>
 <p>The shape of the adoption flow:</p>
 <pre class="mermaid"><code>flowchart TD
     A[lanorme check .] --&gt; B[Finds existing debt]
@@ -1331,13 +1329,13 @@ two effective commands: one baseline, one check.</p>
 <p>Confirm the command resolves:</p>
 <div class="highlight"><pre><span></span><code>lanorme<span class="w"> </span>--version
 </code></pre></div>
-<div class="highlight"><pre><span></span><code>lanorme 0.12.0
-</code></pre></div>
+<p>It prints <code>lanorme</code> followed by the installed version.</p>
 <h2 id="step-2-create-a-project-to-work-on">Step 2: create a project to work on<a class="headerlink" href="#step-2-create-a-project-to-work-on" title="Permanent link">&para;</a></h2>
 <p>So the steps are reproducible, build a throwaway project rather than pointing at
 your own repository on the first read. Everything below happens inside one
 scratch directory.</p>
 <div class="highlight"><pre><span></span><code><span class="nb">cd</span><span class="w"> </span><span class="s2">&quot;</span><span class="k">$(</span>mktemp<span class="w"> </span>-d<span class="k">)</span><span class="s2">&quot;</span>
+git<span class="w"> </span>init<span class="w"> </span>-q
 mkdir<span class="w"> </span>myapp
 </code></pre></div>
 <p>Write a module with a few ordinary problems in it: a leftover commented-out
@@ -1387,17 +1385,17 @@ line and a function that takes too many positional parameters.</p>
 
 Summary: 30 checks — 28 passed, 1 warnings, 1 failed.
 </code></pre></div>
-<p>The exit code is <code>1</code> because at least one finding was reported. The default
-<code>concise</code> format shows only checks that found something, plus a summary. Other
-formats (<code>full</code>, <code>json</code>, <code>ndjson</code>, <code>github</code>) are available through
-<code>--output-format</code>; see the <a href="../../reference/configuration/">configuration reference</a>.</p>
-<blockquote>
+<p>The exit code is <code>1</code> because a violation was reported; the <code>PARAM-001</code>
+warning on its own would have left it at <code>0</code>. The default <code>concise</code> format
+shows only checks that found something, plus a summary. Other formats
+(<code>full</code>, <code>json</code>, <code>ndjson</code>, <code>github</code>) are available through <code>--output-format</code>;
+see the <a href="../../reference/cli/#output-formats">CLI reference</a>.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
+<p>Exit codes are stable: <code>0</code> clean (warnings alone still exit <code>0</code>), <code>1</code>
+violations, <code>2</code> a usage or config error. A CI step can branch on them
+directly.</p>
 </div>
-<p>Exit codes are stable: <code>0</code> clean, <code>1</code> findings, <code>2</code> a usage or config
-   error. A CI step can branch on them directly.</p>
-</blockquote>
 <h2 id="step-4-turn-on-the-strict-profile">Step 4: turn on the strict profile<a class="headerlink" href="#step-4-turn-on-the-strict-profile" title="Permanent link">&para;</a></h2>
 <p><code>extends</code> adopts a bundled profile. The <code>strict</code> profile enables the opt-in
 checks and escalates advisory warnings to build-failing errors, so the gate is
@@ -1442,9 +1440,8 @@ Summary: 30 checks — 26 passed, 0 warnings, 4 failed.
 <p>Four failures now. The <code>PARAM-001</code> warning has become an error, and two opt-in
 checks have switched on and found the same function: <code>CMT-006</code> for its missing
 docstring and <code>KWARG-001</code> for its positional parameters. On a real codebase the
-count is usually larger. Fixing every one before you can merge is
-the wall most teams hit, and the reason adoption stalls. The baseline is the way
-through it.</p>
+count is larger, and fixing every finding before the gate can go green is
+rarely practical. The baseline is the way around that.</p>
 <p>Bundled profiles are <code>strict</code>, <code>hexagonal</code>, <code>clean</code>, and <code>layered</code>. You can also
 point <code>extends</code> at a path to a local <code>.toml</code>. They merge left to right, and your
 own keys merge on top, so local settings always win. See
@@ -1463,9 +1460,10 @@ Add this to your configuration and commit the file like a lockfile:
     baseline = &quot;lanorme-baseline.json&quot;
 </code></pre></div>
 <p>The command writes <code>lanorme-baseline.json</code> and prints the exact config block to
-add. The file is a plain JSON list of entries, one per recorded finding, each
-anchored to the code and a hash of its context rather than a line number, so it
-survives unrelated edits above it.</p>
+add. The file is a JSON object with a <code>version</code> and an <code>entries</code> list. Each
+entry is keyed by file, rule code and an anchor, a hash of the source line at
+the finding rather than a line number, with a count of how many times it
+occurred, so it survives unrelated edits above it.</p>
 <h2 id="step-6-point-the-config-at-the-baseline">Step 6: point the config at the baseline<a class="headerlink" href="#step-6-point-the-config-at-the-baseline" title="Permanent link">&para;</a></h2>
 <p>Add the printed key so checks read the baseline:</p>
 <div class="highlight"><pre><span></span><code><span class="c1"># pyproject.toml</span>

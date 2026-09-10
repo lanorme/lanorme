@@ -1,15 +1,13 @@
 # Adopt LaNorme on an existing codebase
 
-This tutorial takes a real, messy project to a green strict gate by learning
-through doing. You will run LaNorme, see it find genuine problems, record the
-existing debt as a baseline, and end with a build that passes while still
-holding every new line to the strict profile.
+This tutorial takes a small project with existing findings to a green strict
+gate. You will run LaNorme, record the debt as a baseline, and end with a build
+that passes while holding every new line to the strict profile.
 
 The payoff: from the first commit, only new code has to meet the standard. The
 debt you started with stays recorded and quiet until you choose to pay it down.
 
-You will need Python 3.13 or newer and a terminal. The whole tutorial fits in
-two effective commands: one baseline, one check.
+You will need Python 3.13 or newer and a terminal.
 
 The shape of the adoption flow:
 
@@ -48,9 +46,7 @@ Confirm the command resolves:
 lanorme --version
 ```
 
-```text
-lanorme 0.12.0
-```
+It prints `lanorme` followed by the installed version.
 
 ## Step 2: create a project to work on
 
@@ -60,6 +56,7 @@ scratch directory.
 
 ```bash
 cd "$(mktemp -d)"
+git init -q
 mkdir myapp
 ```
 
@@ -122,14 +119,16 @@ lanorme check .
 Summary: 30 checks — 28 passed, 1 warnings, 1 failed.
 ```
 
-The exit code is `1` because at least one finding was reported. The default
-`concise` format shows only checks that found something, plus a summary. Other
-formats (`full`, `json`, `ndjson`, `github`) are available through
-`--output-format`; see the [configuration reference](../reference/configuration.md).
+The exit code is `1` because a violation was reported; the `PARAM-001`
+warning on its own would have left it at `0`. The default `concise` format
+shows only checks that found something, plus a summary. Other formats
+(`full`, `json`, `ndjson`, `github`) are available through `--output-format`;
+see the [CLI reference](../reference/cli.md#output-formats).
 
->!!! note
->    Exit codes are stable: `0` clean, `1` findings, `2` a usage or config
->    error. A CI step can branch on them directly.
+!!! note
+    Exit codes are stable: `0` clean (warnings alone still exit `0`), `1`
+    violations, `2` a usage or config error. A CI step can branch on them
+    directly.
 
 ## Step 4: turn on the strict profile
 
@@ -184,9 +183,8 @@ Summary: 30 checks — 26 passed, 0 warnings, 4 failed.
 Four failures now. The `PARAM-001` warning has become an error, and two opt-in
 checks have switched on and found the same function: `CMT-006` for its missing
 docstring and `KWARG-001` for its positional parameters. On a real codebase the
-count is usually larger. Fixing every one before you can merge is
-the wall most teams hit, and the reason adoption stalls. The baseline is the way
-through it.
+count is larger, and fixing every finding before the gate can go green is
+rarely practical. The baseline is the way around that.
 
 Bundled profiles are `strict`, `hexagonal`, `clean`, and `layered`. You can also
 point `extends` at a path to a local `.toml`. They merge left to right, and your
@@ -213,9 +211,10 @@ Add this to your configuration and commit the file like a lockfile:
 ```
 
 The command writes `lanorme-baseline.json` and prints the exact config block to
-add. The file is a plain JSON list of entries, one per recorded finding, each
-anchored to the code and a hash of its context rather than a line number, so it
-survives unrelated edits above it.
+add. The file is a JSON object with a `version` and an `entries` list. Each
+entry is keyed by file, rule code and an anchor, a hash of the source line at
+the finding rather than a line number, with a count of how many times it
+occurred, so it survives unrelated edits above it.
 
 ## Step 6: point the config at the baseline
 

@@ -814,6 +814,28 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#root" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        root
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#per-directory-config" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Per-directory config
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#per-check-settings" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1179,6 +1201,28 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#root" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        root
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#per-directory-config" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Per-directory config
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#per-check-settings" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1308,10 +1352,16 @@ equivalents (<code>--select</code>, <code>--ignore</code>); the command line win
 <td>[] (built-in checks only)</td>
 <td>Extensibility</td>
 </tr>
+<tr>
+<td><a href="#root"><code>root</code></a></td>
+<td>boolean</td>
+<td>false</td>
+<td>Per-directory config</td>
+</tr>
 </tbody>
 </table>
 <h2 id="select"><code>select</code><a class="headerlink" href="#select" title="Permanent link">&para;</a></h2>
-<p>Run only these rule codes or categories. A category (<code>SEC</code>) covers every code in it; <code>ALL</code> selects everything.</p>
+<p>Run only these rule codes or categories. A category is the part of a code before the dash: <code>CMT</code> covers every comment rule; <code>ALL</code> selects everything.</p>
 <div class="highlight"><pre><span></span><code><span class="n">select</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;SECRETPY&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;TYPE-004&quot;</span><span class="p">]</span>
 </code></pre></div>
 <h2 id="ignore"><code>ignore</code><a class="headerlink" href="#ignore" title="Permanent link">&para;</a></h2>
@@ -1347,10 +1397,34 @@ equivalents (<code>--select</code>, <code>--ignore</code>); the command line win
 <p>Extra check modules to import so they self-register, beyond the built-ins and entry-point plugins.</p>
 <div class="highlight"><pre><span></span><code><span class="n">plugins</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;my_company.lanorme_checks&quot;</span><span class="p">]</span>
 </code></pre></div>
+<h2 id="root"><code>root</code><a class="headerlink" href="#root" title="Permanent link">&para;</a></h2>
+<p>In a nested config file, stop inheriting from the config files above it, so the subtree stands alone. See <a href="#per-directory-config">per-directory config</a>.</p>
+<div class="highlight"><pre><span></span><code><span class="n">root</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span>
+</code></pre></div>
+<h2 id="per-directory-config">Per-directory config<a class="headerlink" href="#per-directory-config" title="Permanent link">&para;</a></h2>
+<p>Any directory below the scan root that carries its own config file (a
+<code>lanorme.toml</code>, a <code>.lanorme.toml</code>, or a <code>pyproject.toml</code> with a <code>[tool.lanorme]</code>
+table) is a region: the files beneath it are checked under that config. A nested
+region inherits every setting from the regions above it and overrides only the
+keys it sets, table by table and key by key, so one subtree can tighten or relax
+a threshold without restating the whole config. <code>root = true</code> in a nested file
+stops the inheritance, so the subtree stands alone.</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># legacy/lanorme.toml: looser limits for the old tree only</span>
+<span class="k">[file_limits]</span>
+<span class="n">func_warn_lines</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">80</span>
+</code></pre></div>
+<p>Cascading governs per-check settings and <code>source_root</code>. The run-level filters
+(<code>select</code>, <code>ignore</code>, <code>exclude</code>, <code>per-file-ignores</code>, <code>promote</code>) are read once at
+the root and apply to the whole run. Checks that compare files across the tree
+(<code>duplication</code>, <code>test_coverage</code>, <code>layer_deps</code>, <code>port_coverage</code>, <code>docs</code>, <code>meta</code>)
+run once at the scan root under the root config, so a region cannot relax them
+for its own subtree. <code>--check &lt;name&gt;</code> runs that one check at the root config too,
+without cascading.</p>
 <h2 id="per-check-settings">Per-check settings<a class="headerlink" href="#per-check-settings" title="Permanent link">&para;</a></h2>
-<p>Each check is configured under its own table, always with an <code>enabled</code>
-toggle (opt-in checks default to <code>false</code>). The settings a check accepts are
-listed in its <a href="../../RULES/">rule reference</a> section. For example:</p>
+<p>Each check is configured under its own table. An opt-in check carries an
+<code>enabled</code> toggle that defaults to <code>false</code>; a default-on check has no toggle, and
+its table sets only the keys its rule reference lists. The settings a check
+accepts are listed in its <a href="../../RULES/">rule reference</a> section. For example:</p>
 <div class="highlight"><pre><span></span><code><span class="k">[tool.lanorme.prose]</span>
 <span class="n">enabled</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span>
 
