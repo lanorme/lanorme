@@ -27,7 +27,7 @@ flowchart TD
 
 ## What you will build
 
-A small project with three findings already in it. By the end:
+A small project with a few findings already in it. By the end:
 
 - `[tool.lanorme]` extends the `strict` profile.
 - A committed `lanorme-baseline.json` records the starting debt.
@@ -107,19 +107,19 @@ lanorme check .
 ```
 
 ```text
-[FAIL] comments
-  VIOLATION: myapp/users.py:5 — Commented-out code: old = lookup(id)
-    Rule: CMT-001
-    Fix: Delete it; version control remembers
---- comments: 1 violations, 0 warnings ---
-
 [WARN] file_limits
   VIOLATION: myapp/users.py:13 — Function 'process' has parameter count 6 (warn: 5)
     Rule: PARAM-001: Function approaching the parameter limit
     Fix: Consider grouping related parameters into a dataclass or TypedDict
 --- file_limits: 0 violations, 1 warnings ---
 
-Summary: 25 checks — 23 passed, 1 warnings, 1 failed.
+[FAIL] comments
+  VIOLATION: myapp/users.py:5 — Commented-out code: old = lookup(id)
+    Rule: CMT-001
+    Fix: Delete it; version control remembers
+--- comments: 1 violations, 0 warnings ---
+
+Summary: 28 checks — 26 passed, 1 warnings, 1 failed.
 ```
 
 The exit code is `1` because at least one finding was reported. The default
@@ -154,17 +154,23 @@ lanorme check .
 ```
 
 ```text
+[FAIL] file_limits
+  VIOLATION: myapp/users.py:13 — Function 'process' has parameter count 6 (warn: 5)
+    Rule: PARAM-001: Function approaching the parameter limit
+    Fix: Consider grouping related parameters into a dataclass or TypedDict
+--- file_limits: 1 violations, 0 warnings ---
+
 [FAIL] comments
   VIOLATION: myapp/users.py:5 — Commented-out code: old = lookup(id)
     Rule: CMT-001
     Fix: Delete it; version control remembers
 --- comments: 1 violations, 0 warnings ---
 
-[FAIL] file_limits
-  VIOLATION: myapp/users.py:13 — Function 'process' has parameter count 6 (warn: 5)
-    Rule: PARAM-001: Function approaching the parameter limit
-    Fix: Consider grouping related parameters into a dataclass or TypedDict
---- file_limits: 1 violations, 0 warnings ---
+[FAIL] docstrings
+  VIOLATION: myapp/users.py:13 — Function 'process' has no docstring
+    Rule: CMT-006: Public definitions past the size floor need a docstring
+    Fix: Say what it is for, or what a caller needs to know that the signature does not show
+--- docstrings: 1 violations, 0 warnings ---
 
 [FAIL] named_args
   VIOLATION: myapp/users.py:13 — Function 'process' has 6 positional params without bare *
@@ -172,12 +178,13 @@ lanorme check .
     Fix: Add a bare * separator: def foo(self, *, param1: str, param2: int)
 --- named_args: 1 violations, 0 warnings ---
 
-Summary: 25 checks — 22 passed, 0 warnings, 3 failed.
+Summary: 28 checks — 24 passed, 0 warnings, 4 failed.
 ```
 
-Three failures now. The `PARAM-001` warning has become an error, and the opt-in
-`KWARG-001` check has switched on and found the same function. On a real
-codebase the count is usually larger. Fixing every one before you can merge is
+Four failures now. The `PARAM-001` warning has become an error, and two opt-in
+checks have switched on and found the same function: `CMT-006` for its missing
+docstring and `KWARG-001` for its positional parameters. On a real codebase the
+count is usually larger. Fixing every one before you can merge is
 the wall most teams hit, and the reason adoption stalls. The baseline is the way
 through it.
 
@@ -197,7 +204,7 @@ lanorme baseline write
 ```
 
 ```text
-Wrote 3 baseline entries (3 findings): +3 new, -0 pruned (was 0).
+Wrote 4 baseline entries (4 findings): +4 new, -0 pruned (was 0).
 
 Add this to your configuration and commit the file like a lockfile:
 
@@ -246,7 +253,7 @@ lanorme check .
 ```
 
 ```text
-All 25 checks passed.
+All 28 checks passed.
 ```
 
 ```text
@@ -279,7 +286,7 @@ lanorme check .
     Fix: Delete it; version control remembers
 --- comments: 1 violations, 0 warnings ---
 
-Summary: 25 checks — 24 passed, 0 warnings, 1 failed.
+Summary: 28 checks — 27 passed, 0 warnings, 1 failed.
 ```
 
 Only the new finding in `myapp/orders.py` reports. The recorded debt in
@@ -299,6 +306,12 @@ lanorme check --no-baseline .
 ```
 
 ```text
+[FAIL] file_limits
+  VIOLATION: myapp/users.py:13 — Function 'process' has parameter count 6 (warn: 5)
+    Rule: PARAM-001: Function approaching the parameter limit
+    Fix: Consider grouping related parameters into a dataclass or TypedDict
+--- file_limits: 1 violations, 0 warnings ---
+
 [FAIL] comments
   VIOLATION: myapp/orders.py:2 — Commented-out code: total = compute(cart)
     Rule: CMT-001
@@ -308,11 +321,11 @@ lanorme check --no-baseline .
     Fix: Delete it; version control remembers
 --- comments: 2 violations, 0 warnings ---
 
-[FAIL] file_limits
-  VIOLATION: myapp/users.py:13 — Function 'process' has parameter count 6 (warn: 5)
-    Rule: PARAM-001: Function approaching the parameter limit
-    Fix: Consider grouping related parameters into a dataclass or TypedDict
---- file_limits: 1 violations, 0 warnings ---
+[FAIL] docstrings
+  VIOLATION: myapp/users.py:13 — Function 'process' has no docstring
+    Rule: CMT-006: Public definitions past the size floor need a docstring
+    Fix: Say what it is for, or what a caller needs to know that the signature does not show
+--- docstrings: 1 violations, 0 warnings ---
 
 [FAIL] named_args
   VIOLATION: myapp/users.py:13 — Function 'process' has 6 positional params without bare *
@@ -320,10 +333,10 @@ lanorme check --no-baseline .
     Fix: Add a bare * separator: def foo(self, *, param1: str, param2: int)
 --- named_args: 1 violations, 0 warnings ---
 
-Summary: 25 checks — 22 passed, 0 warnings, 3 failed.
+Summary: 28 checks — 24 passed, 0 warnings, 4 failed.
 ```
 
-That is the full picture: the new finding plus the three recorded ones. It is
+That is the full picture: the new finding plus the four recorded ones. It is
 your backlog whenever you want to chip away at the debt.
 
 As you pay debt down, recorded entries that no longer match anything become

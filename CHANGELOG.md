@@ -18,6 +18,19 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
   absolute path. It is now matched against the path inside the root only, so a
   checkout at `/srv/build/myproject` is scanned like any other while a
   `migrations/` subdirectory inside the root is still skipped.
+- The `strict` profile now turns on every check that ships with its `enabled`
+  switch off, as its header has claimed since 0.12.0. `docs`, `docstrings`,
+  `naming_scope` and `suppressions` each landed default-off without being added
+  to the profile, so `extends = ["strict"]` left the four of them off. A
+  project on `strict` can see new findings from those checks on upgrade, which
+  is why the next release is a minor. Two of them carry assumptions worth
+  knowing: `suppressions` starts at a budget of zero, so set `max_total` to
+  today's count and ratchet it down, and `docs` expects a Diataxis tree under
+  `docs/`, inert when that directory is absent. A local
+  `[tool.lanorme.<check>] enabled = false` switches any one of them back off,
+  since profile tables merge key by key. A unit test now holds the profile to
+  the check registry, so a future default-off check cannot be left out
+  unnoticed.
 
 ## [0.17.0]
 
