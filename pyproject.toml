@@ -76,6 +76,7 @@ exclude = [
     "evals/articulacy/runs/*",   # verbatim model output, the articulacy eval subject
     "evals/articulacy/runs_control/*",  # ditto, the no-report-requested control arm
     "benchmarks/.corpora/*",     # downloaded third-party corpora
+    ".claude/worktrees/*",       # nested git worktrees the Claude desktop app creates
     "evals/score_*.py",          # per-check scorers share boilerplate by design
     "docs/cmt005-design.md",     # in-progress design note for the CMT-005 rule
     "docs/cmt005-corpus-audit.md",  # auto-generated bias-audit report (verbatim reviewer prose)
