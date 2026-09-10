@@ -9,6 +9,16 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
 
 ## [Unreleased]
 
+### Fixed
+
+- `NAMING-005`, `CMT-006`, `CMT-007`, `AAA-001` and `AAA-002` skipped the
+  whole project when the scan root sat below a directory named like one of
+  their skip directories (`migrations`, `alembic`, `build`, `dist`, `venv`,
+  `.venv`), because the skip list was matched against every component of the
+  absolute path. It is now matched against the path inside the root only, so a
+  checkout at `/srv/build/myproject` is scanned like any other while a
+  `migrations/` subdirectory inside the root is still skipped.
+
 ## [0.17.0]
 
 ### Added

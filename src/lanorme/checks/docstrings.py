@@ -233,7 +233,10 @@ class DocstringsCheck:
         violations: list[Violation] = []
         root = Path(src_root)
         for path in iter_py_files(root):
-            if any(part in _SKIP_DIRS for part in path.parts) or path.name in _SKIP_FILES:
+            # Match skip directories inside the root only: the absolute path's
+            # ancestors are the user's filesystem, not the project layout.
+            relative = path.relative_to(root)
+            if any(part in _SKIP_DIRS for part in relative.parts) or path.name in _SKIP_FILES:
                 continue
             if path.name.startswith("test_"):
                 continue
@@ -243,7 +246,7 @@ class DocstringsCheck:
                 continue
             violations.extend(_definition_violations(
                 tree=tree,
-                file=path.relative_to(root).as_posix(),
+                file=relative.as_posix(),
                 min_lines=self.min_lines,
                 require_private=self.require_private,
             ))

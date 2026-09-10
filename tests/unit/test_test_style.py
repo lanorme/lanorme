@@ -107,3 +107,18 @@ def test_fixture_function_is_not_treated_as_a_test(tmp_path, tmp_py_file):
 
     # Assert
     assert "AAA-001" not in _rule_codes(result.violations)
+
+
+def test_root_under_a_skip_named_ancestor_is_still_scanned(tmp_path, tmp_py_file):
+    # Arrange
+    body = "def test_long():\n" + "".join(
+        f"    b{i} = {i}\n" for i in range(8)
+    ) + "    assert b0 == 0\n"
+    tmp_py_file(name="build/project/test_long.py", body=body)
+    check = TestStyleCheck(enabled=True, min_statements=3, required_markers=2)
+
+    # Act
+    result = check.run(src_root=str(tmp_path / "build" / "project"))
+
+    # Assert
+    assert "AAA-001" in _rule_codes(result.violations)

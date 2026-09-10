@@ -259,7 +259,10 @@ class TestStyleCheck:
         violations: list[Violation] = []
         root = Path(src_root)
         for path in iter_py_files(root):
-            if any(part in _SKIP_DIRS for part in path.parts):
+            # Match skip directories inside the root only: the absolute path's
+            # ancestors are the user's filesystem, not the project layout.
+            relative = path.relative_to(root)
+            if any(part in _SKIP_DIRS for part in relative.parts):
                 continue
             if not _is_test_file(path=path):
                 continue
@@ -268,7 +271,7 @@ class TestStyleCheck:
                 tree = ast.parse(source, filename=str(path))
             except (OSError, UnicodeDecodeError, SyntaxError):
                 continue
-            relative_file = path.relative_to(root).as_posix()
+            relative_file = relative.as_posix()
             source_lines = source.splitlines()
             violations.extend(
                 self._aaa_violations(
