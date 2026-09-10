@@ -110,3 +110,19 @@ def test_findings_are_warnings_not_violations(tmp_path: Path):
     assert result.status == Status.WARN
     assert result.violations == []
     assert result.warnings
+
+
+def test_root_under_a_skip_named_ancestor_is_still_scanned(tmp_path: Path):
+    # Arrange: a clone pair in a project checked out under a migrations/ dir.
+    root = tmp_path / "migrations" / "project"
+    root.mkdir(parents=True)
+    body = (
+        "def a(s):\n x = s.alpha\n y = s.beta\n z = combine(x, y)\n w = z * 2\n return w\n\n"
+        "def b(s):\n x = s.gamma\n y = s.beta\n z = combine(x, y)\n w = z * 2\n return w\n"
+    )
+
+    # Act: scan the project, not its ancestor.
+    flagged = _flags(root, body)
+
+    # Assert: the ancestor is the user's filesystem, not the project layout.
+    assert flagged

@@ -63,13 +63,17 @@ _EXCLUDED_FILENAMES = frozenset({"__init__.py", "conftest.py"})
 _EXCLUDED_DIR_PARTS = frozenset({"alembic", "migrations"})
 
 
-def _should_skip(*, path: Path) -> bool:
-    """True for vendor dirs, test files, and migration/init scaffolding."""
-    if any(part in _SKIP_DIRS for part in path.parts):
+def _should_skip(*, relative: Path) -> bool:
+    """True for vendor dirs, test files, and migration/init scaffolding.
+
+    *relative* is the path inside the scan root. Matching its parts, not the
+    absolute path's, keeps the user's filesystem above the root out of it.
+    """
+    if any(part in _SKIP_DIRS for part in relative.parts):
         return True
-    if path.name in _EXCLUDED_FILENAMES or path.name.startswith("test_"):
+    if relative.name in _EXCLUDED_FILENAMES or relative.name.startswith("test_"):
         return True
-    return any(part in _EXCLUDED_DIR_PARTS for part in path.parts)
+    return any(part in _EXCLUDED_DIR_PARTS for part in relative.parts)
 
 # Defaults. Each function body must clear this floor (mirrors DRY-001) so short
 # coincidental matches cannot fire.
@@ -480,9 +484,10 @@ class SimilarityCheck:
         root = Path(src_root)
         thresholds = self._thresholds()
         for path in iter_py_files(root):
-            if _should_skip(path=path):
+            relative = path.relative_to(root)
+            if _should_skip(relative=relative):
                 continue
-            relative_file = path.relative_to(root).as_posix()
+            relative_file = relative.as_posix()
             # Per-file isolation: a single pathological file (parse error, or a
             # deeply nested body that overflows the recursive walk) must never
             # abort the whole advisory run.

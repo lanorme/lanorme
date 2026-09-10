@@ -261,7 +261,10 @@ class SecretsCheck:
         violations: list[Violation] = []
         root = Path(src_root)
         for path in iter_py_files(root):
-            if any(part in _SKIP_DIRS for part in path.parts):
+            # Match skip directories inside the root only: the absolute path's
+            # ancestors are the user's filesystem, not the project layout.
+            relative = path.relative_to(root)
+            if any(part in _SKIP_DIRS for part in relative.parts):
                 continue
             file_name = path.name
             if file_name in _SCAN_EXCLUDES or file_name.startswith("test_"):
@@ -271,8 +274,7 @@ class SecretsCheck:
                 tree = ast.parse(source, filename=str(path))
             except (OSError, UnicodeDecodeError, SyntaxError):
                 continue
-            relative = path.relative_to(root).as_posix()
-            violations.extend(_scan_tree(tree=tree, file=relative))
+            violations.extend(_scan_tree(tree=tree, file=relative.as_posix()))
         status = Status.FAIL if violations else Status.PASS
         return CheckResult(check=self.name, status=status, violations=violations)
 

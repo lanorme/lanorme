@@ -475,3 +475,23 @@ def test_prose004_ignores_em_dashes_inside_fenced_code(tmp_path: Path):
 
     # Assert: em dashes inside the fence never count.
     assert [w for w in result.warnings if w.code == "PROSE-004"] == []
+
+
+# --------------------------------------------------------------------------- #
+# Skip directories are matched inside the root, never above it
+# --------------------------------------------------------------------------- #
+
+
+def test_root_under_a_skip_named_ancestor_is_still_scanned(check: ProseCheck, tmp_path: Path):
+    # Arrange: a US spelling in a project checked out under a build/ dir.
+    root = tmp_path / "build" / "project"
+    root.mkdir(parents=True)
+    _write(root=root, name="doc.md", body="Use color here.\n")
+
+    # Act: scan the project, not its ancestor.
+    result = check.run(src_root=str(root))
+
+    # Assert: the ancestor is the user's filesystem, not the project layout.
+    assert result.status == Status.FAIL
+    assert [v.code for v in result.violations] == ["PROSE-002"]
+    assert result.violations[0].file == "doc.md"

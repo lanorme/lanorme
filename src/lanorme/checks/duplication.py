@@ -35,13 +35,18 @@ EXCLUDED_FILENAMES = {"__init__.py", "conftest.py"}
 EXCLUDED_DIR_PARTS = {"alembic", "migrations"}
 
 
-def _should_exclude(*, file_path: Path) -> bool:
-    """Determine whether a file should be skipped based on exclusion rules."""
-    if file_path.name in EXCLUDED_FILENAMES:
+def _should_exclude(*, relative: Path) -> bool:
+    """True if the file at *relative*, inside the scan root, is exempt.
+
+    Matching the root-relative parts, not the absolute path's, keeps the
+    user's filesystem above the root out of it: a checkout that happens to
+    live under a ``migrations/`` directory is scanned like any other.
+    """
+    if relative.name in EXCLUDED_FILENAMES:
         return True
-    if file_path.name.startswith("test_"):
+    if relative.name.startswith("test_"):
         return True
-    return any(part in EXCLUDED_DIR_PARTS for part in file_path.parts)
+    return any(part in EXCLUDED_DIR_PARTS for part in relative.parts)
 
 
 class _AstNormalizer(ast.NodeTransformer):
@@ -200,10 +205,11 @@ class DuplicationCheck:
         body_groups: dict[str, list[_FunctionLocation]] = defaultdict(list)
 
         for py_file in iter_py_files(src_path):
-            if _should_exclude(file_path=py_file):
+            relative = py_file.relative_to(src_path)
+            if _should_exclude(relative=relative):
                 continue
 
-            relative_file = py_file.relative_to(src_path).as_posix()
+            relative_file = relative.as_posix()
 
             try:
                 source = py_file.read_text(encoding="utf-8")

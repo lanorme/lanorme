@@ -285,3 +285,21 @@ def test_syntax_error_file_skipped_others_still_checked(check: RestatingCheck, t
     assert result.status == Status.FAIL
     flagged = {v.file for v in result.violations if v.rule == "CMT-005"}
     assert "good.py" in flagged
+
+
+# --------------------------------------------------------------------------- #
+# Skip directories are matched inside the root, never above it
+# --------------------------------------------------------------------------- #
+
+
+def test_root_under_a_skip_named_ancestor_is_still_scanned(check: RestatingCheck, tmp_path: Path):
+    # Arrange: a clear restatement in a project checked out under a build/ dir.
+    root = tmp_path / "build" / "project"
+    root.mkdir(parents=True)
+    _write(root=root, name="x.py", body="counter = 0\n# increment counter\ncounter += 1\n")
+
+    # Act: scan the project, not its ancestor.
+    result = check.run(src_root=str(root))
+
+    # Assert: the ancestor is the user's filesystem, not the project layout.
+    assert _codes(result) == ["CMT-005"]

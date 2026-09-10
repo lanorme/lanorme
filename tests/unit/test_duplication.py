@@ -90,3 +90,19 @@ def test_test_prefixed_files_are_excluded_from_duplication(tmp_path: Path):
     # Assert: excluded files never pair up, so the tree stays clean.
     assert result.status == Status.PASS
     assert not result.violations
+
+
+def test_root_under_a_skip_named_ancestor_is_still_scanned(tmp_path: Path):
+    # Arrange: a genuine duplicate pair in a project checked out under a
+    # migrations/ directory, which the exclusion rules name.
+    root = tmp_path / "migrations" / "project"
+    root.mkdir(parents=True)
+    (root / "a.py").write_text(_DUP_BODY.format(name="alpha"), encoding="utf-8")
+    (root / "b.py").write_text(_DUP_BODY.format(name="beta"), encoding="utf-8")
+
+    # Act: scan the project, not its ancestor.
+    result = DuplicationCheck().run(src_root=str(root))
+
+    # Assert: the ancestor is the user's filesystem, not the project layout.
+    assert result.status == Status.FAIL
+    assert any(v.rule.startswith("DRY-001") for v in result.violations)

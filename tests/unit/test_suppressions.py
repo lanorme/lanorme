@@ -206,3 +206,21 @@ def test_a_bare_directive_still_silences_other_rules() -> None:
 
     # Assert
     assert silenced is True
+
+
+# --------------------------------------------------------------------------- #
+# Skip directories are matched inside the root, never above it
+# --------------------------------------------------------------------------- #
+
+
+def test_root_under_a_skip_named_ancestor_is_still_scanned(tmp_path: Path, check: SuppressionsCheck) -> None:
+    # Arrange
+    root = tmp_path / "build" / "project"
+    root.mkdir(parents=True)
+    _write(root=root, body="a = 1  # noqa: TYPE-001\n")
+
+    # Act
+    result = check.run(src_root=str(root))
+
+    # Assert
+    assert _codes(result=result) == ["SUPPRESS-001"]

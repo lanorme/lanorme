@@ -390,3 +390,20 @@ def test_enabled_via_cli_config(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
 def _tutorial() -> str:
     """A minimal well-formed tutorial content page."""
     return "# First tutorial\n\nThis tutorial walks through the basics.\n"
+
+
+# --------------------------------------------------------------------------- #
+# Skip directories are matched inside the docs tree, never above it
+# --------------------------------------------------------------------------- #
+
+
+def test_root_under_a_skip_named_ancestor_is_still_scanned(tmp_path: Path, check: DocsCheck):
+    # Arrange: a page with no H1 in a project checked out under a build/ dir.
+    root = tmp_path / "build" / "project"
+    _write(root=root, name="docs/how-to/bad.md", body="## no h1\n")
+
+    # Act: scan the project, not its ancestor.
+    result = check.run(src_root=str(root))
+
+    # Assert: the ancestor is the user's filesystem, not the project layout.
+    assert "DOCS-001" in _codes(result=result)

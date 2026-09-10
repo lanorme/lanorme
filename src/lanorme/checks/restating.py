@@ -318,17 +318,21 @@ class RestatingCheck:
         violations: list[Violation] = []
         root = Path(src_root)
         for path in iter_py_files(root):
-            if any(part in _SKIP_DIRS for part in path.parts):
+            # Match skip directories inside the root only: the absolute path's
+            # ancestors are the user's filesystem, not the project layout.
+            relative = path.relative_to(root)
+            if any(part in _SKIP_DIRS for part in relative.parts):
                 continue
             try:
                 source = path.read_text(encoding="utf-8")
                 tree = ast.parse(source, filename=str(path))
             except (OSError, UnicodeDecodeError, SyntaxError):
                 continue
-            relative = path.relative_to(root).as_posix()
             source_lines = source.splitlines()
             comments = _collect_comments(source=source, source_lines=source_lines)
-            violations.extend(_restating_violations(tree=tree, comments=comments, file=relative))
+            violations.extend(
+                _restating_violations(tree=tree, comments=comments, file=relative.as_posix())
+            )
         status = Status.FAIL if violations else Status.PASS
         return CheckResult(check=self.name, status=status, violations=violations)
 

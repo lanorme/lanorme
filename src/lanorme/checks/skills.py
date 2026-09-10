@@ -448,10 +448,12 @@ class SkillsCheck:
         for path in iter_files(root):
             if path.name != "SKILL.md" or not path.is_file():
                 continue
-            if any(part in _SKIP_PARTS for part in path.parts):
+            # Match skip directories inside the root only: the absolute path's
+            # ancestors are the user's filesystem, not the project layout.
+            relative = path.relative_to(root)
+            if any(part in _SKIP_PARTS for part in relative.parts):
                 continue
-            relative = path.relative_to(root).as_posix()
-            file_violations, file_warnings = self._scan_file(path=path, file=relative)
+            file_violations, file_warnings = self._scan_file(path=path, file=relative.as_posix())
             violations.extend(file_violations)
             warnings.extend(file_warnings)
 

@@ -256,3 +256,17 @@ def test_cmt002_scaling_is_configurable(tmp_path: Path):
     # Assert.
     assert result.status == Status.FAIL
     assert any(v.rule == "CMT-002" for v in result.violations)
+
+
+def test_root_under_a_skip_named_ancestor_is_still_scanned(check: CommentsCheck, tmp_path: Path):
+    # Arrange: commented-out code in a project checked out under a build/ dir.
+    root = tmp_path / "build" / "project"
+    root.mkdir(parents=True)
+    _write(root=root, name="dead.py", body="x = 1\n# y = x + 2\n")
+
+    # Act: scan the project, not its ancestor.
+    result = check.run(src_root=str(root))
+
+    # Assert: the ancestor is the user's filesystem, not the project layout.
+    assert result.status == Status.FAIL
+    assert any(v.rule == "CMT-001" for v in result.violations)

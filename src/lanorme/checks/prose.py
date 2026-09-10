@@ -342,15 +342,14 @@ class ProseCheck:
         self,
         *,
         path: Path,
-        root: Path,
+        relative_file: str,
         spell_re: re.Pattern[str] | None,
     ) -> tuple[list[Violation], list[Violation]]:
-        """Scan one doc file, returning its ``(violations, warnings)``."""
+        """Scan one doc file, reporting findings against *relative_file*."""
         try:
             text = path.read_text(encoding="utf-8")
         except (OSError, UnicodeDecodeError):
             return [], []
-        relative_file = path.relative_to(root).as_posix()
         violations = self._scan_text(
             text=text,
             relative_file=relative_file,
@@ -363,11 +362,13 @@ class ProseCheck:
                 warnings.append(warning)
         return violations, warnings
 
-    def _is_doc(self, *, path: Path) -> bool:
-        """True if *path* is a documentation file this check should scan."""
+    def _is_doc(self, *, path: Path, relative: Path) -> bool:
+        """True if *path*, at *relative* inside the scan root, is a doc file to scan."""
         if path.suffix.lower() not in self.extensions or not path.is_file():
             return False
-        return not any(part in _SKIP_PARTS for part in path.parts)
+        # Match skip directories inside the root only: the absolute path's
+        # ancestors are the user's filesystem, not the project layout.
+        return not any(part in _SKIP_PARTS for part in relative.parts)
 
     def run(self, *, src_root: str) -> CheckResult:
         if not self.enabled:
@@ -379,10 +380,11 @@ class ProseCheck:
         root = Path(src_root)
 
         for path in iter_files(root):
-            if not self._is_doc(path=path):
+            relative = path.relative_to(root)
+            if not self._is_doc(path=path, relative=relative):
                 continue
             file_violations, file_warnings = self._scan_file(
-                path=path, root=root, spell_re=spell_re
+                path=path, relative_file=relative.as_posix(), spell_re=spell_re
             )
             violations.extend(file_violations)
             warnings.extend(file_warnings)

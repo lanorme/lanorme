@@ -470,3 +470,17 @@ def test_param001_self_plus_five_real_params_warns(run_on):
     # Assert: warns, does not fail.
     assert _has_rule(result.warnings, "PARAM-001")
     assert not _has_rule(result.violations, "PARAM-001")
+
+
+def test_root_under_a_skip_named_ancestor_is_still_scanned(tmp_path: Path):
+    # Arrange: a file at the SIZE-001 warn boundary in a project checked out
+    # under a migrations/ directory, which the exclusion rules name.
+    root = tmp_path / "migrations" / "project"
+    root.mkdir(parents=True)
+    (root / "sample.py").write_text(_file_with_effective_lines(300), encoding="utf-8")
+
+    # Act.
+    result = FileLimitsCheck().run(src_root=str(root))
+
+    # Assert: the ancestor is the user's filesystem, not the project layout.
+    assert _has_rule(result.warnings, "SIZE-001")
