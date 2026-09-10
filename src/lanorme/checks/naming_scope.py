@@ -181,16 +181,19 @@ class NamingScopeCheck:
         violations: list[Violation] = []
         root = Path(src_root)
         for path in iter_py_files(root):
-            if any(part in _SKIP_DIRS for part in path.parts) or path.name.startswith("test_"):
+            # Match skip directories inside the root only: the absolute path's
+            # ancestors are the user's filesystem, not the project layout.
+            relative = path.relative_to(root)
+            if any(part in _SKIP_DIRS for part in relative.parts) or path.name.startswith("test_"):
                 continue
             try:
                 tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
             except (OSError, UnicodeDecodeError, SyntaxError):
                 continue
-            relative = path.relative_to(root).as_posix()
+            file = relative.as_posix()
             for node in ast.walk(tree):
                 if isinstance(node, _FUNCTION_TYPES):
-                    violations.extend(_function_violations(func=node, file=relative, settings=resolved))
+                    violations.extend(_function_violations(func=node, file=file, settings=resolved))
         status = Status.FAIL if violations else Status.PASS
         return CheckResult(check=self.name, status=status, violations=violations)
 

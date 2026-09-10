@@ -175,3 +175,34 @@ def test_test_files_are_skipped(tmp_path: Path, check: NamingScopeCheck) -> None
 
     # Assert
     assert result.violations == []
+
+
+# --------------------------------------------------------------------------- #
+# Skip directories are matched inside the root, never above it
+# --------------------------------------------------------------------------- #
+
+
+def test_root_under_a_skip_named_ancestor_is_still_scanned(tmp_path: Path, check: NamingScopeCheck) -> None:
+    # Arrange
+    root = tmp_path / "migrations" / "project"
+    root.mkdir(parents=True)
+    _write(root=root, body=_module(name="rc", gap=40))
+
+    # Act
+    result = check.run(src_root=str(root))
+
+    # Assert
+    assert _codes(result=result) == ["NAMING-005"]
+
+
+def test_skip_named_subdirectory_inside_the_root_is_skipped(tmp_path: Path, check: NamingScopeCheck) -> None:
+    # Arrange
+    nested = tmp_path / "migrations"
+    nested.mkdir()
+    _write(root=nested, body=_module(name="rc", gap=40))
+
+    # Act
+    result = check.run(src_root=str(tmp_path))
+
+    # Assert
+    assert result.violations == []
