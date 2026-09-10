@@ -284,7 +284,7 @@ $ lanorme check bad.py
     Fix: Delete it; version control remembers
 --- comments: 1 violations, 0 warnings ---
 
-Summary: 25 checks — 24 passed, 0 warnings, 1 failed.
+Summary: 30 checks — 29 passed, 0 warnings, 1 failed.
 ```
 
 `json` emits one object per check, with `violations` and `warnings` arrays:
@@ -292,6 +292,7 @@ Summary: 25 checks — 24 passed, 0 warnings, 1 failed.
 ```console
 $ lanorme check --json bad.py
 [
+  ...
   {
     "check": "comments",
     "status": "FAIL",

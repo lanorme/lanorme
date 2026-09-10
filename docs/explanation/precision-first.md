@@ -144,14 +144,21 @@ higher up in the file does not move the anchor. A recorded finding stays
 recorded. Without this, every unrelated edit would resurrect a pile of
 suppressed warnings, and the baseline would be useless within a week.
 
-You can watch this directly. Record a finding, insert two lines above it, and
+You can watch this directly. Record a finding, add the `baseline` key the
+command prints to your config, insert two lines above the finding, and
 re-check:
 
 ```console
 $ lanorme baseline write
 Wrote 1 baseline entry (1 finding): +1 new, -0 pruned (was 0).
+
+Add this to your configuration and commit the file like a lockfile:
+
+    [tool.lanorme]
+    baseline = "lanorme-baseline.json"
+
 $ lanorme check
-All 25 checks passed.
+All 30 checks passed.
 ```
 
 **It never resurrects paid-down noise.** When you fix a finding, its entry no
