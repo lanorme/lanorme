@@ -25,17 +25,18 @@ a single run. For the full key list and types, see the
 categories are listed by `lanorme rules`; per-check settings live in the
 [rule reference](../RULES.md).
 
->!!! note
->    The recipes below use the `pyproject.toml` layout. In a standalone
->    `lanorme.toml` / `.lanorme.toml` the `tool.lanorme` prefix is dropped:
->    top-level scalar keys go bare (`select = [...]`) and sub-tables lose the
->    prefix too, so `[tool.lanorme.per-file-ignores]` becomes
->    `[per-file-ignores]`. Using the prefixed header in a `lanorme.toml` is a
->    silent no-op — the table is ignored and no error is raised. See the
->    [config discovery](../reference/cli.md#config-discovery) note in the CLI
->    reference.
+!!! note
+    The recipes below use the `pyproject.toml` layout. In a standalone
+    `lanorme.toml` / `.lanorme.toml` the `tool.lanorme` prefix is dropped:
+    top-level scalar keys go bare (`select = [...]`) and sub-tables lose the
+    prefix too, so `[tool.lanorme.per-file-ignores]` becomes
+    `[per-file-ignores]`. Using the prefixed header in a `lanorme.toml` is a
+    silent no-op — the table is ignored and no error is raised. See the
+    [config discovery](../reference/cli.md#config-discovery) note in the CLI
+    reference.
 
-Targets are rule codes (`EVAL-001`), categories (`SEC`, `SECRETPY`), or `ALL`.
+Targets are rule codes (`EVAL-001`), categories (the part before the dash:
+`CMT`, `SECRETPY`), or `ALL`. `lanorme rules` lists every code.
 
 ## Run only some checks
 
@@ -59,13 +60,13 @@ $ lanorme check src --select EVAL-001
 Summary: 30 checks — 29 passed, 0 warnings, 1 failed.
 ```
 
-A category selects every code under it: `--select SEC` runs the whole
-security group; `--select ALL` runs everything enabled.
+A category selects every code under it: `--select CMT` runs every comment
+rule; `--select ALL` runs everything enabled.
 
->!!! note
->    Opt-in checks stay off even when named in `select`. Enable them first
->    with `[tool.lanorme.<check>] enabled = true` (for example
->    `[tool.lanorme.prose]`). See the [rule reference](../RULES.md).
+!!! note
+    Opt-in checks stay off even when named in `select`. Enable them first
+    with `[tool.lanorme.<check>] enabled = true` (for example
+    `[tool.lanorme.prose]`). See the [rule reference](../RULES.md).
 
 ## Skip a rule everywhere
 
@@ -196,7 +197,9 @@ TYPE-001` makes ruff report an invalid directive, while `# lanorme: ignore`
 carries no `noqa` token for ruff to read.
 
 A code in either directive may be an exact code (`EVAL-001`), a category
-(`SEC`), or `ALL`, matching the other config targets.
+(`CMT`), or `ALL`, matching the other config targets. A finding reported at
+line `0` is about the whole file (a junk-drawer module, say) and has no line
+to carry a directive; silence it with `per-file-ignores` instead.
 
 Given this file checked with `--select EVAL-001`:
 

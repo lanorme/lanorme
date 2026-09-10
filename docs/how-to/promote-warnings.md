@@ -129,10 +129,10 @@ $ echo $?
 0
 ```
 
->!!! note
->    This ordering means promotion cannot resurrect a finding you have
->    deliberately suppressed. If you want a suppressed warning to fail the
->    build, remove the suppression first, then promote.
+!!! note
+    This ordering means promotion cannot resurrect a finding you have
+    deliberately suppressed. If you want a suppressed warning to fail the
+    build, remove the suppression first, then promote.
 
 ## Skip notices are never promoted
 

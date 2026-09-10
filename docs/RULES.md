@@ -2,15 +2,17 @@
 
 This reference describes every rule code LaNorme can emit, one section per code, covering what each rule catches, what it deliberately ignores, where to configure it, and its measured precision, recall, and F1 where a labelled corpus exists.
 
-One section per rule code emitted by LaNorme. Each section says what the
-rule catches, what it does not, where to configure it, and (where the
-rule has a labelled corpus under `evals/corpora/` and a scorer under
-`evals/`) the measured precision / recall / F1 on that corpus.
+Corpora live under `evals/corpora/` and scorers under `evals/`.
 
 Live rule list: `lanorme rules`.
 Default policy and per-check configuration: see the README.
 
-The rules are grouped by category in the same order as `lanorme rules`.
+The rules are grouped by category, roughly in the order `lanorme rules` uses;
+`CMT-005..007` and `SECRETPY-001` live in their own checks (`restating`,
+`docstrings`, `secrets`). A `-000` code (`TYPE-000`, `DRY-000`, ...) is not a
+rule but a notice that a check skipped a file it could not parse, and
+`RUN-000` reports a check that raised; both stay warnings whatever `promote`
+says.
 
 ---
 
@@ -31,7 +33,7 @@ dynamic form only hides the attribute from the type checker.
 High-confidence cases only. Exempt: three-argument `getattr(x, "name",
 default)` (the safe-access idiom); dunder names (`__class__`, `__name__`, ...);
 names that are not valid identifiers (cannot be written as `x.name`); and files
-under `tests/`. Dynamic names (`getattr(x, name)`) are reflection and exempt
+under `tests/` or `test/`. Dynamic names (`getattr(x, name)`) are reflection and exempt
 unless `flag_dynamic` is set.
 
 Config:
@@ -101,8 +103,7 @@ of the function the block sits inside, or the one it sits directly above
 any definition gets the base allowance, and the message names the
 complexity it scored so the number is never a mystery.
 
-The scaling only ever widens the cap, so no block that passed before can
-fail now. Set `block_lines_per_branch = 0` for the old flat behaviour.
+Set `block_lines_per_branch = 0` for a flat cap.
 
 Config:
 ```toml
@@ -145,8 +146,8 @@ nothing. These two point the other way.
 
 - `CMT-006`: a public function or class whose span reaches `min_lines`
   (default 5) carries a docstring. Dunders, private names, `test_*` files,
-  `__init__.py`, `conftest.py`, `alembic/` and `migrations/` are out of
-  scope.
+  `__init__.py`, `conftest.py`, `setup.py`, `alembic/` and `migrations/` are
+  out of scope.
 - `CMT-007`: that docstring says more than the signature. A docstring is
   vacuous when every content word in it is already carried by the
   definition's name, its parameters, or its enclosing class. Padding does
@@ -170,8 +171,8 @@ Measured against the 23-definition corpus under
 That corpus was written alongside the rule and tuned against, so treat the
 figure as a regression guard rather than an unbiased estimate. The
 independent evidence is held-out: `CMT-007` returns **zero** findings over
-the 3321 lines of generated code in `evals/readability/runs/` and
-`evals/articulacy/runs*/`, and zero over LaNorme's own `src/` with
+the 18 generated modules (about 10,000 lines) in `evals/readability/runs/`
+and `evals/articulacy/runs*/`, and zero over LaNorme's own `src/` with
 `require_private` on, while `CMT-006` finds 114 missing docstrings in the
 same generated corpora.
 
@@ -760,7 +761,7 @@ short name such as `np` or `re` is an imported module, where the name is
 the library's choice and not the function's.
 
 Choosing the default (`max_span = 20`), measured over LaNorme's own
-`src/` and the 3321 lines of generated code under `evals/`:
+`src/` and the 18 generated modules (about 10,000 lines) under `evals/`:
 
 | corpus | p90 span | p95 | max | findings at 20 |
 | --- | --- | --- | --- | --- |
@@ -819,8 +820,9 @@ and `composition_root` under a nested package directory when set.
 - `PORT-001`: every adapter file (under the adapter roots) must import
   from the ports directory.
 - `PORT-002`: every `Protocol` declared in the ports directory must
-  have at least one implementation. Treat as advisory: ports realised
-  only by test doubles or sibling plugins are legitimate.
+  have at least one implementation. Build-failing like `PORT-001` and
+  `PORT-003`. Ports realised only by test doubles or sibling plugins are
+  legitimate; list them in `ports_without_impl` or ignore the code.
 - `PORT-003`: no direct import or instantiation of an infrastructure
   adapter from the `api/` layer outside the composition root.
 
@@ -844,7 +846,7 @@ Adapter roots are scanned recursively, so widening `adapter_roots` to
 
 Off until enabled.
 
-- `PROSE-001`: em dashes (`-`) in prose.
+- `PROSE-001`: em dashes (U+2014) in prose.
 - `PROSE-002`: American spellings; suggests the British form.
 - `PROSE-003`: emoji in prose.
 
@@ -1100,8 +1102,12 @@ debt is paid; CI fails on the next suppression added rather than on the
 backlog:
 
 ```console
-lanorme check . --check=suppressions   # reports the current count
+lanorme check . --check=suppressions
 ```
+
+The check must be enabled first. With `enabled = true` and the default
+`max_total = 0`, that first run fails, and its `SUPPRESS-001` message carries
+today's count; set `max_total` to that number.
 
 Comments are read through `tokenize` and matched from the start of the
 comment, so a directive named in prose (`# lines up with --exclude and
