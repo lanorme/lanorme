@@ -56,7 +56,7 @@ $ lanorme check src --select EVAL-001
     Fix: Use ast.literal_eval for trusted-shape parsing, or build a dispatch table
 --- security_calls: 1 violations, 0 warnings ---
 
-Summary: 25 checks — 24 passed, 0 warnings, 1 failed.
+Summary: 30 checks — 29 passed, 0 warnings, 1 failed.
 ```
 
 A category selects every code under it: `--select SEC` runs the whole
@@ -80,7 +80,7 @@ Equivalent flag: `--ignore` takes a comma-separated list.
 
 ```console
 $ lanorme check src --select file_limits --ignore PARAM-001
-All 25 checks passed.
+All 30 checks passed.
 ```
 
 `ignore` applies after `select`, so a rule that is both selected and ignored
@@ -102,11 +102,25 @@ directory at any depth, so `**/migrations/*` excludes `src/pkg/migrations/`:
 
 ```console
 $ lanorme check . --select EVAL-001
+[FAIL] security_calls
   VIOLATION: src/pkg/main.py:1 — eval() on a non-literal argument is an RCE primitive
+    Rule: EVAL-001
+    Fix: Use ast.literal_eval for trusted-shape parsing, or build a dispatch table
   VIOLATION: src/pkg/migrations/m.py:1 — eval() on a non-literal argument is an RCE primitive
+    Rule: EVAL-001
+    Fix: Use ast.literal_eval for trusted-shape parsing, or build a dispatch table
+--- security_calls: 2 violations, 0 warnings ---
+
+Summary: 30 checks — 29 passed, 0 warnings, 1 failed.
 
 $ lanorme check . --select EVAL-001 --exclude '**/migrations/*'
+[FAIL] security_calls
   VIOLATION: src/pkg/main.py:1 — eval() on a non-literal argument is an RCE primitive
+    Rule: EVAL-001
+    Fix: Use ast.literal_eval for trusted-shape parsing, or build a dispatch table
+--- security_calls: 1 violations, 0 warnings ---
+
+Summary: 30 checks — 29 passed, 0 warnings, 1 failed.
 ```
 
 Match the depth you have. To exclude a `migrations/` directory sitting at the
@@ -131,7 +145,7 @@ $ lanorme check . --select PARAM-001
     Fix: Group related parameters into a dataclass or TypedDict
 --- file_limits: 1 violations, 0 warnings ---
 
-Summary: 25 checks — 24 passed, 0 warnings, 1 failed.
+Summary: 30 checks — 29 passed, 0 warnings, 1 failed.
 ```
 
 The key is a glob; the value is a list of codes or categories suppressed for
@@ -155,7 +169,7 @@ With either form in place, the matching file is no longer reported:
 
 ```console
 $ lanorme check . --select PARAM-001
-All 25 checks passed.
+All 30 checks passed.
 ```
 
 Confirm the discovered config and effective per-check settings with
@@ -208,10 +222,14 @@ code and does not silence the `eval`.
 $ lanorme check a.py --select EVAL-001
 [FAIL] security_calls
   VIOLATION: a.py:2 — eval() on a non-literal argument is an RCE primitive
+    Rule: EVAL-001
+    Fix: Use ast.literal_eval for trusted-shape parsing, or build a dispatch table
   VIOLATION: a.py:11 — eval() on a non-literal argument is an RCE primitive
+    Rule: EVAL-001
+    Fix: Use ast.literal_eval for trusted-shape parsing, or build a dispatch table
 --- security_calls: 2 violations, 0 warnings ---
 
-Summary: 25 checks — 24 passed, 0 warnings, 1 failed.
+Summary: 30 checks — 29 passed, 0 warnings, 1 failed.
 ```
 
 ## Exit codes
@@ -222,7 +240,7 @@ clean.
 
 ```console
 $ lanorme check src --select EVAL-001   # no eval in src
-All 25 checks passed.
+All 30 checks passed.
 $ echo $?
 0
 ```

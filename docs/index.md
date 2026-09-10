@@ -32,7 +32,7 @@ lanorme check .
 A clean run reports that every check passed and exits `0`:
 
 ```text
-All 25 checks passed.
+All 30 checks passed.
 ```
 
 Exit codes are `0` when clean, `1` when there are findings, and `2` on a
