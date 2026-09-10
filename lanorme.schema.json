@@ -171,6 +171,24 @@
         }
       }
     },
+    "naming_canon": {
+      "type": "object",
+      "description": "Settings for the naming_canon check (see docs/RULES.md).",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "naming_clean_code": {
+      "type": "object",
+      "description": "Settings for the naming_clean_code check (see docs/RULES.md).",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      }
+    },
     "naming_consistency": {
       "type": "object",
       "description": "Settings for the naming_consistency check (see docs/RULES.md).",

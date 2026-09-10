@@ -93,6 +93,7 @@ On by default, on any project, no config needed:
 | `IMPORT-001` / `ENDPOINT-001` | imports inside function bodies; deeply nested endpoints |
 | `NAMING-003/004` | HTTP-verb-to-handler match; boolean-prefix predicates |
 | `NAMING-005` | short names carried across a long span |
+| `NAMING-006..008` | classes named as actions; functions that act but are not named verb-first; weak verbs (`handle_`, `process_`, `do_`) |
 | `TYPE-001..003` | `dict[str, Any]`, bare containers, untyped `**kwargs` |
 | `AUTHN-001` / `SQL-001` / `SECRETPY-001` | mutation endpoints without an auth dependency; raw SQL at a database call; hardcoded secrets in `.py` |
 | `SHELL-001` / `DESERIAL-001` / `EVAL-001` / `CRYPTO-001` / `TLS-001` / `DEBUG-001` | shell injection, unsafe deserialisation, `eval`/`exec`, weak hashes, disabled TLS, debug mode |
@@ -105,7 +106,8 @@ On by default, on any project, no config needed:
 Off until you turn them on (layered or hexagonal architecture, domain
 vocabulary, house styles, Markdown docs structure, and experimental
 precision-first detectors): `LAYER`, `PORT`, `TERM`, `KWARG`, `NAMING-001/002`,
-`AAA`, `CMT-005`, `SIMILAR`, `ATTR`, `PROSE`, `DOCS`, `PATH`, `STALE`. The
+`NAMING-009..011`, `AAA`, `CMT-005`, `SIMILAR`, `ATTR`, `PROSE`, `DOCS`, `PATH`,
+`STALE`. The
 [rule reference](https://lanorme.github.io/lanorme/latest/RULES/) documents each.
 
 ## Configuration

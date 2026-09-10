@@ -51,6 +51,12 @@ notes for each rule are in the [rule reference](../RULES.md).
 | `NAMING-003` | naming_consistency | no |
 | `NAMING-004` | naming_consistency | no |
 | `NAMING-005` | naming_scope | yes |
+| `NAMING-006` | naming_canon | no |
+| `NAMING-007` | naming_canon | no |
+| `NAMING-008` | naming_canon | no |
+| `NAMING-009` | naming_clean_code | yes |
+| `NAMING-010` | naming_clean_code | yes |
+| `NAMING-011` | naming_clean_code | yes |
 | `PARAM-001` | file_limits | no |
 | `PATH-001` | forbidden_paths | no |
 | `PORT-001` | port_coverage | no |

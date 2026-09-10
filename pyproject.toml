@@ -67,6 +67,8 @@ include = [
 # LaNorme dogfoods its own rules, minus the DDD/architecture-specific ones
 # (this is a flat library, not a layered domain app).
 ignore = ["LAYER", "PORT", "TERM"]
+# The naming canon is a warning on any project and a hard standard on this one.
+promote = ["NAMING-006", "NAMING-007", "NAMING-008"]
 exclude = [
     "tests/fixtures/*",          # deliberately dirty test inputs
     "evals/corpora/*",           # deliberately dirty labelled eval corpora

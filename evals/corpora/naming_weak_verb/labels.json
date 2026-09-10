@@ -1,0 +1,22 @@
+{
+  "_comment": "Ground truth for NAMING-008. Keys are file:line of a function definition; true means the name opens with a weak verb the author was free to change. Negatives cover a bare handle, a participle, subclass overrides, Django and Scrapy hooks, a registered handler and a closure.",
+  "positives/pos_weak_verbs.py:4": true,
+  "positives/pos_weak_verbs.py:10": true,
+  "positives/pos_weak_verbs.py:17": true,
+  "positives/pos_weak_verbs.py:23": true,
+  "positives/pos_weak_verbs.py:28": true,
+  "positives/pos_weak_verbs.py:35": true,
+  "positives/pos_weak_verbs.py:44": true,
+  "negatives/neg_named_actions_and_hooks.py:4": false,
+  "negatives/neg_named_actions_and_hooks.py:9": false,
+  "negatives/neg_named_actions_and_hooks.py:14": false,
+  "negatives/neg_named_actions_and_hooks.py:19": false,
+  "negatives/neg_named_actions_and_hooks.py:52": false,
+  "negatives/neg_named_actions_and_hooks.py:57": false,
+  "negatives/neg_named_actions_and_hooks.py:27": false,
+  "negatives/neg_named_actions_and_hooks.py:30": false,
+  "negatives/neg_named_actions_and_hooks.py:37": false,
+  "negatives/neg_named_actions_and_hooks.py:40": false,
+  "negatives/neg_named_actions_and_hooks.py:47": false,
+  "negatives/neg_named_actions_and_hooks.py:60": false
+}

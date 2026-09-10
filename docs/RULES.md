@@ -487,6 +487,233 @@ enabled = true
 
 ---
 
+## Naming canon: `NAMING-006..008`
+
+Default-on warnings. Lives in the `naming_canon` check.
+
+Three rules, each stating a point the naming canon agrees on across
+languages and schools. The sources are the ones the rules were read from:
+
+- Robert C. Martin, *Clean Code*, chapter 2, "Meaningful Names": classes and
+  objects take noun or noun-phrase names and a class name should not be a
+  verb; methods take verb or verb-phrase names.
+- Steve McConnell, *Code Complete*, 2nd edition, section 7.3, "Good Routine
+  Names": name a procedure with a strong verb followed by an object, name a
+  function for the value it returns, and avoid vague verbs such as
+  `HandleCalculation`, `PerformServices`, `ProcessInput` and
+  `DealWithOutput`.
+- Brian Kernighan and Rob Pike, *The Practice of Programming*, section 1.1:
+  use active names for functions.
+- The [Java Code Conventions](https://www.oracle.com/java/technologies/javase/codeconventions-namingconventions.html),
+  the .NET [names of classes](https://learn.microsoft.com/dotnet/standard/design-guidelines/names-of-classes-structs-and-interfaces)
+  and [names of members](https://learn.microsoft.com/dotnet/standard/design-guidelines/names-of-type-members)
+  guidelines, and the [Kotlin coding conventions](https://kotlinlang.org/docs/coding-conventions.html#choose-good-names):
+  classes are nouns or noun phrases, methods are verbs or verb phrases.
+- The [Swift API Design Guidelines](https://www.swift.org/documentation/api-design-guidelines/):
+  name functions by their side effects, an imperative verb phrase when they
+  have them and a noun phrase when they do not.
+- [Effective Go](https://go.dev/doc/effective_go#Getters) and the
+  [Rust API Guidelines](https://rust-lang.github.io/api-guidelines/naming.html):
+  a getter carries no `Get` prefix. Bertrand Meyer, *Object-Oriented
+  Software Construction*, and the *Ada 95 Quality and Style Guide*, section
+  3.2.3, state the same split as command-query separation: verbs for
+  procedures, nouns for value-returning functions, predicates for boolean
+  ones.
+- [PEP 8](https://peps.python.org/pep-0008/#naming-conventions) is silent on
+  parts of speech, and Python's own library follows the second school:
+  `len`, `basename`, `Path.cwd()` and every property are queries named for
+  their value.
+
+Where the schools split, on whether a pure query must also lead with a verb,
+these rules stay out; that stricter reading is the opt-in
+`naming_clean_code` check below. Every finding here is a warning. A
+project that wants the canon as a hard standard promotes the codes, as
+LaNorme does on itself.
+
+### `NAMING-006`: A class is named as a thing, not as an action
+
+A class whose first word is unambiguously a verb and whose last word is the
+verb's object reads as an imperative sentence: `FetchUsers`, `SendEmail`,
+`ValidateOrder`, `CalculateTax`. A class is a thing, so the fix is to name
+the thing, usually the agent (`OrderValidator`, `EmailSender`) or what it
+holds.
+
+Precision comes from two guards. The first word must be on a short
+verb-only list: `Build`, `Check`, `Run`, `Update`, `Process`, `Load`,
+`Test`, `Compute` and `Render` are nouns as often as verbs (`BuildResult`,
+`ProcessPool`, `TestUser`, `ComputeNode`), so they never open a finding, and
+`ProcessPayment` or `UpdateUser` is a known miss. And the last word must not
+be an action's own attribute or artefact: `FetchOptions` holds options,
+`ConnectTimeout` is a timeout, `CompileError` is an error, `DeleteView` is a
+view, `LoadBalancer` is an agent noun. Words a verb acts on (`User`,
+`Order`, `Connection`, `Session`, `Token`) are deliberately not on that
+list, or `CreateUser` would pass.
+
+A message object is a noun by convention and is exempt through its suffix:
+`Command`, `Query`, `Event`, `Handler`, `UseCase`, `Request`, `Response`,
+`Job`, `Task`, extensible through `command_suffixes`. A verb-first class
+without one, such as SQLAlchemy's DDL objects `CreateTable` and
+`AddConstraint`, is reported; a project that models statements that way
+adds them to `exempt`. Names that are not PascalCase (a ctypes structure
+such as `CONSOLE_SCREEN_BUFFER_INFO`) and classes defined inside a function
+are not judged.
+
+### `NAMING-007`: A function that does something is named verb-first
+
+A function whose body returns no value (no `return x`, no `yield`) exists
+for its effect, so its name says what it does, verb first. The finding is a
+function like `layout(root)` that writes files, `cert_verify(conn)` that
+sets connection options, or `versioned_session(session)` that attaches a
+listener. When a verb sits later in the name the fix says where to move it
+(`verify_cert`); otherwise it asks for one.
+
+What is left alone, because the name was not the author's to choose or the
+function is not a command:
+
+- A function that returns a value or yields, including an explicit
+  `return None`: a query may be named for its value.
+- A body that is only a docstring, `pass` or `...` (a stub or a protocol
+  member), or that ends in `raise` (a raiser such as `key_not_found`).
+- A function defined inside another function: closures such as `wrapper`
+  and the hooks a test registers inline are local.
+- A function under any decorator other than `staticmethod`, `classmethod`,
+  `abstractmethod`, `override` or `final`: a route, a fixture, a property
+  setter, a signal receiver or a CLI command is named by the framework's
+  contract.
+- Dunders, keyword-clash names ending in `_`, hook names (`on_`, `pre_`,
+  `post_`, `before_`, `after_`, `pytest_`, and `_hook`, `_handler`,
+  `_callback`, `_listener`, `_receiver`), conversions and constructors
+  (`from_`, `to_`, `as_`, `into_`, `with_`, and `x_to_y`), entry points
+  (`main`, `async_main`, `cli`), standard-library protocol methods on a
+  class (`keys`, `fetchone`, `rollback`, `flush`, `info`), and the Django
+  and Scrapy hook names on plain classes (`process_request`,
+  `process_item`). `setUp` and `tearDown` pass because `set` and `tear`
+  are verbs.
+- Files under `migrations/` or `alembic/` inside the scanned tree, whose
+  names a tool generated. A name with non-ASCII letters is not judged.
+
+The verb test is recall-first: a word counts as a verb if it is listed, is
+a third-person form (`matches`), carries a verb suffix (`simplify`,
+`normalise`), sits behind a fused prefix (`reload`, `unquote`,
+`deregister`, `aclose`) or opens with one of the verbs Python fuses onto
+the next word (`getheaders`, `setdefault`, `isdigit`, `iteritems`; not
+`password`, `endpoint` or `checksum`), and leading modifiers are skipped
+(`bulk_insert`, `re_apply`, `atomic_write`, `safe_delete`). A word wrongly
+counted as a verb hides a finding and never creates one. The `verbs`
+setting extends the vocabulary, and a configured weak verb counts as a
+verb here too.
+
+### `NAMING-008`: A function does not open with a weak verb
+
+`handle_`, `process_`, `perform_`, `do_`, `manage_` and `deal_with_` say
+that something happens to the object without saying what. Code Complete
+lists them as the verbs to avoid, and `do_` is the Python spelling of the
+same evasion. The finding is a function such as `handle_data` or
+`process_order` whose body parses, stores, validates or prices; the fix is
+to say which.
+
+A bare `handle` or `process` with no object is a dispatcher's slot and is
+not reported. A method on a class with bases may be overriding an inherited
+name (`do_GET` on a request handler, `process` on a SQLAlchemy type), so
+it is not reported either; nor is any name `NAMING-007` leaves alone as
+not the author's to choose. The rule applies to queries as well as
+commands. The list is replaced, not extended, through `weak_verbs`.
+
+Config:
+```toml
+[tool.lanorme.naming_canon]
+verbs            = ["frob"]              # words that read as verbs in this codebase
+command_suffixes = ["Interactor"]        # extends the message-object suffixes (NAMING-006)
+weak_verbs       = ["handle", "process"] # replaces the default list (NAMING-008)
+exempt           = ["CreateTable"]       # names no rule here judges, with or without leading underscores
+```
+
+Measured on the third-party code under `benchmarks/.corpora/` (Flask,
+requests, rich and SQLAlchemy: 879 files, about 620k lines): `NAMING-006`
+reports 15 classes, of which SQLAlchemy's `DeleteAll`, `SaveUpdateAll`,
+`RemoveORMEventsGlobally` and six DDL statement objects are the bulk;
+`NAMING-007` reports 220 functions, 101 of them with the verb elsewhere in
+the name; `NAMING-008` reports 24. LaNorme's own source and tests are
+clean under all three, with the codes promoted to errors.
+
+Measured against the labelled corpora with `evals/score_naming006.py`,
+`evals/score_naming007.py` and `evals/score_naming008.py`:
+
+| rule | corpus | P | R | F1 | TP | FP | FN | TN |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `NAMING-006` | `naming_verb_class` | 1.000 | 1.000 | 1.000 | 7 | 0 | 0 | 15 |
+| `NAMING-007` | `naming_command` | 1.000 | 1.000 | 1.000 | 9 | 0 | 0 | 31 |
+| `NAMING-008` | `naming_weak_verb` | 1.000 | 1.000 | 1.000 | 7 | 0 | 0 | 12 |
+
+Those corpora are regression guards for the exemptions listed above, not
+an unbiased estimate; the calibration evidence is the third-party
+measurement.
+
+---
+
+## Naming, Clean Code: `NAMING-009..011`
+
+Default-off. **Opinionated.** Lives in its own `naming_clean_code` check.
+
+Chapter 2 of *Clean Code* goes past the canon above in two places, and this
+check enforces both, plus the module-level version of one of them.
+
+### `NAMING-009`: A class name carries no noise word
+
+Clean Code names the words to keep off a class: `Manager`, `Processor`,
+`Data` and `Info` name a job title or a shrug where a thing should be.
+`Helper`, `Util` and `Utils` join them. The finding is `ClassManager`,
+`DependencyProcessor`, `ConfigData` or `ScriptInfo`; the fix is to say what
+the thing is (a registry, a pool, a scheduler) or what it holds. A single
+word (`Manager` as a domain class), `MetaData` and its compounds, a
+`ContextManager` and names that are not PascalCase are not reported.
+
+### `NAMING-010`: A module is not a junk drawer
+
+`utils`, `util`, `utilities`, `helpers`, `helper`, `common`, `misc` and
+`stuff` promise nothing about what is inside; the
+[Go package-naming advice](https://go.dev/blog/package-names) says so in as
+many words. A module or a package (an `__init__.py` in a directory of that
+name) is reported on line 0; the fix is to split it by responsibility and
+name each part for what it holds. Flask, requests and SQLAlchemy each carry
+at least one, which is why the rule is opt-in.
+
+### `NAMING-011`: Every function starts with a verb
+
+The Java-school reading: a query leads with a verb too, so
+`_shell_violations()` becomes `find_shell_violations()` and `url_for()`
+becomes `build_url()`. Commands are `NAMING-007`'s and a raiser exists to
+raise, so this rule takes the rest: functions that return a value, and
+stubs. Predicates that carry an auxiliary anywhere (`is_valid`,
+`line_has_noqa`), constructors under `@classmethod`, properties,
+conversions and every reserved-name shape `NAMING-007` lists are exempt,
+and the same verb vocabulary applies.
+
+This is a house choice, not a correction. Naming a pure function for its
+value is the other canonical school (Code Complete, Ada, Swift, Kotlin, Go,
+Rust and Python's own library), and it is the one LaNorme's source follows:
+on LaNorme's `src/` it reports every helper named for the value it
+returns, well over a hundred of them. A project that opts in is choosing
+the Java-school reading for itself.
+
+Config:
+```toml
+[tool.lanorme.naming_clean_code]
+enabled = true
+verbs   = ["frob"]       # words that read as verbs in this codebase
+exempt  = ["url_for"]    # names no rule here judges
+```
+
+Measured on the third-party code under `benchmarks/.corpora/`:
+`NAMING-009` reports 10 classes, `NAMING-010` 9 modules, `NAMING-011`
+1473 functions. Measured against `evals/corpora/naming_every_verb/` with
+`evals/score_naming011.py`: **P = 1.000 / R = 1.000 / F1 = 1.000**
+(TP = 8, FP = 0, FN = 0, TN = 18), a regression guard for the exemptions
+rather than an unbiased estimate. `NAMING-009` and `NAMING-010` match exact
+words and have unit tests instead of a corpus.
+
+---
+
 ## Naming conventions: `NAMING-001..004`
 
 - `NAMING-001`: opt-in. Repository methods (files under

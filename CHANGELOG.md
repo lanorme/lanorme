@@ -9,6 +9,51 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
 
 ## [Unreleased]
 
+## [0.18.0]
+
+### Added
+
+- `NAMING-006` / `NAMING-007` / `NAMING-008` in a new default-on `naming_canon`
+  check, the part of the naming canon every school agrees on. `NAMING-006`
+  flags a class named as an action (`FetchUsers`, `ValidateOrder`): a class is
+  a thing, so its name is a noun phrase, and a message object is marked by a
+  suffix such as `Command` or `Request`. `NAMING-007` flags a function that does
+  something and returns nothing but does not lead with a verb (`layout(root)`
+  that writes files, `cert_verify(conn)` that sets options); a function that
+  returns a value may still be named for the value, which is the
+  command-query split Python's own library follows. `NAMING-008` flags the
+  weak verbs Code Complete names (`handle_`, `process_`, `perform_`, `do_`,
+  `manage_`, `deal_with_`). Nested closures, functions under a registering
+  decorator (a route, a fixture, a property), protocol methods, hooks (`on_`,
+  `pre_`, `pytest_`), conversions (`from_`, `to_`, `as_`, `with_`) and entry
+  points are never judged. All three are warnings; the vocabulary extends
+  through config:
+
+      [tool.lanorme.naming_canon]
+      verbs            = ["frob"]         # words that read as verbs here
+      command_suffixes = ["Interactor"]   # more message-object suffixes
+      weak_verbs       = ["handle"]       # replaces the default list
+      exempt           = ["result_processor"]
+
+  Measured on Flask, requests, rich and SQLAlchemy (879 files, about 620k
+  lines) before landing; the numbers are in the rule reference.
+- `NAMING-009` / `NAMING-010` / `NAMING-011` in a new opt-in
+  `naming_clean_code` check, the Clean Code chapter 2 reading of the same
+  canon. `NAMING-009` flags a noise word on a class (`Manager`, `Processor`,
+  `Data`, `Info`, `Helper`, `Util`); `NAMING-010` flags a junk-drawer module or
+  package (`utils`, `helpers`, `common`, `misc`); `NAMING-011` wants every
+  function to start with a verb, including queries, so `_shell_violations()`
+  becomes `find_shell_violations()`. Predicates (`is_`, `line_has_noqa`),
+  constructors under `@classmethod`, properties and conversions are exempt.
+  Default off:
+
+      [tool.lanorme.naming_clean_code]
+      enabled = true
+
+  This is a house choice, not a correction: naming a pure function for its
+  value is the other canonical school. LaNorme promotes `NAMING-006..008` to
+  errors on itself and leaves `naming_clean_code` off.
+
 ### Fixed
 
 - `NAMING-005`, `CMT-006`, `CMT-007`, `AAA-001` and `AAA-002` skipped the

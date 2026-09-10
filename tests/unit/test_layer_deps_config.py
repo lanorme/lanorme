@@ -16,16 +16,16 @@ def _codes(violations) -> set[str]:
     return {v.rule.split(":", 1)[0] for v in violations}
 
 
-def _layout(write) -> None:
+def _write_layout(write) -> None:
     # A minimal hexagonal tree: api code importing infrastructure.
     write(name="domain/model.py", body="VALUE = 1\n")
     write(name="infrastructure/db.py", body="class Repo:\n    pass\n")
 
 
-def _mcp_layout(write) -> None:
+def _write_mcp_layout(write) -> None:
     # A hexagonal tree with a non-api transport adapter (mcp_server/) whose
     # composition root (dependencies.py) binds infrastructure.
-    _layout(write)
+    _write_layout(write)
     write(name="mcp_server/dependencies.py", body="from infrastructure.db import Repo\n")
 
 
@@ -56,7 +56,7 @@ _MCP_SETTINGS = {
 
 def test_api_file_importing_infra_outside_comp_root_is_flagged(tmp_path, tmp_py_file):
     # Arrange
-    _layout(tmp_py_file)
+    _write_layout(tmp_py_file)
     tmp_py_file(name="api/routes.py", body="from infrastructure.db import Repo\n")
     check = LayerDepsCheck()
 
@@ -69,7 +69,7 @@ def test_api_file_importing_infra_outside_comp_root_is_flagged(tmp_path, tmp_py_
 
 def test_default_directory_composition_root_is_allowed(tmp_path, tmp_py_file):
     # Arrange
-    _layout(tmp_py_file)
+    _write_layout(tmp_py_file)
     tmp_py_file(name="api/dependencies/wire.py", body="from infrastructure.db import Repo\n")
     check = LayerDepsCheck()
 
@@ -82,7 +82,7 @@ def test_default_directory_composition_root_is_allowed(tmp_path, tmp_py_file):
 
 def test_module_file_comp_root_missed_by_default_but_caught_when_configured(tmp_path, tmp_py_file):
     # Arrange
-    _layout(tmp_py_file)
+    _write_layout(tmp_py_file)
     tmp_py_file(name="api/dependencies.py", body="from infrastructure.db import Repo\n")
 
     # Act: default config does NOT treat the module file as a composition root.
@@ -159,7 +159,7 @@ def test_custom_layers_and_allowed(tmp_path, tmp_py_file):
 
 def test_transport_layer_composition_root_may_import_infra(tmp_path, tmp_py_file):
     # Arrange: mcp_server/ declared a transport peer of api/.
-    _mcp_layout(tmp_py_file)
+    _write_mcp_layout(tmp_py_file)
     check = LayerDepsCheck()
     check.configure(settings={**_MCP_SETTINGS, "transport_layers": ["api", "mcp_server"]})
 
@@ -174,7 +174,7 @@ def test_transport_layer_composition_root_may_import_infra(tmp_path, tmp_py_file
 def test_transport_composition_root_still_flagged_under_default(tmp_path, tmp_py_file):
     # Arrange: identical layout and config, but transport_layers keeps the
     # api-only default, so mcp_server is not a transport layer.
-    _mcp_layout(tmp_py_file)
+    _write_mcp_layout(tmp_py_file)
     check = LayerDepsCheck()
     check.configure(settings=_MCP_SETTINGS)
 
@@ -187,7 +187,7 @@ def test_transport_composition_root_still_flagged_under_default(tmp_path, tmp_py
 
 def test_transport_non_comp_root_importing_infra_is_layer_005(tmp_path, tmp_py_file):
     # Arrange: a non-comp-root file in the transport layer importing infra.
-    _mcp_layout(tmp_py_file)
+    _write_mcp_layout(tmp_py_file)
     tmp_py_file(name="mcp_server/handlers.py", body="from infrastructure.db import Repo\n")
     check = LayerDepsCheck()
     check.configure(settings={**_MCP_SETTINGS, "transport_layers": ["api", "mcp_server"]})
@@ -201,7 +201,7 @@ def test_transport_non_comp_root_importing_infra_is_layer_005(tmp_path, tmp_py_f
 
 def test_unknown_transport_layer_emits_layer_006_warning(tmp_path, tmp_py_file):
     # Arrange: transport_layers names a layer that is absent from layers.
-    _layout(tmp_py_file)
+    _write_layout(tmp_py_file)
     check = LayerDepsCheck()
     check.configure(settings={"transport_layers": ["api", "grpc_server"]})
 

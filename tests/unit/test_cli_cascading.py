@@ -27,21 +27,21 @@ _DUP_FUNCTION = (
 )
 
 
-def _repo_file(directory: Path) -> None:
+def _write_repo_file(directory: Path) -> None:
     """Write a repository module with a synonym-prefixed method (NAMING-001 bait)."""
     repo = directory / "infrastructure" / "repositories"
     repo.mkdir(parents=True)
     (repo / "store.py").write_text(_REPO_METHOD, encoding="utf-8")
 
 
-def _root_and_strict_repo(tmp_path: Path, strict_config: str) -> None:
+def _write_root_and_strict_repo(tmp_path: Path, strict_config: str) -> None:
     """Build a root region (no config) and a nested ``strict`` region, each with a repo."""
     (tmp_path / "lanorme.toml").write_text("", encoding="utf-8")
-    _repo_file(tmp_path)
+    _write_repo_file(tmp_path)
     strict = tmp_path / "strict"
     strict.mkdir()
     (strict / "lanorme.toml").write_text(strict_config, encoding="utf-8")
-    _repo_file(strict)
+    _write_repo_file(strict)
 
 
 def _run_full(root: Path, capsys, *extra: str) -> dict:
@@ -62,7 +62,7 @@ def _violation_files(result: dict) -> set[str]:
 def test_nested_config_enables_check_only_in_its_subtree(tmp_path: Path, capsys):
     """repo_crud set only in the nested region fires NAMING-001 only under it."""
     # Arrange
-    _root_and_strict_repo(tmp_path, "[naming_consistency]\nrepo_crud = true\n")
+    _write_root_and_strict_repo(tmp_path, "[naming_consistency]\nrepo_crud = true\n")
 
     # Act
     results = _run_full(tmp_path, capsys)
@@ -79,13 +79,13 @@ def test_nested_config_inherits_parent_setting(tmp_path: Path, capsys):
     (tmp_path / "lanorme.toml").write_text(
         "[naming_consistency]\nrepo_crud = true\n", encoding="utf-8"
     )
-    _repo_file(tmp_path)
+    _write_repo_file(tmp_path)
     strict = tmp_path / "strict"
     strict.mkdir()
     (strict / "lanorme.toml").write_text(
         "[naming_consistency]\nservice_crud = true\n", encoding="utf-8"
     )
-    _repo_file(strict)
+    _write_repo_file(strict)
 
     # Act
     results = _run_full(tmp_path, capsys)
@@ -103,11 +103,11 @@ def test_root_true_stops_inheritance(tmp_path: Path, capsys):
     (tmp_path / "lanorme.toml").write_text(
         "[naming_consistency]\nrepo_crud = true\n", encoding="utf-8"
     )
-    _repo_file(tmp_path)
+    _write_repo_file(tmp_path)
     standalone = tmp_path / "standalone"
     standalone.mkdir()
     (standalone / "lanorme.toml").write_text("root = true\n", encoding="utf-8")
-    _repo_file(standalone)
+    _write_repo_file(standalone)
 
     # Act
     results = _run_full(tmp_path, capsys)
@@ -145,11 +145,11 @@ def test_user_exclude_drops_nested_region_findings(tmp_path: Path, capsys):
     (tmp_path / "lanorme.toml").write_text(
         "[naming_consistency]\nrepo_crud = true\n", encoding="utf-8"
     )
-    _repo_file(tmp_path)
+    _write_repo_file(tmp_path)
     sub = tmp_path / "sub"
     sub.mkdir()
     (sub / "lanorme.toml").write_text("[similarity]\nenabled = false\n", encoding="utf-8")
-    _repo_file(sub)
+    _write_repo_file(sub)
 
     # Act
     results = _run_full(tmp_path, capsys, "--exclude", "sub/*")
@@ -168,10 +168,10 @@ def test_config_does_not_leak_between_invocations(tmp_path: Path, capsys):
     (enabled / "lanorme.toml").write_text(
         "[naming_consistency]\nrepo_crud = true\n", encoding="utf-8"
     )
-    _repo_file(enabled)
+    _write_repo_file(enabled)
     plain = tmp_path / "plain"
     plain.mkdir()
-    _repo_file(plain)
+    _write_repo_file(plain)
 
     # Act: two sequential invocations in one process.
     first = _run_full(enabled, capsys)
@@ -185,7 +185,7 @@ def test_config_does_not_leak_between_invocations(tmp_path: Path, capsys):
 def test_single_check_selector_uses_root_config_not_regions(tmp_path: Path, capsys):
     """A ``--check NAME`` run bypasses cascading and uses the root config only."""
     # Arrange: repo_crud is enabled only in the nested region, never at the root.
-    _root_and_strict_repo(tmp_path, "[naming_consistency]\nrepo_crud = true\n")
+    _write_root_and_strict_repo(tmp_path, "[naming_consistency]\nrepo_crud = true\n")
 
     # Act: a single-check run does not apply the nested region's config.
     results = _run_full(tmp_path, capsys, "--check", "naming_consistency")
