@@ -5,15 +5,31 @@
 #     [tool.lanorme]
 #     extends = ["strict"]
 #
-# It turns on every opt-in (default-off) check and promotes all advisory
-# warnings to build-failing errors, so the build bites on anything the linter
-# can flag. Your own [tool.lanorme] keys still override what this profile sets.
+# It turns on every check that ships with its `enabled` switch off and promotes
+# all advisory warnings to build-failing errors, so the build bites on anything
+# the linter can flag. Your own [tool.lanorme] keys still override what this
+# profile sets: tables merge key by key, so a local
+# `[tool.lanorme.docs] enabled = false` switches one check back off and keeps
+# the rest.
+#
+# Left alone, by design:
+#   - The architecture checks (layer_deps, port_coverage) have no `enabled`
+#     switch. They are inert until given a layout, which this profile does not
+#     carry; compose with `hexagonal`, `clean` or `layered` for that.
+#   - Rule-level switches inside default-on checks (comments em_dash / emoji,
+#     naming_consistency repo_crud / service_crud) are house-style and
+#     domain-language choices rather than severity, and stay as you set them.
+#
+# tests/unit/test_profiles.py holds this file to the check registry: a new
+# check that ships default-off must be added below, or listed there as a
+# deliberate exclusion with its reason.
 
 # Every warning (advisory rules such as TYPE-004 and SIMILAR-001, plus the
 # size and placeholder-type warnings) becomes a build-failing error.
 promote = ["ALL"]
 
-# Opt-in generic checks, switched on.
+# Opt-in checks, switched on. Each keeps its shipped defaults; the comments
+# name the key a project most often tunes locally.
 [named_args]
 enabled = true
 
@@ -30,4 +46,26 @@ enabled = true
 enabled = true
 
 [prose]
+enabled = true
+
+# CMT-006 / CMT-007: a public definition of min_lines (default 5) or more
+# carries a docstring that says more than its signature.
+[docstrings]
+enabled = true
+
+# NAMING-005: a short name is not carried past max_span (default 20) lines.
+# Extend `allow` for idioms of your own.
+[naming_scope]
+enabled = true
+
+# SUPPRESS-001 / SUPPRESS-002: the inline-suppression budget starts at zero
+# and every directive must name its rule. Set max_total to today's count and
+# ratchet it down. SUPPRESS codes cannot be silenced inline, only here.
+[suppressions]
+enabled = true
+
+# DOCS-001..008: Markdown under docs_root (default "docs") follows a Diataxis
+# layout. Inert when that directory is absent; set docs_root, sections or
+# known_top_level where your tree differs.
+[docs]
 enabled = true

@@ -29,17 +29,31 @@ an architecture style.
 
 | Profile | What it does |
 | --- | --- |
-| `strict` | Turns on every opt-in (default-off) generic check and sets `promote = ["ALL"]`, so all advisory warnings become build-failing errors. |
+| `strict` | Turns on every check that ships with its `enabled` switch off and sets `promote = ["ALL"]`, so all advisory warnings become build-failing errors. |
 | `hexagonal` | Configures `layer_deps` for a four-layer ports-and-adapters backend and turns on `port_coverage`. |
 | `clean` | Configures `layer_deps` for Clean Architecture's four layers (`entities`, `use_cases`, `interface_adapters`, `frameworks`). |
 | `layered` | Configures `layer_deps` for classic N-tier layers (`presentation`, `business`, `persistence`). |
 
-`strict` switches on the generic opt-in checks (`named_args`, `test_style`,
-`attribute_access`, `restating`, `similarity`, `prose`) and promotes all
-warnings. It does not turn on the architecture checks: `layer_deps` and
-`port_coverage` stay off because `strict` carries no layout for them. Pick one
-of `hexagonal`, `clean` or `layered` to enforce architecture, and compose it
-with `strict` if you want both.
+`strict` switches on every check that ships default-off (`named_args`,
+`test_style`, `attribute_access`, `restating`, `similarity`, `prose`,
+`docstrings`, `naming_scope`, `suppressions`, `docs`) and promotes all
+warnings. Two of those carry assumptions worth knowing before you adopt it:
+
+- `suppressions` starts with a budget of zero, so any existing `# noqa` fails
+  the build until you set `max_total` to today's count and ratchet it down.
+  The `SUPPRESS` codes cannot be silenced inline, only in config.
+- `docs` expects the Markdown under `docs/` to follow a Diataxis layout, and is
+  inert when that directory is absent. Set `docs_root`, `sections` or
+  `known_top_level` where your tree differs.
+
+Any one of them can be switched back off with a local table such as
+`[tool.lanorme.docs] enabled = false`, which wins over the profile because
+tables merge key by key.
+
+It does not turn on the architecture checks: `layer_deps` and `port_coverage`
+have no `enabled` switch and stay inert because `strict` carries no layout for
+them. Pick one of `hexagonal`, `clean` or `layered` to enforce architecture,
+and compose it with `strict` if you want both.
 
 The architecture profiles are mutually exclusive in practice: each configures
 `layer_deps` for a different layer layout, so extend exactly one of them.
@@ -54,7 +68,7 @@ plus an architecture style:
 extends = ["strict", "hexagonal"]
 ```
 
-This gives you every generic opt-in check, `promote = ["ALL"]`, the hexagonal
+This gives you every default-off check, `promote = ["ALL"]`, the hexagonal
 layer rules, and port coverage, all from two profile names.
 
 ## Extend a local `.toml`
