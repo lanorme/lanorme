@@ -9,6 +9,8 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
 
 ## [Unreleased]
 
+## [0.19.0]
+
 ### Fixed
 
 - The skip-list bug fixed in 0.18.0 for `NAMING-005` and its siblings also
