@@ -9,7 +9,7 @@ def _codes(violations) -> set[str]:
     return {v.rule.split(":", 1)[0] for v in violations}
 
 
-def _ports_and_adapter(write) -> None:
+def _write_ports_and_adapter(write) -> None:
     write(
         name="application/ports/registry.py",
         body="from typing import Protocol\n\n\nclass Registry(Protocol):\n    def get(self) -> int: ...\n",
@@ -22,7 +22,7 @@ def _ports_and_adapter(write) -> None:
 
 def test_port003_module_file_comp_root_missed_by_default_but_caught_when_configured(tmp_path, tmp_py_file):
     # Arrange
-    _ports_and_adapter(tmp_py_file)
+    _write_ports_and_adapter(tmp_py_file)
     # An api module-file composition root that imports + instantiates the adapter.
     tmp_py_file(
         name="api/dependencies.py",
@@ -43,7 +43,7 @@ def test_port003_module_file_comp_root_missed_by_default_but_caught_when_configu
 
 def test_default_directory_comp_root_still_exempt(tmp_path, tmp_py_file):
     # Arrange
-    _ports_and_adapter(tmp_py_file)
+    _write_ports_and_adapter(tmp_py_file)
     tmp_py_file(
         name="api/v1/dependencies/wire.py",
         body="from infrastructure.services.registry_impl import RegistryImpl\n\nregistry = RegistryImpl()\n",

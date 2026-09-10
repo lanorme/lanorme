@@ -69,3 +69,9 @@ enabled = true
 # known_top_level where your tree differs.
 [docs]
 enabled = true
+
+# NAMING-009..011: no noise words on classes, no junk-drawer modules, every
+# function starts with a verb. The Clean Code reading of the naming canon;
+# the canon itself (NAMING-006..008) is default-on and needs no switch.
+[naming_clean_code]
+enabled = true

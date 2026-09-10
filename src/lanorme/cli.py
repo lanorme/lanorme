@@ -465,7 +465,7 @@ def _run_and_report(
         sys.exit(1)
 
 
-def _command_check(*, args: argparse.Namespace) -> None:
+def _run_check_command(*, args: argparse.Namespace) -> None:
     """Handle the ``check`` subcommand: discover config, then report or run."""
     scan_root, targets = _resolve_targets(args.paths)
 
@@ -496,7 +496,7 @@ def _command_check(*, args: argparse.Namespace) -> None:
     )
 
 
-def _command_baseline(*, args: argparse.Namespace) -> None:
+def _run_baseline_command(*, args: argparse.Namespace) -> None:
     """Handle ``baseline write`` / ``baseline status`` over the whole project."""
     scan_root, targets = _resolve_targets(args.paths)
     # A baseline records the WHOLE project; a narrowed or sub-directory write
@@ -564,10 +564,10 @@ def main(argv: list[str] | None = None) -> None:
         sys.exit(reporting.print_rule_detail(code=args.code))
 
     if args.command == "baseline":
-        _command_baseline(args=args)
+        _run_baseline_command(args=args)
         return
 
-    _command_check(args=args)
+    _run_check_command(args=args)
 
 
 if __name__ == "__main__":

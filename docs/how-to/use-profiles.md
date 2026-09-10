@@ -36,8 +36,8 @@ an architecture style.
 
 `strict` switches on every check that ships default-off (`named_args`,
 `test_style`, `attribute_access`, `restating`, `similarity`, `prose`,
-`docstrings`, `naming_scope`, `suppressions`, `docs`) and promotes all
-warnings. Two of those carry assumptions worth knowing before you adopt it:
+`docstrings`, `naming_scope`, `suppressions`, `docs`, `naming_clean_code`) and
+promotes all warnings. Two of those carry assumptions worth knowing before you adopt it:
 
 - `suppressions` starts with a budget of zero, so any existing `# noqa` fails
   the build until you set `max_total` to today's count and ratchet it down.

@@ -122,7 +122,9 @@ clean check should not rely on that safety net.
 ## A worked example
 
 This check fails when a module is named exactly `utils.py`, on the house rule
-that every module should be named after what it does.
+that every module should be named after what it does. LaNorme ships the same
+rule built in as `NAMING-010` in the opt-in `naming_clean_code` check; it stays
+here as the example because it is the smallest complete check.
 
 ```python
 # house_rules.py

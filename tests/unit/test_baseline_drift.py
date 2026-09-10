@@ -51,7 +51,7 @@ def _detach_anchors(root: Path) -> None:
     path.write_text(json.dumps(recorded, indent=2), encoding="utf-8")
 
 
-def _drifted_project(root: Path) -> None:
+def _write_drifted_project(root: Path) -> None:
     """A project whose baseline records its finding but no longer matches it."""
     _project(root, _WIDE_FUNCTION)
     _write_baseline(root)
@@ -60,7 +60,7 @@ def _drifted_project(root: Path) -> None:
 
 def test_drifted_entry_is_explained(tmp_path: Path, capsys) -> None:
     # Arrange: a recorded finding whose anchor no longer matches.
-    _drifted_project(tmp_path)
+    _write_drifted_project(tmp_path)
 
     # Act
     _run(tmp_path)
@@ -103,7 +103,7 @@ def test_new_debt_beside_a_matching_entry_says_nothing(tmp_path: Path, capsys) -
 
 def test_machine_output_carries_no_notice(tmp_path: Path, capsys) -> None:
     # Arrange: --json is a finding stream that has to stay parseable.
-    _drifted_project(tmp_path)
+    _write_drifted_project(tmp_path)
     capsys.readouterr()  # drop the setup chatter so the run's output stands alone
 
     # Act
