@@ -67,13 +67,13 @@ $ lanorme check src/
     Fix: Read the value from an environment variable, secrets manager, or settings module
 --- secrets: 1 violations, 0 warnings ---
 
-Summary: 24 checks — 23 passed, 0 warnings, 1 failed.
+Summary: 30 checks — 29 passed, 0 warnings, 1 failed.
 ```
 
-The full command and flag reference and output formats are in the
+Every command, flag and output format is documented in the
 [CLI reference](https://lanorme.github.io/lanorme/latest/reference/cli/).
-Inline suppression, `# noqa` and the ruff-safe `# lanorme: ignore[CODE]`, is in
-[Configure which checks run](https://lanorme.github.io/lanorme/latest/how-to/configure-checks/#silence-one-line).
+Inline suppression (`# noqa`, or the ruff-safe `# lanorme: ignore[CODE]`) is
+covered in [Configure which checks run](https://lanorme.github.io/lanorme/latest/how-to/configure-checks/#silence-one-line).
 
 ## What it checks
 
@@ -87,28 +87,30 @@ On by default, on any project, no config needed:
 | Rule | Catches |
 |---|---|
 | `CMT-001/002` | commented-out code, over-long comment blocks |
-| `CMT-006/007` | missing docstrings, and docstrings that only restate the signature |
 | `DRY-001` | near-duplicate function bodies |
 | `SIZE-001..003` / `COMPLEXITY-001` / `PARAM-001` | file, function and class size; cyclomatic complexity; parameter count |
 | `IMPORT-001` / `ENDPOINT-001` | imports inside function bodies; deeply nested endpoints |
 | `NAMING-003/004` | HTTP-verb-to-handler match; boolean-prefix predicates |
-| `NAMING-005` | short names carried across a long span |
 | `NAMING-006..008` | classes named as actions; functions that act but are not named verb-first; weak verbs (`handle_`, `process_`, `do_`) |
-| `TYPE-001..003` | `dict[str, Any]`, bare containers, untyped `**kwargs` |
+| `TYPE-001..004` | `dict[str, Any]`, bare containers, untyped `**kwargs`; a missing return annotation (advisory) |
 | `AUTHN-001` / `SQL-001` / `SECRETPY-001` | mutation endpoints without an auth dependency; raw SQL at a database call; hardcoded secrets in `.py` |
 | `SHELL-001` / `DESERIAL-001` / `EVAL-001` / `CRYPTO-001` / `TLS-001` / `DEBUG-001` | shell injection, unsafe deserialisation, `eval`/`exec`, weak hashes, disabled TLS, debug mode |
 | `JUNK-001/002` | screenshots, scratch files, OS junk, stray binaries |
 | `TESTFILE-001` | a production module with no `test_*.py` partner |
-| `SUPPRESS-001/002` | inline suppressions over budget; blanket directives that name no rule |
 | `META-001..005` | the checks themselves emit well-formed output |
 | `SKILL-001..006` | Agent Skill (`SKILL.md`) frontmatter, naming and link compliance |
 
-Off until you turn them on (layered or hexagonal architecture, domain
-vocabulary, house styles, Markdown docs structure, and experimental
-precision-first detectors): `LAYER`, `PORT`, `TERM`, `KWARG`, `NAMING-001/002`,
-`NAMING-009..011`, `AAA`, `CMT-005`, `SIMILAR`, `ATTR`, `PROSE`, `DOCS`, `PATH`,
-`STALE`. The
-[rule reference](https://lanorme.github.io/lanorme/latest/RULES/) documents each.
+Also on by default, but firing only on a tree laid out as `domain/`,
+`application/`, `infrastructure/` and `api/` with ports under
+`application/ports/`: `LAYER` and `PORT`. Pick an architecture profile to set
+the layout you use, or `ignore` them.
+
+Off until you turn them on (domain vocabulary, house styles, Markdown docs
+structure, and experimental precision-first detectors): `TERM`, `KWARG`,
+`NAMING-001/002`, `NAMING-005`, `NAMING-009..011`, `AAA`, `CMT-005`,
+`CMT-006/007`, `SUPPRESS`, `SIMILAR`, `ATTR`, `PROSE`, `DOCS`, `PATH`, `STALE`.
+The [rule reference](https://lanorme.github.io/lanorme/latest/RULES/) documents
+each.
 
 ## Configuration
 
@@ -131,13 +133,14 @@ That is the surface. The docs cover the rest without repeating it here:
   every key, its type and default, plus a machine-readable JSON schema.
 - [Profiles (`extends`)](https://lanorme.github.io/lanorme/latest/how-to/use-profiles/):
   the `strict`, `hexagonal`, `clean` and `layered` bundles.
-- [Per-directory config](https://lanorme.github.io/lanorme/latest/reference/configuration/):
+- [Per-directory config](https://lanorme.github.io/lanorme/latest/reference/configuration/#per-directory-config):
   drop a nested `lanorme.toml` to tighten one subtree while the rest stays lenient.
 
 ## Adopting on an existing codebase
 
 A mature codebase has findings on day one. A baseline records the debt you
-already have so only *new* findings report; the whole adoption is two commands:
+already have so only *new* findings report; the whole adoption is one command
+and one config line:
 
 ```console
 lanorme baseline write    # records current findings to lanorme-baseline.json

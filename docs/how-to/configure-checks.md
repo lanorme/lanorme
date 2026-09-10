@@ -25,17 +25,18 @@ a single run. For the full key list and types, see the
 categories are listed by `lanorme rules`; per-check settings live in the
 [rule reference](../RULES.md).
 
->!!! note
->    The recipes below use the `pyproject.toml` layout. In a standalone
->    `lanorme.toml` / `.lanorme.toml` the `tool.lanorme` prefix is dropped:
->    top-level scalar keys go bare (`select = [...]`) and sub-tables lose the
->    prefix too, so `[tool.lanorme.per-file-ignores]` becomes
->    `[per-file-ignores]`. Using the prefixed header in a `lanorme.toml` is a
->    silent no-op — the table is ignored and no error is raised. See the
->    [config discovery](../reference/cli.md#config-discovery) note in the CLI
->    reference.
+!!! note
+    The recipes below use the `pyproject.toml` layout. In a standalone
+    `lanorme.toml` / `.lanorme.toml` the `tool.lanorme` prefix is dropped:
+    top-level scalar keys go bare (`select = [...]`) and sub-tables lose the
+    prefix too, so `[tool.lanorme.per-file-ignores]` becomes
+    `[per-file-ignores]`. Using the prefixed header in a `lanorme.toml` is a
+    silent no-op — the table is ignored and no error is raised. See the
+    [config discovery](../reference/cli.md#config-discovery) note in the CLI
+    reference.
 
-Targets are rule codes (`EVAL-001`), categories (`SEC`, `SECRETPY`), or `ALL`.
+Targets are rule codes (`EVAL-001`), categories (the part before the dash:
+`CMT`, `SECRETPY`), or `ALL`. `lanorme rules` lists every code.
 
 ## Run only some checks
 
@@ -56,16 +57,16 @@ $ lanorme check src --select EVAL-001
     Fix: Use ast.literal_eval for trusted-shape parsing, or build a dispatch table
 --- security_calls: 1 violations, 0 warnings ---
 
-Summary: 25 checks — 24 passed, 0 warnings, 1 failed.
+Summary: 30 checks — 29 passed, 0 warnings, 1 failed.
 ```
 
-A category selects every code under it: `--select SEC` runs the whole
-security group; `--select ALL` runs everything enabled.
+A category selects every code under it: `--select CMT` runs every comment
+rule; `--select ALL` runs everything enabled.
 
->!!! note
->    Opt-in checks stay off even when named in `select`. Enable them first
->    with `[tool.lanorme.<check>] enabled = true` (for example
->    `[tool.lanorme.prose]`). See the [rule reference](../RULES.md).
+!!! note
+    Opt-in checks stay off even when named in `select`. Enable them first
+    with `[tool.lanorme.<check>] enabled = true` (for example
+    `[tool.lanorme.prose]`). See the [rule reference](../RULES.md).
 
 ## Skip a rule everywhere
 
@@ -80,7 +81,7 @@ Equivalent flag: `--ignore` takes a comma-separated list.
 
 ```console
 $ lanorme check src --select file_limits --ignore PARAM-001
-All 25 checks passed.
+All 30 checks passed.
 ```
 
 `ignore` applies after `select`, so a rule that is both selected and ignored
@@ -102,11 +103,25 @@ directory at any depth, so `**/migrations/*` excludes `src/pkg/migrations/`:
 
 ```console
 $ lanorme check . --select EVAL-001
+[FAIL] security_calls
   VIOLATION: src/pkg/main.py:1 — eval() on a non-literal argument is an RCE primitive
+    Rule: EVAL-001
+    Fix: Use ast.literal_eval for trusted-shape parsing, or build a dispatch table
   VIOLATION: src/pkg/migrations/m.py:1 — eval() on a non-literal argument is an RCE primitive
+    Rule: EVAL-001
+    Fix: Use ast.literal_eval for trusted-shape parsing, or build a dispatch table
+--- security_calls: 2 violations, 0 warnings ---
+
+Summary: 30 checks — 29 passed, 0 warnings, 1 failed.
 
 $ lanorme check . --select EVAL-001 --exclude '**/migrations/*'
+[FAIL] security_calls
   VIOLATION: src/pkg/main.py:1 — eval() on a non-literal argument is an RCE primitive
+    Rule: EVAL-001
+    Fix: Use ast.literal_eval for trusted-shape parsing, or build a dispatch table
+--- security_calls: 1 violations, 0 warnings ---
+
+Summary: 30 checks — 29 passed, 0 warnings, 1 failed.
 ```
 
 Match the depth you have. To exclude a `migrations/` directory sitting at the
@@ -131,7 +146,7 @@ $ lanorme check . --select PARAM-001
     Fix: Group related parameters into a dataclass or TypedDict
 --- file_limits: 1 violations, 0 warnings ---
 
-Summary: 25 checks — 24 passed, 0 warnings, 1 failed.
+Summary: 30 checks — 29 passed, 0 warnings, 1 failed.
 ```
 
 The key is a glob; the value is a list of codes or categories suppressed for
@@ -155,7 +170,7 @@ With either form in place, the matching file is no longer reported:
 
 ```console
 $ lanorme check . --select PARAM-001
-All 25 checks passed.
+All 30 checks passed.
 ```
 
 Confirm the discovered config and effective per-check settings with
@@ -182,7 +197,9 @@ TYPE-001` makes ruff report an invalid directive, while `# lanorme: ignore`
 carries no `noqa` token for ruff to read.
 
 A code in either directive may be an exact code (`EVAL-001`), a category
-(`SEC`), or `ALL`, matching the other config targets.
+(`CMT`), or `ALL`, matching the other config targets. A finding reported at
+line `0` is about the whole file (a junk-drawer module, say) and has no line
+to carry a directive; silence it with `per-file-ignores` instead.
 
 Given this file checked with `--select EVAL-001`:
 
@@ -208,10 +225,14 @@ code and does not silence the `eval`.
 $ lanorme check a.py --select EVAL-001
 [FAIL] security_calls
   VIOLATION: a.py:2 — eval() on a non-literal argument is an RCE primitive
+    Rule: EVAL-001
+    Fix: Use ast.literal_eval for trusted-shape parsing, or build a dispatch table
   VIOLATION: a.py:11 — eval() on a non-literal argument is an RCE primitive
+    Rule: EVAL-001
+    Fix: Use ast.literal_eval for trusted-shape parsing, or build a dispatch table
 --- security_calls: 2 violations, 0 warnings ---
 
-Summary: 25 checks — 24 passed, 0 warnings, 1 failed.
+Summary: 30 checks — 29 passed, 0 warnings, 1 failed.
 ```
 
 ## Exit codes
@@ -222,7 +243,7 @@ clean.
 
 ```console
 $ lanorme check src --select EVAL-001   # no eval in src
-All 25 checks passed.
+All 30 checks passed.
 $ echo $?
 0
 ```

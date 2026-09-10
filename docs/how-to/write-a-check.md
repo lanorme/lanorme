@@ -182,9 +182,9 @@ All 1 checks passed.
 
 The exit code is `0`.
 
->!!! note
->    `--plugin` is repeatable (`--plugin a --plugin b`), not comma-separated.
->    Pass the dotted module path, for example `--plugin myproject.checks.house_rules`.
+!!! note
+    `--plugin` is repeatable (`--plugin a --plugin b`), not comma-separated.
+    Pass the dotted module path, for example `--plugin myproject.checks.house_rules`.
 
 ### Make it an advisory
 

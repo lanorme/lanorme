@@ -1,7 +1,7 @@
 """Cascading per-directory configuration (issue #28).
 
-A *region* is a directory carrying a LaNorme config file (``lanorme.toml`` or a
-``pyproject.toml`` with a ``[tool.lanorme]`` table) whose settings govern the
+A *region* is a directory carrying a LaNorme config file (``lanorme.toml``,
+``.lanorme.toml``, or a ``pyproject.toml`` with a ``[tool.lanorme]`` table) whose settings govern the
 files beneath it. A nested region inherits its parent's settings and overrides
 only the keys it sets, so a subtree can tighten or relax a rule without
 restating the whole config. ``root = true`` in a region's config stops the
@@ -36,6 +36,7 @@ from __future__ import annotations
 
 import copy
 import os
+import sys
 import tomllib
 from collections.abc import Callable
 from dataclasses import dataclass, field, replace
@@ -47,24 +48,48 @@ from lanorme.discovery import DEFAULT_PRUNE_DIRS
 # A loaded TOML config: string keys to arbitrary scalar / list / table values.
 Config = dict[str, object]
 
+# The dedicated config files, tried in this order before ``pyproject.toml``.
+DEDICATED_CONFIG_FILES: tuple[str, ...] = ("lanorme.toml", ".lanorme.toml")
+
+
+def read_toml(path: Path) -> Config:
+    """Parse *path*, exiting 2 with the file and the reason if it is not valid TOML.
+
+    A config file the user wrote by hand is a configuration error when it does
+    not parse, not a crash, so it reports like every other usage error.
+    """
+    try:
+        with path.open("rb") as handle:
+            return tomllib.load(handle)
+    except tomllib.TOMLDecodeError as error:
+        print(f"ERROR: {path} is not valid TOML: {error}", file=sys.stderr)
+        sys.exit(2)
+
+
+def dedicated_config_file(directory: Path) -> Path | None:
+    """The ``lanorme.toml`` or ``.lanorme.toml`` in *directory*, or ``None``."""
+    for name in DEDICATED_CONFIG_FILES:
+        candidate = directory / name
+        if candidate.is_file():
+            return candidate
+    return None
+
 
 def load_lanorme_config(directory: Path) -> Config | None:
     """Return the LaNorme config declared in *directory*, or ``None`` if none.
 
-    A dedicated ``lanorme.toml`` wins over a ``pyproject.toml`` ``[tool.lanorme]``
-    table, mirroring the walk-up discovery in the CLI. A ``pyproject.toml``
-    without that table is not a config source and yields ``None``.
+    A dedicated ``lanorme.toml`` (or ``.lanorme.toml``) wins over a
+    ``pyproject.toml`` ``[tool.lanorme]`` table, mirroring the walk-up discovery
+    in the CLI. A ``pyproject.toml`` without that table is not a config source
+    and yields ``None``.
     """
-    dedicated = directory / "lanorme.toml"
-    if dedicated.is_file():
-        with dedicated.open("rb") as handle:
-            return tomllib.load(handle)
+    dedicated = dedicated_config_file(directory)
+    if dedicated is not None:
+        return read_toml(dedicated)
 
     pyproject = directory / "pyproject.toml"
     if pyproject.is_file():
-        with pyproject.open("rb") as handle:
-            data = tomllib.load(handle)
-        tool_config = data.get("tool", {}).get("lanorme")
+        tool_config = read_toml(pyproject).get("tool", {}).get("lanorme")
         if isinstance(tool_config, dict):
             return tool_config
 

@@ -5,12 +5,12 @@
 #     [tool.lanorme]
 #     extends = ["hexagonal"]
 #
-# Ports and adapters (hexagonal) architecture. It enforces the inward-only
-# dependency rule across four layers and, because this style is built around
-# ports, also turns on port coverage so every adapter is wired to a port
-# Protocol. Both checks are opt-in (default-off) and inert until configured;
-# extending this profile is what switches them on. Your own [tool.lanorme]
-# keys still override anything this profile sets.
+# Ports and adapters (hexagonal) architecture. It sets the four layers for the
+# inward-only dependency rule with explicit composition-root globs and, because
+# this style is built around ports, widens port coverage's adapter root to all
+# of infrastructure/ so every adapter is wired to a port Protocol. Both checks
+# run by default with a built-in layout; this profile sets the layout to
+# enforce. Your own [tool.lanorme] keys still override anything it sets.
 #
 # Layers (inner to outer):
 #   domain          pure business model; depends on nothing in the tree

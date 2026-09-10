@@ -11,13 +11,15 @@ set, see the [configuration reference](../reference/configuration.md).
 
 ## Adopt a single profile
 
-Add `extends` to the `[tool.lanorme]` table in `pyproject.toml` (or to a
-`lanorme.toml` / `.lanorme.toml` file):
+Add `extends` to the `[tool.lanorme]` table in `pyproject.toml`:
 
 ```toml
 [tool.lanorme]
 extends = ["strict"]
 ```
+
+In a standalone `lanorme.toml` or `.lanorme.toml`, write the same keys at the
+top level with no `[tool.lanorme]` header; a header there is silently ignored.
 
 `extends` takes one profile name or a list. A single name may also be given as
 a bare string (`extends = "strict"`).
@@ -30,14 +32,14 @@ an architecture style.
 | Profile | What it does |
 | --- | --- |
 | `strict` | Turns on every check that ships with its `enabled` switch off and sets `promote = ["ALL"]`, so all advisory warnings become build-failing errors. |
-| `hexagonal` | Configures `layer_deps` for a four-layer ports-and-adapters backend and turns on `port_coverage`. |
+| `hexagonal` | Sets `layer_deps` to a four-layer ports-and-adapters layout with explicit composition-root globs, and points `port_coverage` at `infrastructure/` as the adapter root (the built-in default is `infrastructure/services`). |
 | `clean` | Configures `layer_deps` for Clean Architecture's four layers (`entities`, `use_cases`, `interface_adapters`, `frameworks`). |
 | `layered` | Configures `layer_deps` for classic N-tier layers (`presentation`, `business`, `persistence`). |
 
-`strict` switches on every check that ships default-off (`named_args`,
-`test_style`, `attribute_access`, `restating`, `similarity`, `prose`,
-`docstrings`, `naming_scope`, `suppressions`, `docs`, `naming_clean_code`) and
-promotes all warnings. Two of those carry assumptions worth knowing before you adopt it:
+The default-off checks `strict` enables are `named_args`, `test_style`,
+`attribute_access`, `restating`, `similarity`, `prose`, `docstrings`,
+`naming_scope`, `suppressions`, `docs` and `naming_clean_code`. Two of those
+carry assumptions worth knowing before you adopt it:
 
 - `suppressions` starts with a budget of zero, so any existing `# noqa` fails
   the build until you set `max_total` to today's count and ratchet it down.
@@ -50,10 +52,12 @@ Any one of them can be switched back off with a local table such as
 `[tool.lanorme.docs] enabled = false`, which wins over the profile because
 tables merge key by key.
 
-It does not turn on the architecture checks: `layer_deps` and `port_coverage`
-have no `enabled` switch and stay inert because `strict` carries no layout for
-them. Pick one of `hexagonal`, `clean` or `layered` to enforce architecture,
-and compose it with `strict` if you want both.
+It does not add architecture rules. `layer_deps` and `port_coverage` have no
+`enabled` switch and always run with their built-in hexagonal layout (`domain`,
+`application`, `infrastructure`, `api`; ports under `application/ports`,
+adapters under `infrastructure/services`), which only bites on a tree that
+uses those directory names. Pick `hexagonal`, `clean` or `layered` to set the
+layout your tree uses, and compose it with `strict` if you want both.
 
 The architecture profiles are mutually exclusive in practice: each configures
 `layer_deps` for a different layer layout, so extend exactly one of them.
@@ -69,7 +73,7 @@ extends = ["strict", "hexagonal"]
 ```
 
 This gives you every default-off check, `promote = ["ALL"]`, the hexagonal
-layer rules, and port coverage, all from two profile names.
+layer rules and adapter roots, all from two profile names.
 
 ## Extend a local `.toml`
 
@@ -160,16 +164,17 @@ Read it as the merge in action:
 
 The `config file` and `project root` paths vary per machine.
 
-> !!! note
->     An unknown profile name is a configuration error. `lanorme check`
->     prints the available bundled names and exits with code 2 (usage or
->     config error), the same exit code as malformed config.
+!!! note
+    An unknown profile name is a configuration error. `lanorme check`
+    prints the available bundled names and exits with code 2 (usage or
+    config error), the same exit code as a config file that is not valid
+    TOML, an invalid config value, or a missing local profile file.
 
-## Override CLI flags still apply
+## Command-line flags still override
 
-Command-line flags override config, including anything a profile sets. To run a
-single category once without editing the profile, pass `--select` or
-`--ignore`:
+Command-line flags override config, including anything a profile sets. To
+include or skip a category for one run without editing the profile, pass
+`--select` or `--ignore`:
 
 ```console
 $ lanorme check src --ignore PORT

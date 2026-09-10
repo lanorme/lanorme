@@ -48,7 +48,7 @@ def test_every_top_level_config_key_is_documented():
     documented = {key.name for key in generator.CONFIG_KEYS}
     cli_keys = {
         "select", "ignore", "exclude", "per-file-ignores",
-        "promote", "extends", "baseline", "source_root", "plugins",
+        "promote", "extends", "baseline", "source_root", "plugins", "root",
     }
 
     # Act / Assert: the generated reference covers every real top-level key.

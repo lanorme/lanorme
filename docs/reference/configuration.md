@@ -25,10 +25,11 @@ equivalents (`--select`, `--ignore`); the command line wins over config.
 | [`baseline`](#baseline) | string (path) | none | Adoption |
 | [`source_root`](#source_root) | string (path) | the scan root | Architecture |
 | [`plugins`](#plugins) | list of strings | [] (built-in checks only) | Extensibility |
+| [`root`](#root) | boolean | false | Per-directory config |
 
 ## `select`
 
-Run only these rule codes or categories. A category (`SEC`) covers every code in it; `ALL` selects everything.
+Run only these rule codes or categories. A category is the part of a code before the dash: `CMT` covers every comment rule; `ALL` selects everything.
 
 ```toml
 select = ["SECRETPY", "TYPE-004"]
@@ -99,11 +100,44 @@ Extra check modules to import so they self-register, beyond the built-ins and en
 plugins = ["my_company.lanorme_checks"]
 ```
 
+## `root`
+
+In a nested config file, stop inheriting from the config files above it, so the subtree stands alone. See [per-directory config](#per-directory-config).
+
+```toml
+root = true
+```
+
+## Per-directory config
+
+Any directory below the scan root that carries its own config file (a
+`lanorme.toml`, a `.lanorme.toml`, or a `pyproject.toml` with a `[tool.lanorme]`
+table) is a region: the files beneath it are checked under that config. A nested
+region inherits every setting from the regions above it and overrides only the
+keys it sets, table by table and key by key, so one subtree can tighten or relax
+a threshold without restating the whole config. `root = true` in a nested file
+stops the inheritance, so the subtree stands alone.
+
+```toml
+# legacy/lanorme.toml: looser limits for the old tree only
+[file_limits]
+func_warn_lines = 80
+```
+
+Cascading governs per-check settings and `source_root`. The run-level filters
+(`select`, `ignore`, `exclude`, `per-file-ignores`, `promote`) are read once at
+the root and apply to the whole run. Checks that compare files across the tree
+(`duplication`, `test_coverage`, `layer_deps`, `port_coverage`, `docs`, `meta`)
+run once at the scan root under the root config, so a region cannot relax them
+for its own subtree. `--check <name>` runs that one check at the root config too,
+without cascading.
+
 ## Per-check settings
 
-Each check is configured under its own table, always with an `enabled`
-toggle (opt-in checks default to `false`). The settings a check accepts are
-listed in its [rule reference](../RULES.md) section. For example:
+Each check is configured under its own table. An opt-in check carries an
+`enabled` toggle that defaults to `false`; a default-on check has no toggle, and
+its table sets only the keys its rule reference lists. The settings a check
+accepts are listed in its [rule reference](../RULES.md) section. For example:
 
 ```toml
 [tool.lanorme.prose]
