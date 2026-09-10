@@ -9,6 +9,8 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
 
 ## [Unreleased]
 
+## [0.20.0]
+
 ### Fixed
 
 - `.lanorme.toml` is now read as a config file. The docs had listed it as a
