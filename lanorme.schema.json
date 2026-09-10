@@ -10,7 +10,7 @@
       "items": {
         "type": "string"
       },
-      "description": "Run only these rule codes or categories. A category (`SEC`) covers every code in it; `ALL` selects everything."
+      "description": "Run only these rule codes or categories. A category is the part of a code before the dash: `CMT` covers every comment rule; `ALL` selects everything."
     },
     "ignore": {
       "type": "array",
@@ -71,6 +71,10 @@
         "type": "string"
       },
       "description": "Extra check modules to import so they self-register, beyond the built-ins and entry-point plugins."
+    },
+    "root": {
+      "type": "boolean",
+      "description": "In a nested config file, stop inheriting from the config files above it, so the subtree stands alone. See [per-directory config](#per-directory-config)."
     },
     "attribute_access": {
       "type": "object",

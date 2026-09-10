@@ -14,8 +14,10 @@
 #
 # Left alone, by design:
 #   - The architecture checks (layer_deps, port_coverage) have no `enabled`
-#     switch. They are inert until given a layout, which this profile does not
-#     carry; compose with `hexagonal`, `clean` or `layered` for that.
+#     switch. They always run, with a built-in layout (domain, application,
+#     infrastructure, api; ports under application/ports) that only bites on a
+#     tree using those names; compose with `hexagonal`, `clean` or `layered`
+#     to set the layout you use.
 #   - Rule-level switches inside default-on checks (comments em_dash / emoji,
 #     naming_consistency repo_crud / service_crud) are house-style and
 #     domain-language choices rather than severity, and stay as you set them.

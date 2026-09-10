@@ -11,8 +11,8 @@ Span is measured from where a name is first bound to where it is last
 referenced, inside one function. That is the window a reader must hold it in.
 
 Calibration (see ``evals/corpora/naming_scope/``). Short-name spans measured
-over LaNorme's own ``src/`` and the 3321 lines of generated code under
-``evals/``:
+over LaNorme's own ``src/`` and the 18 generated modules (about 10,000
+lines) under ``evals/``:
 
     src/                  p95 = 10, max = 18, nothing beyond 20
     generated code        p90 = 21, max = 53

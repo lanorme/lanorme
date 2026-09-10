@@ -20,7 +20,6 @@ import os
 import pkgutil
 import re
 import sys
-import tomllib
 from dataclasses import dataclass
 from importlib.metadata import entry_points
 from pathlib import Path
@@ -54,8 +53,10 @@ from lanorme.regions import (
     Region,
     child_exclude_globs,
     combine_results,
+    dedicated_config_file,
     discover_regions,
     is_tree_scoped,
+    read_toml,
     reanchor_results,
     restore_defaults,
     snapshot_defaults,
@@ -95,16 +96,13 @@ def _discover_config(*, start: Path) -> tuple[dict, Path, str | None]:
     start = start.resolve()
     search_dir = start if start.is_dir() else start.parent
     for directory in (search_dir, *search_dir.parents):
-        dedicated = directory / "lanorme.toml"
-        if dedicated.is_file():
-            with dedicated.open("rb") as fh:
-                return tomllib.load(fh), directory, str(dedicated)
+        dedicated = dedicated_config_file(directory)
+        if dedicated is not None:
+            return read_toml(dedicated), directory, str(dedicated)
 
         pyproject = directory / "pyproject.toml"
         if pyproject.is_file():
-            with pyproject.open("rb") as fh:
-                data = tomllib.load(fh)
-            tool_cfg = data.get("tool", {}).get("lanorme")
+            tool_cfg = read_toml(pyproject).get("tool", {}).get("lanorme")
             if tool_cfg is not None:
                 return tool_cfg, directory, f"{pyproject} [tool.lanorme]"
 

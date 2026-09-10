@@ -136,3 +136,24 @@ def _region_at(regions: list[Region], directory: Path) -> Region:
     """Return the resolved region whose directory matches *directory*."""
     target = directory.resolve()
     return next(region for region in regions if region.directory == target)
+
+
+def test_dotfile_config_is_a_region_and_the_plain_file_wins(tmp_path: Path):
+    # Arrange: a directory with only the hidden file, and one with both spellings.
+    from lanorme.regions import load_lanorme_config
+
+    hidden = tmp_path / "hidden"
+    hidden.mkdir()
+    (hidden / ".lanorme.toml").write_text("promote = ['ALL']\n", encoding="utf-8")
+    both = tmp_path / "both"
+    both.mkdir()
+    (both / ".lanorme.toml").write_text("promote = ['ALL']\n", encoding="utf-8")
+    (both / "lanorme.toml").write_text("promote = []\n", encoding="utf-8")
+
+    # Act
+    from_hidden = load_lanorme_config(hidden)
+    from_both = load_lanorme_config(both)
+
+    # Assert
+    assert from_hidden == {"promote": ["ALL"]}
+    assert from_both == {"promote": []}

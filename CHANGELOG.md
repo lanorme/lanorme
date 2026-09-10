@@ -9,6 +9,19 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
 
 ## [Unreleased]
 
+### Fixed
+
+- `.lanorme.toml` is now read as a config file. The docs had listed it as a
+  discovery step alongside `lanorme.toml`, but only the plain spelling was ever
+  looked up, so a hidden file was silently ignored. Both are tried in each
+  directory before `pyproject.toml`, the plain spelling first.
+- A config file that is not valid TOML now exits `2` with the file and the
+  parser's reason, like every other configuration error, instead of a
+  traceback with exit `1`. The same applies to a nested per-directory config.
+- `root = true`, the key that stops a nested config inheriting from the files
+  above it, is documented in the configuration reference and accepted by the
+  JSON schema, which rejected it as an unknown key.
+
 ## [0.19.0]
 
 ### Fixed

@@ -92,3 +92,29 @@ def test_a_valid_table_is_untouched(tmp_path: Path, capsys) -> None:
     # Assert
     assert code == 0
     assert "ERROR" not in capsys.readouterr().err
+
+
+def test_malformed_config_file_exits_two_and_names_the_file(tmp_path: Path, capsys) -> None:
+    # Arrange: a lanorme.toml the TOML parser rejects.
+    _project(tmp_path, "extends = [\n")
+
+    # Act
+    code = _run(tmp_path)
+
+    # Assert: a config error, reported like every other one, not a traceback.
+    assert code == 2
+    err = capsys.readouterr().err
+    assert "lanorme.toml is not valid TOML" in err
+
+
+def test_dotfile_config_is_discovered(tmp_path: Path, capsys) -> None:
+    # Arrange: the hidden spelling of the dedicated config file, and nothing else.
+    (tmp_path / ".lanorme.toml").write_text('select = ["CMT-001"]\n', encoding="utf-8")
+    (tmp_path / "sample.py").write_text("x = 1\n", encoding="utf-8")
+
+    # Act
+    main(["check", str(tmp_path), "--show-config"])
+
+    # Assert
+    out = capsys.readouterr().out
+    assert ".lanorme.toml" in out
