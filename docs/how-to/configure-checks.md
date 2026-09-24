@@ -36,7 +36,18 @@ categories are listed by `lanorme rules`; per-check settings live in the
     reference.
 
 Targets are rule codes (`EVAL-001`), categories (the part before the dash:
-`CMT`, `SECRETPY`), or `ALL`. `lanorme rules` lists every code.
+`CMT`, `SECRETPY`), or `ALL`. `lanorme rules` lists every code. A target that
+names no known code or category, in a flag, in `[tool.lanorme]` or in
+`per-file-ignores`, is a usage error: the run exits `2` and points you at
+`lanorme rules`.
+
+```console
+$ lanorme check src --select EVAL-01
+ERROR: 'select' names no known rule code or category: 'EVAL-01'.
+  Run 'lanorme rules' to list every code and category.
+$ echo $?
+2
+```
 
 ## Run only some checks
 
@@ -57,7 +68,8 @@ $ lanorme check src --select EVAL-001
     Fix: Use ast.literal_eval for trusted-shape parsing, or build a dispatch table
 --- security_calls: 1 violations, 0 warnings ---
 
-Summary: 30 checks — 29 passed, 0 warnings, 1 failed.
+Summary: 30 checks — 29 passed, 0 warned, 1 failed.
+Findings: 1 error to fix, 0 advisory warnings.
 ```
 
 A category selects every code under it: `--select CMT` runs every comment
@@ -112,7 +124,8 @@ $ lanorme check . --select EVAL-001
     Fix: Use ast.literal_eval for trusted-shape parsing, or build a dispatch table
 --- security_calls: 2 violations, 0 warnings ---
 
-Summary: 30 checks — 29 passed, 0 warnings, 1 failed.
+Summary: 30 checks — 29 passed, 0 warned, 1 failed.
+Findings: 2 errors to fix, 0 advisory warnings.
 
 $ lanorme check . --select EVAL-001 --exclude '**/migrations/*'
 [FAIL] security_calls
@@ -121,12 +134,23 @@ $ lanorme check . --select EVAL-001 --exclude '**/migrations/*'
     Fix: Use ast.literal_eval for trusted-shape parsing, or build a dispatch table
 --- security_calls: 1 violations, 0 warnings ---
 
-Summary: 30 checks — 29 passed, 0 warnings, 1 failed.
+Summary: 30 checks — 29 passed, 0 warned, 1 failed.
+Findings: 1 error to fix, 0 advisory warnings.
 ```
 
 Match the depth you have. To exclude a `migrations/` directory sitting at the
 project root, use `migrations/*`; the leading `**/` form needs a parent
 segment and will not match a top-level directory.
+
+Naming an excluded path on the command line does not override the glob. With
+`exclude = ["**/migrations/*"]` in config, asking for the excluded file checks
+nothing: the run reports a clean tree and a note on stderr says so.
+
+```console
+$ lanorme check src/pkg/migrations/m.py --select EVAL-001
+Note: every requested path matches an exclude glob, so nothing was checked. Pass --exclude with another glob to override the configured excludes for one run.
+All 30 checks passed.
+```
 
 ## Silence a rule for a path glob
 
@@ -146,7 +170,8 @@ $ lanorme check . --select PARAM-001
     Fix: Group related parameters into a dataclass or TypedDict
 --- file_limits: 1 violations, 0 warnings ---
 
-Summary: 30 checks — 29 passed, 0 warnings, 1 failed.
+Summary: 30 checks — 29 passed, 0 warned, 1 failed.
+Findings: 1 error to fix, 0 advisory warnings.
 ```
 
 The key is a glob; the value is a list of codes or categories suppressed for
@@ -232,14 +257,15 @@ $ lanorme check a.py --select EVAL-001
     Fix: Use ast.literal_eval for trusted-shape parsing, or build a dispatch table
 --- security_calls: 2 violations, 0 warnings ---
 
-Summary: 30 checks — 29 passed, 0 warnings, 1 failed.
+Summary: 30 checks — 29 passed, 0 warned, 1 failed.
+Findings: 2 errors to fix, 0 advisory warnings.
 ```
 
 ## Exit codes
 
-`lanorme check` exits `0` when clean, `1` when there are findings, and `2` on
-a usage or config error. This drives CI: a silenced finding leaves the run
-clean.
+`lanorme check` exits `0` when clean or when only warnings were found, `1`
+when there are violations, and `2` on a usage or config error. This drives
+CI: a silenced finding leaves the run clean.
 
 ```console
 $ lanorme check src --select EVAL-001   # no eval in src

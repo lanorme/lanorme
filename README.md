@@ -56,8 +56,9 @@ lanorme check . --output-format ndjson # one finding per line, for jq / grep
 lanorme rules                          # list every registered rule
 ```
 
-Exit code is `1` when any check fails, `0` when the tree is clean. By default a
-run reports only the checks that found something, then a summary line:
+The exit code is `0` when the tree is clean or only warnings were found, `1`
+when any check fails, and `2` on a usage or configuration error. By default a
+run reports only the checks that found something, then a summary:
 
 ```console
 $ lanorme check src/
@@ -67,7 +68,8 @@ $ lanorme check src/
     Fix: Read the value from an environment variable, secrets manager, or settings module
 --- secrets: 1 violations, 0 warnings ---
 
-Summary: 30 checks — 29 passed, 0 warnings, 1 failed.
+Summary: 30 checks — 29 passed, 0 warned, 1 failed.
+Findings: 1 error to fix, 0 advisory warnings.
 ```
 
 Every command, flag and output format is documented in the

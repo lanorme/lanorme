@@ -142,6 +142,7 @@ config file:  /path/to/project/pyproject.toml [tool.lanorme]
 project root: /path/to/project
 
 [tool.lanorme]
+  extends = ['strict', 'hexagonal']
   ignore = ['NAMING-003']
   promote = ['ALL']
 
@@ -156,6 +157,8 @@ checks (effective settings):
 
 Read it as the merge in action:
 
+- `extends` is echoed as written, so the block records where the rest came
+  from; `baseline` is echoed the same way when set.
 - `promote = ['ALL']` comes from `strict`.
 - `layer_deps` and `port_coverage` are configured by `hexagonal`.
 - `ignore` comes from the local table.

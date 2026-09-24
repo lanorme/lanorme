@@ -105,7 +105,7 @@ lanorme check .
 
 ```text
 [WARN] file_limits
-  VIOLATION: myapp/users.py:13 — Function 'process' has parameter count 6 (warn: 5)
+  WARNING: myapp/users.py:13 — Function 'process' has parameter count 6 (warn: 5)
     Rule: PARAM-001: Function approaching the parameter limit
     Fix: Consider grouping related parameters into a dataclass or TypedDict
 --- file_limits: 0 violations, 1 warnings ---
@@ -116,7 +116,8 @@ lanorme check .
     Fix: Delete it; version control remembers
 --- comments: 1 violations, 0 warnings ---
 
-Summary: 30 checks — 28 passed, 1 warnings, 1 failed.
+Summary: 30 checks — 28 passed, 1 warned, 1 failed.
+Findings: 1 error to fix, 1 advisory warning.
 ```
 
 The exit code is `1` because a violation was reported; the `PARAM-001`
@@ -177,7 +178,8 @@ lanorme check .
     Fix: Add a bare * separator: def foo(self, *, param1: str, param2: int)
 --- named_args: 1 violations, 0 warnings ---
 
-Summary: 30 checks — 26 passed, 0 warnings, 4 failed.
+Summary: 30 checks — 26 passed, 0 warned, 4 failed.
+Findings: 4 errors to fix, 0 advisory warnings.
 ```
 
 Four failures now. The `PARAM-001` warning has become an error, and two opt-in
@@ -285,7 +287,8 @@ lanorme check .
     Fix: Delete it; version control remembers
 --- comments: 1 violations, 0 warnings ---
 
-Summary: 30 checks — 29 passed, 0 warnings, 1 failed.
+Summary: 30 checks — 29 passed, 0 warned, 1 failed.
+Findings: 1 error to fix, 0 advisory warnings.
 ```
 
 Only the new finding in `myapp/orders.py` reports. The recorded debt in
@@ -332,7 +335,8 @@ lanorme check --no-baseline .
     Fix: Add a bare * separator: def foo(self, *, param1: str, param2: int)
 --- named_args: 1 violations, 0 warnings ---
 
-Summary: 30 checks — 26 passed, 0 warnings, 4 failed.
+Summary: 30 checks — 26 passed, 0 warned, 4 failed.
+Findings: 5 errors to fix, 0 advisory warnings.
 ```
 
 That is the full picture: the new finding plus the four recorded ones. It is

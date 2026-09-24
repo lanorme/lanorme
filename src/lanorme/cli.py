@@ -542,9 +542,10 @@ def _run_check_command(*, args: argparse.Namespace) -> None:
     apply_check_config(config=config)
 
     if args.show_config:
-        reporting.print_config(
-            config=config, source=config_source, project_root=project_root, extends=extends
-        )
+        with reporting.tolerate_closed_pipe():
+            reporting.print_config(
+                config=config, source=config_source, project_root=project_root, extends=extends
+            )
         return
 
     _run_and_report(

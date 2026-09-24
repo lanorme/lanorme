@@ -66,7 +66,8 @@ A check is any object with `name`, `description`, `rules`, and a `run` method.
 An optional `configure` method receives its `[tool.lanorme.<name>]` table.
 
 ```python
-from lanorme import CheckResult, Status, Violation, register
+from lanorme import CheckResult, Violation, register
+from lanorme.sources import parsed_modules
 
 
 class MyCheck:
@@ -76,9 +77,9 @@ class MyCheck:
 
     def run(self, *, src_root: str) -> CheckResult:
         violations: list[Violation] = []
-        # inspect files under src_root (use lanorme.discovery.iter_py_files)
-        status = Status.FAIL if violations else Status.PASS
-        return CheckResult(check=self.name, status=status, violations=violations)
+        for module in parsed_modules(src_root):
+            ...  # inspect module.tree, module.source, module.lines
+        return CheckResult.from_findings(check=self.name, violations=violations)
 
 
 register(MyCheck())
@@ -90,9 +91,15 @@ entry-point group or be named in `[tool.lanorme] plugins = [...]`.
 
 Conventions for a new rule:
 
-- **Scan files through `lanorme.discovery.iter_py_files` / `iter_files`,** not
-  `Path.rglob`, so the built-in directory pruning and the user's `exclude`
-  globs are honoured.
+- **Read Python sources through `lanorme.sources`** (`parsed_modules` for the
+  files that parse, `iter_modules` when the check reports the ones that do
+  not, with `unparseable_notice` building the `-000` notice) and other files
+  through `lanorme.discovery.iter_files`, never `Path.rglob`, so the built-in
+  directory pruning and the user's `exclude` globs are honoured. Each file is
+  read and parsed once per run and the tree is shared by every check, so never
+  mutate one; copy first.
+- **Build the result with `CheckResult.from_findings`,** which derives the
+  status from the finding lists.
 - **One category prefix per check.** Rule codes (`SQL-001`, `LAYER-005`) are the
   public surface: people put them in `select` / `ignore` / `per-file-ignores`.
   Treat them as stable. Renaming or removing one is a breaking change.

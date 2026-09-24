@@ -25,7 +25,7 @@ findings that fail the build) and `warnings` (advisories that report but keep th
 exit code at `0`).
 
 ```python
-from lanorme import CheckResult, Status, Violation
+from lanorme import CheckResult, Violation
 
 
 class MyCheck:
@@ -36,9 +36,12 @@ class MyCheck:
     def run(self, *, src_root: str) -> CheckResult:
         violations: list[Violation] = []
         # inspect files under src_root
-        status = Status.FAIL if violations else Status.PASS
-        return CheckResult(check=self.name, status=status, violations=violations)
+        return CheckResult.from_findings(check=self.name, violations=violations)
 ```
+
+`CheckResult.from_findings(check=, violations=, warnings=)` derives the status
+from the two lists: any violation is `FAIL`, otherwise any warning is `WARN`,
+otherwise `PASS`. Both lists default to empty.
 
 A `Violation` records where and what:
 
@@ -71,25 +74,56 @@ A check that reads configuration may also implement `configure(self, *,
 settings)`, which receives its `[tool.lanorme.<name>]` table before the run. See
 [Configuring a check](#configuring-a-check) below.
 
-## Scan files through discovery
+## Read sources through `lanorme.sources`
 
-Iterate files with `lanorme.discovery.iter_py_files` (or `iter_files` for other
-suffixes), never `Path.rglob`. The discovery helpers prune the built-in
-never-source directories (`.venv`, `node_modules`, `__pycache__`, `dist`,
-`build`, and the rest) and honour the user's `exclude` globs at walk time, so an
-excluded subtree is never read. A raw `Path.rglob` would walk into a virtualenv
-and report findings the user asked to exclude.
+Read Python files through `lanorme.sources`, never `Path.rglob`. The module
+walks the tree with the same pruning as discovery (the built-in never-source
+directories such as `.venv`, `node_modules`, `__pycache__`, `dist` and
+`build`, plus the user's `exclude` globs, so an excluded subtree is never
+read), decodes each file the way the interpreter does (a UTF-8 BOM and a
+`coding:` cookie are honoured) and parses it once per run. Every check then
+receives the same `Module`, so a run costs one parse per file rather than one
+per check.
 
 ```python
-from pathlib import Path
+from lanorme.sources import parsed_modules
 
-from lanorme.discovery import iter_py_files
-
-for path in iter_py_files(Path(src_root)):
-    ...  # path is a Path to a *.py file under src_root
+for module in parsed_modules(src_root):
+    module.path      # Path to the *.py file
+    module.relative  # its path relative to src_root, posix style
+    module.source    # the decoded text
+    module.lines     # the text split into lines
+    module.tree      # the parsed ast.Module
 ```
 
-`iter_files(root, suffix=".md")` does the same for any suffix.
+`parsed_modules(root)` yields only the files that parse. `iter_modules(root)`
+yields those same `Module` objects and, for a file the parser rejects,
+overflows on, or cannot read, an `Unparseable` (`path`, `relative`, `reason`)
+so the check can decide what to do. A check that reports such files emits the
+advisory `<PREFIX>-000` notice through `unparseable_notice`:
+
+```python
+from lanorme.sources import Module, iter_modules, unparseable_notice
+
+for item in iter_modules(src_root):
+    if isinstance(item, Module):
+        ...  # analyse item.tree
+    else:
+        warnings.append(unparseable_notice(prefix="MYCODE", failure=item))
+```
+
+The notice's rule is `MYCODE-000: <reason>`, with the reason one of `parse
+error`, `too deeply nested` or `unreadable`. A `-000` code is a notice, not a
+finding: promotion never escalates it and the baseline never records it.
+`skip_notice(prefix=, file=, name=, reason=)` builds the same notice for a
+file the check skips on its own.
+
+Trees are shared with every other check in the run, so a check must never
+mutate one. Copy the tree first, or collect what you need without changing
+nodes.
+
+For files that are not Python, `lanorme.discovery.iter_files(root,
+suffix=".md")` walks the tree with the same pruning and yields paths.
 
 ## Conventions
 
@@ -104,8 +138,9 @@ rules apply whether the check ships inside LaNorme or as your plugin.
   exit code at `0`. Opinionated or stylistic rules belong in `warnings`, so a
   user can promote them to errors when they choose (see
   [`promote`](../reference/configuration.md#promote)).
-- **Set the status to match.** Return `Status.FAIL` when `violations` is
-  non-empty, `Status.WARN` when only `warnings` is, otherwise `Status.PASS`.
+- **Build the result with `CheckResult.from_findings`.** It sets the status
+  from the finding lists, so the header LaNorme prints (`[FAIL]`, `[WARN]`,
+  `[PASS]`) always agrees with the findings.
 - **Cross-file checks declare `scope = "tree"`.** If a finding depends on
   comparing or aggregating across files, set the class attribute `scope =
   "tree"`. The default `"file"` scope lets a check run once per config region
@@ -130,10 +165,8 @@ here as the example because it is the smallest complete check.
 # house_rules.py
 from __future__ import annotations
 
-from pathlib import Path
-
-from lanorme import CheckResult, Status, Violation, register
-from lanorme.discovery import iter_py_files
+from lanorme import CheckResult, Violation, register
+from lanorme.sources import parsed_modules
 
 
 class NoUtilsModule:
@@ -143,19 +176,18 @@ class NoUtilsModule:
 
     def run(self, *, src_root: str) -> CheckResult:
         violations: list[Violation] = []
-        for path in iter_py_files(Path(src_root)):
-            if path.name == "utils.py":
+        for module in parsed_modules(src_root):
+            if module.path.name == "utils.py":
                 violations.append(
                     Violation(
-                        file=str(path.relative_to(src_root)),
+                        file=module.relative,
                         line=0,
                         rule=self.rules[0],
                         message="Module named 'utils.py' has no clear responsibility",
                         fix="Rename it after what it actually does",
                     )
                 )
-        status = Status.FAIL if violations else Status.PASS
-        return CheckResult(check=self.name, status=status, violations=violations)
+        return CheckResult.from_findings(check=self.name, violations=violations)
 
 
 register(NoUtilsModule())
@@ -167,10 +199,13 @@ With `house_rules.py` importable (on `sys.path` or installed), load it with
 ```console
 $ lanorme check src/ --plugin house_rules --check no_utils_module
 [FAIL] no_utils_module
-  VIOLATION: utils.py:0 - Module named 'utils.py' has no clear responsibility
+  VIOLATION: utils.py:0 — Module named 'utils.py' has no clear responsibility
     Rule: HOUSE-001: Module must not be named 'utils.py'
     Fix: Rename it after what it actually does
 --- no_utils_module: 1 violations, 0 warnings ---
+
+Summary: 1 checks — 0 passed, 0 warned, 1 failed.
+Findings: 1 error to fix, 0 advisory warnings.
 ```
 
 The exit code is `1`. Rename or remove the file and the run is clean:
@@ -188,15 +223,14 @@ The exit code is `0`.
 
 ### Make it an advisory
 
-To report without failing the build, put findings in `warnings` and return
-`Status.WARN`:
+To report without failing the build, put findings in `warnings`:
 
 ```python
-        status = Status.WARN if warnings else Status.PASS
-        return CheckResult(check=self.name, status=status, warnings=warnings)
+        return CheckResult.from_findings(check=self.name, warnings=warnings)
 ```
 
-The run then exits `0` and the check shows as `[WARN]`. A user who wants it to
+The run then exits `0`, the check shows as `[WARN]` and each finding is
+labelled `WARNING:` rather than `VIOLATION:`. A user who wants it to
 fail the build can escalate the code with
 [`promote`](../reference/configuration.md#promote):
 
@@ -288,8 +322,9 @@ enabled = true
 extensions = [".zip", ".tmp"]
 ```
 
-An opt-in check defaults `enabled` to `false` and returns `Status.PASS` with no
-findings until the table sets `enabled = true`. That keeps a broad or opinionated
+An opt-in check defaults `enabled` to `false` and returns an empty result
+(`CheckResult.from_findings(check=self.name)`) until the table sets
+`enabled = true`. That keeps a broad or opinionated
 rule inert on a project that has not asked for it.
 
 ## Verify it is loaded

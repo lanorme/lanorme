@@ -68,12 +68,13 @@ Without promotion, `TYPE-004` reports as a warning and the run still passes:
 ```console
 $ lanorme check orders.py --select TYPE-004
 [WARN] strong_types
-  VIOLATION: orders.py:1 — 'total_price' has annotated parameters and returns a value but no return annotation. Declare the return type so the signature is complete.
+  WARNING: orders.py:1 — 'total_price' has annotated parameters and returns a value but no return annotation. Declare the return type so the signature is complete.
     Rule: TYPE-004
     Fix: Add a return annotation (for example '-> ResultType') to the signature
 --- strong_types: 0 violations, 1 warnings ---
 
-Summary: 30 checks — 29 passed, 1 warnings, 0 failed.
+Summary: 30 checks — 29 passed, 1 warned, 0 failed.
+Findings: 0 errors to fix, 1 advisory warning.
 $ echo $?
 0
 ```
@@ -88,7 +89,8 @@ $ lanorme check orders.py --select TYPE-004 --promote TYPE-004
     Fix: Add a return annotation (for example '-> ResultType') to the signature
 --- strong_types: 1 violations, 0 warnings ---
 
-Summary: 30 checks — 29 passed, 0 warnings, 1 failed.
+Summary: 30 checks — 29 passed, 0 warned, 1 failed.
+Findings: 1 error to fix, 0 advisory warnings.
 $ echo $?
 1
 ```
@@ -137,20 +139,29 @@ $ echo $?
 ## Skip notices are never promoted
 
 A `-000` code (for example `TYPE-000`, `DRY-000`, `LAYER-000`) is a
-skip or parse-error notice, not a finding. It means "could not analyse this
-file, skipping", typically because of a syntax error. These notices stay
-warnings even under `promote = ["ALL"]`, so promotion never fails a build on
-a non-issue.
+skip notice, not a finding. It means "could not analyse this file,
+skipping", for one of three reasons named in the rule string:
 
-Running a check over a file with a syntax error, with `--promote ALL`:
+- `parse error`: the file has a syntax error, or the decoder rejected it.
+  Files are decoded the way the interpreter decodes them, so a UTF-8 BOM and
+  a `coding:` cookie are honoured.
+- `too deeply nested`: the parser overflowed on the file.
+- `unreadable`: the file could not be read.
+
+These notices stay warnings even under `promote = ["ALL"]`, so promotion
+never fails a build on a non-issue.
+
+Running a check over a file with a syntax error, with `--promote ALL`
+(the `full` format prints no summary):
 
 ```console
 $ lanorme check broken.py --check strong_types --promote ALL --output-format full
 [WARN] strong_types
-  VIOLATION: broken.py:0 — Could not parse broken.py — skipping
+  WARNING: broken.py:0 — Could not parse broken.py — skipping
     Rule: TYPE-000: parse error
     Fix: Fix the syntax error first
 --- strong_types: 0 violations, 1 warnings ---
+
 $ echo $?
 0
 ```

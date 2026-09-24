@@ -70,7 +70,8 @@ baseline = "lanorme-baseline.json"
 ```
 
 CLI flags override the matching config key for that run. `--show-config`
-prints the discovered source and the effective per-check settings.
+prints the discovered source, the `[tool.lanorme]` keys in force (including
+`extends` and `baseline`) and the effective per-check settings.
 
 ## check
 
@@ -100,7 +101,7 @@ lanorme check [-h] [--check SINGLE] [--select SELECT] [--ignore IGNORE]
 | `--ignore IGNORE` | Comma-separated rule codes or categories to skip. Overrides config `ignore`. |
 | `--exclude EXCLUDE` | Comma-separated file-path globs to exclude. Overrides config `exclude`. |
 | `--promote PROMOTE` | Comma-separated rule codes or categories whose warnings become build-failing errors, or `ALL`. Overrides config `promote`. |
-| `--show-config` | Print the discovered config and effective per-check settings, then exit. |
+| `--show-config` | Print the discovered config (its `[tool.lanorme]` keys, including `extends` and `baseline`) and effective per-check settings, then exit. |
 | `--plugin PLUGIN` | Plugin module to load. Repeatable. Adds to config `plugins`. |
 | `--output-format {concise,full,json,ndjson,github}` | Output format. Default: `concise`. See [output formats](#output-formats). |
 | `--json` | Alias for `--output-format=json`. |
@@ -108,15 +109,39 @@ lanorme check [-h] [--check SINGLE] [--select SELECT] [--ignore IGNORE]
 
 For `--select`, `--ignore` and `--promote`, a category name (the part of a code
 before the dash, such as `CMT`) covers every code in it and `ALL` covers every
-code. `--check` takes a single check name, rule code or category, runs it at
-the root config without per-directory cascading, and ignores `--select`. The
-selection, ignore, exclude and promote keys are documented in the
+code. `--check` takes a single check name, rule code or category and ignores
+`--select`; it honours cascading per-directory config exactly like a full run.
+The selection, ignore, exclude and promote keys are documented in the
 [configuration reference](configuration.md); a CLI flag wins over its config
 key for that run.
 
+Every selector is validated. `--select`, `--ignore` and `--promote`, their
+config counterparts and the codes in `per-file-ignores` accept `ALL`, a rule
+code, a category, a category's `-000` notice code (`TYPE-000`), and any code
+in a family whose check declares a `CAT-NNN` placeholder (`TERM-042`). A
+selector that names no known rule code or category is a usage error: the run
+exits `2` with a message on stderr, and `lanorme rules` lists every code and
+category.
+
+```console
+$ lanorme check --select NOPE .
+ERROR: 'select' names no known rule code or category: 'NOPE'.
+  Run 'lanorme rules' to list every code and category.
+$ echo $?
+2
+```
+
 `paths` may mix files and directories. The scan walks their common ancestor,
 so checks that compare files still see the siblings, and the report is then
-narrowed to the named targets.
+narrowed to the named targets. When every requested path falls under an
+`exclude` glob, nothing is checked: the run reports a clean tree and prints a
+note on stderr saying so, with a hint to pass `--exclude` to override the
+configured globs for one run.
+
+Source files are decoded the way the interpreter decodes them, so a UTF-8 BOM
+and a `coding:` cookie are honoured. A file the parser rejects, overflows on,
+or cannot read is skipped by every check with a `<PREFIX>-000` notice from
+those that report one; see [skip notices](../how-to/promote-warnings.md#skip-notices-are-never-promoted).
 
 ### Promotion
 
@@ -127,12 +152,13 @@ warnings turns them into violations and the run exits `1`.
 ```console
 $ lanorme check --check SIZE-003 .
 [WARN] file_limits
-  VIOLATION: big.py:1 — Class 'C' has 11 methods (warn: 10)
+  WARNING: big.py:1 — Class 'C' has 11 methods (warn: 10)
     Rule: SIZE-003: Class has too many methods
     Fix: Consider decomposing into smaller, focused classes
 --- file_limits: 0 violations, 1 warnings ---
 
-Summary: 1 checks — 0 passed, 1 warnings, 0 failed.
+Summary: 1 checks — 0 passed, 1 warned, 0 failed.
+Findings: 0 errors to fix, 1 advisory warning.
 $ echo $?
 0
 ```
@@ -145,7 +171,8 @@ $ lanorme check --check SIZE-003 --promote ALL .
     Fix: Consider decomposing into smaller, focused classes
 --- file_limits: 1 violations, 0 warnings ---
 
-Summary: 1 checks — 0 passed, 0 warnings, 1 failed.
+Summary: 1 checks — 0 passed, 0 warned, 1 failed.
+Findings: 1 error to fix, 0 advisory warnings.
 $ echo $?
 1
 ```
@@ -241,8 +268,9 @@ lanorme rules [-h]
 
 Output groups every rule code under its check, with checks sorted by name.
 Opt-in checks appear in the list but emit nothing until enabled. The `-000`
-notices a check can emit when it skips a file (`TYPE-000: parse error`) and
-the `RUN-000` notice for a check that raised are not rules and are not listed.
+notices a check can emit when it skips a file (`TYPE-000: parse error`,
+`TYPE-000: too deeply nested`, `TYPE-000: unreadable`) and the `RUN-000`
+notice for a check that raised are not rules and are not listed.
 
 ```console
 $ lanorme rules
@@ -298,13 +326,20 @@ No reference section found for 'NOPE-999'. Run 'lanorme rules' for the list of e
 
 | Format | Shape |
 | --- | --- |
-| `concise` | Default. Only checks with findings, plus a one-line summary. |
-| `full` | Every check, including those that passed, with no summary line. |
+| `concise` | Default. Only checks with findings, plus a `Summary:` line counting checks by status and a `Findings:` line counting errors and advisory warnings. |
+| `full` | Every check, including those that passed, with no summary. |
 | `json` | One JSON object per check (a single array). `--json` is the alias. |
 | `ndjson` | One finding per line, as JSON. |
 | `github` | GitHub Actions workflow commands: `::error` for a violation, `::warning` for an advisory. Auto-selected when `GITHUB_ACTIONS=true`. |
 
-`concise` reports only checks with findings and ends with a summary:
+In the `concise` and `full` formats an error is labelled `VIOLATION:` and an
+advisory `WARNING:`. Under a `[WARN]` header every finding is a warning; under
+a `[FAIL]` header the labels, and the check's footer
+(`--- name: N violations, M warnings ---`), tell the two apart.
+
+`concise` reports only checks with findings and ends with a summary. The
+`Summary:` line counts checks by status and the `Findings:` line counts the
+errors to fix and the advisory warnings across them:
 
 ```console
 $ lanorme check bad.py
@@ -314,7 +349,8 @@ $ lanorme check bad.py
     Fix: Delete it; version control remembers
 --- comments: 1 violations, 0 warnings ---
 
-Summary: 30 checks — 29 passed, 0 warnings, 1 failed.
+Summary: 30 checks — 29 passed, 0 warned, 1 failed.
+Findings: 1 error to fix, 0 advisory warnings.
 ```
 
 `json` emits one object per check, with `violations` and `warnings` arrays:
@@ -345,6 +381,10 @@ $ lanorme check --output-format ndjson bad.py
 {"check": "comments", "severity": "error", "file": "bad.py", "line": 2, "code": "CMT-001", "rule": "CMT-001", "message": "Commented-out code: x = 2", "fix": "Delete it; version control remembers"}
 ```
 
+Piping any format into a reader that stops early, such as `| head` or a `jq`
+filter that exits after its first match, ends the run quietly with the normal
+exit code.
+
 `github` emits workflow commands that annotate the diff in a GitHub Actions
 run. It is selected automatically when `GITHUB_ACTIONS=true`:
 
@@ -357,12 +397,14 @@ $ lanorme check --output-format github bad.py
 
 | Code | Meaning |
 | --- | --- |
-| `0` | Clean run. No violations (warnings alone, or a baseline-suppressed run, still exit `0`). |
+| `0` | Clean run, or warnings only. No violations (warnings alone, or a baseline-suppressed run, still exit `0`). |
 | `1` | Violations found. |
 | `2` | Usage or configuration error. |
 
 Exit `2` covers no subcommand at all, an unknown subcommand, an invalid flag
 value (such as a bad `--output-format` choice or an unknown `--check` name), a
+selector in `--select`, `--ignore`, `--promote`, their config keys or
+`per-file-ignores` that names no known rule code or category, a
 nonexistent scan path, a `baseline` write or status given file targets, a
 configured baseline file that does not exist, a config file that is not valid
 TOML, an invalid per-check value, an unknown profile, and `lanorme rule <CODE>`
