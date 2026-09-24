@@ -25,7 +25,7 @@ from __future__ import annotations
 
 import enum
 from collections.abc import Callable, Iterable
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Protocol, runtime_checkable
 
 __version__ = "0.20.0"
@@ -41,23 +41,37 @@ class Status(enum.Enum):
 
 @dataclass(frozen=True)
 class Violation:
-    """A single rule violation found by a check."""
+    """A single rule violation found by a check.
+
+    ``rule`` is the code alone (``DRY-001``) or the declared rule string
+    (``DRY-001: description``); the runner expands a bare code to the string
+    the check declares in ``rules``, so every output carries the description.
+    ``line`` is 1-based and ``0`` or ``1`` for a finding about the whole file.
+    The span fields are optional: ``column`` and ``end_column`` are 0-based
+    like ``ast``'s offsets, ``end_line`` is 1-based and inclusive.
+    """
 
     file: str
     line: int
     rule: str
     message: str
     fix: str
+    column: int | None = None
+    end_line: int | None = None
+    end_column: int | None = None
 
     @property
     def code(self) -> str:
         """The rule code (e.g. ``DRY-001``) parsed from the rule string."""
         return rule_code(self.rule)
 
-    def to_dict(self) -> dict[str, str | int]:
+    def to_dict(self) -> dict[str, str | int | None]:
         return {
             "file": self.file,
             "line": self.line,
+            "column": self.column,
+            "end_line": self.end_line,
+            "end_column": self.end_column,
             "code": self.code,
             "rule": self.rule,
             "message": self.message,
@@ -115,7 +129,7 @@ class CheckResult:
             warnings=[w for w in self.warnings if keep(w)],
         )
 
-    def to_dict(self) -> dict[str, str | list[dict[str, str | int]]]:
+    def to_dict(self) -> dict[str, str | list[dict[str, str | int | None]]]:
         return {
             "check": self.check,
             "status": self.status.value,
@@ -212,6 +226,30 @@ def _crash_notice(*, check: Check, exc: BaseException) -> CheckResult:
     )
 
 
+def expand_rules(*, check: Check, result: CheckResult) -> CheckResult:
+    """Replace each bare rule code in *result* with the string *check* declares.
+
+    A check may emit ``rule="SHELL-001"`` and leave the description to its
+    ``rules`` list, so the description is spelled once. Every consumer (the
+    human report, ndjson, the baseline's anchor for a file-level finding) then
+    sees ``SHELL-001: ...``. A rule string that already carries a description,
+    or a code the check does not declare, is left as it is.
+    """
+    declared = {rule_code(rule): rule for rule in getattr(check, "rules", []) if ":" in rule}
+
+    def expand(finding: Violation) -> Violation:
+        if ":" in finding.rule or finding.rule not in declared:
+            return finding
+        return replace(finding, rule=declared[finding.rule])
+
+    return CheckResult(
+        check=result.check,
+        status=result.status,
+        violations=[expand(v) for v in result.violations],
+        warnings=[expand(w) for w in result.warnings],
+    )
+
+
 def run_check(check: Check, *, src_root: str) -> CheckResult:
     """Run one check, isolating any exception so it cannot abort the whole run.
 
@@ -220,7 +258,7 @@ def run_check(check: Check, *, src_root: str) -> CheckResult:
     warning on that check and the run continues.
     """
     try:
-        return check.run(src_root=src_root)
+        return expand_rules(check=check, result=check.run(src_root=src_root))
     except Exception as exc:  # noqa: BLE001 - one check must not sink the run
         return _crash_notice(check=check, exc=exc)
 
@@ -228,7 +266,7 @@ def run_check(check: Check, *, src_root: str) -> CheckResult:
 def run_audit(check: ResultAuditor, *, results: dict[str, CheckResult]) -> CheckResult:
     """Run one result auditor with the same isolation as :func:`run_check`."""
     try:
-        return check.audit(results=results)
+        return expand_rules(check=check, result=check.audit(results=results))
     except Exception as exc:  # noqa: BLE001 - one check must not sink the run
         return _crash_notice(check=check, exc=exc)
 

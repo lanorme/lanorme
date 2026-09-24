@@ -345,3 +345,45 @@ def test_custom_layer_violation_is_layer_007_with_allowed_list_in_fix(tmp_path: 
 def test_violation_code_survives_an_empty_rule_string():
     # Arrange / Act / Assert: no IndexError from a plugin that left the rule blank.
     assert Violation(file="f", line=1, rule="", message="m", fix="x").code == ""
+
+
+# --------------------------------------------------------------------------- #
+# a bare rule code is expanded to the declared rule string; spans travel through
+# --------------------------------------------------------------------------- #
+
+
+def test_bare_rule_code_is_expanded_to_the_declared_string(tmp_path: Path):
+    # Arrange: a check that emits the code alone and declares the description once.
+    @dataclass
+    class _Terse(_Counting):
+        rules: list[str] = field(default_factory=lambda: ["TERSE-001: Say it once", "TERSE-002"])
+
+        def run(self, *, src_root: str) -> CheckResult:
+            finding = Violation(file="f.py", line=3, rule="TERSE-001", message="m", fix="x")
+            undeclared = Violation(file="f.py", line=4, rule="TERSE-002", message="m", fix="x")
+            return CheckResult.from_findings(check=self.name, violations=[finding, undeclared])
+
+    # Act.
+    result = lanorme.run_check(_Terse(name="terse"), src_root=str(tmp_path))
+
+    # Assert: the declared string where one exists, the code untouched otherwise.
+    assert [v.rule for v in result.violations] == ["TERSE-001: Say it once", "TERSE-002"]
+    assert result.violations[0].code == "TERSE-001"
+
+
+def test_spans_reach_ndjson_and_github_annotations(tmp_path: Path, capsys):
+    # Arrange: a function at the PARAM-001 limit, a finding anchored at its def node.
+    _project(tmp_path)
+    (tmp_path / "wide.py").write_text(
+        "def f(a, b, c, d, e, f, g, h):\n    return a\n", encoding="utf-8"
+    )
+
+    # Act.
+    _run(["check", str(tmp_path), "--check", "PARAM-001", "--output-format", "ndjson"])
+    (record,) = [json.loads(line) for line in capsys.readouterr().out.splitlines()]
+    _run(["check", str(tmp_path), "--check", "PARAM-001", "--output-format", "github"])
+    annotation = capsys.readouterr().out.strip()
+
+    # Assert: 0-based column and inclusive end line in ndjson, 1-based col in the annotation.
+    assert (record["line"], record["column"], record["end_line"]) == (1, 0, 2)
+    assert annotation.startswith("::error file=wide.py,line=1,endLine=2,col=1,endColumn=")

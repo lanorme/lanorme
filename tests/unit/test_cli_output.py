@@ -130,7 +130,10 @@ def test_ndjson_emits_one_record_per_finding_with_all_fields(tmp_py_file, capsys
     assert code == 1
     lines = [line for line in out.splitlines() if line.strip()]
     assert len(lines) >= 3
-    expected = {"check", "severity", "code", "rule", "file", "line", "message", "fix"}
+    expected = {
+        "check", "severity", "code", "rule", "file", "line", "column", "end_line", "end_column",
+        "message", "fix",
+    }
     codes: set[str] = set()
     for line in lines:
         record = json.loads(line)

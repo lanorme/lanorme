@@ -18,7 +18,7 @@ from collections.abc import Iterator
 from importlib.resources import files as _resource_files
 from pathlib import Path
 
-from lanorme import CheckResult, Status, get_all_checks
+from lanorme import CheckResult, Status, Violation, get_all_checks
 
 
 @contextlib.contextmanager
@@ -116,9 +116,22 @@ def _emit_github(*, results: list[CheckResult]) -> None:
     """
     for result in results:
         for v in result.violations:
-            print(f"::error file={v.file},line={v.line},title={v.code}::{_gh_escape(v.message)}")
+            print(f"::error {_gh_location(v)},title={v.code}::{_gh_escape(v.message)}")
         for w in result.warnings:
-            print(f"::warning file={w.file},line={w.line},title={w.code}::{_gh_escape(w.message)}")
+            print(f"::warning {_gh_location(w)},title={w.code}::{_gh_escape(w.message)}")
+
+
+def _gh_location(finding: Violation) -> str:
+    """The annotation's location properties, with the span when the check knows it."""
+    parts = [f"file={finding.file}", f"line={finding.line}"]
+    if finding.end_line is not None:
+        parts.append(f"endLine={finding.end_line}")
+    if finding.column is not None:
+        # Workflow-command columns are 1-based; ours follow ``ast`` (0-based).
+        parts.append(f"col={finding.column + 1}")
+    if finding.end_column is not None:
+        parts.append(f"endColumn={finding.end_column + 1}")
+    return ",".join(parts)
 
 
 def resolve_output_format(*, explicit: str | None, as_json: bool) -> str:
