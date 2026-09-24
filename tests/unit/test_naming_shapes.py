@@ -12,7 +12,7 @@ import pytest
 
 from lanorme.checks.naming_shapes import (
     Definition,
-    decorator_leaves,
+    resolve_decorator_leaves,
     has_opaque_decorator,
     is_command,
     is_exempt,
@@ -113,7 +113,7 @@ def test_is_raiser_looks_at_the_last_statement() -> None:
 
 def test_decorator_leaves_resolve_calls_attributes_and_subscripts() -> None:
     node = _function('@app.route("/")\n@x.setter\n@property\n@deco[0]\n@(lambda f: f)\ndef f():\n    pass\n')
-    assert decorator_leaves(node=node) == {"route", "setter", "property", "deco", ""}
+    assert resolve_decorator_leaves(node=node) == {"route", "setter", "property", "deco", ""}
 
 
 @pytest.mark.parametrize("decorator", ["@abc.abstractmethod", "@typing.override", "@staticmethod"])

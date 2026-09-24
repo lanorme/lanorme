@@ -24,8 +24,8 @@ from pathlib import Path
 from typing import ClassVar
 
 from lanorme import CheckResult, Violation, register
-from lanorme.checkconfig import str_setting
-from lanorme.sources import TOO_DEEP, Module, parsed_modules, skip_notice, span
+from lanorme.checkconfig import read_str
+from lanorme.sources import TOO_DEEP, Module, iter_parsed_modules, build_skip_notice, locate
 
 # HTTP methods that mutate data, these MUST have auth.
 MUTATION_METHODS = {"post", "put", "patch", "delete"}
@@ -129,7 +129,7 @@ def _check_auth_on_mutations(*, module: Module) -> list[Violation]:
                         "Add a parameter like: "
                         "current_user: Annotated[AuthenticatedUser, Depends(get_current_user)]"
                     ),
-                    **span(node),
+                    **locate(node),
                 )
             )
 
@@ -146,10 +146,10 @@ def _is_text_constructor(node: ast.expr) -> bool:
     )
 
 
-def _literal_node(node: ast.expr) -> ast.expr | None:
+def _find_literal_node(node: ast.expr) -> ast.expr | None:
     """Return the SQL-bearing literal at *node* (``text(...)`` unwrapped), or ``None``.
 
-    Knows the literal shapes of :func:`_sql_string_from`: constants, f-strings,
+    Knows the literal shapes of :func:`_extract_sql_string`: constants, f-strings,
     BinOps and ``.format(...)`` calls. A ``Name`` has no literal of its own, so
     it resolves to ``None`` and the caller looks it up in its constants.
     """
@@ -157,24 +157,24 @@ def _literal_node(node: ast.expr) -> ast.expr | None:
         return node
     if isinstance(node, ast.Call):
         if _is_text_constructor(node) and node.args:
-            return _literal_node(node.args[0])
+            return _find_literal_node(node.args[0])
         if isinstance(node.func, ast.Attribute) and node.func.attr == "format":
             return node
     return None
 
 
-def _literal_lineno(
+def _find_literal_lineno(
     node: ast.expr, *, constants: dict[str, "_SqlConst"] | None = None
 ) -> int | None:
     """Return the source line of the SQL-bearing literal at *node*, or ``None``.
 
-    Knows the same shapes as :func:`_sql_string_from`: literals, f-strings,
+    Knows the same shapes as :func:`_extract_sql_string`: literals, f-strings,
     BinOps, ``.format(...)`` calls, ``text(...)`` wrappers, and ``Name``
     references resolved via *constants*. For a ``Name`` whose binding lives
     elsewhere, we point at the assignment line in *constants*; otherwise we
     return ``None`` so the caller falls back to the call site.
     """
-    literal = _literal_node(node)
+    literal = _find_literal_node(node)
     if literal is not None:
         return literal.lineno
     while isinstance(node, ast.Call) and _is_text_constructor(node) and node.args:
@@ -190,13 +190,13 @@ def _sql_from_binop(
 ) -> tuple[str | None, bool]:
     """Resolve ``"..." + x`` and ``"..." % x`` SQL-bearing BinOps."""
     if isinstance(node.op, ast.Add):
-        left_text, _ = _sql_string_from(node.left, constants=constants)
-        right_text, _ = _sql_string_from(node.right, constants=constants)
+        left_text, _ = _extract_sql_string(node.left, constants=constants)
+        right_text, _ = _extract_sql_string(node.right, constants=constants)
         if left_text is None and right_text is None:
             return None, False
         return (left_text or "") + (right_text or ""), True
     if isinstance(node.op, ast.Mod):
-        left_text, _ = _sql_string_from(node.left, constants=constants)
+        left_text, _ = _extract_sql_string(node.left, constants=constants)
         if left_text is not None:
             return left_text, True
     return None, False
@@ -207,15 +207,15 @@ def _sql_from_call(
 ) -> tuple[str | None, bool]:
     """Resolve ``text(...)`` wrappers and ``"...".format(...)`` SQL-bearing calls."""
     if _is_text_constructor(node) and node.args:
-        return _sql_string_from(node.args[0], constants=constants)
+        return _extract_sql_string(node.args[0], constants=constants)
     if isinstance(node.func, ast.Attribute) and node.func.attr == "format":
-        base_text, _ = _sql_string_from(node.func.value, constants=constants)
+        base_text, _ = _extract_sql_string(node.func.value, constants=constants)
         if base_text is not None:
             return base_text, True
     return None, False
 
 
-def _sql_string_from(
+def _extract_sql_string(
     node: ast.expr, *, constants: dict[str, "_SqlConst"] | None = None
 ) -> tuple[str | None, bool]:
     """Return ``(text, interpolated)`` for an SQL-argument AST node, or ``(None, False)``.
@@ -270,19 +270,19 @@ def _collect_string_constants(*, module: Module) -> dict[str, _SqlConst]:
     acceptable since we only need *some* SQL string to flag the call.
     """
     constants: dict[str, _SqlConst] = {}
-    for node in module.index.nodes(ast.Assign):
+    for node in module.index.collect(ast.Assign):
         if len(node.targets) != 1:
             continue
         target = node.targets[0]
         if not isinstance(target, ast.Name):
             continue
-        text, interp = _sql_string_from(node.value)
+        text, interp = _extract_sql_string(node.value)
         if text is not None:
             constants[target.id] = _SqlConst(text=text, interpolated=interp, lineno=node.lineno)
     return constants
 
 
-def _receiver_looks_non_db(call: ast.Call) -> bool:
+def _is_non_db_receiver(call: ast.Call) -> bool:
     """True if ``call.func.value`` is named like an HTTP / shell / job runner."""
     if not isinstance(call.func, ast.Attribute):
         return False
@@ -297,11 +297,11 @@ def _receiver_looks_non_db(call: ast.Call) -> bool:
     return any(hint in name for hint in _NON_DB_RECEIVER_HINTS)
 
 
-def _sink_kind(call: ast.Call) -> str | None:
+def _classify_sink(call: ast.Call) -> str | None:
     """Return ``"execute"`` / ``"read_sql"`` / ``None`` based on the call shape."""
     if isinstance(call.func, ast.Attribute):
         if call.func.attr in _SQL_SINK_METHODS:
-            return None if _receiver_looks_non_db(call) else "execute"
+            return None if _is_non_db_receiver(call) else "execute"
         if call.func.attr in _SQL_READ_SINKS:
             return "read_sql"
     if isinstance(call.func, ast.Name) and call.func.id in _SQL_READ_SINKS:
@@ -324,18 +324,18 @@ def _is_safely_parameterised(*, call: ast.Call, sql: str, kind: str) -> bool:
     return False
 
 
-def _finding_span(*, first: ast.expr, call: ast.Call, report_lineno: int) -> dict[str, int | None]:
+def _build_finding_span(*, first: ast.expr, call: ast.Call, report_lineno: int) -> dict[str, int | None]:
     """The span of an SQL-001 finding reported at *report_lineno*.
 
     The literal when it sits inside the call, the call itself when the line
     fell back to it, and nothing when the line points at an assignment
     elsewhere in the file (no node for it is at hand).
     """
-    literal = _literal_node(first)
+    literal = _find_literal_node(first)
     if literal is not None:
-        return span(literal)
+        return locate(literal)
     if report_lineno == call.lineno:
-        return span(call)
+        return locate(call)
     return {}
 
 
@@ -346,19 +346,19 @@ def _check_raw_sql(*, module: Module) -> list[Violation]:
         return []
     constants = _collect_string_constants(module=module)
     violations: list[Violation] = []
-    for node in module.index.nodes(ast.Call):
-        kind = _sink_kind(node)
+    for node in module.index.collect(ast.Call):
+        kind = _classify_sink(node)
         if kind is None or not node.args:
             continue
         first = node.args[0]
-        sql, interp = _sql_string_from(first, constants=constants)
+        sql, interp = _extract_sql_string(first, constants=constants)
         if sql is None or not _SQL_KEYWORDS_RE.search(sql):
             continue
         # Report at the literal's line where possible (the SQL text); for
         # Name references and text(Name) wrappers, point at the assignment
         # line in the constants map; otherwise fall back to the call site.
-        report_lineno = _literal_lineno(first, constants=constants) or node.lineno
-        anchor_span = _finding_span(first=first, call=node, report_lineno=report_lineno)
+        report_lineno = _find_literal_lineno(first, constants=constants) or node.lineno
+        anchor_span = _build_finding_span(first=first, call=node, report_lineno=report_lineno)
         if interp:
             violations.append(
                 Violation(
@@ -405,12 +405,12 @@ class SecurityPatternsCheck:
     def configure(self, *, settings: dict[str, object]) -> None:
         """Apply ``[tool.lanorme.security_patterns]`` configuration."""
         self.source_root = (
-            str_setting(settings=settings, key="source_root", default=self.source_root)
+            read_str(settings=settings, key="source_root", default=self.source_root)
             .replace("\\", "/")
             .strip("/")
         )
 
-    def _layer_relative(self, *, relative_file: str) -> str:
+    def _resolve_layer_relative(self, *, relative_file: str) -> str:
         """Re-anchor *relative_file* at the architectural source root.
 
         ``source_root`` is written relative to the project root ("src/myapp"),
@@ -430,23 +430,23 @@ class SecurityPatternsCheck:
         violations: list[Violation] = []
         warnings: list[Violation] = []
 
-        for module in parsed_modules(Path(src_root)):
+        for module in iter_parsed_modules(Path(src_root)):
             relative_file = module.relative
 
             try:
                 # AUTHN-001: Only check endpoint files (api/ layer).
                 file_violations: list[Violation] = []
-                if self._layer_relative(relative_file=relative_file).startswith("api/"):
+                if self._resolve_layer_relative(relative_file=relative_file).startswith("api/"):
                     file_violations.extend(_check_auth_on_mutations(module=module))
 
                 # SQL-001: Check all files for raw SQL (except alembic).
                 file_violations.extend(_check_raw_sql(module=module))
             except RecursionError:
                 # A long ``"a" + "a" + ...`` chain makes _sql_from_binop and
-                # _sql_string_from recurse on BinOp.left/.right until the stack
+                # _extract_sql_string recurse on BinOp.left/.right until the stack
                 # overflows. Skip the file rather than crash the whole run.
                 warnings.append(
-                    skip_notice(
+                    build_skip_notice(
                         prefix="SQL", file=relative_file, name=module.path.name, reason=TOO_DEEP
                     )
                 )

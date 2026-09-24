@@ -22,7 +22,7 @@ Comments are read through ``tokenize``, so a directive named inside a string or
 a docstring (this module's own prose, for instance) is not counted.
 
 **These codes cannot be silenced inline.** A budget an offender can waive on
-the offending line is not a budget, so ``lanorme.filtering`` refuses inline
+the offending line is not a budget, so ``lanorme.filters`` refuses inline
 directives for the ``SUPPRESS`` category. They remain switchable in config,
 which is the point: an escape belongs in a reviewed file, not scattered
 invisibly across source lines.
@@ -46,9 +46,9 @@ from pathlib import Path
 from typing import ClassVar
 
 from lanorme import CheckResult, Violation, register
-from lanorme.checkconfig import int_setting, is_flag_set
-from lanorme.filtering import _IGNORE_RE, _NOQA_RE
-from lanorme.sources import parsed_modules
+from lanorme.checkconfig import read_int, is_flag_set
+from lanorme.filters import _IGNORE_RE, _NOQA_RE
+from lanorme.sources import iter_parsed_modules
 
 # Code lists that name no rule in particular, so the directive covers whatever
 # exists now and whatever lands later.
@@ -85,7 +85,7 @@ def _classify(*, comment: str) -> bool | None:
     return None
 
 
-def _directives_in(*, source: str, relative: str) -> list[_Directive]:
+def _collect_directives(*, source: str, relative: str) -> list[_Directive]:
     """Every suppression directive in one file, read from comment tokens only."""
     found: list[_Directive] = []
     try:
@@ -108,7 +108,7 @@ def _directives_in(*, source: str, relative: str) -> list[_Directive]:
     return found
 
 
-def _budget_violation(*, directives: list[_Directive], max_total: int) -> list[Violation]:
+def _find_budget_violation(*, directives: list[_Directive], max_total: int) -> list[Violation]:
     """SUPPRESS-001: one finding when the project is over its suppression budget."""
     if len(directives) <= max_total:
         return []
@@ -131,7 +131,7 @@ def _budget_violation(*, directives: list[_Directive], max_total: int) -> list[V
     )]
 
 
-def _blanket_violations(*, directives: list[_Directive]) -> list[Violation]:
+def _find_blanket_violations(*, directives: list[_Directive]) -> list[Violation]:
     """SUPPRESS-002: one finding per directive that names no rule."""
     return [Violation(
         file=directive.file,
@@ -163,7 +163,7 @@ class SuppressionsCheck:
     def configure(self, *, settings: dict[str, object]) -> None:
         """Apply ``[tool.lanorme.suppressions]`` configuration."""
         self.enabled = is_flag_set(settings=settings, key="enabled", default=self.enabled)
-        self.max_total = int_setting(settings=settings, key="max_total", default=self.max_total)
+        self.max_total = read_int(settings=settings, key="max_total", default=self.max_total)
         self.allow_blanket = is_flag_set(
             settings=settings,
             key="allow_blanket",
@@ -175,13 +175,13 @@ class SuppressionsCheck:
         if not self.enabled:
             return CheckResult.from_findings(check=self.name)
         directives: list[_Directive] = []
-        for module in parsed_modules(Path(src_root)):
-            directives.extend(_directives_in(source=module.source, relative=module.relative))
+        for module in iter_parsed_modules(Path(src_root)):
+            directives.extend(_collect_directives(source=module.source, relative=module.relative))
         directives.sort(key=lambda d: (d.file, d.line))
 
-        violations = _budget_violation(directives=directives, max_total=self.max_total)
+        violations = _find_budget_violation(directives=directives, max_total=self.max_total)
         if not self.allow_blanket:
-            violations.extend(_blanket_violations(directives=directives))
+            violations.extend(_find_blanket_violations(directives=directives))
         return CheckResult.from_findings(check=self.name, violations=violations)
 
 

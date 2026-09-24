@@ -40,8 +40,8 @@ from pathlib import Path
 from typing import ClassVar
 
 from lanorme import CheckResult, Violation, register
-from lanorme.checkconfig import int_setting, is_flag_set, str_list_setting
-from lanorme.sources import parsed_modules, span
+from lanorme.checkconfig import read_int, is_flag_set, read_str_list
+from lanorme.sources import iter_parsed_modules, locate
 
 # Beyond this many lines between binding and last use, a short name stops
 # paying for itself. Roughly one screen: see the calibration above.
@@ -92,7 +92,7 @@ def _is_short(*, name: str, max_short_length: int, allow: frozenset[str]) -> boo
     return len(name.lstrip("_")) <= max_short_length
 
 
-def _local_extents(*, func: ast.AST) -> dict[str, _Extent]:
+def _collect_local_extents(*, func: ast.AST) -> dict[str, _Extent]:
     """Line extent of every name *func* binds, keyed by name.
 
     Only names the function itself binds are tracked: parameters and assignment
@@ -124,10 +124,10 @@ def _local_extents(*, func: ast.AST) -> dict[str, _Extent]:
     return {name: extent for name, extent in extents.items() if name in bound}
 
 
-def _function_violations(*, func: ast.AST, file: str, settings: _Settings) -> list[Violation]:
+def _collect_function_violations(*, func: ast.AST, file: str, settings: _Settings) -> list[Violation]:
     """Flag every short name in *func* held over more than the allowed span."""
     violations: list[Violation] = []
-    for name, extent in sorted(_local_extents(func=func).items()):
+    for name, extent in sorted(_collect_local_extents(func=func).items()):
         short = _is_short(name=name, max_short_length=settings.max_short_length, allow=settings.allow)
         if not short or extent.span <= settings.max_span:
             continue
@@ -140,7 +140,7 @@ def _function_violations(*, func: ast.AST, file: str, settings: _Settings) -> li
                 f"in '{getattr(func, 'name', '?')}' (limit: {settings.max_span})"
             ),
             fix="Give it a name that reads at the point of use, or shorten the span it lives across",
-            **span(extent.node),
+            **locate(extent.node),
         ))
     return violations
 
@@ -176,14 +176,14 @@ class NamingScopeCheck:
     def configure(self, *, settings: dict[str, object]) -> None:
         """Apply ``[tool.lanorme.naming_scope]`` configuration."""
         self.enabled = is_flag_set(settings=settings, key="enabled", default=self.enabled)
-        self.max_span = int_setting(settings=settings, key="max_span", default=self.max_span)
-        self.max_short_length = int_setting(
+        self.max_span = read_int(settings=settings, key="max_span", default=self.max_span)
+        self.max_short_length = read_int(
             settings=settings,
             key="max_short_length",
             default=self.max_short_length,
         )
         if "allow" in settings:
-            extra = str_list_setting(settings=settings, key="allow")
+            extra = read_str_list(settings=settings, key="allow")
             self.allow = DEFAULT_ALLOW | frozenset(extra)
 
     def run(self, *, src_root: str) -> CheckResult:
@@ -196,14 +196,14 @@ class NamingScopeCheck:
             allow=frozenset(self.allow),
         )
         violations: list[Violation] = []
-        for module in parsed_modules(Path(src_root)):
+        for module in iter_parsed_modules(Path(src_root)):
             # Match skip directories inside the root only: the absolute path's
             # ancestors are the user's filesystem, not the project layout.
             if any(part in _SKIP_DIRS for part in module.relative.split("/")) or module.path.name.startswith("test_"):
                 continue
             file = module.relative
             for node in module.index.functions:
-                violations.extend(_function_violations(func=node, file=file, settings=resolved))
+                violations.extend(_collect_function_violations(func=node, file=file, settings=resolved))
         return CheckResult.from_findings(check=self.name, violations=violations)
 
 

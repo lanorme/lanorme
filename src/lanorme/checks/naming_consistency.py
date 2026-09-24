@@ -24,7 +24,7 @@ from typing import ClassVar
 
 from lanorme import CheckResult, Violation, register
 from lanorme.checkconfig import is_flag_set
-from lanorme.sources import Module, parsed_modules, span
+from lanorme.sources import Module, iter_parsed_modules, locate
 
 # Allowed public method prefixes for repositories and services.
 ALLOWED_PREFIXES = ("get_", "create_", "update_", "delete_", "list_")
@@ -93,7 +93,7 @@ def _extract_public_class_methods(
         List of (class_name, method_node) tuples for public methods.
     """
     results: list[tuple[str, ast.FunctionDef | ast.AsyncFunctionDef]] = []
-    for node in module.index.nodes(ast.ClassDef):
+    for node in module.index.collect(ast.ClassDef):
         for item in node.body:
             if not isinstance(item, ast.FunctionDef | ast.AsyncFunctionDef):
                 continue
@@ -144,7 +144,7 @@ def _check_repo_and_service_naming(
                     f"uses forbidden prefix '{forbidden}'"
                 ),
                 fix=f"Rename to '{suggested}{method_name[len(forbidden) :]}'",
-                **span(method),
+                **locate(method),
             ),
         )
 
@@ -198,7 +198,7 @@ def _check_endpoint_verb_naming(*, module: Module) -> list[Violation]:
                             f"Rename to '{expected_prefixes[0]}{node.name}' "
                             f"or add '{node.name}' to VERB_EXEMPT_ENDPOINTS if intentional"
                         ),
-                        **span(node),
+                        **locate(node),
                     ),
                 )
             break  # Only check the first matching decorator per function.
@@ -240,7 +240,7 @@ def _collect_protocol_members(*, module: Module) -> set[int]:
     # resolved up front: any function in this skip set belongs to a class whose
     # bases include Protocol (e.g. Protocol, typing.Protocol, Protocol[T]).
     members: set[int] = set()
-    for node in module.index.nodes(ast.ClassDef):
+    for node in module.index.collect(ast.ClassDef):
         if not any(_is_protocol_base(base=base) for base in node.bases):
             continue
         for item in node.body:
@@ -249,7 +249,7 @@ def _collect_protocol_members(*, module: Module) -> set[int]:
     return members
 
 
-def _bool_rename_fix(*, name: str) -> str:
+def _suggest_bool_rename(*, name: str) -> str:
     """Suggest a boolean-prefixed rename, stripping a leading verb if present."""
     suggested = name
     for verb in BOOL_FIX_VERB_PREFIXES:
@@ -286,8 +286,8 @@ def _check_bool_naming(*, module: Module) -> list[Violation]:
                 line=node.lineno,
                 rule="NAMING-004: Boolean functions should use is_/has_/can_/should_ prefix",
                 message=f"Function '{node.name}' returns bool but lacks a boolean prefix",
-                fix=_bool_rename_fix(name=node.name),
-                **span(node),
+                fix=_suggest_bool_rename(name=node.name),
+                **locate(node),
             ),
         )
 
@@ -341,7 +341,7 @@ class NamingConsistencyCheck:
         violations: list[Violation] = []
         warnings: list[Violation] = []
 
-        for module in parsed_modules(Path(src_root)):
+        for module in iter_parsed_modules(Path(src_root)):
             relative_file = module.relative
 
             # NAMING-001: Repository method naming (opt-in; conflicts with DDD ubiquitous-language).

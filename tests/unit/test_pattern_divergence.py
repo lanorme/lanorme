@@ -1,7 +1,7 @@
 """Tests for IMPORT-001 and ENDPOINT-001 pattern divergence detection.
 
 The regression of note: an endpoint file with a very deep attribute chain
-overflowed the recursive ``_max_nesting_depth`` walk and crashed the whole run.
+overflowed the recursive ``_measure_max_nesting_depth`` walk and crashed the whole run.
 One bad file must be skipped with an ENDPOINT-000 warning, not be fatal, and the
 rest of the tree must still be checked.
 """

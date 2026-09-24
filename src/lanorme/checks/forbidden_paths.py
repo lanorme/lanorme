@@ -28,7 +28,7 @@ from pathlib import Path
 from typing import ClassVar
 
 from lanorme import CheckResult, Violation, register
-from lanorme.checkconfig import str_list_setting
+from lanorme.checkconfig import read_str_list
 from lanorme.discovery import iter_dirs
 
 # Default is empty → the check is inert until configured.
@@ -72,7 +72,7 @@ class ForbiddenPathsCheck:
 
     def configure(self, *, settings: dict[str, object]) -> None:
         """Apply ``[tool.lanorme.forbidden_paths]`` configuration."""
-        self.forbidden_dirs = str_list_setting(settings=settings, key="dirs")
+        self.forbidden_dirs = read_str_list(settings=settings, key="dirs")
 
     def run(self, *, src_root: str) -> CheckResult:
         violations: list[Violation] = []

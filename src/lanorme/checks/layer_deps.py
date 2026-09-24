@@ -61,8 +61,8 @@ from pathlib import Path
 from typing import ClassVar
 
 from lanorme import CheckResult, Violation, register
-from lanorme.checkconfig import str_list_setting, str_setting
-from lanorme.sources import Module, Unparseable, iter_modules, span, unparseable_notice
+from lanorme.checkconfig import read_str_list, read_str
+from lanorme.sources import Module, UnparseableFile, iter_modules, locate, build_unparseable_notice
 
 # The architectural layers in a hexagonal backend (default).
 LAYERS = ("domain", "application", "infrastructure", "api")
@@ -129,7 +129,7 @@ def _extract_src_imports(
 ) -> list[tuple[str, _ImportNode]]:
     """Extract imports that reference architectural layers, as (target_layer, import node)."""
     imports: list[tuple[str, _ImportNode]] = []
-    for node in module.index.nodes(ast.Import, ast.ImportFrom):
+    for node in module.index.collect(ast.Import, ast.ImportFrom):
         if isinstance(node, ast.Import):
             for alias in node.names:
                 _record_layer_import(
@@ -228,17 +228,17 @@ class LayerDepsCheck:
     def configure(self, *, settings: dict[str, object]) -> None:
         """Apply ``[tool.lanorme.layer_deps]`` configuration."""
         self.source_root = (
-            str_setting(settings=settings, key="source_root", default=self.source_root)
+            read_str(settings=settings, key="source_root", default=self.source_root)
             .replace("\\", "/")
             .strip("/")
         )
-        self.composition_root = str_list_setting(
+        self.composition_root = read_str_list(
             settings=settings, key="composition_root", default=self.composition_root
         )
-        layers = str_list_setting(settings=settings, key="layers", default=self.layers)
+        layers = read_str_list(settings=settings, key="layers", default=self.layers)
         if layers:
             self.layers = layers
-        transport = str_list_setting(settings=settings, key="transport_layers", default=())
+        transport = read_str_list(settings=settings, key="transport_layers", default=())
         if transport:
             self.transport_layers = transport
             self._transport_configured = True
@@ -252,14 +252,14 @@ class LayerDepsCheck:
                 if isinstance(targets, list)
             }
 
-    def _allowed_for_file(self, *, relative: str, layer: str) -> set[str]:
+    def _resolve_allowed_for_file(self, *, relative: str, layer: str) -> set[str]:
         """Allowed import targets for a file, adding the composition-root exception."""
         allowed = set(self.allowed_imports.get(layer, set()))
         if layer in self.transport_layers and _matches_glob(relative=relative, patterns=self.composition_root):
             allowed.add("infrastructure")
         return allowed
 
-    def _violation_for(
+    def _build_violation(
         self, *, layer: str, target_layer: str, relative: str, node: _ImportNode, is_comp_root: bool
     ) -> Violation:
         if target_layer == "infrastructure" and layer not in _INNER_LAYERS and not is_comp_root:
@@ -277,10 +277,10 @@ class LayerDepsCheck:
             rule=rule,
             message=f"{layer}/ imports from {target_layer}/",
             fix=fix,
-            **span(node),
+            **locate(node),
         )
 
-    def _config_warnings(self) -> list[Violation]:
+    def _collect_config_warnings(self) -> list[Violation]:
         """LAYER-006: advise when a configured transport layer is not a known layer.
 
         Fires only when the user set ``transport_layers`` explicitly, so the
@@ -303,7 +303,7 @@ class LayerDepsCheck:
     def run(self, *, src_root: str) -> CheckResult:
         """Scan all Python files under the source root and validate import directions."""
         violations: list[Violation] = []
-        warnings: list[Violation] = self._config_warnings()
+        warnings: list[Violation] = self._collect_config_warnings()
         src_path = Path(src_root)
         # The architectural root. Layer classification and composition-root
         # globs are anchored here; Violation paths stay anchored at src_path so
@@ -323,12 +323,12 @@ class LayerDepsCheck:
             layer = _classify_layer(relative=classify_rel, layers=self.layers)
             if layer is None:
                 continue
-            if isinstance(module, Unparseable):
-                warnings.append(unparseable_notice(prefix="LAYER", failure=module))
+            if isinstance(module, UnparseableFile):
+                warnings.append(build_unparseable_notice(prefix="LAYER", failure=module))
                 continue
 
             imports = _extract_src_imports(module=module, layers=self.layers, package=package)
-            allowed = self._allowed_for_file(relative=classify_rel, layer=layer)
+            allowed = self._resolve_allowed_for_file(relative=classify_rel, layer=layer)
             # A composition root only counts inside a transport layer, so a file
             # matching a glob in another layer is not silently treated as exempt.
             is_comp_root = layer in self.transport_layers and _matches_glob(
@@ -339,7 +339,7 @@ class LayerDepsCheck:
                 if target_layer == layer or target_layer in allowed:
                     continue
                 violations.append(
-                    self._violation_for(
+                    self._build_violation(
                         layer=layer,
                         target_layer=target_layer,
                         relative=relative,

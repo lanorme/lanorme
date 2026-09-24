@@ -17,7 +17,7 @@ from dataclasses import dataclass
 from importlib.resources import files as resource_files
 from pathlib import Path
 
-from lanorme import get_all_checks, rule_code
+from lanorme import get_all_checks, extract_code
 from lanorme.errors import UsageError
 
 _TOKEN_RE = re.compile(r"`([^`]+)`")
@@ -35,7 +35,7 @@ def _is_opt_in(check: object) -> bool:
     return hasattr(check, "enabled") and not getattr(check, "enabled")
 
 
-def rules_listing() -> list[dict[str, object]]:
+def list_rules() -> list[dict[str, object]]:
     """Every registered check with its rules, as data."""
     listing: list[dict[str, object]] = []
     for check in sorted(get_all_checks().values(), key=lambda c: c.name):
@@ -44,7 +44,7 @@ def rules_listing() -> list[dict[str, object]]:
                 "check": check.name,
                 "description": check.description,
                 "opt_in": _is_opt_in(check),
-                "rules": [{"code": rule_code(rule), "rule": rule} for rule in check.rules],
+                "rules": [{"code": extract_code(rule), "rule": rule} for rule in check.rules],
             }
         )
     return listing
@@ -52,7 +52,7 @@ def rules_listing() -> list[dict[str, object]]:
 
 def print_rules(*, as_json: bool = False) -> None:
     """Print every registered check and its rules."""
-    listing = rules_listing()
+    listing = list_rules()
     if as_json:
         print(json.dumps(listing, indent=2))
         return
@@ -66,11 +66,11 @@ def print_rules(*, as_json: bool = False) -> None:
             print(f"  {rule['rule']}")
 
 
-def _declaration(code: str) -> dict[str, object] | None:
+def _find_declaration(code: str) -> dict[str, object] | None:
     """The registry's view of *code*: its rule string, check and opt-in state."""
     for check in get_all_checks().values():
         for rule in check.rules:
-            if rule_code(rule) == code:
+            if extract_code(rule) == code:
                 return {"rule": rule, "check": check.name, "opt_in": _is_opt_in(check)}
     return None
 
@@ -80,7 +80,7 @@ def _declaration(code: str) -> dict[str, object] | None:
 # --------------------------------------------------------------------------- #
 
 
-def _reference_path() -> Path | None:
+def _locate_reference() -> Path | None:
     """Locate the rule reference Markdown, preferring the package-bundled copy."""
     bundled = resource_files("lanorme").joinpath("RULES.md")
     if bundled.is_file():
@@ -101,7 +101,7 @@ class _Heading:
     text: str
 
 
-def _headings(lines: list[str]) -> list[_Heading]:
+def _collect_headings(lines: list[str]) -> list[_Heading]:
     """Markdown headings outside fenced code blocks."""
     found: list[_Heading] = []
     fence: str | None = None
@@ -120,7 +120,7 @@ def _headings(lines: list[str]) -> list[_Heading]:
     return found
 
 
-def _token_covers(*, token: str, code: str) -> int:
+def _rate_token_match(*, token: str, code: str) -> int:
     """How specifically a backtick token names *code*: 2 exactly, 1 as a family, 0 not."""
     category, _dash, number = code.partition("-")
     if token == code:
@@ -134,12 +134,12 @@ def _token_covers(*, token: str, code: str) -> int:
     return 0
 
 
-def _section_bounds(*, headings: list[_Heading], code: str, total: int) -> tuple[int, int] | None:
+def _find_section_bounds(*, headings: list[_Heading], code: str, total: int) -> tuple[int, int] | None:
     """The line range of the best heading for *code*: exact beats family, deeper beats shallower."""
     best: tuple[int, int, int] | None = None  # (specificity, level, position)
     for position, heading in enumerate(headings):
         specificity = max(
-            (_token_covers(token=token, code=code) for token in _TOKEN_RE.findall(heading.text)),
+            (_rate_token_match(token=token, code=code) for token in _TOKEN_RE.findall(heading.text)),
             default=0,
         )
         if specificity == 0:
@@ -159,24 +159,24 @@ def _section_bounds(*, headings: list[_Heading], code: str, total: int) -> tuple
     return start.index, end
 
 
-def rule_section(*, code: str) -> str | None:
+def find_rule_section(*, code: str) -> str | None:
     """The reference section documenting *code*, or ``None`` when there is none."""
-    reference = _reference_path()
+    reference = _locate_reference()
     if reference is None:
         return None
     lines = reference.read_text(encoding="utf-8").splitlines()
-    bounds = _section_bounds(headings=_headings(lines), code=code, total=len(lines))
+    bounds = _find_section_bounds(headings=_collect_headings(lines), code=code, total=len(lines))
     if bounds is None:
         return None
     start, end = bounds
     return "\n".join(lines[start:end]).rstrip() + "\n"
 
 
-def rule_detail(*, code: str) -> dict[str, object] | None:
+def describe_rule(*, code: str) -> dict[str, object] | None:
     """Everything known about *code*: the declaration and the reference section."""
     wanted = code.upper()
-    declared = _declaration(wanted)
-    section = rule_section(code=wanted)
+    declared = _find_declaration(wanted)
+    section = find_rule_section(code=wanted)
     if declared is None and section is None:
         return None
     detail: dict[str, object] = {"code": wanted}
@@ -187,7 +187,7 @@ def rule_detail(*, code: str) -> dict[str, object] | None:
 
 def print_rule_detail(*, code: str, as_json: bool = False) -> None:
     """Print the reference for *code*; an unknown code is a usage error."""
-    detail = rule_detail(code=code)
+    detail = describe_rule(code=code)
     if detail is None:
         raise UsageError(
             f"no reference section found for {code!r}. Run 'lanorme rules' for the list "

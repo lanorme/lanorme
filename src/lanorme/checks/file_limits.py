@@ -29,8 +29,8 @@ from pathlib import Path
 from typing import ClassVar
 
 from lanorme import CheckResult, Status, Violation, register
-from lanorme.checkconfig import int_setting
-from lanorme.sources import Module, Unparseable, iter_modules, span, unparseable_notice
+from lanorme.checkconfig import read_int
+from lanorme.sources import Module, UnparseableFile, iter_modules, locate, build_unparseable_notice
 
 # Default thresholds. Each is the default of the matching ``FileLimitsCheck``
 # field, so ``[tool.lanorme.file_limits]`` overrides them per project.
@@ -171,7 +171,7 @@ def _check_function_lengths(
                         f"(limit: {bounds.error})"
                     ),
                     fix="Extract helper functions or simplify control flow",
-                    **span(node),
+                    **locate(node),
                 ),
             )
         elif length >= bounds.warn:
@@ -185,7 +185,7 @@ def _check_function_lengths(
                         f"(warn: {bounds.warn})"
                     ),
                     fix="Consider extracting helper functions before it grows further",
-                    **span(node),
+                    **locate(node),
                 ),
             )
 
@@ -200,7 +200,7 @@ def _check_class_method_count(
     """SIZE-003: Classes past the method limit are candidates for decomposition."""
     warnings: list[Violation] = []
 
-    for node in module.index.nodes(ast.ClassDef):
+    for node in module.index.collect(ast.ClassDef):
         method_count = sum(
             1 for child in node.body if isinstance(child, ast.FunctionDef | ast.AsyncFunctionDef)
         )
@@ -213,7 +213,7 @@ def _check_class_method_count(
                     rule="SIZE-003: Class has too many methods",
                     message=f"Class '{node.name}' has {method_count} methods (warn: {limit})",
                     fix="Consider decomposing into smaller, focused classes",
-                    **span(node),
+                    **locate(node),
                 ),
             )
 
@@ -248,7 +248,7 @@ def _match_case_is_refutable(*, case: ast.match_case) -> bool:
     return not irrefutable
 
 
-def _node_complexity_increment(*, node: ast.AST) -> int:
+def _count_node_branches(*, node: ast.AST) -> int:
     """Extra paths one node introduces, not counting its descendants.
 
     Comprehensions count a branch per filter ``if`` and per nested ``for``
@@ -267,7 +267,7 @@ def _node_complexity_increment(*, node: ast.AST) -> int:
     return 0
 
 
-def _cyclomatic_complexity(*, func_node: ast.FunctionDef | ast.AsyncFunctionDef) -> int:
+def _measure_cyclomatic_complexity(*, func_node: ast.FunctionDef | ast.AsyncFunctionDef) -> int:
     """Calculate cyclomatic complexity for a single function.
 
     Walks only direct descendants, nested function bodies are excluded. Base
@@ -284,7 +284,7 @@ def _cyclomatic_complexity(*, func_node: ast.FunctionDef | ast.AsyncFunctionDef)
         node = nodes_to_visit.pop()
         if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
             continue
-        complexity += _node_complexity_increment(node=node)
+        complexity += _count_node_branches(node=node)
         nodes_to_visit.extend(ast.iter_child_nodes(node))
 
     return complexity
@@ -328,7 +328,7 @@ def _check_function_metric(
                     rule=spec.error_rule,
                     message=f"Function '{node.name}' has {spec.noun} {value} (limit: {bounds.error})",
                     fix=spec.fix_error,
-                    **span(node),
+                    **locate(node),
                 ),
             )
         elif value >= bounds.warn:
@@ -339,7 +339,7 @@ def _check_function_metric(
                     rule=spec.warn_rule,
                     message=f"Function '{node.name}' has {spec.noun} {value} (warn: {bounds.warn})",
                     fix=spec.fix_warn,
-                    **span(node),
+                    **locate(node),
                 ),
             )
 
@@ -365,7 +365,7 @@ def _count_parameters(*, func_node: ast.FunctionDef | ast.AsyncFunctionDef) -> i
 
 
 _COMPLEXITY_SPEC = _MetricSpec(
-    metric=_cyclomatic_complexity,
+    metric=_measure_cyclomatic_complexity,
     error_rule="COMPLEXITY-001: Function exceeds the complexity limit",
     warn_rule="COMPLEXITY-001: Function approaching the complexity limit",
     noun="cyclomatic complexity",
@@ -434,7 +434,7 @@ class FileLimitsCheck:
         rather than switch the rules off.
         """
         for key in _THRESHOLD_KEYS:
-            setattr(self, key, int_setting(settings=settings, key=key, default=getattr(self, key)))
+            setattr(self, key, read_int(settings=settings, key=key, default=getattr(self, key)))
 
     def _bounds(self) -> tuple[_Bounds, _Bounds, _Bounds, _Bounds]:
         """The file, function, complexity and parameter pairs for this run."""
@@ -484,8 +484,8 @@ class FileLimitsCheck:
         for module in iter_modules(Path(src_root)):
             if _should_exclude(relative=Path(module.relative)):
                 continue
-            if isinstance(module, Unparseable):
-                warnings.append(unparseable_notice(prefix="SIZE", failure=module))
+            if isinstance(module, UnparseableFile):
+                warnings.append(build_unparseable_notice(prefix="SIZE", failure=module))
                 continue
 
             found, warned = self._scan_source(module=module)

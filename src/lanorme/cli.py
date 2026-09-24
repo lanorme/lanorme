@@ -25,7 +25,7 @@ from importlib.metadata import entry_points
 from pathlib import Path
 
 import lanorme.checks
-from lanorme import baseline, reference, reporting
+from lanorme import baseline, reference, reports
 from lanorme import (
     Check,
     CheckResult,
@@ -34,7 +34,7 @@ from lanorme import (
     __version__,
     get_all_checks,
     get_check,
-    rule_code,
+    extract_code,
     run_all,
     run_audit,
     run_check,
@@ -42,7 +42,7 @@ from lanorme import (
 from lanorme.checkconfig import apply_check_config
 from lanorme.diagnostics import configure_diagnostics
 from lanorme.errors import UsageError
-from lanorme.filtering import _apply_promotions, note_excluded_targets
+from lanorme.filters import _apply_promotions, note_excluded_targets
 from lanorme.presets import _resolve_extends
 from lanorme.selectors import checks_for_selector, reject_unknown_selectors
 from lanorme.regions import discover_config, restore_defaults, snapshot_defaults
@@ -136,16 +136,16 @@ def _resolve_targets(paths: list[str]) -> tuple[Path, list[Path] | None]:
 # --------------------------------------------------------------------------- #
 
 
-def _csv(value: str | None) -> list[str]:
+def _split_csv(value: str | None) -> list[str]:
     return [item.strip() for item in value.split(",") if item.strip()] if value else []
 
 
-def _config_list(value: object) -> list[str]:
+def _read_config_list(value: object) -> list[str]:
     """Normalise a config selector value to a list of strings.
 
     Accepts a list (``promote = ["TYPE-004"]``) or a bare string
     (``promote = "ALL"``); anything else yields ``[]``. Whitespace and case are
-    handled downstream by ``_matches``, matching the CLI ``_csv`` path.
+    handled downstream by ``_matches``, matching the CLI ``_split_csv`` path.
     """
     if isinstance(value, str):
         return [value]
@@ -253,7 +253,7 @@ def _note_disabled_selection(*, only: list[Check]) -> None:
     )
 
 
-def _baseline_path(*, config: dict[str, object], project_root: Path) -> Path | None:
+def _resolve_baseline_path(*, config: dict[str, object], project_root: Path) -> Path | None:
     """The configured baseline file path, or ``None`` when no baseline is set."""
     configured = config.get("baseline")
     return project_root / str(configured) if configured else None
@@ -269,11 +269,11 @@ def _run_and_report(
     pristine: dict[str, object],
 ) -> None:
     """Run the selected checks, apply the filters, print, and set the exit code."""
-    ignore = _csv(args.ignore) or _config_list(config.get("ignore"))
-    exclude = _csv(args.exclude) or _config_list(config.get("exclude"))
-    promote = _csv(args.promote) or _config_list(config.get("promote"))
-    select = _csv(args.select) or _config_list(config.get("select"))
-    output_format = reporting.resolve_output_format(explicit=args.output_format, as_json=args.json)
+    ignore = _split_csv(args.ignore) or _read_config_list(config.get("ignore"))
+    exclude = _split_csv(args.exclude) or _read_config_list(config.get("exclude"))
+    promote = _split_csv(args.promote) or _read_config_list(config.get("promote"))
+    select = _split_csv(args.select) or _read_config_list(config.get("select"))
+    output_format = reports.resolve_output_format(explicit=args.output_format, as_json=args.json)
     reject_unknown_selectors(selectors=promote, origin="'promote'")
 
     collected = collect_results(
@@ -296,17 +296,17 @@ def _run_and_report(
         baselined = before - count_findings(results)
 
     results = _apply_promotions(results=results, promote=promote)
-    notes = reporting.RunNotes(
+    notes = reports.RunNotes(
         project_root=project_root,
         suppressed_inline=collected.suppressed_inline,
         suppressed_per_file=collected.suppressed_per_file,
         suppressed_baseline=baselined,
-        baseline_configured=_baseline_path(config=config, project_root=project_root) is not None,
+        baseline_configured=_resolve_baseline_path(config=config, project_root=project_root) is not None,
     )
     failed = any(r.status == Status.FAIL for r in results)
-    with reporting.tolerate_closed_pipe():
-        reporting.emit(results=results, output_format=output_format, notes=notes)
-        reporting.print_baseline_drift(drifted=drifted, output_format=output_format)
+    with reports.tolerate_closed_pipe():
+        reports.emit(results=results, output_format=output_format, notes=notes)
+        reports.print_baseline_drift(drifted=drifted, output_format=output_format)
     if failed:
         sys.exit(1)
 
@@ -315,7 +315,7 @@ def _apply_baseline(
     *, results: list[CheckResult], config: dict[str, object], project_root: Path
 ) -> tuple[list[CheckResult], list[tuple[str, str]]]:
     """Suppress the configured baseline's findings; return the survivors and the drift."""
-    baseline_path = _baseline_path(config=config, project_root=project_root)
+    baseline_path = _resolve_baseline_path(config=config, project_root=project_root)
     if baseline_path is None:
         return results, []
     if not baseline_path.exists():
@@ -324,7 +324,7 @@ def _apply_baseline(
         )
     # Drift reads the raw findings: it has to see what the baseline did
     # match to tell a moved anchor from debt that is genuinely new.
-    drifted = baseline.drifted_codes(
+    drifted = baseline.find_drifted_codes(
         results=results, project_root=project_root, baseline_path=baseline_path
     )
     suppressed = baseline.suppress(
@@ -351,8 +351,8 @@ def _run_check_command(*, args: argparse.Namespace) -> None:
     apply_check_config(config=config)
 
     if args.show_config:
-        with reporting.tolerate_closed_pipe():
-            reporting.print_config(
+        with reports.tolerate_closed_pipe():
+            reports.print_config(
                 config=config, source=config_source, project_root=project_root, extends=found.extends
             )
         return
@@ -387,7 +387,7 @@ def _run_baseline_command(*, args: argparse.Namespace) -> None:
     restore_defaults(checks=checks, snapshot=pristine)
     apply_check_config(config=config)
 
-    baseline_path = _baseline_path(config=config, project_root=project_root)
+    baseline_path = _resolve_baseline_path(config=config, project_root=project_root)
     if baseline_path is None:
         baseline_path = project_root / "lanorme-baseline.json"
 
@@ -396,9 +396,9 @@ def _run_baseline_command(*, args: argparse.Namespace) -> None:
         pristine=pristine,
         filters=Filters(
             single=None,
-            select=_config_list(config.get("select")),
-            ignore=_config_list(config.get("ignore")),
-            exclude=_config_list(config.get("exclude")),
+            select=_read_config_list(config.get("select")),
+            ignore=_read_config_list(config.get("ignore")),
+            exclude=_read_config_list(config.get("exclude")),
         ),
         resolve_single=_resolve_single,
     )
@@ -407,7 +407,7 @@ def _run_baseline_command(*, args: argparse.Namespace) -> None:
         return
     results = collected.results
 
-    with reporting.tolerate_closed_pipe():
+    with reports.tolerate_closed_pipe():
         if args.action == "write":
             baseline.write(results=results, project_root=project_root, baseline_path=baseline_path)
         else:
@@ -439,12 +439,12 @@ def _dispatch(argv: list[str] | None) -> None:
     _load_entry_point_checks()
 
     if args.command == "rules":
-        with reporting.tolerate_closed_pipe():
+        with reports.tolerate_closed_pipe():
             reference.print_rules(as_json=args.json)
         return
 
     if args.command == "rule":
-        with reporting.tolerate_closed_pipe():
+        with reports.tolerate_closed_pipe():
             reference.print_rule_detail(code=args.code, as_json=args.json)
         return
 

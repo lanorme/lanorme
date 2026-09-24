@@ -40,9 +40,9 @@ from pathlib import Path
 from typing import ClassVar
 
 from lanorme import CheckResult, Violation, register
-from lanorme.checkconfig import str_list_setting, str_setting
+from lanorme.checkconfig import read_str_list, read_str
 from lanorme.discovery import iter_py_files
-from lanorme.sources import Module, parse_module, span
+from lanorme.sources import Module, parse_module, locate
 
 # Adapter files that are pure utilities or re-exports, not port implementations.
 INFRA_SERVICE_SKIP_FILES = ("__init__.py",)
@@ -74,7 +74,7 @@ _ImportNode = ast.Import | ast.ImportFrom
 _AdapterFile = tuple[str, Module, list[tuple[str, _ImportNode]]]
 
 
-def _posix_dir(value: str) -> str:
+def _normalise_posix_dir(value: str) -> str:
     """A configured directory as a forward-slashed, unanchored relative path."""
     return value.replace("\\", "/").strip("/")
 
@@ -87,7 +87,7 @@ def _matches_glob(*, relative: str, patterns: tuple[str, ...]) -> bool:
 def _extract_protocol_names(*, parsed: Module) -> list[tuple[str, ast.ClassDef]]:
     """Find all ``class Foo(Protocol): ...`` definitions, as (name, node)."""
     protocols: list[tuple[str, ast.ClassDef]] = []
-    for node in parsed.index.nodes(ast.ClassDef):
+    for node in parsed.index.collect(ast.ClassDef):
         for base in node.bases:
             base_name: str | None = None
             if isinstance(base, ast.Name):
@@ -103,7 +103,7 @@ def _extract_protocol_names(*, parsed: Module) -> list[tuple[str, ast.ClassDef]]
 def _extract_import_modules(*, parsed: Module) -> list[tuple[str, _ImportNode]]:
     """Extract import source modules as (dotted_module, import node) pairs."""
     modules: list[tuple[str, _ImportNode]] = []
-    for node in parsed.index.nodes(ast.Import, ast.ImportFrom):
+    for node in parsed.index.collect(ast.Import, ast.ImportFrom):
         if isinstance(node, ast.Import):
             for alias in node.names:
                 modules.append((alias.name, node))
@@ -115,7 +115,7 @@ def _extract_import_modules(*, parsed: Module) -> list[tuple[str, _ImportNode]]:
 def _extract_imported_names(*, parsed: Module) -> set[str]:
     """Collect all names brought into scope via import statements."""
     names: set[str] = set()
-    for node in parsed.index.nodes(ast.Import, ast.ImportFrom):
+    for node in parsed.index.collect(ast.Import, ast.ImportFrom):
         if isinstance(node, ast.Import):
             for alias in node.names:
                 names.add(alias.asname if alias.asname else alias.name.split(".")[-1])
@@ -125,7 +125,7 @@ def _extract_imported_names(*, parsed: Module) -> set[str]:
     return names
 
 
-def _adapter_bound_names(*, parsed: Module, adapter_dotted: tuple[str, ...]) -> set[str]:
+def _collect_adapter_bound_names(*, parsed: Module, adapter_dotted: tuple[str, ...]) -> set[str]:
     """Local names bound to an adapter module, e.g. ``redis_registry`` from
     ``from infrastructure.services import redis_registry``.
 
@@ -134,7 +134,7 @@ def _adapter_bound_names(*, parsed: Module, adapter_dotted: tuple[str, ...]) -> 
     receiver check keeps the detection from firing on an unrelated same-named call.
     """
     bound: set[str] = set()
-    for node in parsed.index.nodes(ast.Import, ast.ImportFrom):
+    for node in parsed.index.collect(ast.Import, ast.ImportFrom):
         if isinstance(node, ast.ImportFrom) and node.module:
             if any(dotted in node.module for dotted in adapter_dotted):
                 bound.update(alias.asname or alias.name for alias in node.names)
@@ -148,7 +148,7 @@ def _adapter_bound_names(*, parsed: Module, adapter_dotted: tuple[str, ...]) -> 
 def _extract_attr_call_pairs(*, parsed: Module) -> list[tuple[str, str, ast.Call]]:
     """Find ``value.attr(...)`` calls, returning (value_name, attr, call) triples."""
     pairs: list[tuple[str, str, ast.Call]] = []
-    for node in parsed.index.nodes(ast.Call):
+    for node in parsed.index.collect(ast.Call):
         if isinstance(node.func, ast.Attribute) and isinstance(node.func.value, ast.Name):
             pairs.append((node.func.value.id, node.func.attr, node))
     return pairs
@@ -157,7 +157,7 @@ def _extract_attr_call_pairs(*, parsed: Module) -> list[tuple[str, str, ast.Call
 def _extract_call_names(*, parsed: Module) -> list[tuple[str, ast.Call]]:
     """Find ``SomeClass(...)`` call expressions and return (name, call)."""
     calls: list[tuple[str, ast.Call]] = []
-    for node in parsed.index.nodes(ast.Call):
+    for node in parsed.index.collect(ast.Call):
         if isinstance(node.func, ast.Name):
             calls.append((node.func.id, node))
         elif isinstance(node.func, ast.Attribute):
@@ -175,7 +175,7 @@ def _imports_from_ports(*, import_modules: list[tuple[str, _ImportNode]], ports_
     return any(ports_dotted in module for module, _node in import_modules)
 
 
-def _port_module_stem(*, module: str, ports_parts: list[str]) -> str | None:
+def _extract_port_module_stem(*, module: str, ports_parts: list[str]) -> str | None:
     """Return the port module filename stem from a dotted import path, or None.
 
     With ``ports_parts == ["application", "ports"]``:
@@ -189,10 +189,10 @@ def _port_module_stem(*, module: str, ports_parts: list[str]) -> str | None:
     return None
 
 
-def _ports_package_import_stems(*, parsed: Module, ports_parts: list[str]) -> set[str]:
+def _collect_ports_package_import_stems(*, parsed: Module, ports_parts: list[str]) -> set[str]:
     """Port stems imported via the module-as-name form ``from <ports_pkg> import <stem>``.
 
-    ``_port_module_stem`` handles ``from application.ports.registry import X`` and
+    ``_extract_port_module_stem`` handles ``from application.ports.registry import X`` and
     ``import application.ports.registry``, where the stem trails the ports package
     in the dotted path. It cannot see the equally idiomatic
     ``from application.ports import registry`` form, where the dotted module stops
@@ -201,7 +201,7 @@ def _ports_package_import_stems(*, parsed: Module, ports_parts: list[str]) -> se
     """
     width = len(ports_parts)
     stems: set[str] = set()
-    for node in parsed.index.nodes(ast.ImportFrom):
+    for node in parsed.index.collect(ast.ImportFrom):
         if node.module and node.module.split(".")[-width:] == ports_parts:
             stems.update(alias.name for alias in node.names)
     return stems
@@ -306,10 +306,10 @@ def _check_port002(
     referenced_port_stems: set[str] = set()
     for _relative, parsed, import_modules in adapter_files:
         for module, _node in import_modules:
-            stem = _port_module_stem(module=module, ports_parts=ports_parts)
+            stem = _extract_port_module_stem(module=module, ports_parts=ports_parts)
             if stem is not None:
                 referenced_port_stems.add(stem)
-        referenced_port_stems |= _ports_package_import_stems(parsed=parsed, ports_parts=ports_parts)
+        referenced_port_stems |= _collect_ports_package_import_stems(parsed=parsed, ports_parts=ports_parts)
 
     violations: list[Violation] = []
     for proto_name, (relative_file, node, port_stem) in sorted(port_protocols.items()):
@@ -328,13 +328,13 @@ def _check_port002(
                     "Create an adapter that imports from this port module, "
                     "or add the port file to ports_without_impl"
                 ),
-                **span(node),
+                **locate(node),
             )
         )
     return violations
 
 
-def _direct_import_violation(
+def _find_direct_import_violation(
     *,
     relative: str,
     import_modules: list[tuple[str, _ImportNode]],
@@ -356,12 +356,12 @@ def _direct_import_violation(
                     "Depend on the port Protocol from the ports directory instead, "
                     "or move the import to the composition root"
                 ),
-                **span(node),
+                **locate(node),
             )
     return None
 
 
-def _instantiation_violations(
+def _find_instantiation_violations(
     *,
     parsed: Module,
     relative: str,
@@ -381,7 +381,7 @@ def _instantiation_violations(
                     rule="PORT-003: Direct instantiation of infra service in api/ layer",
                     message=f"'{call_name}(...)' instantiated directly — use dependency injection",
                     fix="Move the construction to the composition root and inject it",
-                    **span(call),
+                    **locate(call),
                 )
             )
     # Module-attribute form: ``from ...services import redis_registry`` then
@@ -395,7 +395,7 @@ def _instantiation_violations(
                     rule="PORT-003: Direct instantiation of infra service in api/ layer",
                     message=f"'{value_name}.{attr}(...)' instantiated directly — use dependency injection",
                     fix="Move the construction to the composition root and inject it",
-                    **span(call),
+                    **locate(call),
                 )
             )
     return found
@@ -432,11 +432,11 @@ def _check_port003(
             continue
 
         imported_infra = _extract_imported_names(parsed=parsed) & infra_class_names
-        adapter_bound = _adapter_bound_names(parsed=parsed, adapter_dotted=adapter_dotted)
+        adapter_bound = _collect_adapter_bound_names(parsed=parsed, adapter_dotted=adapter_dotted)
         if not imported_infra and not adapter_bound:
             continue
 
-        instantiations = _instantiation_violations(
+        instantiations = _find_instantiation_violations(
             parsed=parsed,
             relative=relative,
             infra_class_names=infra_class_names,
@@ -446,7 +446,7 @@ def _check_port003(
         violations.extend(instantiations)
 
         if not instantiations:
-            import_violation = _direct_import_violation(
+            import_violation = _find_direct_import_violation(
                 relative=relative,
                 import_modules=import_modules,
                 imported_infra=imported_infra,
@@ -497,17 +497,17 @@ class PortCoverageCheck:
 
     def configure(self, *, settings: dict[str, object]) -> None:
         """Apply ``[tool.lanorme.port_coverage]`` configuration."""
-        self.source_root = _posix_dir(str_setting(settings=settings, key="source_root", default=self.source_root))
-        ports_dir = str_setting(settings=settings, key="ports_dir", default="")
+        self.source_root = _normalise_posix_dir(read_str(settings=settings, key="source_root", default=self.source_root))
+        ports_dir = read_str(settings=settings, key="ports_dir", default="")
         if ports_dir:
-            self.ports_dir = _posix_dir(ports_dir)
+            self.ports_dir = _normalise_posix_dir(ports_dir)
         for key in ("adapter_roots", "composition_root"):
-            value = str_list_setting(settings=settings, key=key, default=getattr(self, key))
+            value = read_str_list(settings=settings, key=key, default=getattr(self, key))
             if value:
                 setattr(self, key, value)
         for key in ("skip_files", "ports_without_impl"):
             current = tuple(getattr(self, key))
-            setattr(self, key, frozenset(str_list_setting(settings=settings, key=key, default=current)))
+            setattr(self, key, frozenset(read_str_list(settings=settings, key=key, default=current)))
 
     def run(self, *, src_root: str) -> CheckResult:
         """Scan ports and adapters and validate coverage."""

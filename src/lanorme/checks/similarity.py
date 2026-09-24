@@ -54,8 +54,8 @@ from pathlib import Path
 from typing import ClassVar
 
 from lanorme import CheckResult, Violation, register
-from lanorme.checkconfig import int_setting, is_flag_set
-from lanorme.sources import Module, parsed_modules, span
+from lanorme.checkconfig import read_int, is_flag_set
+from lanorme.sources import Module, iter_parsed_modules, locate
 
 # Files exempt from near-duplicate analysis (mirrors DRY-001): test functions
 # and migrations are legitimately parallel by nature.
@@ -208,7 +208,7 @@ _LOG_METHODS = frozenset(
 )
 
 
-def _logging_string_arg_ids(*, func: _FuncDef) -> set[int]:
+def _collect_logging_string_arg_ids(*, func: _FuncDef) -> set[int]:
     """``id()`` of str-literal nodes passed positionally to a logging/print call."""
     skip: set[int] = set()
     for node in ast.walk(func):
@@ -226,7 +226,7 @@ def _logging_string_arg_ids(*, func: _FuncDef) -> set[int]:
     return skip
 
 
-def _op_names(node: ast.AST) -> list[str]:
+def _list_op_names(node: ast.AST) -> list[str]:
     """Operator kind name(s) for an op-bearing node, else an empty list."""
     if isinstance(node, (ast.BinOp, ast.UnaryOp, ast.AugAssign, ast.BoolOp)):
         return [type(node.op).__name__]
@@ -259,7 +259,7 @@ def _build_anchors(
     strs: Counter[str] = Counter()
     ops: Counter[str] = Counter()
     attrs: Counter[str] = Counter()
-    skip_str_ids = _logging_string_arg_ids(func=func)
+    skip_str_ids = _collect_logging_string_arg_ids(func=func)
     for node in ast.walk(func):
         if isinstance(node, ast.Call):
             name = _call_name(node)
@@ -271,7 +271,7 @@ def _build_anchors(
             if id(node) not in skip_str_ids:
                 strs[node.value] += 1
         else:
-            for op in _op_names(node):
+            for op in _list_op_names(node):
                 ops[op] += 1
     return calls, strs, ops, attrs
 
@@ -301,7 +301,7 @@ def _is_excluded(*, func: _FuncDef) -> bool:
     return False
 
 
-def _fingerprint(*, func: _FuncDef) -> _FunctionFingerprint:
+def _build_fingerprint(*, func: _FuncDef) -> _FunctionFingerprint:
     """Build the structural sequence and anchor multisets for one function."""
     visitor = _StructVisitor()
     for stmt in func.body:
@@ -319,7 +319,7 @@ def _fingerprint(*, func: _FuncDef) -> _FunctionFingerprint:
     )
 
 
-def _weighted_jaccard(
+def _measure_weighted_jaccard(
     *,
     left: Counter[str],
     right: Counter[str],
@@ -350,7 +350,7 @@ def _weighted_jaccard(
 _THRESHOLD_KEYS = ("struct_ratio", "str_jaccard", "op_jaccard", "call_jaccard", "attr_jaccard")
 
 
-def _ratio_setting(*, settings: dict[str, object], key: str, default: float) -> float:
+def _read_ratio_setting(*, settings: dict[str, object], key: str, default: float) -> float:
     """A threshold in ``[0, 1]``; an int or a float, never a bool or a string."""
     value = settings.get(key, default)
     if isinstance(value, bool) or not isinstance(value, (int, float)):
@@ -388,18 +388,18 @@ def _pair_matches(
         return False
     # The set gates are cheap and reject most pairs; the sequence match, the
     # expensive gate, runs last and only after its upper bounds clear the bar.
-    if _weighted_jaccard(left=left.strs, right=right.strs) < thresholds.str_jaccard:
+    if _measure_weighted_jaccard(left=left.strs, right=right.strs) < thresholds.str_jaccard:
         return False
-    op_jaccard = _weighted_jaccard(left=left.ops, right=right.ops, empty_is_agreement=True)
+    op_jaccard = _measure_weighted_jaccard(left=left.ops, right=right.ops, empty_is_agreement=True)
     if op_jaccard < thresholds.op_jaccard:
         return False
-    if _weighted_jaccard(left=left.calls, right=right.calls) < thresholds.call_jaccard:
+    if _measure_weighted_jaccard(left=left.calls, right=right.calls) < thresholds.call_jaccard:
         return False
     # Accessed-attribute agreement. empty_is_agreement so functions that touch
     # no attributes are not punished; the gate only rejects pairs whose
     # attribute sets are (near) disjoint, i.e. parallel mappers over different
     # source objects.
-    attr_jaccard = _weighted_jaccard(left=left.attrs, right=right.attrs, empty_is_agreement=True)
+    attr_jaccard = _measure_weighted_jaccard(left=left.attrs, right=right.attrs, empty_is_agreement=True)
     if attr_jaccard < thresholds.attr_jaccard:
         return False
     matcher = difflib.SequenceMatcher(None, left.struct, right.struct)
@@ -415,7 +415,7 @@ def _collect_fingerprints(*, module: Module, min_statements: int) -> list[_Funct
     prints: list[_FunctionFingerprint] = []
     for node in module.index.functions:
         if len(node.body) >= min_statements:
-            prints.append(_fingerprint(func=node))
+            prints.append(_build_fingerprint(func=node))
     return prints
 
 
@@ -442,7 +442,7 @@ def _scan_file(
                         f"names and numbers) and agree on their strings, calls and operators"
                     ),
                     fix="Extract the shared logic into a common helper function",
-                    **span(first.node),
+                    **locate(first.node),
                 )
             )
     return warnings
@@ -476,16 +476,16 @@ class SimilarityCheck:
     def configure(self, *, settings: dict[str, object]) -> None:
         """Apply ``[tool.lanorme.similarity]`` configuration."""
         self.enabled = is_flag_set(settings=settings, key="enabled", default=self.enabled)
-        self.min_statements = int_setting(
+        self.min_statements = read_int(
             settings=settings,
             key="min_statements",
             default=self.min_statements,
         )
         for key in _THRESHOLD_KEYS:
             current: float = getattr(self, key)
-            setattr(self, key, _ratio_setting(settings=settings, key=key, default=current))
+            setattr(self, key, _read_ratio_setting(settings=settings, key=key, default=current))
 
-    def _thresholds(self) -> _Thresholds:
+    def _build_thresholds(self) -> _Thresholds:
         return _Thresholds(
             struct_ratio=self.struct_ratio,
             str_jaccard=self.str_jaccard,
@@ -499,8 +499,8 @@ class SimilarityCheck:
         if not self.enabled:
             return CheckResult.from_findings(check=self.name)
         warnings: list[Violation] = []
-        thresholds = self._thresholds()
-        for module in parsed_modules(Path(src_root)):
+        thresholds = self._build_thresholds()
+        for module in iter_parsed_modules(Path(src_root)):
             if _should_skip(relative=Path(module.relative)):
                 continue
             # Per-file isolation: a single pathological file (a deeply nested

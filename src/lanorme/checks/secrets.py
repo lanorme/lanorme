@@ -36,7 +36,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from lanorme import CheckResult, Status, Violation, register
-from lanorme.sources import Module, parsed_modules, span
+from lanorme.sources import Module, iter_parsed_modules, locate
 
 # A name suggests a credential when (i) it matches one of these multi-segment
 # phrases as the whole name or as a ``_``-anchored suffix, OR (ii) one of its
@@ -121,7 +121,7 @@ def _name_is_credential(name: str) -> bool:
     return any(seg in _CRED_TOKEN_SEGMENTS for seg in segments)
 
 
-def _value_looks_high_entropy(text: str) -> bool:
+def _is_high_entropy_value(text: str) -> bool:
     """True when *text* has enough variety to be a real key rather than a placeholder."""
     if len(text) < _HIGH_ENTROPY_LEN:
         return False
@@ -140,14 +140,14 @@ def _value_is_real_secret(value: ast.expr) -> str | None:
         return None
     lowered = text.lower()
     if any(marker in lowered for marker in _PLACEHOLDER_MARKERS):
-        if not _value_looks_high_entropy(text):
+        if not _is_high_entropy_value(text):
             return None
     return text
 
 
-def _violation(*, file: str, node: ast.AST, message: str) -> Violation:
+def _build_violation(*, file: str, node: ast.AST, message: str) -> Violation:
     """The SECRETPY-001 finding anchored at *node*."""
-    return Violation(file=file, line=node.lineno, rule=_RULE, message=message, fix=_FIX, **span(node))
+    return Violation(file=file, line=node.lineno, rule=_RULE, message=message, fix=_FIX, **locate(node))
 
 
 def _flag_assignment(
@@ -158,22 +158,22 @@ def _flag_assignment(
         return None
     if _value_is_real_secret(value) is None:
         return None
-    return _violation(file=file, node=node, message=f"Hardcoded credential value bound to '{name}'")
+    return _build_violation(file=file, node=node, message=f"Hardcoded credential value bound to '{name}'")
 
 
 def _shape_violation(*, value: str, node: ast.Constant, file: str) -> Violation | None:
     """Flag SECRET-shape literals that betray themselves regardless of variable name."""
     if _PEM_BLOCK_RE.search(value):
-        return _violation(file=file, node=node, message="PEM-formatted private key in source")
+        return _build_violation(file=file, node=node, message="PEM-formatted private key in source")
     if _JWT_RE.search(value):
-        return _violation(file=file, node=node, message="JWT-shaped token literal in source")
+        return _build_violation(file=file, node=node, message="JWT-shaped token literal in source")
     if _URL_WITH_CREDS_RE.search(value):
-        return _violation(file=file, node=node, message="Database / cache URL with embedded credentials")
+        return _build_violation(file=file, node=node, message="Database / cache URL with embedded credentials")
     if _BEARER_RE.search(value):
-        return _violation(file=file, node=node, message="Bearer-token literal in source")
+        return _build_violation(file=file, node=node, message="Bearer-token literal in source")
     for pattern, description in _VENDOR_TOKEN_PATTERNS:
         if pattern.search(value):
-            return _violation(file=file, node=node, message=description)
+            return _build_violation(file=file, node=node, message=description)
     return None
 
 
@@ -227,7 +227,7 @@ def _from_string_constant(node: ast.Constant, *, file: str) -> list[Violation]:
 def _scan_tree(*, module: Module) -> list[Violation]:
     file = module.relative
     found: list[Violation] = []
-    for node in module.index.nodes(ast.Assign, ast.AnnAssign, ast.Dict, ast.Call, ast.Constant):
+    for node in module.index.collect(ast.Assign, ast.AnnAssign, ast.Dict, ast.Call, ast.Constant):
         if isinstance(node, ast.Assign):
             found.extend(_from_assign(node, file=file))
         elif isinstance(node, ast.AnnAssign):
@@ -258,7 +258,7 @@ class SecretsCheck:
 
     def run(self, *, src_root: str) -> CheckResult:
         violations: list[Violation] = []
-        for module in parsed_modules(Path(src_root)):
+        for module in iter_parsed_modules(Path(src_root)):
             file_name = module.path.name
             if file_name in _SCAN_EXCLUDES or file_name.startswith("test_"):
                 continue

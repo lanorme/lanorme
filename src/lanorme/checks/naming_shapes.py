@@ -24,7 +24,7 @@ from lanorme.checks.naming_words import (
     HOOK_SUFFIXES,
     PROTOCOL_NAMES,
 )
-from lanorme.sources import parsed_modules
+from lanorme.sources import iter_parsed_modules
 
 FUNCTION_TYPES = (ast.FunctionDef, ast.AsyncFunctionDef)
 
@@ -102,15 +102,15 @@ def iter_modules(*, root: Path) -> Iterator[tuple[str, ast.Module]]:
     """Every parseable module under *root* with its root-relative posix path.
 
     Generated migration trees are skipped; a file the parser rejects is skipped
-    by :func:`parsed_modules` rather than raised.
+    by :func:`iter_parsed_modules` rather than raised.
     """
-    for module in parsed_modules(root):
+    for module in iter_parsed_modules(root):
         if any(part in _SKIP_DIRS for part in module.relative.split("/")):
             continue
         yield module.relative, module.tree
 
 
-def decorator_leaves(*, node: ast.FunctionDef | ast.AsyncFunctionDef) -> set[str]:
+def resolve_decorator_leaves(*, node: ast.FunctionDef | ast.AsyncFunctionDef) -> set[str]:
     """The name each decorator resolves to: ``@app.route("/")`` gives ``route``.
 
     Calls and subscripts are unwrapped, so ``@abc.abstractmethod`` gives
@@ -133,7 +133,7 @@ def decorator_leaves(*, node: ast.FunctionDef | ast.AsyncFunctionDef) -> set[str
 
 def has_opaque_decorator(*, node: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
     """True if a decorator other than the transparent few claims the name."""
-    return bool(decorator_leaves(node=node) - TRANSPARENT_DECORATORS)
+    return bool(resolve_decorator_leaves(node=node) - TRANSPARENT_DECORATORS)
 
 
 def has_return_value(*, node: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
@@ -151,7 +151,7 @@ def has_return_value(*, node: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
     return False
 
 
-def _real_statements(*, node: ast.FunctionDef | ast.AsyncFunctionDef) -> list[ast.stmt]:
+def _list_real_statements(*, node: ast.FunctionDef | ast.AsyncFunctionDef) -> list[ast.stmt]:
     """The body minus its docstring and bare constants (``...``)."""
     return [
         statement for statement in node.body
@@ -161,7 +161,7 @@ def _real_statements(*, node: ast.FunctionDef | ast.AsyncFunctionDef) -> list[as
 
 def is_raiser(*, node: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
     """True if the body ends in ``raise``: the function exists to raise."""
-    statements = _real_statements(node=node)
+    statements = _list_real_statements(node=node)
     return bool(statements) and isinstance(statements[-1], ast.Raise)
 
 
@@ -172,7 +172,7 @@ def is_command(*, node: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
     protocol member), and a body that ends in ``raise`` exists to raise; neither
     is a command in the naming sense.
     """
-    statements = _real_statements(node=node)
+    statements = _list_real_statements(node=node)
     if not statements or is_raiser(node=node):
         return False
     if len(statements) == 1 and isinstance(statements[0], ast.Pass):

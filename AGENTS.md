@@ -58,17 +58,17 @@ one-line fix, a doc edit. Anything larger gets the phases above.
 ## When you touch a check
 
 - Read Python sources through `lanorme.sources.iter_modules` (or
-  `parsed_modules`), which parses each file once per run and shares the tree
+  `iter_parsed_modules`), which parses each file once per run and shares the tree
   with every check; never read or `ast.parse` a file yourself, and never
   mutate a tree. Other files go through `lanorme.discovery.iter_files` /
   `iter_dirs`, never `Path.rglob` or `os.walk`, so directory pruning and the
   user's `exclude` globs are honoured.
 - Build the result with `CheckResult.from_findings(check=self.name, ...)` so
   the status always agrees with the finding lists. Report a file you skip with
-  `unparseable_notice` / `skip_notice` (a `<PREFIX>-000` warning) or skip it
+  `build_unparseable_notice` / `build_skip_notice` (a `<PREFIX>-000` warning) or skip it
   silently; never let an exception escape.
 - Read settings in `configure()` through the `lanorme.checkconfig` readers
-  (`str_list_setting`, `int_setting`, `is_flag_set`, `str_setting`) so a
+  (`read_str_list`, `read_int`, `is_flag_set`, `read_str`) so a
   mistyped value is an exit-2 config error, not a run-time failure.
 - One category prefix per check. Rule codes (`SQL-001`, `LAYER-005`) are the
   public surface and are stable: renaming or removing one is a breaking change.

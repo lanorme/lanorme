@@ -387,3 +387,125 @@ def test_spans_reach_ndjson_and_github_annotations(tmp_path: Path, capsys):
     # Assert: 0-based column and inclusive end line in ndjson, 1-based col in the annotation.
     assert (record["line"], record["column"], record["end_line"]) == (1, 0, 2)
     assert annotation.startswith("::error file=wide.py,line=1,endLine=2,col=1,endColumn=")
+
+
+# --------------------------------------------------------------------------- #
+# cascading config: the outermost config is the project, a subtree is a region
+# --------------------------------------------------------------------------- #
+
+
+def _nested_project(tmp_path: Path) -> Path:
+    """A project whose tests/ subtree carries its own config and a TYPE-003 bait."""
+    _project(tmp_path, "")
+    tests = tmp_path / "tests"
+    tests.mkdir()
+    (tests / "lanorme.toml").write_text("[file_limits]\nparam_warn = 7\n", encoding="utf-8")
+    (tests / "helpers.py").write_text("def f(**kwargs):\n    return kwargs\n", encoding="utf-8")
+    return tests
+
+
+def test_nested_region_keeps_path_based_exemptions(tmp_path: Path, capsys):
+    """A region pass sees ``tests/helpers.py``, so the tests/ exemption of TYPE-003 holds."""
+    # Arrange.
+    _nested_project(tmp_path)
+
+    # Act.
+    _run(["check", str(tmp_path), "--check", "strong_types", "--output-format", "ndjson"])
+    records = [json.loads(line) for line in capsys.readouterr().out.splitlines()]
+
+    # Assert: no TYPE-003 on a file under tests/, nested config or not.
+    assert [r["code"] for r in records] == []
+
+
+def test_checking_a_subtree_applies_the_enclosing_project_config(tmp_path: Path, capsys):
+    """``lanorme check tests`` under tests/lanorme.toml is still the project's run."""
+    # Arrange: the project ignores TYPE at the root; the subtree only tunes a threshold.
+    tests = _nested_project(tmp_path)
+    (tmp_path / "lanorme.toml").write_text('ignore = ["TYPE"]\n', encoding="utf-8")
+
+    # Act.
+    _run(["check", str(tests), "--show-config"])
+    out = capsys.readouterr().out
+
+    # Assert: the outermost config is the project, the nested one is listed as a region.
+    assert f"project root: {tmp_path.resolve()}" in out
+    assert "nested:" in out and "tests/lanorme.toml" in out.replace("\\", "/")
+    assert "ignore = ['TYPE']" in out
+
+
+# --------------------------------------------------------------------------- #
+# strict settings, summary format, notes
+# --------------------------------------------------------------------------- #
+
+
+def test_unknown_setting_key_exits_2_and_lists_the_keys(tmp_path: Path, capsys):
+    # Arrange.
+    _project(tmp_path, "[file_limits]\nfile_warn = 10\n")
+
+    # Act.
+    code = _run(["check", str(tmp_path)])
+    err = capsys.readouterr().err
+
+    # Assert.
+    assert code == 2
+    assert "unknown key in [tool.lanorme.file_limits]: 'file_warn'" in err
+    assert "file_warn_lines" in err
+
+
+def test_summary_format_counts_by_code_and_directory(tmp_path: Path, capsys):
+    # Arrange: two eval calls in two directories.
+    _project(tmp_path)
+    for directory in ("app", "lib"):
+        (tmp_path / directory).mkdir()
+        (tmp_path / directory / "m.py").write_text("eval(input())\n", encoding="utf-8")
+
+    # Act.
+    code = _run(["check", str(tmp_path), "--output-format", "summary"])
+    out = capsys.readouterr().out
+
+    # Assert.
+    assert code == 1
+    assert "EVAL-001         error    2" in out
+    assert "app/" in out and "lib/" in out and "By directory:" in out
+
+
+def test_summary_notes_report_suppressions_and_disabled_opt_ins(tmp_path: Path, capsys):
+    # Arrange: one eval call silenced inline, another by per-file-ignores.
+    _project(tmp_path, '[per-file-ignores]\n"quiet.py" = ["EVAL-001"]\n')
+    (tmp_path / "loud.py").write_text("eval(input())  # lanorme: ignore[EVAL-001]\n", encoding="utf-8")
+    (tmp_path / "quiet.py").write_text("eval(input())\n", encoding="utf-8")
+
+    # Act.
+    code = _run(["check", str(tmp_path)])
+    out = capsys.readouterr().out
+
+    # Assert: clean exit, but the summary says what was silenced and what is off.
+    assert code == 0
+    assert "Suppressed: 1 by inline ignores, 1 by per-file-ignores, 0 by the baseline." in out
+    assert "Opt-in checks not enabled:" in out
+
+
+def test_selecting_a_disabled_opt_in_check_is_noted(tmp_path: Path, capsys):
+    # Arrange.
+    _project(tmp_path)
+
+    # Act.
+    code = _run(["check", str(tmp_path), "--check", "similarity"])
+    err = capsys.readouterr().err
+
+    # Assert.
+    assert code == 0
+    assert "similarity is opt-in and not enabled" in err
+
+
+def test_usage_errors_surface_as_exit_2_from_one_place(tmp_path: Path, capsys):
+    # Arrange: a path that does not exist.
+    missing = tmp_path / "nope"
+
+    # Act.
+    code = _run(["check", str(missing)])
+    err = capsys.readouterr().err
+
+    # Assert: the library's UsageError became the CLI's ERROR line and exit 2.
+    assert code == 2
+    assert err.startswith("ERROR: path '") and "does not exist" in err

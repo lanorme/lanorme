@@ -86,9 +86,9 @@ receives the same `Module`, so a run costs one parse per file rather than one
 per check.
 
 ```python
-from lanorme.sources import parsed_modules
+from lanorme.sources import iter_parsed_modules
 
-for module in parsed_modules(src_root):
+for module in iter_parsed_modules(src_root):
     module.path      # Path to the *.py file
     module.relative  # its path relative to src_root, posix style
     module.source    # the decoded text
@@ -96,26 +96,26 @@ for module in parsed_modules(src_root):
     module.tree      # the parsed ast.Module
 ```
 
-`parsed_modules(root)` yields only the files that parse. `iter_modules(root)`
+`iter_parsed_modules(root)` yields only the files that parse. `iter_modules(root)`
 yields those same `Module` objects and, for a file the parser rejects,
-overflows on, or cannot read, an `Unparseable` (`path`, `relative`, `reason`)
+overflows on, or cannot read, an `UnparseableFile` (`path`, `relative`, `reason`)
 so the check can decide what to do. A check that reports such files emits the
-advisory `<PREFIX>-000` notice through `unparseable_notice`:
+advisory `<PREFIX>-000` notice through `build_unparseable_notice`:
 
 ```python
-from lanorme.sources import Module, iter_modules, unparseable_notice
+from lanorme.sources import Module, iter_modules, build_unparseable_notice
 
 for item in iter_modules(src_root):
     if isinstance(item, Module):
         ...  # analyse item.tree
     else:
-        warnings.append(unparseable_notice(prefix="MYCODE", failure=item))
+        warnings.append(build_unparseable_notice(prefix="MYCODE", failure=item))
 ```
 
 The notice's rule is `MYCODE-000: <reason>`, with the reason one of `parse
 error`, `too deeply nested` or `unreadable`. A `-000` code is a notice, not a
 finding: promotion never escalates it and the baseline never records it.
-`skip_notice(prefix=, file=, name=, reason=)` builds the same notice for a
+`build_skip_notice(prefix=, file=, name=, reason=)` builds the same notice for a
 file the check skips on its own.
 
 Trees are shared with every other check in the run, so a check must never
@@ -166,7 +166,7 @@ here as the example because it is the smallest complete check.
 from __future__ import annotations
 
 from lanorme import CheckResult, Violation, register
-from lanorme.sources import parsed_modules
+from lanorme.sources import iter_parsed_modules
 
 
 class NoUtilsModule:
@@ -176,7 +176,7 @@ class NoUtilsModule:
 
     def run(self, *, src_root: str) -> CheckResult:
         violations: list[Violation] = []
-        for module in parsed_modules(src_root):
+        for module in iter_parsed_modules(src_root):
             if module.path.name == "utils.py":
                 violations.append(
                     Violation(

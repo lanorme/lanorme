@@ -14,7 +14,7 @@ import pytest
 from lanorme import get_all_checks
 from lanorme.cli import _load_builtin_checks, main
 from lanorme.errors import UsageError
-from lanorme.presets import _bundled_profiles, _load_profile, _resolve_extends
+from lanorme.presets import _list_bundled_profiles, _load_profile, _resolve_extends
 
 # Default-off checks the strict profile leaves off on purpose. Empty today: a
 # name goes here only with its reason, so an omission is a decision, not drift.
@@ -47,10 +47,10 @@ def _switched_on_by_strict() -> set[str]:
 
 def test_strict_is_a_bundled_profile():
     # Assert: the shipped profile is discoverable by name.
-    assert "strict" in _bundled_profiles()
+    assert "strict" in _list_bundled_profiles()
 
 
-@pytest.mark.parametrize("name", _bundled_profiles())
+@pytest.mark.parametrize("name", _list_bundled_profiles())
 def test_every_bundled_profile_is_valid_toml(name: str):
     # Act: each bundled profile loads without raising.
     profile = _load_profile(name=name, project_root=Path("/nonexistent"))

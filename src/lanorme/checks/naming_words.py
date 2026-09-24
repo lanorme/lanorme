@@ -297,7 +297,7 @@ def is_verb_capable(*, word: str, extra: frozenset[str] = frozenset()) -> bool:
     return _has_fused_prefix(word=word, verbs=verbs)
 
 
-def modifier_count(*, tokens: list[str]) -> int:
+def count_modifiers(*, tokens: list[str]) -> int:
     """How many leading tokens are modifiers of the word after them: ``bulk_insert`` gives 1."""
     count = 0
     while count < len(tokens) - 1 and tokens[count] in MODIFIERS:
@@ -305,17 +305,17 @@ def modifier_count(*, tokens: list[str]) -> int:
     return count
 
 
-def leading_verb_index(*, tokens: list[str], extra: frozenset[str] = frozenset()) -> int:
+def find_leading_verb_index(*, tokens: list[str], extra: frozenset[str] = frozenset()) -> int:
     """Index of the verb that opens *tokens* once leading modifiers are skipped, or -1.
 
     ``["bulk", "insert", "rows"]`` gives 1; ``["cert", "verify"]`` gives -1 because
     the verb does not lead.
     """
-    index = modifier_count(tokens=tokens)
+    index = count_modifiers(tokens=tokens)
     return index if is_verb_capable(word=tokens[index], extra=extra) else -1
 
 
-def postposed_verb_index(*, tokens: list[str], extra: frozenset[str] = frozenset()) -> int:
+def find_postposed_verb_index(*, tokens: list[str], extra: frozenset[str] = frozenset()) -> int:
     """Index of the last listed verb sitting after the first judged word, or -1.
 
     ``["cert", "verify"]`` gives 1 and ``["user", "count", "update"]`` gives 2:
@@ -324,14 +324,14 @@ def postposed_verb_index(*, tokens: list[str], extra: frozenset[str] = frozenset
     merely might be a verb (``ports``, ``finding``).
     """
     verbs = VERB_CAPABLE | extra
-    start = modifier_count(tokens=tokens)
+    start = count_modifiers(tokens=tokens)
     for index in range(len(tokens) - 1, start, -1):
         if tokens[index] in verbs:
             return index
     return -1
 
 
-def verb_first(*, name: str, tokens: list[str], index: int) -> str:
+def move_verb_first(*, name: str, tokens: list[str], index: int) -> str:
     """*name* rebuilt with the verb at *index* ahead of everything but its modifiers.
 
     Leading underscores are kept and a digit token is reattached to the word
@@ -339,7 +339,7 @@ def verb_first(*, name: str, tokens: list[str], index: int) -> str:
     gives ``bulk_verify_cert``.
     """
     prefix = name[: len(name) - len(name.lstrip("_"))]
-    start = modifier_count(tokens=tokens)
+    start = count_modifiers(tokens=tokens)
     order = [*tokens[:start], tokens[index], *tokens[start:index], *tokens[index + 1:]]
     joined = ""
     for token in order:

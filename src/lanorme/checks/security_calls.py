@@ -30,10 +30,10 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from lanorme import CheckResult, Violation, register
-from lanorme.sources import Module, parsed_modules, span
+from lanorme.sources import Module, iter_parsed_modules, locate
 
 
-def _attr_chain(node: ast.AST) -> tuple[str, ...]:
+def _extract_attr_chain(node: ast.AST) -> tuple[str, ...]:
     """Return the dotted attribute chain at *node*, or () if it isn't one.
 
     ``hashlib.md5`` -> ('hashlib', 'md5'); ``ssl.PROTOCOL_TLSv1`` -> ('ssl',
@@ -51,7 +51,7 @@ def _attr_chain(node: ast.AST) -> tuple[str, ...]:
     return ()
 
 
-def _kwarg_named(*, call: ast.Call, name: str) -> ast.expr | None:
+def _find_kwarg_named(*, call: ast.Call, name: str) -> ast.expr | None:
     for keyword in call.keywords:
         if keyword.arg == name:
             return keyword.value
@@ -71,8 +71,8 @@ def _is_constant_false(node: ast.expr | None) -> bool:
 _SUBPROCESS_FUNCS = frozenset({"run", "call", "check_call", "check_output", "Popen"})
 
 
-def _shell_violations(*, call: ast.Call, relative_file: str) -> list[Violation]:
-    chain = _attr_chain(call.func)
+def _find_shell_violations(*, call: ast.Call, relative_file: str) -> list[Violation]:
+    chain = _extract_attr_chain(call.func)
     if chain == ("os", "system") or chain == ("os", "popen"):
         return [
             Violation(
@@ -81,11 +81,11 @@ def _shell_violations(*, call: ast.Call, relative_file: str) -> list[Violation]:
                 rule="SHELL-001",
                 message=f"{'.'.join(chain)} runs the argument through the shell",
                 fix="Use subprocess.run([...], shell=False) with an argv list instead",
-                **span(call),
+                **locate(call),
             )
         ]
     if len(chain) == 2 and chain[0] == "subprocess" and chain[1] in _SUBPROCESS_FUNCS:
-        if _is_constant_true(_kwarg_named(call=call, name="shell")):
+        if _is_constant_true(_find_kwarg_named(call=call, name="shell")):
             return [
                 Violation(
                     file=relative_file,
@@ -93,7 +93,7 @@ def _shell_violations(*, call: ast.Call, relative_file: str) -> list[Violation]:
                     rule="SHELL-001",
                     message=f"subprocess.{chain[1]}(..., shell=True) runs the argument through the shell",
                     fix="Drop shell=True and pass the command as a list of arguments",
-                    **span(call),
+                    **locate(call),
                 )
             ]
     return []
@@ -116,8 +116,8 @@ _DESERIAL_PAIRS = frozenset(
 _SAFE_YAML_LOADERS = frozenset({"SafeLoader", "CSafeLoader", "BaseLoader"})
 
 
-def _deserial_violations(*, call: ast.Call, relative_file: str) -> list[Violation]:
-    chain = _attr_chain(call.func)
+def _find_deserial_violations(*, call: ast.Call, relative_file: str) -> list[Violation]:
+    chain = _extract_attr_chain(call.func)
     if len(chain) == 2 and chain in _DESERIAL_PAIRS:
         return [
             Violation(
@@ -126,12 +126,12 @@ def _deserial_violations(*, call: ast.Call, relative_file: str) -> list[Violatio
                 rule="DESERIAL-001",
                 message=f"{'.'.join(chain)} on untrusted input is an RCE primitive",
                 fix="Replace with a safe serialiser (json, msgpack), or # noqa: DESERIAL-001 if the input is trusted",
-                **span(call),
+                **locate(call),
             )
         ]
     if chain == ("yaml", "load"):
-        loader = _kwarg_named(call=call, name="Loader")
-        loader_chain = _attr_chain(loader) if loader is not None else ()
+        loader = _find_kwarg_named(call=call, name="Loader")
+        loader_chain = _extract_attr_chain(loader) if loader is not None else ()
         loader_ok = (
             (loader_chain and loader_chain[-1] in _SAFE_YAML_LOADERS)
             or (isinstance(loader, ast.Name) and loader.id in _SAFE_YAML_LOADERS)
@@ -144,7 +144,7 @@ def _deserial_violations(*, call: ast.Call, relative_file: str) -> list[Violatio
                     rule="DESERIAL-001",
                     message="yaml.load without Loader=SafeLoader is an RCE primitive",
                     fix="Use yaml.safe_load(...) or pass Loader=yaml.SafeLoader explicitly",
-                    **span(call),
+                    **locate(call),
                 )
             ]
     if chain == ("yaml", "unsafe_load"):
@@ -155,7 +155,7 @@ def _deserial_violations(*, call: ast.Call, relative_file: str) -> list[Violatio
                 rule="DESERIAL-001",
                 message="yaml.unsafe_load constructs arbitrary Python objects",
                 fix="Use yaml.safe_load(...) instead",
-                **span(call),
+                **locate(call),
             )
         ]
     return []
@@ -166,7 +166,7 @@ def _deserial_violations(*, call: ast.Call, relative_file: str) -> list[Violatio
 _EVAL_FUNCS = frozenset({"eval", "exec", "compile"})
 
 
-def _eval_violations(*, call: ast.Call, relative_file: str) -> list[Violation]:
+def _find_eval_violations(*, call: ast.Call, relative_file: str) -> list[Violation]:
     if not isinstance(call.func, ast.Name) or call.func.id not in _EVAL_FUNCS:
         return []
     if not call.args:
@@ -181,7 +181,7 @@ def _eval_violations(*, call: ast.Call, relative_file: str) -> list[Violation]:
             rule="EVAL-001",
             message=f"{call.func.id}() on a non-literal argument is an RCE primitive",
             fix="Use ast.literal_eval for trusted-shape parsing, or build a dispatch table",
-            **span(call),
+            **locate(call),
         )
     ]
 
@@ -194,11 +194,11 @@ _WEAK_TLS_CONSTANTS = frozenset(
 )
 
 
-def _crypto_call_violations(*, call: ast.Call, relative_file: str) -> list[Violation]:
-    chain = _attr_chain(call.func)
+def _find_crypto_call_violations(*, call: ast.Call, relative_file: str) -> list[Violation]:
+    chain = _extract_attr_chain(call.func)
     if chain and chain[0] == "hashlib" and len(chain) == 2 and chain[1] in _WEAK_HASH_NAMES:
         # hashlib.md5(..., usedforsecurity=False) declares non-security use.
-        if _is_constant_false(_kwarg_named(call=call, name="usedforsecurity")):
+        if _is_constant_false(_find_kwarg_named(call=call, name="usedforsecurity")):
             return []
         return [
             Violation(
@@ -207,7 +207,7 @@ def _crypto_call_violations(*, call: ast.Call, relative_file: str) -> list[Viola
                 rule="CRYPTO-001",
                 message=f"hashlib.{chain[1]} is a weak hash for security purposes",
                 fix="Use hashlib.sha256+ for security; pass usedforsecurity=False for non-security uses",
-                **span(call),
+                **locate(call),
             )
         ]
     if chain == ("hashlib", "new") and call.args:
@@ -220,14 +220,14 @@ def _crypto_call_violations(*, call: ast.Call, relative_file: str) -> list[Viola
                     rule="CRYPTO-001",
                     message=f"hashlib.new({first.value!r}) is a weak hash for security purposes",
                     fix="Use hashlib.new('sha256') or stronger",
-                    **span(call),
+                    **locate(call),
                 )
             ]
     return []
 
 
-def _crypto_attribute_violations(*, node: ast.Attribute, relative_file: str) -> list[Violation]:
-    chain = _attr_chain(node)
+def _find_crypto_attribute_violations(*, node: ast.Attribute, relative_file: str) -> list[Violation]:
+    chain = _extract_attr_chain(node)
     if chain == ("ssl",) + chain[1:] and len(chain) == 2 and chain[1] in _WEAK_TLS_CONSTANTS:
         return [
             Violation(
@@ -236,7 +236,7 @@ def _crypto_attribute_violations(*, node: ast.Attribute, relative_file: str) -> 
                 rule="CRYPTO-001",
                 message=f"ssl.{chain[1]} is a deprecated TLS protocol",
                 fix="Use ssl.PROTOCOL_TLS_CLIENT (TLS 1.2+) or higher",
-                **span(node),
+                **locate(node),
             )
         ]
     return []
@@ -247,9 +247,9 @@ def _crypto_attribute_violations(*, node: ast.Attribute, relative_file: str) -> 
 _TLS_CLIENT_MODULES = frozenset({"requests", "httpx", "aiohttp"})
 
 
-def _tls_violations(*, call: ast.Call, relative_file: str) -> list[Violation]:
-    chain = _attr_chain(call.func)
-    if chain and chain[0] in _TLS_CLIENT_MODULES and _is_constant_false(_kwarg_named(call=call, name="verify")):
+def _find_tls_violations(*, call: ast.Call, relative_file: str) -> list[Violation]:
+    chain = _extract_attr_chain(call.func)
+    if chain and chain[0] in _TLS_CLIENT_MODULES and _is_constant_false(_find_kwarg_named(call=call, name="verify")):
         return [
             Violation(
                 file=relative_file,
@@ -257,7 +257,7 @@ def _tls_violations(*, call: ast.Call, relative_file: str) -> list[Violation]:
                 rule="TLS-001",
                 message=f"{'.'.join(chain)}(..., verify=False) disables certificate verification",
                 fix="Remove verify=False (or pin a CA bundle via verify=<path>) — MITM enabler in production",
-                **span(call),
+                **locate(call),
             )
         ]
     if chain == ("ssl", "_create_unverified_context"):
@@ -268,14 +268,14 @@ def _tls_violations(*, call: ast.Call, relative_file: str) -> list[Violation]:
                 rule="TLS-001",
                 message="ssl._create_unverified_context disables certificate verification globally",
                 fix="Use ssl.create_default_context() instead",
-                **span(call),
+                **locate(call),
             )
         ]
     return []
 
 
-def _tls_attribute_violations(*, node: ast.Attribute, relative_file: str) -> list[Violation]:
-    chain = _attr_chain(node)
+def _find_tls_attribute_violations(*, node: ast.Attribute, relative_file: str) -> list[Violation]:
+    chain = _extract_attr_chain(node)
     if chain == ("ssl", "CERT_NONE"):
         return [
             Violation(
@@ -284,7 +284,7 @@ def _tls_attribute_violations(*, node: ast.Attribute, relative_file: str) -> lis
                 rule="TLS-001",
                 message="ssl.CERT_NONE disables certificate verification when assigned to verify_mode",
                 fix="Use ssl.CERT_REQUIRED (the default) and provide a trust store",
-                **span(node),
+                **locate(node),
             )
         ]
     return []
@@ -300,10 +300,10 @@ def _debug_violations(*, call: ast.Call, relative_file: str) -> list[Violation]:
     constructor: str | None = None
     if isinstance(call.func, ast.Name) and call.func.id in _WEB_FRAMEWORK_CONSTRUCTORS:
         constructor = call.func.id
-    chain = _attr_chain(call.func)
+    chain = _extract_attr_chain(call.func)
     if chain and chain[-1] in _WEB_FRAMEWORK_CONSTRUCTORS:
         constructor = chain[-1]
-    if constructor is not None and _is_constant_true(_kwarg_named(call=call, name="debug")):
+    if constructor is not None and _is_constant_true(_find_kwarg_named(call=call, name="debug")):
         return [
             Violation(
                 file=relative_file,
@@ -311,11 +311,11 @@ def _debug_violations(*, call: ast.Call, relative_file: str) -> list[Violation]:
                 rule="DEBUG-001",
                 message=f"{constructor}(debug=True) exposes the interactive debugger in production",
                 fix="Set debug from an environment variable; default it to False",
-                **span(call),
+                **locate(call),
             )
         ]
     # app.run(debug=True) / app.run_server(debug=True).
-    if chain and chain[-1] in {"run", "run_server"} and _is_constant_true(_kwarg_named(call=call, name="debug")):
+    if chain and chain[-1] in {"run", "run_server"} and _is_constant_true(_find_kwarg_named(call=call, name="debug")):
         return [
             Violation(
                 file=relative_file,
@@ -323,7 +323,7 @@ def _debug_violations(*, call: ast.Call, relative_file: str) -> list[Violation]:
                 rule="DEBUG-001",
                 message=f"{'.'.join(chain)}(debug=True) starts the server in debug mode",
                 fix="Read debug from configuration; never hard-code True",
-                **span(call),
+                **locate(call),
             )
         ]
     return []
@@ -331,7 +331,7 @@ def _debug_violations(*, call: ast.Call, relative_file: str) -> list[Violation]:
 
 # --- Module-level DEBUG = True in settings/config files ------------------- #
 
-def _settings_assign_violations(*, node: ast.Assign, relative_file: str) -> list[Violation]:
+def _find_settings_assign_violations(*, node: ast.Assign, relative_file: str) -> list[Violation]:
     file_name = Path(relative_file).name.lower()
     if not (file_name.endswith("settings.py") or file_name.endswith("config.py")):
         return []
@@ -347,7 +347,7 @@ def _settings_assign_violations(*, node: ast.Assign, relative_file: str) -> list
                     rule="DEBUG-001",
                     message=f"DEBUG = True at module scope in {file_name}",
                     fix="Default DEBUG = False; flip it via an environment variable in development only",
-                    **span(node),
+                    **locate(node),
                 )
             )
     return found
@@ -376,24 +376,24 @@ class SecurityCallsCheck:
     def _scan_module(self, *, module: Module) -> list[Violation]:
         found: list[Violation] = []
         relative_file = module.relative
-        for node in module.index.nodes(ast.Call, ast.Attribute, ast.Assign):
+        for node in module.index.collect(ast.Call, ast.Attribute, ast.Assign):
             if isinstance(node, ast.Call):
-                found.extend(_shell_violations(call=node, relative_file=relative_file))
-                found.extend(_deserial_violations(call=node, relative_file=relative_file))
-                found.extend(_eval_violations(call=node, relative_file=relative_file))
-                found.extend(_crypto_call_violations(call=node, relative_file=relative_file))
-                found.extend(_tls_violations(call=node, relative_file=relative_file))
+                found.extend(_find_shell_violations(call=node, relative_file=relative_file))
+                found.extend(_find_deserial_violations(call=node, relative_file=relative_file))
+                found.extend(_find_eval_violations(call=node, relative_file=relative_file))
+                found.extend(_find_crypto_call_violations(call=node, relative_file=relative_file))
+                found.extend(_find_tls_violations(call=node, relative_file=relative_file))
                 found.extend(_debug_violations(call=node, relative_file=relative_file))
             elif isinstance(node, ast.Attribute):
-                found.extend(_crypto_attribute_violations(node=node, relative_file=relative_file))
-                found.extend(_tls_attribute_violations(node=node, relative_file=relative_file))
+                found.extend(_find_crypto_attribute_violations(node=node, relative_file=relative_file))
+                found.extend(_find_tls_attribute_violations(node=node, relative_file=relative_file))
             elif isinstance(node, ast.Assign):
-                found.extend(_settings_assign_violations(node=node, relative_file=relative_file))
+                found.extend(_find_settings_assign_violations(node=node, relative_file=relative_file))
         return found
 
     def run(self, *, src_root: str) -> CheckResult:
         violations: list[Violation] = []
-        for module in parsed_modules(Path(src_root)):
+        for module in iter_parsed_modules(Path(src_root)):
             violations.extend(self._scan_module(module=module))
         return CheckResult.from_findings(check=self.name, violations=violations)
 

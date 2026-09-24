@@ -2,7 +2,7 @@
 
 Every AST check goes through ``lanorme.sources``, so its policy is pinned
 here once: a BOM or coding cookie is honoured, a file the parser rejects or
-overflows on becomes an ``Unparseable`` with a stable reason rather than an
+overflows on becomes an ``UnparseableFile`` with a stable reason rather than an
 exception, and a cached tree is never served stale.
 """
 
@@ -14,7 +14,7 @@ from pathlib import Path
 from lanorme import Status, sources
 from lanorme.checks.file_limits import FileLimitsCheck
 from lanorme.cli import main
-from lanorme.sources import Module, Unparseable, iter_modules, parse_module
+from lanorme.sources import Module, UnparseableFile, iter_modules, parse_module
 
 
 def _write(path: Path, data: bytes) -> Path:
@@ -46,7 +46,7 @@ def test_syntax_error_yields_unparseable_with_parse_error_reason(tmp_path: Path)
     (module,) = list(iter_modules(tmp_path))
 
     # Assert.
-    assert isinstance(module, Unparseable)
+    assert isinstance(module, UnparseableFile)
     assert module.reason == sources.PARSE_ERROR
     assert module.relative == "broken.py"
 
@@ -64,7 +64,7 @@ def test_parser_overflow_yields_unparseable_not_an_exception(tmp_path: Path, mon
     module = parse_module(path, root=tmp_path)
 
     # Assert.
-    assert isinstance(module, Unparseable) and module.reason == sources.TOO_DEEP
+    assert isinstance(module, UnparseableFile) and module.reason == sources.TOO_DEEP
 
 
 def test_parser_overflow_reports_a_skip_notice_not_a_check_crash(tmp_path: Path, monkeypatch):
@@ -110,13 +110,13 @@ def test_cache_serves_the_same_tree_until_the_file_changes(tmp_path: Path):
 def test_clear_cache_empties_it(tmp_path: Path):
     # Arrange.
     parse_module(_write(tmp_path / "m.py", b"x = 1\n"), root=tmp_path)
-    assert sources.cache_size() == 1
+    assert sources.count_cached() == 1
 
     # Act.
     sources.clear_cache()
 
     # Assert.
-    assert sources.cache_size() == 0
+    assert sources.count_cached() == 0
 
 
 def test_every_check_shares_one_parse_per_file(tmp_path: Path, monkeypatch, capsys):

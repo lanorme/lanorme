@@ -34,7 +34,7 @@ from pathlib import Path
 from typing import ClassVar
 
 from lanorme import CheckResult, Violation, register
-from lanorme.checkconfig import str_list_setting
+from lanorme.checkconfig import read_str_list
 from lanorme.discovery import iter_files
 
 # Directories never scanned (vendored / generated / VCS).
@@ -126,14 +126,14 @@ class StrayArtifactsCheck:
 
     def configure(self, *, settings: dict[str, object]) -> None:
         """Apply ``[tool.lanorme.stray_artifacts]`` configuration."""
-        self.extra_patterns = str_list_setting(settings=settings, key="patterns")
+        self.extra_patterns = read_str_list(settings=settings, key="patterns")
         self.extra_extensions = tuple(
-            e.lower() for e in str_list_setting(settings=settings, key="extensions")
+            e.lower() for e in read_str_list(settings=settings, key="extensions")
         )
-        self.allow = str_list_setting(settings=settings, key="allow")
-        self.extra_excludes = str_list_setting(settings=settings, key="exclude")
+        self.allow = read_str_list(settings=settings, key="allow")
+        self.extra_excludes = read_str_list(settings=settings, key="exclude")
         if "assets" in settings:
-            self.asset_dirs = (*_DEFAULT_ASSET_DIRS, *str_list_setting(settings=settings, key="assets"))
+            self.asset_dirs = (*_DEFAULT_ASSET_DIRS, *read_str_list(settings=settings, key="assets"))
 
     def _classify(self, *, rel: Path) -> str | None:
         """Return the rule code a file violates, or None if it is fine."""

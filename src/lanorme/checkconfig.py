@@ -14,7 +14,7 @@ them never carries a mistyped value into ``run()``.
 
 from __future__ import annotations
 
-from lanorme import Configurable, get_all_checks
+from lanorme import ConfigurableCheck, get_all_checks
 from lanorme.errors import UsageError
 
 Settings = dict[str, object]
@@ -32,7 +32,7 @@ def is_flag_set(*, settings: Settings, key: str, default: bool) -> bool:
     return value
 
 
-def int_setting(*, settings: Settings, key: str, default: int) -> int:
+def read_int(*, settings: Settings, key: str, default: int) -> int:
     """An integer threshold; a bool or a float is refused rather than coerced."""
     value = settings.get(key, default)
     if isinstance(value, bool) or not isinstance(value, int):
@@ -40,7 +40,7 @@ def int_setting(*, settings: Settings, key: str, default: int) -> int:
     return value
 
 
-def str_setting(*, settings: Settings, key: str, default: str) -> str:
+def read_str(*, settings: Settings, key: str, default: str) -> str:
     """A single string, such as a path."""
     value = settings.get(key, default)
     if not isinstance(value, str):
@@ -48,7 +48,7 @@ def str_setting(*, settings: Settings, key: str, default: str) -> str:
     return value
 
 
-def str_list_setting(*, settings: Settings, key: str, default: tuple[str, ...] = ()) -> tuple[str, ...]:
+def read_str_list(*, settings: Settings, key: str, default: tuple[str, ...] = ()) -> tuple[str, ...]:
     """A list of strings; a bare string is refused so it is never iterated by character."""
     value = settings.get(key, default)
     if isinstance(value, tuple):
@@ -62,7 +62,7 @@ def str_list_setting(*, settings: Settings, key: str, default: tuple[str, ...] =
 _SOURCE_ROOT_CHECKS = frozenset({"layer_deps", "port_coverage", "security_patterns"})
 
 
-def _offending_key(*, check: Configurable, settings: dict[str, object]) -> str | None:
+def _find_offending_key(*, check: ConfigurableCheck, settings: dict[str, object]) -> str | None:
     """The first key in *settings* the check rejects, when it can be isolated.
 
     Each key is replayed against a throwaway instance so a partly-configured
@@ -81,7 +81,7 @@ def _offending_key(*, check: Configurable, settings: dict[str, object]) -> str |
     return None
 
 
-def _reject_unknown_keys(*, check: Configurable, name: str, settings: dict[str, object]) -> None:
+def _reject_unknown_keys(*, check: ConfigurableCheck, name: str, settings: dict[str, object]) -> None:
     """Refuse a table that names a key the check does not declare.
 
     A check that declares ``settings_keys`` (the TOML keys its ``configure()``
@@ -102,7 +102,7 @@ def _reject_unknown_keys(*, check: Configurable, name: str, settings: dict[str, 
     )
 
 
-def _configure_or_fail(*, check: Configurable, name: str, settings: dict[str, object]) -> None:
+def _configure_or_fail(*, check: ConfigurableCheck, name: str, settings: dict[str, object]) -> None:
     """Configure one check, turning a rejected value into a usage error.
 
     Settings arrive from a TOML table the user wrote by hand, so a value of the
@@ -114,7 +114,7 @@ def _configure_or_fail(*, check: Configurable, name: str, settings: dict[str, ob
     try:
         check.configure(settings=settings)
     except (TypeError, ValueError, AttributeError, KeyError) as error:
-        key = _offending_key(check=check, settings=settings)
+        key = _find_offending_key(check=check, settings=settings)
         location = f"[tool.lanorme.{name}] {key}" if key else f"[tool.lanorme.{name}]"
         raise UsageError(
             f"invalid value for {location}: {error}\n"
@@ -134,7 +134,7 @@ def apply_check_config(*, config: dict[str, object]) -> None:
     """
     source_root = config.get("source_root")
     for name, check in get_all_checks().items():
-        if not isinstance(check, Configurable):
+        if not isinstance(check, ConfigurableCheck):
             continue
         section = config.get(name)
         settings = dict(section) if isinstance(section, dict) else {}

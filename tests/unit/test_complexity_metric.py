@@ -1,7 +1,7 @@
 """White-box unit tests for the cyclomatic-complexity metric.
 
 These tests are deliberately implementation-coupled: they import the private
-``_cyclomatic_complexity`` helper and assert its exact integer for one AST
+``_measure_cyclomatic_complexity`` helper and assert its exact integer for one AST
 construct at a time. They exist because some per-construct distinctions (which
 ``match`` pattern kinds are refutable, async comprehensions, generator
 expressions) carry a complexity of only 1-3, far below the warn threshold of 10,
@@ -22,14 +22,14 @@ import ast
 
 import pytest
 
-from lanorme.checks.file_limits import _cyclomatic_complexity
+from lanorme.checks.file_limits import _measure_cyclomatic_complexity
 
 
 def _complexity_of(source: str) -> int:
     """Cyclomatic complexity of the single function defined in ``source``."""
     func = ast.parse(source).body[0]
     assert isinstance(func, ast.FunctionDef | ast.AsyncFunctionDef)
-    return _cyclomatic_complexity(func_node=func)
+    return _measure_cyclomatic_complexity(func_node=func)
 
 
 @pytest.mark.parametrize(

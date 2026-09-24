@@ -44,7 +44,7 @@ from typing import ClassVar
 
 from lanorme import CheckResult, Violation, register
 from lanorme.checkconfig import is_flag_set
-from lanorme.sources import parsed_modules, span
+from lanorme.sources import iter_parsed_modules, locate
 
 _ATTR_BUILTINS = frozenset({"getattr", "hasattr", "setattr", "delattr"})
 
@@ -59,7 +59,7 @@ def _is_exempt_file(*, relative: str) -> bool:
     return any(norm.startswith(p) or f"/{p}" in norm for p in _EXEMPT_PATH_FRAGMENTS)
 
 
-def _builtin_name(*, call: ast.Call) -> str | None:
+def _extract_builtin_name(*, call: ast.Call) -> str | None:
     """Return the builtin name if *call* is a bare getattr/hasattr/setattr/delattr."""
     func = call.func
     if isinstance(func, ast.Name) and func.id in _ATTR_BUILTINS:
@@ -67,7 +67,7 @@ def _builtin_name(*, call: ast.Call) -> str | None:
     return None
 
 
-def _literal_name(*, node: ast.AST) -> str | None:
+def _extract_literal_name(*, node: ast.AST) -> str | None:
     """Return the string value if *node* is a string-literal attribute name."""
     if isinstance(node, ast.Constant) and isinstance(node.value, str):
         return node.value
@@ -78,7 +78,7 @@ def _is_dunder(name: str) -> bool:
     return name.startswith("__") and name.endswith("__")
 
 
-def _attr001(*, builtin: str, name: str, relative: str, call: ast.Call) -> Violation:
+def _check_attr001(*, builtin: str, name: str, relative: str, call: ast.Call) -> Violation:
     return Violation(
         file=relative,
         line=call.lineno,
@@ -88,11 +88,11 @@ def _attr001(*, builtin: str, name: str, relative: str, call: ast.Call) -> Viola
             "Model the expected shape as a runtime_checkable Protocol and use "
             "isinstance, or use try/except AttributeError (EAFP)"
         ),
-        **span(call),
+        **locate(call),
     )
 
 
-def _attr002(*, builtin: str, name: str, relative: str, call: ast.Call) -> Violation:
+def _check_attr002(*, builtin: str, name: str, relative: str, call: ast.Call) -> Violation:
     access = {
         "getattr": f"obj.{name}",
         "setattr": f"obj.{name} = value",
@@ -104,7 +104,7 @@ def _attr002(*, builtin: str, name: str, relative: str, call: ast.Call) -> Viola
         rule="ATTR-002: Avoid getattr/setattr/delattr with a literal attribute name",
         message=f"{builtin}(..., '{name}') with a constant name defeats static typing",
         fix=f"Use direct attribute access ({access})",
-        **span(call),
+        **locate(call),
     )
 
 
@@ -130,23 +130,23 @@ class AttributeAccessCheck:
         self.flag_dynamic = is_flag_set(settings=settings, key="flag_dynamic", default=self.flag_dynamic)
 
     def _call_warning(self, *, call: ast.Call, relative: str) -> Violation | None:
-        builtin = _builtin_name(call=call)
+        builtin = _extract_builtin_name(call=call)
         if builtin is None or len(call.args) < 2:
             return None
         # Three-arg getattr(x, name, default) is the safe-access idiom.
         if builtin == "getattr" and len(call.args) >= 3:
             return None
 
-        name = _literal_name(node=call.args[1])
+        name = _extract_literal_name(node=call.args[1])
         if name is None:
-            return self._dynamic_warning(builtin=builtin, call=call, relative=relative)
+            return self._build_dynamic_warning(builtin=builtin, call=call, relative=relative)
         if not name.isidentifier() or _is_dunder(name):
             return None
         if builtin == "hasattr":
-            return _attr001(builtin=builtin, name=name, relative=relative, call=call)
-        return _attr002(builtin=builtin, name=name, relative=relative, call=call)
+            return _check_attr001(builtin=builtin, name=name, relative=relative, call=call)
+        return _check_attr002(builtin=builtin, name=name, relative=relative, call=call)
 
-    def _dynamic_warning(self, *, builtin: str, call: ast.Call, relative: str) -> Violation | None:
+    def _build_dynamic_warning(self, *, builtin: str, call: ast.Call, relative: str) -> Violation | None:
         """Flag a non-literal attribute name only when flag_dynamic is enabled."""
         if not self.flag_dynamic:
             return None
@@ -161,7 +161,7 @@ class AttributeAccessCheck:
             rule=rule,
             message=f"{builtin}(...) with a dynamic attribute name (reflection)",
             fix="Prefer a typed object or Protocol over reflective attribute access",
-            **span(call),
+            **locate(call),
         )
 
     def run(self, *, src_root: str) -> CheckResult:
@@ -169,10 +169,10 @@ class AttributeAccessCheck:
             return CheckResult.from_findings(check=self.name)
 
         warnings: list[Violation] = []
-        for module in parsed_modules(Path(src_root)):
+        for module in iter_parsed_modules(Path(src_root)):
             if _is_exempt_file(relative=module.relative):
                 continue
-            for node in module.index.nodes(ast.Call):
+            for node in module.index.collect(ast.Call):
                 warning = self._call_warning(call=node, relative=module.relative)
                 if warning is not None:
                     warnings.append(warning)

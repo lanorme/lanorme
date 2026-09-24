@@ -11,7 +11,7 @@ from pathlib import Path
 
 from lanorme.regions import (
     Region,
-    child_exclude_globs,
+    build_child_exclude_globs,
     discover_regions,
     merge_config,
     restore_defaults,
@@ -107,7 +107,7 @@ def test_child_exclude_globs_prune_nested_regions(tmp_path: Path):
     child = Region(directory=tmp_path / "a" / "b", raw={})
 
     # Act
-    globs = child_exclude_globs(region=parent, regions=[parent, child], scan_root=parent.directory)
+    globs = build_child_exclude_globs(region=parent, regions=[parent, child], scan_root=parent.directory)
 
     # Assert
     assert globs == ["a/b", "a/b/*"]

@@ -15,7 +15,7 @@ import pytest
 from lanorme import CheckResult, Status, Violation, _registry, discovery, get_check, register
 from lanorme.checkconfig import apply_check_config
 from lanorme.cli import main
-from lanorme.reporting import _emit_github
+from lanorme.reports import _emit_github
 
 
 class _Spy:
@@ -98,7 +98,7 @@ def test_main_publishes_configured_excludes_to_discovery(tmp_path: Path, capsys)
         pass
 
     # Assert: the configured glob reached the discovery layer, not just output.
-    assert "vendor/*" in discovery.active_excludes()
+    assert "vendor/*" in discovery.get_active_excludes()
 
 
 def test_show_config_reports_source_and_opt_in_state(tmp_path: Path, capsys):

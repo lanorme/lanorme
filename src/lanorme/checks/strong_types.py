@@ -47,11 +47,11 @@ from lanorme import CheckResult, Status, Violation, register
 from lanorme.sources import (
     TOO_DEEP,
     Module,
-    Unparseable,
+    UnparseableFile,
     iter_modules,
-    skip_notice,
-    span,
-    unparseable_notice,
+    build_skip_notice,
+    locate,
+    build_unparseable_notice,
 )
 
 _BARE_CONTAINERS = frozenset(
@@ -80,23 +80,23 @@ def _is_exempt_path(*, relative_path: str) -> bool:
 
 def _has_exempt_decorator(*, func_node: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
     for dec in func_node.decorator_list:
-        name = _decorator_name(dec)
+        name = _resolve_decorator_name(dec)
         if name in _EXEMPT_DECORATORS:
             return True
     return False
 
 
-def _decorator_name(node: ast.expr) -> str | None:
+def _resolve_decorator_name(node: ast.expr) -> str | None:
     if isinstance(node, ast.Name):
         return node.id
     if isinstance(node, ast.Attribute):
         return node.attr
     if isinstance(node, ast.Call):
-        return _decorator_name(node.func)
+        return _resolve_decorator_name(node.func)
     return None
 
 
-def _annotation_text(annotation: ast.expr) -> str:
+def _render_annotation_text(annotation: ast.expr) -> str:
     """Render an annotation AST back to source text (best-effort)."""
     try:
         return ast.unparse(annotation)
@@ -114,7 +114,7 @@ _TYPE_002_FIX = (
 )
 
 
-def _bare_container_message(*, name: str) -> str:
+def _build_bare_container_message(*, name: str) -> str:
     """The TYPE-002 message for a bare container annotation, naming the passing form."""
     if name in _MAPPING_CONTAINERS:
         hint = f"annotate the key and value types, e.g. {name}[str, int]"
@@ -137,20 +137,20 @@ def _classify_annotation(annotation: ast.expr) -> tuple[str, str, str] | None:
     """
     # Bare container: `dict`, `list`, `Dict`, etc. (no subscript at all).
     if isinstance(annotation, ast.Name) and annotation.id in _BARE_CONTAINERS:
-        return ("fail", "TYPE-002", _bare_container_message(name=annotation.id))
+        return ("fail", "TYPE-002", _build_bare_container_message(name=annotation.id))
 
     # Subscripted container with weak value type: `dict[str, Any]`, `list[Any]`,
     # `list[object]`, etc.
     if isinstance(annotation, ast.Subscript):
         outer = (
-            _decorator_name(annotation.value)
+            _resolve_decorator_name(annotation.value)
             if isinstance(annotation.value, ast.Attribute)
             else (annotation.value.id if isinstance(annotation.value, ast.Name) else None)
         )
         if outer in _BARE_CONTAINERS:
             inner = annotation.slice
             inner_names = _collect_value_names(inner)
-            rendered = _annotation_text(annotation)
+            rendered = _render_annotation_text(annotation)
             if any(name in _HARD_WEAK_TYPES for name in inner_names):
                 return (
                     "fail",
@@ -205,7 +205,7 @@ def _has_annotated_param(*, func: ast.FunctionDef | ast.AsyncFunctionDef) -> boo
     return False
 
 
-def _own_scope_nodes(*, func: ast.FunctionDef | ast.AsyncFunctionDef) -> list[ast.AST]:
+def _collect_own_scope_nodes(*, func: ast.FunctionDef | ast.AsyncFunctionDef) -> list[ast.AST]:
     """Collect the body nodes that live in the function's OWN scope.
 
     The walk descends through ordinary statements and expressions but stops at
@@ -259,7 +259,7 @@ def _returns_real_value(*, own_nodes: list[ast.AST]) -> bool:
 _Finding = tuple[str, str, ast.AST, str, str]
 
 
-def _param_findings(*, func: ast.FunctionDef | ast.AsyncFunctionDef) -> list[_Finding]:
+def _collect_param_findings(*, func: ast.FunctionDef | ast.AsyncFunctionDef) -> list[_Finding]:
     """TYPE-001/002 findings for weakly-typed parameter annotations."""
     findings: list[_Finding] = []
     for arg in (*func.args.args, *func.args.posonlyargs, *func.args.kwonlyargs):
@@ -286,13 +286,13 @@ def _param_findings(*, func: ast.FunctionDef | ast.AsyncFunctionDef) -> list[_Fi
     return findings
 
 
-def _kwarg_findings(*, func: ast.FunctionDef | ast.AsyncFunctionDef) -> list[_Finding]:
+def _collect_kwarg_findings(*, func: ast.FunctionDef | ast.AsyncFunctionDef) -> list[_Finding]:
     """TYPE-003 finding for a weakly-typed ``**kwargs`` parameter."""
     kw = func.args.kwarg
     if kw is None:
         return []
-    ann_text = _annotation_text(kw.annotation) if kw.annotation else "<missing>"
-    weak = kw.annotation is None or _annotation_text(kw.annotation) in {
+    ann_text = _render_annotation_text(kw.annotation) if kw.annotation else "<missing>"
+    weak = kw.annotation is None or _render_annotation_text(kw.annotation) in {
         "Any",
         "dict",
         "dict[str, Any]",
@@ -331,7 +331,7 @@ def _return_findings(*, func: ast.FunctionDef | ast.AsyncFunctionDef) -> list[_F
     # escaping the function's own scope, not a generator) should also declare
     # its return type. Advisory warning, not a hard failure: this is the
     # high-signal completeness subset of presence enforcement, not blanket ANN.
-    own_nodes = _own_scope_nodes(func=func)
+    own_nodes = _collect_own_scope_nodes(func=func)
     if (
         _has_annotated_param(func=func)
         and not _is_generator(own_nodes=own_nodes)
@@ -362,12 +362,12 @@ def _check_function(
     violations: list[Violation] = []
     warnings: list[Violation] = []
     for severity, rule, node, message, fix in (
-        *_param_findings(func=func),
-        *_kwarg_findings(func=func),
+        *_collect_param_findings(func=func),
+        *_collect_kwarg_findings(func=func),
         *_return_findings(func=func),
     ):
         finding = Violation(
-            file=relative_file, line=node.lineno, rule=rule, message=message, fix=fix, **span(node)
+            file=relative_file, line=node.lineno, rule=rule, message=message, fix=fix, **locate(node)
         )
         (violations if severity == "fail" else warnings).append(finding)
     return violations, warnings
@@ -406,8 +406,8 @@ class StrongTypesCheck:
         for module in iter_modules(Path(src_root)):
             if _is_exempt_path(relative_path=module.relative):
                 continue
-            if isinstance(module, Unparseable):
-                warnings.append(unparseable_notice(prefix="TYPE", failure=module))
+            if isinstance(module, UnparseableFile):
+                warnings.append(build_unparseable_notice(prefix="TYPE", failure=module))
                 continue
             try:
                 found, warned = _scan_module(module=module)
@@ -416,7 +416,7 @@ class StrongTypesCheck:
                 # terms) overflows the recursive annotation walk. Skip the file
                 # rather than crash the whole run.
                 warnings.append(
-                    skip_notice(
+                    build_skip_notice(
                         prefix="TYPE", file=module.relative, name=module.path.name, reason=TOO_DEEP
                     )
                 )

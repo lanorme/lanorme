@@ -47,7 +47,7 @@ from pathlib import Path
 from typing import ClassVar
 
 from lanorme import CheckResult, Violation, register
-from lanorme.checkconfig import is_flag_set, str_list_setting
+from lanorme.checkconfig import is_flag_set, read_str_list
 from lanorme.discovery import iter_files
 
 _EM_DASH = "—"
@@ -150,7 +150,7 @@ _SKIP_PARTS = frozenset(
 )
 
 
-def _table_setting(*, settings: ProseSettings, key: str) -> dict[str, object] | None:
+def _read_table_setting(*, settings: ProseSettings, key: str) -> dict[str, object] | None:
     """A sub-table (``[tool.lanorme.prose.<key>]``), or None when absent."""
     value = settings.get(key)
     if value is None:
@@ -160,7 +160,7 @@ def _table_setting(*, settings: ProseSettings, key: str) -> dict[str, object] | 
     return value
 
 
-def _number(*, key: str, value: object) -> float:
+def _require_number(*, key: str, value: object) -> float:
     """A density threshold: an int or a float, never a bool or a string."""
     if isinstance(value, bool) or not isinstance(value, int | float):
         raise TypeError(f"'{key}' must be a number, got {type(value).__name__}")
@@ -215,12 +215,12 @@ class ProseCheck:
         )
         self.extensions = tuple(
             ext.lower()
-            for ext in str_list_setting(settings=settings, key="extensions", default=self.extensions)
+            for ext in read_str_list(settings=settings, key="extensions", default=self.extensions)
         )
-        spellings = _table_setting(settings=settings, key="spellings")
+        spellings = _read_table_setting(settings=settings, key="spellings")
         if spellings is not None:
             self.spellings = {**self.spellings, **spellings}
-        density = _table_setting(settings=settings, key="density")
+        density = _read_table_setting(settings=settings, key="density")
         if density is not None:
             self._apply_density(table=density)
 
@@ -228,7 +228,7 @@ class ProseCheck:
         """Merge a ``[tool.lanorme.prose.density]`` table over the defaults."""
         for key in _DENSITY_DEFAULTS:
             if key in table:
-                self.density[key] = _number(key=key, value=table[key])
+                self.density[key] = _require_number(key=key, value=table[key])
 
     def _scan_line(
         self,
@@ -275,7 +275,7 @@ class ProseCheck:
                 )
         return found
 
-    def _prose_lines(self, *, text: str) -> list[tuple[int, str]]:
+    def _extract_prose_lines(self, *, text: str) -> list[tuple[int, str]]:
         """Yield ``(lineno, prose_line)`` with fenced and inline code removed.
 
         The single source of truth for what counts as prose: fenced code blocks
@@ -303,7 +303,7 @@ class ProseCheck:
         spell_re: re.Pattern[str] | None,
     ) -> list[Violation]:
         violations: list[Violation] = []
-        for lineno, line in self._prose_lines(text=text):
+        for lineno, line in self._extract_prose_lines(text=text):
             violations.extend(
                 self._scan_line(
                     line=line,
@@ -314,7 +314,7 @@ class ProseCheck:
             )
         return violations
 
-    def _density_warning(self, *, text: str, relative_file: str) -> Violation | None:
+    def _check_density(self, *, text: str, relative_file: str) -> Violation | None:
         """PROSE-004: one advisory warning per file when em-dash density is high.
 
         Measured over prose only (fenced and inline code stripped). Stays silent
@@ -322,7 +322,7 @@ class ProseCheck:
         rate and the fraction of sentences carrying an em dash clear their
         thresholds. The AND is deliberate.
         """
-        prose = "\n".join(line for _, line in self._prose_lines(text=text))
+        prose = "\n".join(line for _, line in self._extract_prose_lines(text=text))
         em = prose.count(_EM_DASH)
         words = len(_WORD.findall(prose))
         segments = [seg for seg in _SENTENCE_SPLIT.split(prose) if seg.strip()]
@@ -370,7 +370,7 @@ class ProseCheck:
         )
         warnings: list[Violation] = []
         if self.flag_em_dash_density:
-            warning = self._density_warning(text=text, relative_file=relative_file)
+            warning = self._check_density(text=text, relative_file=relative_file)
             if warning is not None:
                 warnings.append(warning)
         return violations, warnings

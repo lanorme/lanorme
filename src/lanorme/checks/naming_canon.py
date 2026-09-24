@@ -47,13 +47,13 @@ from lanorme.checks.naming_words import (
     WEAK_VERBS,
     is_noun_phrase,
     is_pascal_case,
-    leading_verb_index,
-    modifier_count,
-    postposed_verb_index,
+    find_leading_verb_index,
+    count_modifiers,
+    find_postposed_verb_index,
     split_name,
-    verb_first,
+    move_verb_first,
 )
-from lanorme.sources import span
+from lanorme.sources import locate
 
 RULE_006 = "NAMING-006: A class is named as a thing, not as an action"
 RULE_007 = "NAMING-007: A function that does something is named verb-first"
@@ -78,7 +78,7 @@ _AGENT_ENDINGS: tuple[tuple[str, str], ...] = (
 )
 
 
-def agent_noun(*, verb: str) -> str:
+def derive_agent_noun(*, verb: str) -> str:
     """The doer of *verb*: validate gives validator, notify gives notifier, get gives getter."""
     for ending, agent in _AGENT_ENDINGS:
         if verb.endswith(ending):
@@ -90,7 +90,7 @@ def agent_noun(*, verb: str) -> str:
     return f"{verb}er"
 
 
-def _thing_name(*, name: str, tokens: list[str]) -> str:
+def _build_thing_name(*, name: str, tokens: list[str]) -> str:
     """A noun-phrase rename for a verb-first class: ``FetchUsers`` gives ``UsersFetcher``.
 
     Leading underscores stay in front and digits move to the end, so the
@@ -99,10 +99,10 @@ def _thing_name(*, name: str, tokens: list[str]) -> str:
     prefix = name[: len(name) - len(name.lstrip("_"))]
     words = "".join(token.capitalize() for token in tokens[1:] if not token.isdigit())
     digits = "".join(token for token in tokens[1:] if token.isdigit())
-    return f"{prefix}{words}{agent_noun(verb=tokens[0]).capitalize()}{digits}"
+    return f"{prefix}{words}{derive_agent_noun(verb=tokens[0]).capitalize()}{digits}"
 
 
-def _class_findings(*, definition: Definition, file: str, settings: _Settings) -> list[Violation]:
+def _collect_class_findings(*, definition: Definition, file: str, settings: _Settings) -> list[Violation]:
     """NAMING-006: a class named as an action."""
     name = definition.name
     if not is_pascal_case(name=name) or name.endswith(settings.command_suffixes):
@@ -118,32 +118,32 @@ def _class_findings(*, definition: Definition, file: str, settings: _Settings) -
         rule=RULE_006,
         message=f"Class '{name}' is named as an action: '{tokens[0]}' is a verb, but a class is a thing",
         fix=(
-            f"Name it for what it is (for example '{_thing_name(name=name, tokens=tokens)}'), "
+            f"Name it for what it is (for example '{_build_thing_name(name=name, tokens=tokens)}'), "
             "or mark a message object with a suffix such as 'Command'"
         ),
-        **span(definition.node),
+        **locate(definition.node),
     )]
 
 
-def verb_fix(*, name: str, tokens: list[str], verbs: frozenset[str], otherwise: str) -> str:
+def suggest_verb_fix(*, name: str, tokens: list[str], verbs: frozenset[str], otherwise: str) -> str:
     """The rename to suggest: the trailing verb moved first when there is one, else *otherwise*."""
-    later = postposed_verb_index(tokens=tokens, extra=verbs)
+    later = find_postposed_verb_index(tokens=tokens, extra=verbs)
     if later > 0:
-        return f"Put the verb first: '{verb_first(name=name, tokens=tokens, index=later)}'"
+        return f"Put the verb first: '{move_verb_first(name=name, tokens=tokens, index=later)}'"
     return otherwise
 
 
-def _command_findings(*, definition: Definition, file: str, settings: _Settings) -> list[Violation]:
+def _collect_command_findings(*, definition: Definition, file: str, settings: _Settings) -> list[Violation]:
     """NAMING-007: a function that acts but is not named as acting."""
     name = definition.name
     if is_exempt(name=name, exempt=settings.exempt) or is_framework_named(definition=definition):
         return []
     tokens = split_name(name=name)
-    if not tokens or leading_verb_index(tokens=tokens, extra=settings.verbs) >= 0:
+    if not tokens or find_leading_verb_index(tokens=tokens, extra=settings.verbs) >= 0:
         return []
     if not is_command(node=definition.node):
         return []
-    judged = tokens[modifier_count(tokens=tokens)]
+    judged = tokens[count_modifiers(tokens=tokens)]
     return [Violation(
         file=file,
         line=definition.node.lineno,
@@ -152,17 +152,17 @@ def _command_findings(*, definition: Definition, file: str, settings: _Settings)
             f"Function '{name}' does something and returns nothing, "
             f"but '{judged}' does not read as a verb"
         ),
-        fix=verb_fix(
+        fix=suggest_verb_fix(
             name=name,
             tokens=tokens,
             verbs=settings.verbs,
             otherwise="Start with the verb for what it does (write_, register_, apply_, record_, ...)",
         ),
-        **span(definition.node),
+        **locate(definition.node),
     )]
 
 
-def _weak_verb_findings(*, definition: Definition, file: str, settings: _Settings) -> list[Violation]:
+def _collect_weak_verb_findings(*, definition: Definition, file: str, settings: _Settings) -> list[Violation]:
     """NAMING-008: a function whose verb says nothing about what happens."""
     name = definition.name
     if is_exempt(name=name, exempt=settings.exempt) or definition.may_override:
@@ -184,17 +184,17 @@ def _weak_verb_findings(*, definition: Definition, file: str, settings: _Setting
             f"to '{rest}' without saying what"
         ),
         fix=f"Name the action: parse_{rest}, store_{rest}, validate_{rest}, ...",
-        **span(definition.node),
+        **locate(definition.node),
     )]
 
 
-def _findings(*, definition: Definition, file: str, settings: _Settings) -> list[Violation]:
+def _collect_findings(*, definition: Definition, file: str, settings: _Settings) -> list[Violation]:
     """Every NAMING-006..008 finding on one definition."""
     if not isinstance(definition.node, FUNCTION_TYPES):
-        return _class_findings(definition=definition, file=file, settings=settings)
+        return _collect_class_findings(definition=definition, file=file, settings=settings)
     return [
-        *_command_findings(definition=definition, file=file, settings=settings),
-        *_weak_verb_findings(definition=definition, file=file, settings=settings),
+        *_collect_command_findings(definition=definition, file=file, settings=settings),
+        *_collect_weak_verb_findings(definition=definition, file=file, settings=settings),
     ]
 
 
@@ -245,7 +245,7 @@ class NamingCanonCheck:
         warnings: list[Violation] = []
         for relative, tree in iter_modules(root=Path(src_root)):
             for definition in iter_definitions(tree=tree):
-                warnings.extend(_findings(definition=definition, file=relative, settings=settings))
+                warnings.extend(_collect_findings(definition=definition, file=relative, settings=settings))
         warnings.sort(key=lambda warning: (warning.file, warning.line))
         return CheckResult.from_findings(check=self.name, warnings=warnings)
 

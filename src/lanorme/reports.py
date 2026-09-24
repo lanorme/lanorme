@@ -18,7 +18,7 @@ from collections.abc import Iterator
 from pathlib import Path
 
 from lanorme import CheckResult, Status, Violation, get_all_checks
-from lanorme.baseline import fingerprint
+from lanorme.baseline import compute_fingerprint
 
 
 @dataclasses.dataclass(frozen=True)
@@ -67,7 +67,7 @@ def tolerate_closed_pipe() -> Iterator[None]:
 # --------------------------------------------------------------------------- #
 
 
-def _finding_records(
+def _build_finding_records(
     *, result: CheckResult, project_root: Path | None, cache: dict[str, list[str]]
 ) -> list[dict[str, object]]:
     """Flatten a check result into one record per finding (violations + warnings)."""
@@ -76,7 +76,7 @@ def _finding_records(
         for finding in items:
             record: dict[str, object] = {"check": result.check, "severity": severity, **finding.to_dict()}
             if project_root is not None:
-                record["fingerprint"] = fingerprint(
+                record["fingerprint"] = compute_fingerprint(
                     project_root=project_root, finding=finding, cache=cache
                 )
             records.append(record)
@@ -87,7 +87,7 @@ def _emit_ndjson(*, results: list[CheckResult], project_root: Path | None) -> No
     """Print one JSON object per finding, newline-delimited (grep/jq friendly)."""
     cache: dict[str, list[str]] = {}
     for result in results:
-        for record in _finding_records(result=result, project_root=project_root, cache=cache):
+        for record in _build_finding_records(result=result, project_root=project_root, cache=cache):
             print(json.dumps(record))
 
 
@@ -96,7 +96,7 @@ def _emit_json(*, results: list[CheckResult], project_root: Path | None) -> None
     cache: dict[str, list[str]] = {}
     payload = []
     for result in results:
-        records = _finding_records(result=result, project_root=project_root, cache=cache)
+        records = _build_finding_records(result=result, project_root=project_root, cache=cache)
         payload.append(
             {
                 "check": result.check,
@@ -161,8 +161,8 @@ def _print_totals(*, results: list[CheckResult]) -> None:
     errors = sum(len(r.violations) for r in results)
     advisories = sum(len(r.warnings) for r in results)
     print(
-        f"Findings: {errors} {_plural(count=errors, noun='error')} to fix, "
-        f"{advisories} advisory {_plural(count=advisories, noun='warning')}."
+        f"Findings: {errors} {_pluralise(count=errors, noun='error')} to fix, "
+        f"{advisories} advisory {_pluralise(count=advisories, noun='warning')}."
     )
 
 
@@ -191,11 +191,11 @@ def _print_notes(*, results: list[CheckResult], notes: RunNotes) -> None:
         )
 
 
-def _plural(*, count: int, noun: str) -> str:
+def _pluralise(*, count: int, noun: str) -> str:
     return noun if count == 1 else f"{noun}s"
 
 
-def _gh_escape(text: str) -> str:
+def _escape_for_github(text: str) -> str:
     """Escape annotation message data per the GitHub workflow-command spec."""
     return text.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
 
@@ -210,12 +210,12 @@ def _emit_github(*, results: list[CheckResult]) -> None:
     """
     for result in results:
         for v in result.violations:
-            print(f"::error {_gh_location(v)},title={v.code}::{_gh_escape(v.message)}")
+            print(f"::error {_format_github_location(v)},title={v.code}::{_escape_for_github(v.message)}")
         for w in result.warnings:
-            print(f"::warning {_gh_location(w)},title={w.code}::{_gh_escape(w.message)}")
+            print(f"::warning {_format_github_location(w)},title={w.code}::{_escape_for_github(w.message)}")
 
 
-def _gh_location(finding: Violation) -> str:
+def _format_github_location(finding: Violation) -> str:
     """The annotation's location properties, with the span when the check knows it."""
     parts = [f"file={finding.file}", f"line={finding.line}"]
     if finding.end_line is not None:
@@ -289,7 +289,7 @@ def emit(*, results: list[CheckResult], output_format: str, notes: RunNotes | No
 # --------------------------------------------------------------------------- #
 
 
-def _settings_repr(check: object) -> str:
+def _summarise_settings(check: object) -> str:
     """One-line summary of a check's effective settings after configuration."""
     if not dataclasses.is_dataclass(check):
         return ""
@@ -348,4 +348,4 @@ def print_config(
             print(f"  per-file-ignores = {config['per-file-ignores']!r}")
     print("\nchecks (effective settings):")
     for name, check in sorted(get_all_checks().items()):
-        print(f"  {name:<18} {_settings_repr(check)}")
+        print(f"  {name:<18} {_summarise_settings(check)}")

@@ -128,7 +128,7 @@ def test_pep723_metadata_lines_requires_a_closing_fence():
     lines = ['# /// script', '# dependencies = ["rich"]', "import sys"]
 
     # Act.
-    metadata = comments_module._pep723_metadata_lines(lines)
+    metadata = comments_module._find_pep723_metadata_lines(lines)
 
     # Assert: nothing is treated as metadata, so the deps line stays lintable.
     assert metadata == frozenset()

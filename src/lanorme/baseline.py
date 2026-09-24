@@ -26,9 +26,9 @@ import hashlib
 import json
 from pathlib import Path
 
-from lanorme import CheckResult, Violation, rule_code
+from lanorme import CheckResult, Violation, extract_code
 from lanorme.errors import UsageError
-from lanorme.filtering import _line_at
+from lanorme.filters import _read_line
 
 BASELINE_VERSION = 1
 
@@ -41,7 +41,7 @@ _WARNING = "warning"
 # --------------------------------------------------------------------------- #
 
 
-def _norm_path(file: str) -> str:
+def _normalise_path(file: str) -> str:
     """Normalise a finding path to forward slashes without a leading ``./``."""
     normalised = file.replace("\\", "/")
     return normalised[2:] if normalised.startswith("./") else normalised
@@ -63,7 +63,7 @@ def _anchor(
     count. Every form is hashed, so no source text or secret reaches the file.
     """
     if line >= 2:
-        source = _line_at(project_root=project_root, file=file, line=line, cache=cache).strip()
+        source = _read_line(project_root=project_root, file=file, line=line, cache=cache).strip()
         if source:
             return "sha:" + hashlib.sha256(source.encode("utf-8")).hexdigest()
     return "desc:" + hashlib.sha256(_describe(rule).encode("utf-8")).hexdigest()
@@ -81,13 +81,13 @@ def _describe(rule: str) -> str:
     return tail.strip() if sep else head.strip()
 
 
-def _finding_key(
+def _build_finding_key(
     *, project_root: Path, finding: Violation, cache: dict[str, list[str]]
 ) -> tuple[str, str, str]:
     """The ``(path, code, anchor)`` identity used to match against the baseline."""
     return (
-        _norm_path(finding.file),
-        rule_code(finding.rule),
+        _normalise_path(finding.file),
+        extract_code(finding.rule),
         _anchor(
             project_root=project_root,
             file=finding.file,
@@ -98,7 +98,7 @@ def _finding_key(
     )
 
 
-def fingerprint(*, project_root: Path, finding: Violation, cache: dict[str, list[str]]) -> str:
+def compute_fingerprint(*, project_root: Path, finding: Violation, cache: dict[str, list[str]]) -> str:
     """A short stable identity for a finding, the baseline's key hashed.
 
     It survives edits elsewhere in the file (the anchor is the finding's own
@@ -107,7 +107,7 @@ def fingerprint(*, project_root: Path, finding: Violation, cache: dict[str, list
     """
     if not finding.file:
         return ""
-    key = _finding_key(project_root=project_root, finding=finding, cache=cache)
+    key = _build_finding_key(project_root=project_root, finding=finding, cache=cache)
     return hashlib.sha256("|".join(key).encode("utf-8")).hexdigest()[:16]
 
 
@@ -181,7 +181,7 @@ def _accumulate(
     # version-dependent, so it is never recorded and never matched.
     if not finding.file:
         return
-    key = _finding_key(project_root=project_root, finding=finding, cache=cache)
+    key = _build_finding_key(project_root=project_root, finding=finding, cache=cache)
     slot = counts.get(key)
     if slot is None:
         counts[key] = {
@@ -234,7 +234,7 @@ def _is_suppressed(
     severity gate and the per-key count budget."""
     if not finding.file:
         return False
-    key = _finding_key(project_root=project_root, finding=finding, cache=cache)
+    key = _build_finding_key(project_root=project_root, finding=finding, cache=cache)
     entry = index.get(key)
     if entry is None:
         return False
@@ -273,7 +273,7 @@ def suppress(
     ]
 
 
-def drifted_codes(
+def find_drifted_codes(
     *, results: list[CheckResult], project_root: Path, baseline_path: Path
 ) -> list[tuple[str, str]]:
     """``(file, code)`` pairs whose baseline entry stopped matching its finding.
@@ -300,7 +300,7 @@ def drifted_codes(
         for finding in [*result.violations, *result.warnings]:
             if not finding.file:
                 continue
-            key = _finding_key(project_root=project_root, finding=finding, cache=cache)
+            key = _build_finding_key(project_root=project_root, finding=finding, cache=cache)
             if key in index:
                 matched.add(key)
             else:
@@ -361,7 +361,7 @@ def print_status(*, results: list[CheckResult], project_root: Path, baseline_pat
         for finding in [*result.violations, *result.warnings]:
             if not finding.file:
                 continue
-            key = _finding_key(project_root=project_root, finding=finding, cache=cache)
+            key = _build_finding_key(project_root=project_root, finding=finding, cache=cache)
             if key in index:
                 matched.add(key)
 

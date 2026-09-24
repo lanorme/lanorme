@@ -1,7 +1,7 @@
 """Tests for the security_patterns check (AUTHN-001, SQL-001, SQL-000 guard).
 
 Two regressions of note. A long ``"a" + "a" + ...`` chain makes the mutually
-recursive ``_sql_from_binop`` / ``_sql_string_from`` pair recurse on
+recursive ``_sql_from_binop`` / ``_extract_sql_string`` pair recurse on
 ``BinOp.left`` / ``BinOp.right`` until the stack overflows. One such file must
 be skipped with a SQL-000 advisory warning, not crash the whole run, and the
 rest of the tree must still be checked.

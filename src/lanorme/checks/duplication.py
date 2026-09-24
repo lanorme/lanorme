@@ -27,11 +27,11 @@ from lanorme import CheckResult, Violation, register
 from lanorme.sources import (
     TOO_DEEP,
     Module,
-    Unparseable,
+    UnparseableFile,
     iter_modules,
-    skip_notice,
-    span,
-    unparseable_notice,
+    build_skip_notice,
+    locate,
+    build_unparseable_notice,
 )
 
 # Minimum number of statements in a function body to consider for duplication.
@@ -78,7 +78,7 @@ class _NormalisedDump:
     def __init__(self) -> None:
         self._name_map: dict[str, str] = {}
 
-    def _placeholder(self, name: str) -> str:
+    def _resolve_placeholder(self, name: str) -> str:
         """Map a name to a sequential placeholder."""
         if name not in self._name_map:
             self._name_map[name] = f"_var{len(self._name_map)}"
@@ -91,7 +91,7 @@ class _NormalisedDump:
             parts: list[str] = []
             for field_name, child in ast.iter_fields(value):
                 if field_name == name_field:
-                    rendered = self._placeholder(str(child))
+                    rendered = self._resolve_placeholder(str(child))
                 elif isinstance(value, ast.Constant) and isinstance(child, str):
                     rendered = "_STR_"
                 else:
@@ -135,7 +135,7 @@ def _collect_functions(*, module: Module) -> list[tuple[str, _FunctionLocation]]
             file=module.relative,
             line=node.lineno,
             name=node.name,
-            **span(node),
+            **locate(node),
         )
         results.append((normalized, location))
 
@@ -201,8 +201,8 @@ class DuplicationCheck:
         for module in iter_modules(Path(src_root)):
             if _should_exclude(relative=Path(module.relative)):
                 continue
-            if isinstance(module, Unparseable):
-                warnings.append(unparseable_notice(prefix="DRY", failure=module))
+            if isinstance(module, UnparseableFile):
+                warnings.append(build_unparseable_notice(prefix="DRY", failure=module))
                 continue
 
             relative_file = module.relative
@@ -213,7 +213,7 @@ class DuplicationCheck:
                 # A deeply nested AST overflows the deepcopy used to normalise a
                 # body. Skip the file rather than crash the whole run.
                 warnings.append(
-                    skip_notice(
+                    build_skip_notice(
                         prefix="DRY", file=relative_file, name=module.path.name, reason=TOO_DEEP
                     )
                 )

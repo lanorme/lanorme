@@ -517,7 +517,7 @@ where each page sits.
 
 ## Domain terminology: `TERM-NNN`
 
-Configurable ubiquitous-language enforcement. Inert by default. Each
+ConfigurableCheck ubiquitous-language enforcement. Inert by default. Each
 rule the user configures gets a code from the `TERM-` family.
 
 Config:
@@ -1349,7 +1349,7 @@ not close the hatches, they price them.
   future one*, so a line suppressed once quietly opts out of everything
   added since. Flagged regardless of budget.
 
-**Neither code can be silenced inline.** `lanorme.filtering` refuses
+**Neither code can be silenced inline.** `lanorme.filters` refuses
 `# noqa` and `# lanorme: ignore` for the `SUPPRESS` category, because a
 budget an offender can waive on the offending line is not a budget. They
 remain switchable in config, and that is the point: an escape belongs in a

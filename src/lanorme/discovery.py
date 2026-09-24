@@ -57,7 +57,7 @@ def set_scope(prefix: str) -> None:
     _active_scope = prefix.strip("/")
 
 
-def active_scope() -> str:
+def get_active_scope() -> str:
     """The directory the walk is currently confined to (``""`` for the whole tree)."""
     return _active_scope
 
@@ -77,12 +77,12 @@ def set_excludes(patterns: tuple[str, ...] | list[str]) -> None:
     _active_excludes = tuple(patterns)
 
 
-def active_excludes() -> tuple[str, ...]:
+def get_active_excludes() -> tuple[str, ...]:
     """Return the exclude globs currently in effect."""
     return _active_excludes
 
 
-def _excluded(*, relative: str, patterns: tuple[str, ...]) -> bool:
+def _is_excluded(*, relative: str, patterns: tuple[str, ...]) -> bool:
     """True if a forward-slashed relative path matches any exclude glob."""
     return any(fnmatch.fnmatch(relative, pattern) for pattern in patterns)
 
@@ -106,7 +106,7 @@ def _walk(root: Path, *, prune: frozenset[str]) -> Iterator[tuple[Path, str, lis
         for name in dirnames:
             if name in prune:
                 continue
-            if patterns and _excluded(relative=prefix + name, patterns=patterns):
+            if patterns and _is_excluded(relative=prefix + name, patterns=patterns):
                 continue
             if scope and not _on_scope_path(relative=prefix + name, scope=scope):
                 continue
@@ -134,7 +134,7 @@ def iter_files(
         for name in filenames:
             if suffix is not None and not name.endswith(suffix):
                 continue
-            if patterns and _excluded(relative=prefix + name, patterns=patterns):
+            if patterns and _is_excluded(relative=prefix + name, patterns=patterns):
                 continue
             found.append(here / name)
     return sorted(found)
@@ -143,7 +143,7 @@ def iter_files(
 def iter_dirs(root: Path, *, prune: frozenset[str] = DEFAULT_PRUNE_DIRS) -> list[Path]:
     """Every directory under *root* (the root excluded) that the walk keeps, sorted.
 
-    Collected from each visited directory's kept children, so a symlink to a
+    CollectedResults from each visited directory's kept children, so a symlink to a
     directory is listed even though the walk does not descend into it.
     """
     scope = _active_scope

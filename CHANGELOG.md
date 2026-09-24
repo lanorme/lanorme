@@ -31,9 +31,9 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
   layers named in the fix. It used to carry the bare code `LAYER` and an
   empty allowed list in the fix text.
 - Check authors: `CheckResult.from_findings(...)` derives a result's status
-  from its findings, `lanorme.sources.iter_modules` / `parsed_modules` replace
+  from its findings, `lanorme.sources.iter_modules` / `iter_parsed_modules` replace
   a per-check read-and-parse loop, and `lanorme.checkconfig` offers typed
-  setting readers (`str_list_setting`, `int_setting`, `is_flag_set`, ...) that
+  setting readers (`read_str_list`, `read_int`, `is_flag_set`, ...) that
   turn a mistyped value into the usual exit-2 config error.
 
 ### Fixed
@@ -617,7 +617,7 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
 
 ### Internal
 
-- Output rendering moved out of `cli.py` into a new `lanorme.reporting` module.
+- Output rendering moved out of `cli.py` into a new `lanorme.reports` module.
   No public API change.
 - Added a `docs-audit` skill and workflow that check the docs against the real
   CLI for accuracy and house style.
@@ -690,9 +690,9 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
     was chosen by measuring the rule against the Python standard library,
     where `hasattr` is dominated by legitimate platform/feature detection
     (no Protocol fix), so the check ships off.
-- `Configurable` protocol in the public API: a `runtime_checkable` Protocol
+- `ConfigurableCheck` protocol in the public API: a `runtime_checkable` Protocol
   for checks that accept a `[tool.lanorme.<name>]` settings table. The CLI
-  now selects configurable checks with `isinstance(check, Configurable)`.
+  now selects configurable checks with `isinstance(check, ConfigurableCheck)`.
 
 ## [0.4.0]
 

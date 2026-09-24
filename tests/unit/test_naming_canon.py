@@ -14,7 +14,7 @@ from pathlib import Path
 import pytest
 
 from lanorme import Status
-from lanorme.checks.naming_canon import NamingCanonCheck, agent_noun
+from lanorme.checks.naming_canon import NamingCanonCheck, derive_agent_noun
 
 
 def _run(*, root: Path, body: str, check: NamingCanonCheck | None = None, name: str = "sample.py"):
@@ -55,7 +55,7 @@ def test_noun_phrase_classes_pass(tmp_path: Path) -> None:
     body = "".join(
         f"class {name}:\n    pass\n"
         for name in ("UserFetcher", "FetchOptions", "ConnectTimeout", "CompileError", "DeleteView",
-                     "SaveTest2", "Configurable", "BuildResult", "CONSOLE_INFO", "Fetch")
+                     "SaveTest2", "ConfigurableCheck", "BuildResult", "CONSOLE_INFO", "Fetch")
     )
     result = _run(root=tmp_path, body=body)
     assert _codes(result) == []
@@ -89,7 +89,7 @@ def test_class_fix_names_the_thing(tmp_path: Path, name: str, suggested: str) ->
      ("execute", "executor"), ("collect", "collector"), ("send", "sender")],
 )
 def test_agent_noun(verb: str, noun: str) -> None:
-    assert agent_noun(verb=verb) == noun
+    assert derive_agent_noun(verb=verb) == noun
 
 
 # --------------------------------------------------------------------------- #

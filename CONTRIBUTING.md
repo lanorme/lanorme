@@ -67,7 +67,7 @@ An optional `configure` method receives its `[tool.lanorme.<name>]` table.
 
 ```python
 from lanorme import CheckResult, Violation, register
-from lanorme.sources import parsed_modules
+from lanorme.sources import iter_parsed_modules
 
 
 class MyCheck:
@@ -77,7 +77,7 @@ class MyCheck:
 
     def run(self, *, src_root: str) -> CheckResult:
         violations: list[Violation] = []
-        for module in parsed_modules(src_root):
+        for module in iter_parsed_modules(src_root):
             ...  # inspect module.tree, module.source, module.lines
         return CheckResult.from_findings(check=self.name, violations=violations)
 
@@ -91,9 +91,9 @@ entry-point group or be named in `[tool.lanorme] plugins = [...]`.
 
 Conventions for a new rule:
 
-- **Read Python sources through `lanorme.sources`** (`parsed_modules` for the
+- **Read Python sources through `lanorme.sources`** (`iter_parsed_modules` for the
   files that parse, `iter_modules` when the check reports the ones that do
-  not, with `unparseable_notice` building the `-000` notice) and other files
+  not, with `build_unparseable_notice` building the `-000` notice) and other files
   through `lanorme.discovery.iter_files`, never `Path.rglob`, so the built-in
   directory pruning and the user's `exclude` globs are honoured. Each file is
   read and parsed once per run and the tree is shared by every check, so never

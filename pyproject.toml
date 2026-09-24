@@ -81,8 +81,9 @@ skip-magic-trailing-comma = false
 # LaNorme dogfoods its own rules, minus the DDD/architecture-specific ones
 # (this is a flat library, not a layered domain app).
 ignore = ["LAYER", "PORT", "TERM"]
-# The naming canon is a warning on any project and a hard standard on this one.
-promote = ["NAMING-006", "NAMING-007", "NAMING-008"]
+# The naming canon is a warning on any project and a hard standard on this one,
+# as is Clean Code naming: every function starts with a verb (NAMING-011).
+promote = ["NAMING-006", "NAMING-007", "NAMING-008", "NAMING-011"]
 exclude = [
     "tests/fixtures/*",          # deliberately dirty test inputs
     "evals/corpora/*",           # deliberately dirty labelled eval corpora
@@ -120,6 +121,10 @@ enabled = true
 
 # Dogfood the opt-in attribute-access smell check on LaNorme itself.
 [tool.lanorme.attribute_access]
+enabled = true
+
+# Clean Code naming (NAMING-009..011) is opt-in elsewhere and enforced here.
+[tool.lanorme.naming_clean_code]
 enabled = true
 
 # Dogfood the opt-in fuzzy near-duplicate check on LaNorme itself.

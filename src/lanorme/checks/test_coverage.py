@@ -26,7 +26,7 @@ from pathlib import Path
 from typing import ClassVar
 
 from lanorme import CheckResult, Violation, register
-from lanorme.checkconfig import str_list_setting
+from lanorme.checkconfig import read_str_list
 
 
 # ---------------------------------------------------------------------------
@@ -98,7 +98,7 @@ def _find_test_files(*, backend_root: Path, test_roots: tuple[str, ...]) -> list
     return sorted(found)
 
 
-def _dotted_import_paths(source: str) -> list[str] | None:
+def _collect_dotted_import_paths(source: str) -> list[str] | None:
     """Reconstruct the dotted import paths of a test file from its AST.
 
     Returns one string per imported target (e.g. ``app.services.billing``),
@@ -191,7 +191,7 @@ def _check_module_coverage(
             contents = tf.read_text(encoding="utf-8")
         except OSError:
             continue
-        test_file_imports[str(tf)] = (contents, _dotted_import_paths(contents))
+        test_file_imports[str(tf)] = (contents, _collect_dotted_import_paths(contents))
 
     warnings: list[Violation] = []
     for rel_path, name, import_hint in modules:
@@ -241,7 +241,7 @@ class TestCoverageCheck:
         list (or one holding only empty strings) keeps the current roots; a
         value that is not a list of strings is a config error.
         """
-        roots = str_list_setting(settings=settings, key="test_roots", default=self.test_roots)
+        roots = read_str_list(settings=settings, key="test_roots", default=self.test_roots)
         cleaned = tuple(root for root in roots if root)
         if cleaned:
             self.test_roots = cleaned

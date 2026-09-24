@@ -64,7 +64,7 @@ def read_toml(path: Path) -> Config:
         raise UsageError(f"{path} is not valid TOML: {error}") from error
 
 
-def dedicated_config_file(directory: Path) -> Path | None:
+def find_dedicated_config(directory: Path) -> Path | None:
     """The ``lanorme.toml`` or ``.lanorme.toml`` in *directory*, or ``None``."""
     for name in DEDICATED_CONFIG_FILES:
         candidate = directory / name
@@ -81,7 +81,7 @@ def load_lanorme_config(directory: Path) -> Config | None:
     in the CLI. A ``pyproject.toml`` without that table is not a config source
     and yields ``None``.
     """
-    dedicated = dedicated_config_file(directory)
+    dedicated = find_dedicated_config(directory)
     if dedicated is not None:
         return read_toml(dedicated)
 
@@ -130,7 +130,7 @@ def _strip_root(config: Config) -> Config:
     return {key: value for key, value in config.items() if key != "root"}
 
 
-def _nearest_ancestor(*, directory: Path, candidates: list[Region]) -> Region | None:
+def _find_nearest_ancestor(*, directory: Path, candidates: list[Region]) -> Region | None:
     """Return the region whose directory is the closest proper ancestor of *directory*."""
     best: Region | None = None
     for candidate in candidates:
@@ -188,7 +188,7 @@ def _resolve_merged(*, region: Region, regions: list[Region]) -> Config:
         chain.append(node)
         if node.is_root:
             break
-        node = _nearest_ancestor(directory=node.directory, candidates=regions)
+        node = _find_nearest_ancestor(directory=node.directory, candidates=regions)
 
     merged: Config = {}
     for ancestor in reversed(chain):
@@ -196,7 +196,7 @@ def _resolve_merged(*, region: Region, regions: list[Region]) -> Config:
     return merged
 
 
-def child_exclude_globs(*, region: Region, regions: list[Region], scan_root: Path) -> list[str]:
+def build_child_exclude_globs(*, region: Region, regions: list[Region], scan_root: Path) -> list[str]:
     """Globs (relative to *scan_root*) that prune every nested region below *region*.
 
     Running a region's file-level pass with these excludes scopes it to the files
@@ -215,7 +215,7 @@ def child_exclude_globs(*, region: Region, regions: list[Region], scan_root: Pat
     return globs
 
 
-def region_prefix(*, region: Region, scan_root: Path) -> str:
+def compute_region_prefix(*, region: Region, scan_root: Path) -> str:
     """The region's directory relative to the scan root, posix, ``""`` at the root."""
     resolved = scan_root.resolve()
     if region.directory == resolved:
@@ -224,7 +224,7 @@ def region_prefix(*, region: Region, scan_root: Path) -> str:
 
 
 @dataclass(frozen=True)
-class Discovered:
+class DiscoveredConfig:
     """The configuration in force at a scan path, and where it came from."""
 
     config: Config
@@ -233,7 +233,7 @@ class Discovered:
     extends: object
 
 
-def discover_config(*, start: Path, resolve_extends: Callable[..., Config]) -> Discovered:
+def discover_config(*, start: Path, resolve_extends: Callable[..., Config]) -> DiscoveredConfig:
     """Walk up from *start* and fold every config on the way into one.
 
     The project root is the outermost directory carrying a config, or the
@@ -254,23 +254,23 @@ def discover_config(*, start: Path, resolve_extends: Callable[..., Config]) -> D
         if config.get("root"):
             break
     if not chain:
-        return Discovered(config={}, project_root=search_dir, source=None, extends=None)
+        return DiscoveredConfig(config={}, project_root=search_dir, source=None, extends=None)
 
     merged: Config = {}
     for directory, config in reversed(chain):
         resolved = resolve_extends(config=config, project_root=directory)
         merged = merge_config(base=merged, override=_strip_root(resolved))
     outer_dir, outer_config = chain[-1]
-    labels = [_config_label(directory) for directory, _config in reversed(chain)]
+    labels = [_label_config(directory) for directory, _config in reversed(chain)]
     source = labels[0] + (f" (+ nested: {', '.join(labels[1:])})" if len(labels) > 1 else "")
-    return Discovered(
+    return DiscoveredConfig(
         config=merged, project_root=outer_dir, source=source, extends=outer_config.get("extends")
     )
 
 
-def _config_label(directory: Path) -> str:
+def _label_config(directory: Path) -> str:
     """How ``--show-config`` names the config file found in *directory*."""
-    dedicated = dedicated_config_file(directory)
+    dedicated = find_dedicated_config(directory)
     if dedicated is not None:
         return str(dedicated)
     return f"{directory / 'pyproject.toml'} [tool.lanorme]"

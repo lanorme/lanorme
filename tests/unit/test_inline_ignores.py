@@ -4,7 +4,7 @@ LaNorme reads both an on-line ``# noqa`` (shared with ruff and friends) and a
 native ``# lanorme: ignore[CODE]`` directive. The native form exists because
 ruff cannot parse the hyphen in our codes (``TYPE-001``): a project running both
 tools silences a LaNorme finding with ``# lanorme: ignore`` and ruff never sees
-an invalid directive. See ``filtering._line_silences``.
+an invalid directive. See ``filtering._is_silenced_inline``.
 """
 
 from __future__ import annotations
@@ -12,19 +12,19 @@ from __future__ import annotations
 from pathlib import Path
 
 from lanorme import CheckResult, Status, Violation
-from lanorme.filtering import _apply_inline_ignores, _line_silences
+from lanorme.filters import _apply_inline_ignores, _is_silenced_inline
 
 
 def test_native_directive_silences_matching_code():
-    assert _line_silences(line="x = 1  # lanorme: ignore[TYPE-001]", rule="TYPE-001: detail")
+    assert _is_silenced_inline(line="x = 1  # lanorme: ignore[TYPE-001]", rule="TYPE-001: detail")
 
 
 def test_native_directive_ignores_other_code():
-    assert not _line_silences(line="x = 1  # lanorme: ignore[TYPE-001]", rule="PARAM-001: detail")
+    assert not _is_silenced_inline(line="x = 1  # lanorme: ignore[TYPE-001]", rule="PARAM-001: detail")
 
 
 def test_native_directive_bare_silences_any_rule():
-    assert _line_silences(line="x = 1  # lanorme: ignore", rule="PARAM-001: detail")
+    assert _is_silenced_inline(line="x = 1  # lanorme: ignore", rule="PARAM-001: detail")
 
 
 def test_native_directive_accepts_code_list():
@@ -32,28 +32,28 @@ def test_native_directive_accepts_code_list():
     line = "x = 1  # lanorme: ignore[TYPE-001, PARAM-001]"
 
     # Act / Assert.
-    assert _line_silences(line=line, rule="TYPE-001: d")
-    assert _line_silences(line=line, rule="PARAM-001: d")
-    assert not _line_silences(line=line, rule="SQL-001: d")
+    assert _is_silenced_inline(line=line, rule="TYPE-001: d")
+    assert _is_silenced_inline(line=line, rule="PARAM-001: d")
+    assert not _is_silenced_inline(line=line, rule="SQL-001: d")
 
 
 def test_native_directive_matches_category():
-    assert _line_silences(line="x = 1  # lanorme: ignore[TYPE]", rule="TYPE-004: d")
+    assert _is_silenced_inline(line="x = 1  # lanorme: ignore[TYPE]", rule="TYPE-004: d")
 
 
 def test_native_directive_is_case_insensitive():
-    assert _line_silences(line="x = 1  # LaNorme: Ignore[type-001]", rule="TYPE-001: d")
+    assert _is_silenced_inline(line="x = 1  # LaNorme: Ignore[type-001]", rule="TYPE-001: d")
 
 
 def test_noqa_still_silences():
     # Regression: the existing shared ``# noqa`` path is untouched.
-    assert _line_silences(line="x = 1  # noqa: TYPE-001", rule="TYPE-001: d")
-    assert _line_silences(line="x = 1  # noqa", rule="ANY-001: d")
-    assert not _line_silences(line="x = 1  # noqa: SQL-001", rule="TYPE-001: d")
+    assert _is_silenced_inline(line="x = 1  # noqa: TYPE-001", rule="TYPE-001: d")
+    assert _is_silenced_inline(line="x = 1  # noqa", rule="ANY-001: d")
+    assert not _is_silenced_inline(line="x = 1  # noqa: SQL-001", rule="TYPE-001: d")
 
 
 def test_no_directive_does_not_silence():
-    assert not _line_silences(line="x = 1  # a plain comment", rule="TYPE-001: d")
+    assert not _is_silenced_inline(line="x = 1  # a plain comment", rule="TYPE-001: d")
 
 
 def test_native_directive_is_invisible_to_ruff_grammar():
@@ -61,7 +61,7 @@ def test_native_directive_is_invisible_to_ruff_grammar():
     # to misparse, yet still silences LaNorme.
     line = "x = eval(y)  # lanorme: ignore[EVAL-001]"
     assert "noqa" not in line
-    assert _line_silences(line=line, rule="EVAL-001: avoid eval")
+    assert _is_silenced_inline(line=line, rule="EVAL-001: avoid eval")
 
 
 def _violation(*, file: str, line: int, code: str) -> Violation:

@@ -37,9 +37,9 @@ from pathlib import Path
 from typing import ClassVar
 
 from lanorme import CheckResult, Violation, register
-from lanorme.checkconfig import int_setting, is_flag_set
-from lanorme.checks.file_limits import _cyclomatic_complexity
-from lanorme.sources import Module, parsed_modules
+from lanorme.checkconfig import read_int, is_flag_set
+from lanorme.checks.file_limits import _measure_cyclomatic_complexity
+from lanorme.sources import Module, iter_parsed_modules
 
 _EM_DASH = "—"
 
@@ -125,10 +125,10 @@ def _collect_comments(*, source: str, source_lines: list[str]) -> list[_Comment]
     return comments
 
 
-def _docstring_lines(*, module: Module) -> list[tuple[int, str]]:
+def _collect_docstring_lines(*, module: Module) -> list[tuple[int, str]]:
     """Return (line, text) for each line of every module/class/function docstring."""
     out: list[tuple[int, str]] = []
-    for node in module.index.nodes(ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef):
+    for node in module.index.collect(ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef):
         doc = ast.get_docstring(node, clean=False)
         if doc is None or not node.body:
             continue
@@ -163,7 +163,7 @@ _BLOCK_HEADER_KEYWORDS = (
 _SCOPE_BOUND_KEYWORDS = ("return", "yield", "raise", "await ")
 
 
-def _parsing_candidates(text: str) -> list[str]:
+def _list_parsing_candidates(text: str) -> list[str]:
     """Variants of *text* to try, covering Python shapes that don't parse standalone."""
     stripped = text.strip()
     candidates: list[str] = [text]
@@ -191,7 +191,7 @@ def _parsing_candidates(text: str) -> list[str]:
 
 def _comment_parses_as_code(text: str) -> bool:
     """Return True if the comment text resolves to a code statement."""
-    for candidate in _parsing_candidates(text):
+    for candidate in _list_parsing_candidates(text):
         try:
             tree = ast.parse(candidate)
         except (SyntaxError, ValueError, RecursionError):
@@ -224,7 +224,7 @@ def _looks_like_code(*, text: str) -> bool:
 _PEP723_BLOCK = re.compile(r"(?m)^# /// [a-zA-Z0-9-]+$\s(?:^#(?: .*)?$\s)*?^# ///$")
 
 
-def _pep723_metadata_lines(source_lines: list[str]) -> frozenset[int]:
+def _find_pep723_metadata_lines(source_lines: list[str]) -> frozenset[int]:
     """Return the 1-based line numbers inside any PEP 723 inline-metadata block."""
     source = "\n".join(source_lines)
     flagged: set[int] = set()
@@ -234,7 +234,7 @@ def _pep723_metadata_lines(source_lines: list[str]) -> frozenset[int]:
     return frozenset(flagged)
 
 
-def _violation(
+def _build_violation(
     *,
     relative_file: str,
     line: int,
@@ -266,18 +266,18 @@ class _Span:
     complexity: int
 
 
-def _function_spans(*, module: Module) -> list[_Span]:
+def _collect_function_spans(*, module: Module) -> list[_Span]:
     """Line range and complexity of every function in the module."""
     spans: list[_Span] = []
     for node in module.index.functions:
         end = getattr(node, "end_lineno", node.lineno)
         spans.append(_Span(
-            start=node.lineno, end=end, complexity=_cyclomatic_complexity(func_node=node)
+            start=node.lineno, end=end, complexity=_measure_cyclomatic_complexity(func_node=node)
         ))
     return spans
 
 
-def _complexity_near(*, spans: list[_Span], start: int, end: int) -> int:
+def _measure_complexity_near(*, spans: list[_Span], start: int, end: int) -> int:
     """Complexity of the function a comment block explains.
 
     A block inside a function is explaining that function. A block sitting
@@ -332,23 +332,23 @@ class CommentsCheck:
         self.flag_verbose = is_flag_set(settings=settings, key="verbose", default=self.flag_verbose)
         self.flag_em_dash = is_flag_set(settings=settings, key="em_dash", default=self.flag_em_dash)
         self.flag_emoji = is_flag_set(settings=settings, key="emoji", default=self.flag_emoji)
-        self.max_block_lines = int_setting(
+        self.max_block_lines = read_int(
             settings=settings, key="max_block_lines", default=self.max_block_lines
         )
-        self.max_comment_chars = int_setting(
+        self.max_comment_chars = read_int(
             settings=settings, key="max_comment_chars", default=self.max_comment_chars
         )
-        self.block_lines_per_branch = int_setting(
+        self.block_lines_per_branch = read_int(
             settings=settings, key="block_lines_per_branch", default=self.block_lines_per_branch
         )
 
-    def _style_violations(
+    def _find_style_violations(
         self, *, text: str, line: int, relative_file: str, column: int | None = None
     ) -> list[Violation]:
         found: list[Violation] = []
         if self.flag_em_dash and _EM_DASH in text:
             found.append(
-                _violation(
+                _build_violation(
                     relative_file=relative_file,
                     line=line,
                     code="PROSE-001",
@@ -359,7 +359,7 @@ class CommentsCheck:
             )
         if self.flag_emoji and _EMOJI.search(text):
             found.append(
-                _violation(
+                _build_violation(
                     relative_file=relative_file,
                     line=line,
                     code="PROSE-003",
@@ -370,12 +370,12 @@ class CommentsCheck:
             )
         return found
 
-    def _verbose_violations(self, *, comments: list[_Comment], module: Module) -> list[Violation]:
+    def _find_verbose_violations(self, *, comments: list[_Comment], module: Module) -> list[Violation]:
         found: list[Violation] = []
         for comment in comments:
             if len(comment.text) > self.max_comment_chars:
                 found.append(
-                    _violation(
+                    _build_violation(
                         relative_file=module.relative,
                         line=comment.line,
                         code="CMT-002",
@@ -404,14 +404,14 @@ class CommentsCheck:
                 index = end + 1
                 continue
             if spans is None:
-                spans = _function_spans(module=module)
-            complexity = _complexity_near(
+                spans = _collect_function_spans(module=module)
+            complexity = _measure_complexity_near(
                 spans=spans, start=standalone[index].line, end=standalone[end].line
             )
             allowance = self.max_block_lines + (complexity - 1) * self.block_lines_per_branch
             if length > allowance:
                 found.append(
-                    _violation(
+                    _build_violation(
                         relative_file=module.relative,
                         line=standalone[index].line,
                         code="CMT-002",
@@ -430,9 +430,9 @@ class CommentsCheck:
         found: list[Violation] = []
         relative_file = module.relative
         if self.flag_commented_code:
-            metadata_lines = _pep723_metadata_lines(module.lines)
+            metadata_lines = _find_pep723_metadata_lines(module.lines)
             found.extend(
-                _violation(
+                _build_violation(
                     relative_file=relative_file,
                     line=c.line,
                     code="CMT-001",
@@ -444,22 +444,22 @@ class CommentsCheck:
                 if c.line not in metadata_lines and _looks_like_code(text=c.text)
             )
         if self.flag_verbose:
-            found.extend(self._verbose_violations(comments=comments, module=module))
+            found.extend(self._find_verbose_violations(comments=comments, module=module))
         if self.flag_em_dash or self.flag_emoji:
             for comment in comments:
-                found.extend(self._style_violations(
+                found.extend(self._find_style_violations(
                     text=comment.text,
                     line=comment.line,
                     relative_file=relative_file,
                     column=comment.column,
                 ))
-            for line, text in _docstring_lines(module=module):
-                found.extend(self._style_violations(text=text, line=line, relative_file=relative_file))
+            for line, text in _collect_docstring_lines(module=module):
+                found.extend(self._find_style_violations(text=text, line=line, relative_file=relative_file))
         return found
 
     def run(self, *, src_root: str) -> CheckResult:
         violations: list[Violation] = []
-        for module in parsed_modules(Path(src_root)):
+        for module in iter_parsed_modules(Path(src_root)):
             violations.extend(
                 self._scan_file(
                     module=module,

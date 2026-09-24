@@ -18,10 +18,10 @@ from lanorme.checks.naming_words import (
     is_pascal_case,
     is_predicate,
     is_verb_capable,
-    leading_verb_index,
-    postposed_verb_index,
+    find_leading_verb_index,
+    find_postposed_verb_index,
     split_name,
-    verb_first,
+    move_verb_first,
 )
 
 
@@ -84,7 +84,7 @@ def test_extra_verbs_extend_the_vocabulary() -> None:
     ],
 )
 def test_leading_verb_index_skips_modifiers_only(tokens: list[str], expected: int) -> None:
-    assert leading_verb_index(tokens=tokens) == expected
+    assert find_leading_verb_index(tokens=tokens) == expected
 
 
 @pytest.mark.parametrize(
@@ -101,7 +101,7 @@ def test_leading_verb_index_skips_modifiers_only(tokens: list[str], expected: in
     ],
 )
 def test_postposed_verb_index_takes_the_last_listed_verb(tokens: list[str], expected: int) -> None:
-    assert postposed_verb_index(tokens=tokens) == expected
+    assert find_postposed_verb_index(tokens=tokens) == expected
 
 
 @pytest.mark.parametrize(
@@ -113,7 +113,7 @@ def test_postposed_verb_index_takes_the_last_listed_verb(tokens: list[str], expe
     ],
 )
 def test_verb_first_keeps_prefix_modifiers_and_digits(name: str, index: int, expected: str) -> None:
-    assert verb_first(name=name, tokens=split_name(name=name), index=index) == expected
+    assert move_verb_first(name=name, tokens=split_name(name=name), index=index) == expected
 
 
 def test_predicates_carry_an_auxiliary() -> None:

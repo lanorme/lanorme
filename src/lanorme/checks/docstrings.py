@@ -40,9 +40,9 @@ from pathlib import Path
 from typing import ClassVar
 
 from lanorme import CheckResult, Violation, register
-from lanorme.checkconfig import int_setting, is_flag_set
-from lanorme.checks.restating import _is_allowlisted, _split_identifier, _stem
-from lanorme.sources import Module, parsed_modules, span
+from lanorme.checkconfig import read_int, is_flag_set
+from lanorme.checks.restating import _is_allowlisted, _split_identifier, _strip_suffix
+from lanorme.sources import Module, iter_parsed_modules, locate
 
 # Definitions shorter than this need no docstring: a three-line helper whose
 # name says it all is not improved by a sentence repeating the name.
@@ -76,7 +76,7 @@ def _is_public(*, name: str) -> bool:
     return not name.startswith("_")
 
 
-def _effective_length(*, node: ast.AST) -> int:
+def _measure_effective_length(*, node: ast.AST) -> int:
     """Line span of a definition, docstring and decorators excluded."""
     end = getattr(node, "end_lineno", None)
     start = getattr(node, "lineno", None)
@@ -85,7 +85,7 @@ def _effective_length(*, node: ast.AST) -> int:
     return end - start + 1
 
 
-def _signature_stems(*, node: ast.AST) -> set[str]:
+def _collect_signature_stems(*, node: ast.AST) -> set[str]:
     """Stemmed vocabulary a reader already has from the name and parameters."""
     raw: list[str] = list(_split_identifier(name=getattr(node, "name", "")))
     args = getattr(node, "args", None)
@@ -97,13 +97,13 @@ def _signature_stems(*, node: ast.AST) -> set[str]:
             every.append(args.kwarg)
         for arg in every:
             raw.extend(_split_identifier(name=arg.arg))
-    return {_stem(word=token) for token in raw if token}
+    return {_strip_suffix(word=token) for token in raw if token}
 
 
-def _docstring_stems(*, doc: str) -> set[str]:
+def _collect_docstring_stems(*, doc: str) -> set[str]:
     """Stemmed content words of a docstring, filler and punctuation removed."""
     words = _split_identifier(name=doc.replace(".", " ").replace(",", " "))
-    return {_stem(word=word) for word in words if word not in _FILLER}
+    return {_strip_suffix(word=word) for word in words if word not in _FILLER}
 
 
 def _covers(*, signature: set[str], word: str) -> bool:
@@ -133,12 +133,12 @@ def _is_vacuous(*, doc: str, node: ast.AST, owner: str = "") -> bool:
     text = doc.strip()
     if not text:
         return True
-    content = _docstring_stems(doc=text)
+    content = _collect_docstring_stems(doc=text)
     if not content:
         return True
     if _is_allowlisted(text=text, low=text.lower()):
         return False
-    signature = _signature_stems(node=node) | {_stem(word=w) for w in _split_identifier(name=owner)}
+    signature = _collect_signature_stems(node=node) | {_strip_suffix(word=w) for w in _split_identifier(name=owner)}
     return all(_covers(signature=signature, word=word) for word in content)
 
 
@@ -149,34 +149,34 @@ def _skip(*, node: ast.AST, min_lines: int, require_private: bool) -> bool:
         return True
     if not require_private and not _is_public(name=name):
         return True
-    return _effective_length(node=node) < min_lines
+    return _measure_effective_length(node=node) < min_lines
 
 
-def _noun(*, node: ast.AST) -> str:
+def _describe_node(*, node: ast.AST) -> str:
     """The word for what *node* is, for use in a message."""
     return "Class" if isinstance(node, ast.ClassDef) else "Function"
 
 
-def _owners(*, module: Module) -> dict[int, str]:
+def _map_owners(*, module: Module) -> dict[int, str]:
     """Map each method to its enclosing class name, keyed by node id.
 
     A method's docstring is read next to its class, so ``Refill the bucket.``
     on ``Bucket.refill`` restates the pair and adds nothing.
     """
     owned: dict[int, str] = {}
-    for node in module.index.nodes(ast.ClassDef):
+    for node in module.index.collect(ast.ClassDef):
         for child in node.body:
             if isinstance(child, _DEF_TYPES):
                 owned[id(child)] = node.name
     return owned
 
 
-def _definition_violations(*, module: Module, min_lines: int, require_private: bool) -> list[Violation]:
+def _find_definition_violations(*, module: Module, min_lines: int, require_private: bool) -> list[Violation]:
     """Check every in-scope definition in one module for CMT-006 and CMT-007."""
     violations: list[Violation] = []
     file = module.relative
-    owned = _owners(module=module)
-    for node in module.index.nodes(*_DEF_TYPES):
+    owned = _map_owners(module=module)
+    for node in module.index.collect(*_DEF_TYPES):
         if _skip(node=node, min_lines=min_lines, require_private=require_private):
             continue
         doc = ast.get_docstring(node)
@@ -185,9 +185,9 @@ def _definition_violations(*, module: Module, min_lines: int, require_private: b
                 file=file,
                 line=node.lineno,
                 rule="CMT-006: Public definitions past the size floor need a docstring",
-                message=f"{_noun(node=node)} '{node.name}' has no docstring",
+                message=f"{_describe_node(node=node)} '{node.name}' has no docstring",
                 fix="Say what it is for, or what a caller needs to know that the signature does not show",
-                **span(node),
+                **locate(node),
             ))
         elif _is_vacuous(doc=doc, node=node, owner=owned.get(id(node), "")):
             violations.append(Violation(
@@ -196,7 +196,7 @@ def _definition_violations(*, module: Module, min_lines: int, require_private: b
                 rule="CMT-007: A docstring must say more than the signature",
                 message=f"Docstring of '{node.name}' only restates its name and parameters",
                 fix="Add what the signature cannot show: the why, a caveat, a unit, or a reference",
-                **span(node),
+                **locate(node),
             ))
     return violations
 
@@ -221,7 +221,7 @@ class DocstringsCheck:
     def configure(self, *, settings: dict[str, object]) -> None:
         """Apply ``[tool.lanorme.docstrings]`` configuration."""
         self.enabled = is_flag_set(settings=settings, key="enabled", default=self.enabled)
-        self.min_lines = int_setting(settings=settings, key="min_lines", default=self.min_lines)
+        self.min_lines = read_int(settings=settings, key="min_lines", default=self.min_lines)
         self.require_private = is_flag_set(
             settings=settings, key="require_private", default=self.require_private
         )
@@ -231,7 +231,7 @@ class DocstringsCheck:
         if not self.enabled:
             return CheckResult.from_findings(check=self.name)
         violations: list[Violation] = []
-        for module in parsed_modules(Path(src_root)):
+        for module in iter_parsed_modules(Path(src_root)):
             # Match skip directories inside the root only: the absolute path's
             # ancestors are the user's filesystem, not the project layout.
             name = module.path.name
@@ -239,7 +239,7 @@ class DocstringsCheck:
                 continue
             if name.startswith("test_"):
                 continue
-            violations.extend(_definition_violations(
+            violations.extend(_find_definition_violations(
                 module=module,
                 min_lines=self.min_lines,
                 require_private=self.require_private,

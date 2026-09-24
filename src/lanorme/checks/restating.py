@@ -34,7 +34,7 @@ from typing import ClassVar
 
 from lanorme import CheckResult, Violation, register
 from lanorme.checkconfig import is_flag_set
-from lanorme.sources import parsed_modules
+from lanorme.sources import iter_parsed_modules
 
 MAX_CONTENT_WORDS = 4
 MIN_STEM_LEN = 4
@@ -96,7 +96,7 @@ def _split_identifier(*, name: str) -> list[str]:
     return [token.lower() for token in out if token]
 
 
-def _stem(*, word: str) -> str:
+def _strip_suffix(*, word: str) -> str:
     for suffix in ("ing", "tion", "ies", "es", "ed", "er", "s"):
         if word.endswith(suffix) and len(word) - len(suffix) >= MIN_STEM_LEN:
             return word[: -len(suffix)]
@@ -189,7 +189,7 @@ def _is_simple_statement(*, s: ast.stmt) -> bool:
     )
 
 
-def _code_tokens(*, s: ast.stmt) -> set[str]:
+def _collect_code_tokens(*, s: ast.stmt) -> set[str]:
     raw: set[str] = set()
     for node in ast.walk(s):
         if isinstance(node, ast.Name):
@@ -203,7 +203,7 @@ def _code_tokens(*, s: ast.stmt) -> set[str]:
     keyword = _STMT_KEYWORD.get(type(s))
     if keyword:
         raw.add(keyword)
-    return {_stem(word=token) for token in raw if token}
+    return {_strip_suffix(word=token) for token in raw if token}
 
 
 @dataclass(frozen=True)
@@ -221,7 +221,7 @@ class _Context:
     standalone_lines: set[int]
 
 
-def _adjacent_statement(*, comment: _Comment, ctx: _Context) -> ast.stmt | None:
+def _find_adjacent_statement(*, comment: _Comment, ctx: _Context) -> ast.stmt | None:
     if comment.standalone:
         for line in ctx.stmt_lines:
             if line > comment.line:
@@ -230,7 +230,7 @@ def _adjacent_statement(*, comment: _Comment, ctx: _Context) -> ast.stmt | None:
     return ctx.stmt_index.get(comment.line)
 
 
-def _restates(*, comment: _Comment, s: ast.stmt) -> bool:
+def _is_restating(*, comment: _Comment, s: ast.stmt) -> bool:
     text = comment.text
     low = text.lower()
     if _is_allowlisted(text=text, low=low):
@@ -240,8 +240,8 @@ def _restates(*, comment: _Comment, s: ast.stmt) -> bool:
         return False
     verbs = [w for w in words if w in _VERB_TABLE]
     content = [w for w in words if w not in _VERB_TABLE]
-    code = _code_tokens(s=s)
-    covered_w = sum(1 for w in content if _stem(word=w) in code)
+    code = _collect_code_tokens(s=s)
+    covered_w = sum(1 for w in content if _strip_suffix(word=w) in code)
     covered_v = sum(1 for v in verbs if _VERB_TABLE[v](s))
     total = len(content) + len(verbs)
     return total > 0 and (covered_w + covered_v) / total >= COVERAGE_FLOOR
@@ -268,7 +268,7 @@ def _collect_comments(*, source: str, source_lines: list[str]) -> list[_Comment]
     return comments
 
 
-def _restating_violations(*, tree: ast.Module, comments: list[_Comment], file: str) -> list[Violation]:
+def _find_restating_violations(*, tree: ast.Module, comments: list[_Comment], file: str) -> list[Violation]:
     stmt_index = _build_stmt_index(tree=tree)
     ctx = _Context(
         stmt_index=stmt_index,
@@ -283,10 +283,10 @@ def _restating_violations(*, tree: ast.Module, comments: list[_Comment], file: s
             continue
         if not comment.standalone and not ALLOW_TRAILING:
             continue
-        s = _adjacent_statement(comment=comment, ctx=ctx)
+        s = _find_adjacent_statement(comment=comment, ctx=ctx)
         if s is None or not _is_simple_statement(s=s):
             continue
-        if _restates(comment=comment, s=s):
+        if _is_restating(comment=comment, s=s):
             found.append(
                 Violation(
                     file=file,
@@ -322,11 +322,11 @@ class RestatingCheck:
         if not self.enabled:
             return CheckResult.from_findings(check=self.name)
         violations: list[Violation] = []
-        for module in parsed_modules(Path(src_root)):
+        for module in iter_parsed_modules(Path(src_root)):
             source_lines = module.lines
             comments = _collect_comments(source=module.source, source_lines=source_lines)
             violations.extend(
-                _restating_violations(tree=module.tree, comments=comments, file=module.relative)
+                _find_restating_violations(tree=module.tree, comments=comments, file=module.relative)
             )
         return CheckResult.from_findings(check=self.name, violations=violations)
 

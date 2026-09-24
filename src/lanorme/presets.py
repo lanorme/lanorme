@@ -19,7 +19,7 @@ from lanorme.errors import UsageError
 from lanorme.regions import merge_config
 
 
-def _bundled_profiles() -> list[str]:
+def _list_bundled_profiles() -> list[str]:
     """Names of the profiles shipped inside the package."""
     directory = resource_files("lanorme") / "profiles"
     return sorted(p.name[: -len(".toml")] for p in directory.iterdir() if p.name.endswith(".toml"))
@@ -43,7 +43,7 @@ def _load_profile(*, name: str, project_root: Path) -> dict[str, object]:
 
     resource = resource_files("lanorme") / "profiles" / f"{name}.toml"
     if not resource.is_file():
-        available = ", ".join(_bundled_profiles()) or "(none)"
+        available = ", ".join(_list_bundled_profiles()) or "(none)"
         raise UsageError(
             f"unknown profile '{name}'. Bundled profiles: {available}.\n"
             f"  Use a name, or a path to a .toml file."

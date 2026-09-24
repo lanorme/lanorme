@@ -25,7 +25,7 @@ from lanorme import (
 )
 from lanorme.checkconfig import apply_check_config
 from lanorme.discovery import set_excludes, set_scope
-from lanorme.filtering import (
+from lanorme.filters import (
     _apply_excludes,
     _apply_filters,
     _apply_inline_ignores,
@@ -35,12 +35,12 @@ from lanorme.filtering import (
 from lanorme.presets import _resolve_extends
 from lanorme.regions import (
     Region,
-    child_exclude_globs,
+    build_child_exclude_globs,
     combine_results,
     discover_regions,
     is_tree_scoped,
     reanchor_results,
-    region_prefix,
+    compute_region_prefix,
     restore_defaults,
 )
 from lanorme.selectors import reject_unknown_selectors
@@ -82,7 +82,7 @@ def run_regions(
     and not ``helpers.py`` and its path-based exemptions hold. Whole-tree
     checks run once at the scan root under the root config.
     """
-    checks, reported = _selected(only=only)
+    checks, reported = _select_checks(only=only)
     by_name: dict[str, CheckResult] = {}
 
     restore_defaults(checks=get_all_checks(), snapshot=pristine)
@@ -95,9 +95,9 @@ def run_regions(
     for region in regions:
         restore_defaults(checks=get_all_checks(), snapshot=pristine)
         apply_check_config(config=region.merged)
-        nested = child_exclude_globs(region=region, regions=regions, scan_root=scan_root)
+        nested = build_child_exclude_globs(region=region, regions=regions, scan_root=scan_root)
         set_excludes([*exclude, *nested])
-        set_scope(region_prefix(region=region, scan_root=scan_root))
+        set_scope(compute_region_prefix(region=region, scan_root=scan_root))
         for name, check in checks.items():
             if not is_tree_scoped(check):
                 result = run_check(check, src_root=str(scan_root))
@@ -111,7 +111,7 @@ def run_regions(
     return [by_name[name] for name in reported if name in by_name]
 
 
-def _selected(*, only: list[Check] | None) -> tuple[dict[str, Check], list[str]]:
+def _select_checks(*, only: list[Check] | None) -> tuple[dict[str, Check], list[str]]:
     """The checks to run and the names to report for a ``--check`` selection.
 
     A selected result auditor (``--check meta``) needs the other checks'
@@ -139,7 +139,7 @@ class Filters:
 
 
 @dataclass(frozen=True)
-class Collected:
+class CollectedResults:
     """The filtered results of a run and how many findings the silencers dropped."""
 
     results: list[CheckResult]
@@ -160,7 +160,7 @@ def collect_results(
     pristine: dict[str, object],
     filters: Filters,
     resolve_single: Callable[..., tuple[list[Check], list[str]]],
-) -> Collected | None:
+) -> CollectedResults | None:
     """Run the checks and apply every filter up to (and including) inline ignores.
 
     This is the shared spine of ``check``, ``baseline write`` and ``baseline
@@ -212,6 +212,6 @@ def collect_results(
     per_file = before - count_findings(results)
     before = count_findings(results)
     results = _apply_inline_ignores(results=results, project_root=project_root)
-    return Collected(
+    return CollectedResults(
         results=results, suppressed_per_file=per_file, suppressed_inline=before - count_findings(results)
     )

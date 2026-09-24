@@ -14,14 +14,14 @@ import re
 from dataclasses import replace
 from pathlib import Path
 
-from lanorme import CheckResult, Violation, rule_code
+from lanorme import CheckResult, Violation, extract_code
 
 logger = logging.getLogger(__name__)
 
 _CODE_RE = re.compile(r"^([A-Z]+)-\d+")
 
 
-def _category(code: str) -> str:
+def _extract_category(code: str) -> str:
     """The category prefix of a code, e.g. 'LAYER' from 'LAYER-002'."""
     match = _CODE_RE.match(code)
     return match.group(1) if match else code
@@ -32,16 +32,16 @@ def _matches(*, code: str, patterns: list[str]) -> bool:
 
     Case-insensitive, and whitespace and empty entries are ignored, so a
     selector from a config list (``[" type-004 "]``) behaves like the CLI form
-    (``--promote 'type-004'``), which is normalised by ``_csv``.
+    (``--promote 'type-004'``), which is normalised by ``_split_csv``.
     """
     code_upper = code.upper()
-    category = _category(code_upper)
+    category = _extract_category(code_upper)
     wanted = {p.strip().upper() for p in patterns if p.strip()}
     return any(p in ("ALL", code_upper, category) for p in wanted)
 
 
 def _keep(*, rule: str, select: list[str], ignore: list[str]) -> bool:
-    code = rule_code(rule)
+    code = extract_code(rule)
     selected = not select or _matches(code=code, patterns=select)
     return selected and not _matches(code=code, patterns=ignore)
 
@@ -58,7 +58,7 @@ def _apply_filters(
     if not select and not ignore:
         return results
     return [
-        result.narrow(lambda finding: _keep(rule=finding.rule, select=select, ignore=ignore))
+        result.filter_findings(lambda finding: _keep(rule=finding.rule, select=select, ignore=ignore))
         for result in results
     ]
 
@@ -85,10 +85,10 @@ def _apply_target_filter(
         absolute = (scan_root / finding.file).resolve()
         return absolute in files or any(absolute == d or d in absolute.parents for d in dirs)
 
-    return [result.narrow(should_keep) for result in results]
+    return [result.filter_findings(should_keep) for result in results]
 
 
-def _path_excluded(*, path: str, patterns: list[str]) -> bool:
+def _is_path_excluded(*, path: str, patterns: list[str]) -> bool:
     normalised = path.replace("\\", "/")
     return any(fnmatch.fnmatch(normalised, pattern) for pattern in patterns)
 
@@ -98,14 +98,14 @@ def _apply_excludes(*, results: list[CheckResult], exclude: list[str]) -> list[C
     if not exclude:
         return results
     return [
-        result.narrow(lambda finding: not _path_excluded(path=finding.file, patterns=exclude))
+        result.filter_findings(lambda finding: not _is_path_excluded(path=finding.file, patterns=exclude))
         for result in results
     ]
 
 
-def _per_file_silences(*, file: str, rule: str, table: dict[str, list[str]]) -> bool:
+def _is_silenced_per_file(*, file: str, rule: str, table: dict[str, list[str]]) -> bool:
     """True if *rule* (full code or category) is silenced for *file* by *table*."""
-    code = rule_code(rule)
+    code = extract_code(rule)
     normalised = file.replace("\\", "/")
     for pattern, codes in table.items():
         if fnmatch.fnmatch(normalised, pattern) and _matches(code=code, patterns=codes):
@@ -120,8 +120,8 @@ def _apply_per_file_ignores(
     if not table:
         return results
     return [
-        result.narrow(
-            lambda finding: not _per_file_silences(file=finding.file, rule=finding.rule, table=table)
+        result.filter_findings(
+            lambda finding: not _is_silenced_per_file(file=finding.file, rule=finding.rule, table=table)
         )
         for result in results
     ]
@@ -141,7 +141,7 @@ def note_excluded_targets(*, targets: list[Path] | None, project_root: Path, exc
             relative = target.resolve().relative_to(root).as_posix()
         except ValueError:
             return
-        covered = _path_excluded(path=relative, patterns=exclude) or _path_excluded(
+        covered = _is_path_excluded(path=relative, patterns=exclude) or _is_path_excluded(
             path=relative + "/", patterns=exclude
         )
         if not covered:
@@ -165,7 +165,7 @@ _IGNORE_RE = re.compile(
 )
 
 
-def _directive_silences(*, pattern: re.Pattern[str], line: str, rule: str) -> bool:
+def _is_silenced_by_directive(*, pattern: re.Pattern[str], line: str, rule: str) -> bool:
     """True if a *pattern* directive on *line* covers *rule*.
 
     A directive with no code list (bare ``# noqa`` or ``# lanorme: ignore``)
@@ -178,7 +178,7 @@ def _directive_silences(*, pattern: re.Pattern[str], line: str, rule: str) -> bo
     if match.group(1) is None:
         return True
     codes = [c.strip() for c in match.group(1).split(",") if c.strip()]
-    return _matches(code=rule_code(rule), patterns=codes)
+    return _matches(code=extract_code(rule), patterns=codes)
 
 
 # Categories no inline directive may silence. A budget on suppressions that an
@@ -187,16 +187,16 @@ def _directive_silences(*, pattern: re.Pattern[str], line: str, rule: str) -> bo
 _UNSUPPRESSABLE = frozenset({"SUPPRESS"})
 
 
-def _line_silences(*, line: str, rule: str) -> bool:
+def _is_silenced_inline(*, line: str, rule: str) -> bool:
     """True if a ``# noqa`` or ``# lanorme: ignore`` on *line* covers *rule*."""
-    if _category(rule_code(rule)) in _UNSUPPRESSABLE:
+    if _extract_category(extract_code(rule)) in _UNSUPPRESSABLE:
         return False
-    return _directive_silences(pattern=_NOQA_RE, line=line, rule=rule) or _directive_silences(
+    return _is_silenced_by_directive(pattern=_NOQA_RE, line=line, rule=rule) or _is_silenced_by_directive(
         pattern=_IGNORE_RE, line=line, rule=rule
     )
 
 
-def _line_at(*, project_root: Path, file: str, line: int, cache: dict[str, list[str]]) -> str:
+def _read_line(*, project_root: Path, file: str, line: int, cache: dict[str, list[str]]) -> str:
     """Read source line *line* from *file*, caching the file's lines for the run."""
     key = file.replace("\\", "/")
     lines = cache.get(key)
@@ -217,12 +217,12 @@ def _apply_inline_ignores(*, results: list[CheckResult], project_root: Path) -> 
     cache: dict[str, list[str]] = {}
 
     def should_keep(violation: Violation) -> bool:
-        line = _line_at(
+        line = _read_line(
             project_root=project_root, file=violation.file, line=violation.line, cache=cache
         )
-        return not _line_silences(line=line, rule=violation.rule)
+        return not _is_silenced_inline(line=line, rule=violation.rule)
 
-    return [result.narrow(should_keep) for result in results]
+    return [result.filter_findings(should_keep) for result in results]
 
 
 # --------------------------------------------------------------------------- #
@@ -247,7 +247,7 @@ def _apply_promotions(*, results: list[CheckResult], promote: list[str]) -> list
         escalated: list[Violation] = []
         kept: list[Violation] = []
         for warning in result.warnings:
-            code = rule_code(warning.rule)
+            code = extract_code(warning.rule)
             # ``-000`` codes are skip/parse-error notices ("could not analyse,
             # skipping"), not findings, so promotion (including ``ALL``) leaves
             # them as warnings rather than failing the build on a non-issue.

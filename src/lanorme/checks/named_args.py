@@ -24,7 +24,7 @@ from typing import ClassVar
 
 from lanorme import CheckResult, Violation, register
 from lanorme.checkconfig import is_flag_set
-from lanorme.sources import Unparseable, iter_modules, span, unparseable_notice
+from lanorme.sources import UnparseableFile, iter_modules, locate, build_unparseable_notice
 
 # Parameters that are implicit receiver, never counted.
 SELF_CLS_NAMES = {"self", "cls"}
@@ -160,7 +160,7 @@ def _check_function(
         rule="KWARG-001: Functions with >1 parameter must use bare * separator",
         message=f"Function '{node.name}' has {real_positional} positional params without bare *",
         fix="Add a bare * separator: def foo(self, *, param1: str, param2: int)",
-        **span(node),
+        **locate(node),
     )
 
 
@@ -200,8 +200,8 @@ class NamedArgsCheck:
             if _is_test_file(file_path=relative_file):
                 continue
 
-            if isinstance(module, Unparseable):
-                warnings.append(unparseable_notice(prefix="KWARG", failure=module))
+            if isinstance(module, UnparseableFile):
+                warnings.append(build_unparseable_notice(prefix="KWARG", failure=module))
                 continue
 
             source_lines = module.lines

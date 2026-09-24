@@ -35,8 +35,8 @@ from pathlib import Path
 from typing import ClassVar
 
 from lanorme import CheckResult, Violation, register
-from lanorme.checkconfig import int_setting, is_flag_set, str_list_setting
-from lanorme.sources import Module, parsed_modules, span
+from lanorme.checkconfig import read_int, is_flag_set, read_str_list
+from lanorme.sources import Module, iter_parsed_modules, locate
 
 # Default marker vocabulary. AAA + BDD + a few common aliases.
 _DEFAULT_MARKERS = ("arrange", "act", "assert", "given", "when", "then")
@@ -75,7 +75,7 @@ def _is_test_function(*, node: ast.AST) -> bool:
     return True
 
 
-def _statements_in(*, node: ast.FunctionDef | ast.AsyncFunctionDef) -> list[ast.stmt]:
+def _list_statements(*, node: ast.FunctionDef | ast.AsyncFunctionDef) -> list[ast.stmt]:
     """Body statements minus a leading docstring (which is documentation, not setup)."""
     body = list(node.body)
     if body and isinstance(body[0], ast.Expr) and isinstance(body[0].value, ast.Constant) and isinstance(body[0].value.value, str):
@@ -83,7 +83,7 @@ def _statements_in(*, node: ast.FunctionDef | ast.AsyncFunctionDef) -> list[ast.
     return body
 
 
-def _section_markers_in(
+def _collect_section_markers(
     *,
     node: ast.FunctionDef | ast.AsyncFunctionDef,
     source_lines: list[str],
@@ -144,17 +144,17 @@ class TestStyleCheck:
     def configure(self, *, settings: dict[str, object]) -> None:
         """Apply ``[tool.lanorme.test_style]`` configuration."""
         self.enabled = is_flag_set(settings=settings, key="enabled", default=self.enabled)
-        self.min_statements = int_setting(
+        self.min_statements = read_int(
             settings=settings, key="min_statements", default=self.min_statements
         )
-        markers = int_setting(settings=settings, key="required_markers", default=self.required_markers)
+        markers = read_int(settings=settings, key="required_markers", default=self.required_markers)
         self.required_markers = max(1, min(3, markers))
-        self.dry_prefix_statements = int_setting(
+        self.dry_prefix_statements = read_int(
             settings=settings, key="dry_prefix_statements", default=self.dry_prefix_statements
         )
         self.extra_synonyms = tuple(
             synonym.lower()
-            for synonym in str_list_setting(settings=settings, key="synonyms", default=self.extra_synonyms)
+            for synonym in read_str_list(settings=settings, key="synonyms", default=self.extra_synonyms)
         )
 
     def _build_alias_map(self) -> tuple[re.Pattern[str], dict[str, str]]:
@@ -178,7 +178,7 @@ class TestStyleCheck:
         )
         return pattern, alias_to_section
 
-    def _aaa_violations(
+    def _find_aaa_violations(
         self,
         *,
         module: Module,
@@ -190,10 +190,10 @@ class TestStyleCheck:
         for node in module.index.functions:
             if not _is_test_function(node=node):
                 continue
-            statements = _statements_in(node=node)
+            statements = _list_statements(node=node)
             if len(statements) <= self.min_statements:
                 continue
-            sections = _section_markers_in(
+            sections = _collect_section_markers(
                 node=node,
                 source_lines=source_lines,
                 marker_re=marker_re,
@@ -213,18 +213,18 @@ class TestStyleCheck:
                         f"need >= {self.required_markers}"
                     ),
                     fix="Add inline '# Arrange', '# Act', '# Assert' (or Given/When/Then) markers",
-                    **span(node),
+                    **locate(node),
                 )
             )
         return found
 
-    def _dry_violations(self, *, module: Module) -> list[Violation]:
+    def _find_dry_violations(self, *, module: Module) -> list[Violation]:
         """Flag any two test functions that share the same arrange prefix."""
         per_prefix: dict[str, list[ast.FunctionDef | ast.AsyncFunctionDef]] = {}
         for node in module.index.functions:
             if not _is_test_function(node=node):
                 continue
-            statements = _statements_in(node=node)
+            statements = _list_statements(node=node)
             digest = _normalize_prefix(
                 statements=statements, prefix_len=self.dry_prefix_statements
             )
@@ -247,7 +247,7 @@ class TestStyleCheck:
                             f"{len(nodes) - 1} other test(s) in this file"
                         ),
                         fix="Extract the repeated arrange block into a pytest fixture or helper",
-                        **span(node),
+                        **locate(node),
                     )
                 )
         return found
@@ -257,15 +257,15 @@ class TestStyleCheck:
             return CheckResult.from_findings(check=self.name)
         marker_re, alias_to_section = self._build_alias_map()
         violations: list[Violation] = []
-        for module in parsed_modules(Path(src_root)):
+        for module in iter_parsed_modules(Path(src_root)):
             if not _is_test_file(path=module.path):
                 continue
             violations.extend(
-                self._aaa_violations(
+                self._find_aaa_violations(
                     module=module, marker_re=marker_re, alias_to_section=alias_to_section
                 )
             )
-            violations.extend(self._dry_violations(module=module))
+            violations.extend(self._find_dry_violations(module=module))
         return CheckResult.from_findings(check=self.name, violations=violations)
 
 

@@ -8,9 +8,9 @@ or ``[tool.lanorme] ignore`` is a usage error rather than a silently clean run.
 
 from __future__ import annotations
 
-from lanorme import Check, get_all_checks, rule_code
+from lanorme import Check, get_all_checks, extract_code
 from lanorme.errors import UsageError
-from lanorme.filtering import _category
+from lanorme.filters import _extract_category
 
 
 def checks_for_selector(*, selector: str) -> list[Check]:
@@ -19,20 +19,20 @@ def checks_for_selector(*, selector: str) -> list[Check]:
     matched: list[Check] = []
     for check in get_all_checks().values():
         for rule in check.rules:
-            code = rule_code(rule)
-            if code == wanted or _category(code) == wanted:
+            code = extract_code(rule)
+            if code == wanted or _extract_category(code) == wanted:
                 matched.append(check)
                 break
     return sorted(matched, key=lambda c: c.name)
 
 
-def _known_selectors() -> tuple[set[str], set[str]]:
+def _collect_known_selectors() -> tuple[set[str], set[str]]:
     """The rule codes and categories the registered checks declare.
 
     A check whose codes are user-defined declares a ``CAT-NNN`` placeholder
     (``domain_terms``); every code in such a category is accepted.
     """
-    codes = {rule_code(rule).upper() for check in get_all_checks().values() for rule in check.rules}
+    codes = {extract_code(rule).upper() for check in get_all_checks().values() for rule in check.rules}
     categories = {code.partition("-")[0] for code in codes} | {"RUN"}
     return codes, categories
 
@@ -55,7 +55,7 @@ def reject_unknown_selectors(*, selectors: list[str], origin: str) -> None:
     counterparts used to be accepted silently, so a mistyped code produced a
     clean run rather than the narrowed one the user asked for.
     """
-    codes, categories = _known_selectors()
+    codes, categories = _collect_known_selectors()
     unknown = [
         s for s in selectors
         if s.strip() and not _selector_is_known(selector=s, codes=codes, categories=categories)

@@ -142,14 +142,14 @@ class MetaCheck:
             # Skip self to avoid auditing our own (not yet produced) result.
             if check_name == self.name:
                 continue
-            violations.extend(_static_violations(check=check))
+            violations.extend(_collect_static_violations(check=check))
             result = results.get(check_name)
             if result is not None:
-                violations.extend(_result_violations(check_name=check.name, result=result))
+                violations.extend(_collect_result_violations(check_name=check.name, result=result))
         return CheckResult.from_findings(check=self.name, violations=violations)
 
 
-def _static_violations(*, check: object) -> list[Violation]:
+def _collect_static_violations(*, check: object) -> list[Violation]:
     """META-001..003: the declarations a check must carry."""
     found: list[Violation] = []
     name = getattr(check, "name", "")
@@ -163,7 +163,7 @@ def _static_violations(*, check: object) -> list[Violation]:
     return found
 
 
-def _result_violations(*, check_name: str, result: CheckResult) -> list[Violation]:
+def _collect_result_violations(*, check_name: str, result: CheckResult) -> list[Violation]:
     """META-004..005: the shape of what a check returned."""
     found: list[Violation] = []
     mismatch = _validate_result_check_name(check_name=check_name, result=result)

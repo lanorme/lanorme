@@ -30,7 +30,7 @@ from pathlib import Path
 from typing import ClassVar
 
 from lanorme import CheckResult, Violation, register
-from lanorme.sources import Module, Unparseable, iter_modules, span, unparseable_notice
+from lanorme.sources import Module, UnparseableFile, iter_modules, locate, build_unparseable_notice
 
 # Each rule maps forbidden terms to a canonical replacement. Empty by default →
 # the check is inert until a project supplies its own vocabulary.
@@ -93,7 +93,7 @@ def _scan_identifiers(*, module: Module, compiled: list[_RuleSpec]) -> list[Viol
     """Walk the AST and check identifier names against the compiled rules."""
     violations: list[Violation] = []
 
-    for node in module.index.nodes(
+    for node in module.index.collect(
         ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef, ast.Name, ast.Attribute
     ):
         for name, lineno, anchor in _names_from_node(node):
@@ -107,7 +107,7 @@ def _scan_identifiers(*, module: Module, compiled: list[_RuleSpec]) -> list[Viol
                             rule=f"{rule_id}: Use '{canonical}' instead of '{matched_term}'",
                             message=f"Forbidden term '{matched_term}' in identifier '{name}'",
                             fix=f"Rename — use '{canonical}' instead of '{matched_term}'",
-                            **span(anchor),
+                            **locate(anchor),
                         ),
                     )
 
@@ -141,7 +141,7 @@ def _scan_comments_and_docstrings(*, module: Module, compiled: list[_RuleSpec]) 
         if comment:
             _scan_text(text=comment, line_number=lineno_0 + 1)
 
-    for node in module.index.nodes(ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef):
+    for node in module.index.collect(ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef):
         if (
             node.body
             and isinstance(node.body[0], ast.Expr)
@@ -201,8 +201,8 @@ class DomainTermsCheck:
             relative_file = module.relative
             if _is_exempt_path(relative_path=relative_file):
                 continue
-            if isinstance(module, Unparseable):
-                warnings.append(unparseable_notice(prefix="TERM", failure=module))
+            if isinstance(module, UnparseableFile):
+                warnings.append(build_unparseable_notice(prefix="TERM", failure=module))
                 continue
 
             violations.extend(_scan_identifiers(module=module, compiled=compiled))

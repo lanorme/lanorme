@@ -97,7 +97,7 @@ def _strip_comment(value: str) -> str:
     return "".join(out).strip()
 
 
-def _scalar_field(rest: str) -> _Field:
+def _parse_scalar_field(rest: str) -> _Field:
     """Classify an inline value as a quoted/plain scalar or a flow collection."""
     if rest[:1] in "{[":
         return _Field(kind="flow", value=rest)  # flow map/list: accept, do not over-read
@@ -166,7 +166,7 @@ def _parse_top_level(fm_lines: list[str]) -> dict[str, _Field]:
             continue
         key, rest = match.group(1), match.group(2).strip()
         if rest and not _is_block_indicator(rest):
-            fields[key] = _scalar_field(rest)
+            fields[key] = _parse_scalar_field(rest)
             index += 1
             continue
         block, index = _collect_block(fm_lines=fm_lines, start=index + 1)
@@ -174,7 +174,7 @@ def _parse_top_level(fm_lines: list[str]) -> dict[str, _Field]:
     return fields
 
 
-def _v(*, file: str, rule: str, message: str, fix: str) -> Violation:
+def _build_violation(*, file: str, rule: str, message: str, fix: str) -> Violation:
     """Build a Violation at line 1 (frontmatter findings are file-level)."""
     return Violation(file=file, line=1, rule=rule, message=message, fix=fix)
 
@@ -182,14 +182,14 @@ def _v(*, file: str, rule: str, message: str, fix: str) -> Violation:
 def _name_findings(*, name: _Field | None, parent_dir: str, file: str) -> list[Violation]:
     """Validate the required ``name`` field against the spec and the directory."""
     if name is None:
-        return [_v(
+        return [_build_violation(
             file=file,
             rule="SKILL-001",
             message="Required frontmatter key 'name' is missing",
             fix="Add 'name: <skill-name>' matching the skill's directory name",
         )]
     if name.kind == "empty":
-        return [_v(
+        return [_build_violation(
             file=file,
             rule="SKILL-001",
             message="Frontmatter key 'name' is present but empty",
@@ -224,13 +224,13 @@ def _name_findings(*, name: _Field | None, parent_dir: str, file: str) -> list[V
             f"name '{value}' does not match its directory '{parent_dir}'",
             f"Rename the directory to '{value}' or set name to '{parent_dir}'",
         ))
-    return [_v(file=file, rule="SKILL-001", message=message, fix=fix) for message, fix in problems]
+    return [_build_violation(file=file, rule="SKILL-001", message=message, fix=fix) for message, fix in problems]
 
 
-def _description_findings(*, description: _Field | None, file: str) -> list[Violation]:
+def _check_description(*, description: _Field | None, file: str) -> list[Violation]:
     """Validate the required ``description`` field."""
     if description is None:
-        return [_v(
+        return [_build_violation(
             file=file,
             rule="SKILL-002",
             message="Required frontmatter key 'description' is missing",
@@ -240,14 +240,14 @@ def _description_findings(*, description: _Field | None, file: str) -> list[Viol
         return []  # unreadable as text: SKILL-006 covers it
     text = description.value.strip()
     if not text:
-        return [_v(
+        return [_build_violation(
             file=file,
             rule="SKILL-002",
             message="Frontmatter key 'description' is empty",
             fix="Describe what the skill does and when to use it",
         )]
     if len(text) > DESCRIPTION_MAX:
-        return [_v(
+        return [_build_violation(
             file=file,
             rule="SKILL-002",
             message=f"description is {len(text)} characters (max {DESCRIPTION_MAX})",
@@ -256,13 +256,13 @@ def _description_findings(*, description: _Field | None, file: str) -> list[Viol
     return []
 
 
-def _optional_findings(*, fields: dict[str, _Field], file: str) -> list[Violation]:
+def _check_optional_fields(*, fields: dict[str, _Field], file: str) -> list[Violation]:
     """Validate the optional fields that have spec constraints."""
     found: list[Violation] = []
     compatibility = fields.get("compatibility")
     if compatibility is not None and compatibility.kind in ("scalar", "block"):
         if len(compatibility.value.strip()) > COMPATIBILITY_MAX:
-            found.append(_v(
+            found.append(_build_violation(
                 file=file,
                 rule="SKILL-003",
                 message=f"compatibility is over {COMPATIBILITY_MAX} characters",
@@ -270,7 +270,7 @@ def _optional_findings(*, fields: dict[str, _Field], file: str) -> list[Violatio
             ))
     metadata = fields.get("metadata")
     if metadata is not None and metadata.kind == "scalar" and metadata.value:
-        found.append(_v(
+        found.append(_build_violation(
             file=file,
             rule="SKILL-003",
             message="metadata must be a map of string keys to string values, not a single value",
@@ -278,7 +278,7 @@ def _optional_findings(*, fields: dict[str, _Field], file: str) -> list[Violatio
         ))
     tools = fields.get("allowed-tools")
     if tools is not None and tools.kind == "map":
-        found.append(_v(
+        found.append(_build_violation(
             file=file,
             rule="SKILL-003",
             message="allowed-tools must be a space-separated string, not a list or map",
@@ -287,12 +287,12 @@ def _optional_findings(*, fields: dict[str, _Field], file: str) -> list[Violatio
     return found
 
 
-def _uncertain_findings(*, fields: dict[str, _Field], file: str) -> list[Violation]:
+def _check_uncertain_fields(*, fields: dict[str, _Field], file: str) -> list[Violation]:
     """Warn (never fail) when a required field parsed into an unreadable shape."""
     found: list[Violation] = []
     name = fields.get("name")
     if name is not None and name.kind in ("block", "map", "flow"):
-        found.append(_v(
+        found.append(_build_violation(
             file=file,
             rule="SKILL-006",
             message="Frontmatter key 'name' could not be read as a simple value",
@@ -300,7 +300,7 @@ def _uncertain_findings(*, fields: dict[str, _Field], file: str) -> list[Violati
         ))
     description = fields.get("description")
     if description is not None and description.kind == "map":
-        found.append(_v(
+        found.append(_build_violation(
             file=file,
             rule="SKILL-006",
             message="Frontmatter key 'description' could not be read as text",
@@ -309,7 +309,7 @@ def _uncertain_findings(*, fields: dict[str, _Field], file: str) -> list[Violati
     return found
 
 
-def _body_findings(*, body_lines: int, file: str) -> list[Violation]:
+def _check_body_size(*, body_lines: int, file: str) -> list[Violation]:
     if body_lines <= BODY_MAX_LINES:
         return []
     return [Violation(
@@ -421,21 +421,21 @@ class SkillsCheck:
         fields = _parse_top_level(fm_lines)
         violations: list[Violation] = []
         violations += _name_findings(name=fields.get("name"), parent_dir=path.parent.name, file=file)
-        violations += _description_findings(description=fields.get("description"), file=file)
-        violations += _optional_findings(fields=fields, file=file)
+        violations += _check_description(description=fields.get("description"), file=file)
+        violations += _check_optional_fields(fields=fields, file=file)
 
-        warnings = _uncertain_findings(fields=fields, file=file)
-        warnings += self._warnings_for(text=text, fm_lines=fm_lines, path=path, file=file)
+        warnings = _check_uncertain_fields(fields=fields, file=file)
+        warnings += self._collect_warnings(text=text, fm_lines=fm_lines, path=path, file=file)
         return violations, warnings
 
-    def _warnings_for(
+    def _collect_warnings(
         self, *, text: str, fm_lines: list[str], path: Path, file: str
     ) -> list[Violation]:
         """Advisory warnings: body size and relative-link resolution."""
         all_lines = _strip_bom(text).splitlines()
         body_offset = len(fm_lines) + 3  # opening fence, closing fence, 1-based
         body = all_lines[body_offset - 1 :]
-        warnings = _body_findings(body_lines=len(body), file=file)
+        warnings = _check_body_size(body_lines=len(body), file=file)
         if self.check_links:
             warnings += _link_findings(
                 body=body, body_offset=body_offset, skill_dir=path.parent, file=file

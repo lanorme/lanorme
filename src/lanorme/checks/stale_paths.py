@@ -30,8 +30,8 @@ from pathlib import Path
 from typing import ClassVar
 
 from lanorme import CheckResult, Violation, register
-from lanorme.checkconfig import str_list_setting
-from lanorme.sources import Module, parsed_modules, span
+from lanorme.checkconfig import read_str_list
+from lanorme.sources import Module, iter_parsed_modules, locate
 
 # Default is empty → the check is inert until configured.
 _STALE_TOKENS: tuple[str, ...] = ()
@@ -70,7 +70,7 @@ def _scan_docstring(
                         rule="STALE-001",
                         message=f"Stale path reference '{match.group(0)}'",
                         fix=f"Update '{match.group(0)}' to the current path",
-                        **span(const),
+                        **locate(const),
                     )
                 )
     return findings
@@ -114,7 +114,7 @@ def _scan_file(*, module: Module, patterns: list[re.Pattern[str]]) -> list[Viola
                 )
 
     # Docstrings, module, class, function.
-    for node in module.index.nodes(ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef):
+    for node in module.index.collect(ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef):
         if (
             node.body
             and isinstance(node.body[0], ast.Expr)
@@ -147,7 +147,7 @@ class StalePathsCheck:
 
     def configure(self, *, settings: dict[str, object]) -> None:
         """Apply ``[tool.lanorme.stale_paths]`` configuration."""
-        self.tokens = str_list_setting(settings=settings, key="tokens")
+        self.tokens = read_str_list(settings=settings, key="tokens")
 
     def run(self, *, src_root: str) -> CheckResult:
         violations: list[Violation] = []
@@ -155,7 +155,7 @@ class StalePathsCheck:
         if not patterns:
             return CheckResult.from_findings(check=self.name)
 
-        for module in parsed_modules(Path(src_root)):
+        for module in iter_parsed_modules(Path(src_root)):
             if _is_exempt(relative_path=module.relative):
                 continue
             violations.extend(_scan_file(module=module, patterns=patterns))

@@ -64,7 +64,7 @@ class Violation:
     @property
     def code(self) -> str:
         """The rule code (e.g. ``DRY-001``) parsed from the rule string."""
-        return rule_code(self.rule)
+        return extract_code(self.rule)
 
     @property
     def scope(self) -> str:
@@ -104,7 +104,7 @@ class Violation:
         )
 
 
-def rule_code(rule: str) -> str:
+def extract_code(rule: str) -> str:
     """The code (``DRY-001``) at the head of a rule string, or ``""`` for an empty one."""
     head = rule.split(":", 1)[0].split()
     return head[0] if head else ""
@@ -138,7 +138,7 @@ class CheckResult:
         status = Status.FAIL if hard else (Status.WARN if soft else Status.PASS)
         return cls(check=check, status=status, violations=hard, warnings=soft)
 
-    def narrow(self, keep: Callable[[Violation], bool]) -> CheckResult:
+    def filter_findings(self, keep: Callable[[Violation], bool]) -> CheckResult:
         """A copy holding only the findings *keep* accepts, status recomputed."""
         return CheckResult.from_findings(
             check=self.check,
@@ -185,7 +185,7 @@ class Check(Protocol):
 
 
 @runtime_checkable
-class Configurable(Protocol):
+class ConfigurableCheck(Protocol):
     """A check that accepts a ``[tool.lanorme.<name>]`` settings table."""
 
     def configure(self, *, settings: dict[str, object]) -> None:
@@ -258,7 +258,7 @@ def expand_rules(*, check: Check, result: CheckResult) -> CheckResult:
     sees ``SHELL-001: ...``. A rule string that already carries a description,
     or a code the check does not declare, is left as it is.
     """
-    declared = {rule_code(rule): rule for rule in getattr(check, "rules", []) if ":" in rule}
+    declared = {extract_code(rule): rule for rule in getattr(check, "rules", []) if ":" in rule}
 
     def expand(finding: Violation) -> Violation:
         if ":" in finding.rule or finding.rule not in declared:

@@ -18,7 +18,7 @@ import pytest
 
 from lanorme import Status
 from lanorme.checks.suppressions import SuppressionsCheck
-from lanorme.filtering import _line_silences
+from lanorme.filters import _is_silenced_inline
 
 
 @pytest.fixture
@@ -189,8 +189,8 @@ def test_suppress_codes_cannot_be_silenced_inline() -> None:
     line = "value = 1  # noqa: SUPPRESS-001, SUPPRESS-002"
 
     # Act
-    budget = _line_silences(line=line, rule="SUPPRESS-001: Inline suppressions must stay in budget")
-    blanket = _line_silences(line=line, rule="SUPPRESS-002: A suppression must name the rule")
+    budget = _is_silenced_inline(line=line, rule="SUPPRESS-001: Inline suppressions must stay in budget")
+    blanket = _is_silenced_inline(line=line, rule="SUPPRESS-002: A suppression must name the rule")
 
     # Assert
     assert budget is False
@@ -202,7 +202,7 @@ def test_a_bare_directive_still_silences_other_rules() -> None:
     line = "value = 1  # noqa"
 
     # Act
-    silenced = _line_silences(line=line, rule="TYPE-001: Placeholder container")
+    silenced = _is_silenced_inline(line=line, rule="TYPE-001: Placeholder container")
 
     # Assert
     assert silenced is True

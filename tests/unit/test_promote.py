@@ -13,8 +13,8 @@ from pathlib import Path
 import pytest
 
 from lanorme import CheckResult, Status, Violation
-from lanorme.cli import _config_list, main
-from lanorme.filtering import _apply_promotions, _matches
+from lanorme.cli import _read_config_list, main
+from lanorme.filters import _apply_promotions, _matches
 
 
 def _finding(code: str) -> Violation:
@@ -134,7 +134,7 @@ def test_cli_promote_flag_makes_the_build_fail(tmp_path: Path, capsys):
 
 def test_matches_is_case_insensitive_and_strips():
     # Arrange: codes are uppercase, but a selector may carry stray case/whitespace.
-    # Act / Assert: it still matches, like the CLI form normalised by _csv.
+    # Act / Assert: it still matches, like the CLI form normalised by _split_csv.
     assert _matches(code="TYPE-004", patterns=["type-004"])
     assert _matches(code="TYPE-004", patterns=[" TYPE-004 "])
     assert _matches(code="TYPE-004", patterns=["all"])
@@ -144,10 +144,10 @@ def test_matches_is_case_insensitive_and_strips():
 def test_config_list_accepts_a_bare_string():
     # Arrange: `promote = "ALL"` must not iterate into ['A', 'L', 'L'].
     # Act / Assert.
-    assert _config_list("ALL") == ["ALL"]
-    assert _config_list(["TYPE-004"]) == ["TYPE-004"]
-    assert _config_list(None) == []
-    assert _config_list(5) == []
+    assert _read_config_list("ALL") == ["ALL"]
+    assert _read_config_list(["TYPE-004"]) == ["TYPE-004"]
+    assert _read_config_list(None) == []
+    assert _read_config_list(5) == []
 
 
 def test_skip_notice_is_not_promoted_even_by_all():

@@ -9,9 +9,9 @@ number of checks; this module does it once and hands every check the same
   ``coding:`` cookie are honoured), so a file that runs is a file that is
   scanned.
 - A file the parser rejects, overflows on, or cannot read is reported as an
-  :class:`Unparseable` rather than raised, so one pathological file can never
+  :class:`UnparseableFile` rather than raised, so one pathological file can never
   blank a whole check. Each check decides whether to skip it silently or emit a
-  ``<PREFIX>-000`` notice through :func:`skip_notice`.
+  ``<PREFIX>-000`` notice through :func:`build_skip_notice`.
 
 Trees are shared, so a check must never mutate one; copy first.
 
@@ -35,7 +35,7 @@ from pathlib import Path
 from lanorme import Violation
 from lanorme.discovery import iter_py_files
 
-# Reasons a file yields an Unparseable. Rule strings built from them are stable
+# Reasons a file yields an UnparseableFile. Rule strings built from them are stable
 # public surface (``SIZE-000: parse error`` anchors a baseline entry).
 PARSE_ERROR = "parse error"
 TOO_DEEP = "too deeply nested"
@@ -71,7 +71,7 @@ class NodeIndex:
             self._by_type = by_type
         return self._by_type
 
-    def nodes(self, *types: type[ast.AST]) -> list[ast.AST]:
+    def collect(self, *types: type[ast.AST]) -> list[ast.AST]:
         """The nodes whose exact type is one of *types*, in walk order."""
         by_type = self._build()
         if len(types) == 1:
@@ -83,7 +83,7 @@ class NodeIndex:
     @property
     def functions(self) -> list[ast.FunctionDef | ast.AsyncFunctionDef]:
         """Every function and method, nested ones included, in walk order."""
-        return self.nodes(ast.FunctionDef, ast.AsyncFunctionDef)  # type: ignore[return-value]
+        return self.collect(ast.FunctionDef, ast.AsyncFunctionDef)  # type: ignore[return-value]
 
 
 @dataclass(frozen=True)
@@ -103,7 +103,7 @@ class Module:
 
 
 @dataclass(frozen=True)
-class Unparseable:
+class UnparseableFile:
     """A source file that could not be turned into a tree, and why."""
 
     path: Path
@@ -116,7 +116,7 @@ _Signature = tuple[int, int, int, int]
 
 
 @dataclass(frozen=True)
-class _Entry:
+class _CacheEntry:
     """A cached parse outcome, tagged with the file signature it was read from."""
 
     signature: _Signature
@@ -126,7 +126,7 @@ class _Entry:
     index: NodeIndex | None = None
 
 
-_cache: dict[str, _Entry] = {}
+_cache: dict[str, _CacheEntry] = {}
 
 
 def clear_cache() -> None:
@@ -134,24 +134,24 @@ def clear_cache() -> None:
     _cache.clear()
 
 
-def _parse(path: Path, *, signature: _Signature) -> _Entry:
-    """Read and parse *path*, mapping every failure to an :class:`Unparseable` reason."""
+def _parse(path: Path, *, signature: _Signature) -> _CacheEntry:
+    """Read and parse *path*, mapping every failure to an :class:`UnparseableFile` reason."""
     try:
         raw = path.read_bytes()
     except OSError:
-        return _Entry(signature=signature, source="", tree=None, reason=UNREADABLE)
+        return _CacheEntry(signature=signature, source="", tree=None, reason=UNREADABLE)
     try:
         source = decode_source(raw)
         tree = ast.parse(source, filename=str(path))
     except (SyntaxError, ValueError):
         # ValueError covers a null byte and a UnicodeDecodeError alike.
-        return _Entry(signature=signature, source="", tree=None, reason=PARSE_ERROR)
+        return _CacheEntry(signature=signature, source="", tree=None, reason=PARSE_ERROR)
     except (RecursionError, MemoryError):
-        return _Entry(signature=signature, source="", tree=None, reason=TOO_DEEP)
-    return _Entry(signature=signature, source=source, tree=tree, reason="", index=NodeIndex(tree))
+        return _CacheEntry(signature=signature, source="", tree=None, reason=TOO_DEEP)
+    return _CacheEntry(signature=signature, source=source, tree=tree, reason="", index=NodeIndex(tree))
 
 
-def _signature(path: Path) -> _Signature:
+def _read_signature(path: Path) -> _Signature:
     """The cheap freshness key from one ``stat``; all zeros when the file is gone."""
     try:
         stat = path.stat()
@@ -160,10 +160,10 @@ def _signature(path: Path) -> _Signature:
     return (stat.st_size, stat.st_ino, stat.st_mtime_ns, stat.st_ctime_ns)
 
 
-def _entry_for(path: Path) -> _Entry:
+def _load_entry(path: Path) -> _CacheEntry:
     """The parse outcome for *path*, from the cache when it is still current."""
     key = str(path)
-    signature = _signature(path)
+    signature = _read_signature(path)
     cached = _cache.get(key)
     if cached is not None and cached.signature == signature:
         return cached
@@ -173,36 +173,36 @@ def _entry_for(path: Path) -> _Entry:
     return entry
 
 
-def parse_module(path: Path, *, root: Path) -> Module | Unparseable:
+def parse_module(path: Path, *, root: Path) -> Module | UnparseableFile:
     """Parse one file, reporting it relative to *root*."""
     relative = path.relative_to(root).as_posix()
-    entry = _entry_for(path)
+    entry = _load_entry(path)
     if entry.tree is None or entry.index is None:
-        return Unparseable(path=path, relative=relative, reason=entry.reason)
+        return UnparseableFile(path=path, relative=relative, reason=entry.reason)
     return Module(
         path=path, relative=relative, source=entry.source, tree=entry.tree, index=entry.index
     )
 
 
-def iter_modules(root: Path) -> Iterator[Module | Unparseable]:
+def iter_modules(root: Path) -> Iterator[Module | UnparseableFile]:
     """Every ``.py`` file under *root* (pruned like :func:`iter_py_files`), parsed.
 
-    Yields an :class:`Unparseable` for a file the parser rejects so the check can
-    choose its policy; use :func:`parsed_modules` to skip those silently.
+    Yields an :class:`UnparseableFile` for a file the parser rejects so the check can
+    choose its policy; use :func:`iter_parsed_modules` to skip those silently.
     """
     root = Path(root)
     for path in iter_py_files(root):
         yield parse_module(path, root=root)
 
 
-def parsed_modules(root: Path) -> Iterator[Module]:
+def iter_parsed_modules(root: Path) -> Iterator[Module]:
     """Every parseable module under *root*; files that fail to parse are skipped."""
     for module in iter_modules(root):
         if isinstance(module, Module):
             yield module
 
 
-def span(node: ast.AST) -> dict[str, int | None]:
+def locate(node: ast.AST) -> dict[str, int | None]:
     """The ``column`` / ``end_line`` / ``end_column`` keywords for a finding at *node*.
 
     Spread into ``Violation(...)`` so a consumer can place an edit inside the
@@ -215,7 +215,7 @@ def span(node: ast.AST) -> dict[str, int | None]:
     }
 
 
-def skip_notice(*, prefix: str, file: str, name: str, reason: str) -> Violation:
+def build_skip_notice(*, prefix: str, file: str, name: str, reason: str) -> Violation:
     """The advisory ``<PREFIX>-000`` notice a check emits when it skips a file.
 
     A ``-000`` code is a notice, not a finding: promotion never escalates it and
@@ -234,14 +234,14 @@ def skip_notice(*, prefix: str, file: str, name: str, reason: str) -> Violation:
     return Violation(file=file, line=0, rule=f"{prefix}-000: {reason}", message=message, fix=fix)
 
 
-def unparseable_notice(*, prefix: str, failure: Unparseable) -> Violation:
-    """:func:`skip_notice` for a file :func:`iter_modules` could not parse."""
-    return skip_notice(
+def build_unparseable_notice(*, prefix: str, failure: UnparseableFile) -> Violation:
+    """:func:`build_skip_notice` for a file :func:`iter_modules` could not parse."""
+    return build_skip_notice(
         prefix=prefix, file=failure.relative, name=failure.path.name, reason=failure.reason
     )
 
 
-def cache_size() -> int:
+def count_cached() -> int:
     """Number of parsed modules currently held; for tests and diagnostics."""
     return len(_cache)
 
@@ -249,16 +249,16 @@ def cache_size() -> int:
 __all__ = [
     "Module",
     "NodeIndex",
-    "Unparseable",
+    "UnparseableFile",
     "PARSE_ERROR",
     "TOO_DEEP",
     "UNREADABLE",
     "clear_cache",
-    "cache_size",
+    "count_cached",
     "iter_modules",
     "parse_module",
-    "parsed_modules",
-    "skip_notice",
-    "span",
-    "unparseable_notice",
+    "iter_parsed_modules",
+    "build_skip_notice",
+    "locate",
+    "build_unparseable_notice",
 ]
