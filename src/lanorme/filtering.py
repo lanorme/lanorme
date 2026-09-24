@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import fnmatch
 import re
+import sys
 from pathlib import Path
 
 from lanorme import CheckResult, Violation, rule_code
@@ -121,6 +122,32 @@ def _apply_per_file_ignores(
         )
         for result in results
     ]
+
+
+def note_excluded_targets(*, targets: list[Path] | None, project_root: Path, exclude: list[str]) -> None:
+    """Say so on stderr when every requested path falls under an exclude glob.
+
+    A file target inside an excluded tree otherwise reports a clean run with
+    no hint that nothing was scanned.
+    """
+    if not targets or not exclude:
+        return
+    root = project_root.resolve()
+    for target in targets:
+        try:
+            relative = target.resolve().relative_to(root).as_posix()
+        except ValueError:
+            return
+        covered = _path_excluded(path=relative, patterns=exclude) or _path_excluded(
+            path=relative + "/", patterns=exclude
+        )
+        if not covered:
+            return
+    print(
+        "Note: every requested path matches an exclude glob, so nothing was checked. "
+        "Pass --exclude with another glob to override the configured excludes for one run.",
+        file=sys.stderr,
+    )
 
 
 # --------------------------------------------------------------------------- #

@@ -10,7 +10,7 @@ from pathlib import Path
 import lanorme
 from lanorme import CheckResult, Status, Violation, run_all
 from lanorme.checks.meta import MetaCheck
-from lanorme.cli import main
+from lanorme.cli import _load_builtin_checks, main
 
 
 @dataclass
@@ -58,6 +58,35 @@ def test_run_all_runs_each_check_once_and_meta_audits_them(monkeypatch, tmp_path
     assert (first.runs, second.runs) == (1, 1)
     assert [r.check for r in results] == ["first", "meta", "second"]
     assert results[1].status == Status.PASS
+
+
+def test_check_meta_under_nested_regions_still_audits_every_check(monkeypatch, tmp_path: Path, capsys):
+    """Selecting the auditor alone must still run the checks it judges."""
+    # Arrange: a two-region tree and a check whose result carries the wrong name.
+    _project(tmp_path)
+    sub = tmp_path / "sub"
+    sub.mkdir()
+    (sub / "lanorme.toml").write_text("[file_limits]\nparam_warn = 7\n", encoding="utf-8")
+
+    @dataclass
+    class _Impostor(_Counting):
+        def run(self, *, src_root: str) -> CheckResult:
+            self.runs += 1
+            return CheckResult.from_findings(check="someone_else")
+
+    impostor = _Impostor(name="honest")
+    # The CLI imports the built-in checks on first use; do it before the
+    # registry is swapped so they land in the real one, not the fake.
+    _load_builtin_checks()
+    monkeypatch.setattr(lanorme, "_registry", {"honest": impostor, "meta": MetaCheck()})
+
+    # Act.
+    _run(["check", str(tmp_path), "--check", "meta", "--output-format", "ndjson"])
+    records = [json.loads(line) for line in capsys.readouterr().out.splitlines()]
+
+    # Assert: META-004 reported, only meta's result shown, the impostor ran.
+    assert [(r["check"], r["code"]) for r in records] == [("meta", "META-004")]
+    assert impostor.runs >= 1
 
 
 def test_meta_audit_flags_a_result_whose_check_name_is_wrong(monkeypatch):
@@ -155,13 +184,17 @@ def test_known_selector_forms_are_accepted(tmp_path: Path, capsys):
 
 
 class _ClosedPipe:
-    """A stdout whose reader has gone away."""
+    """A block-buffered stdout whose reader has gone away.
 
-    def write(self, _text: str) -> int:
-        raise BrokenPipeError
+    Writes land in the buffer and succeed; the failure only surfaces on flush,
+    which is how a real pipe behaves for output under the buffer size.
+    """
+
+    def write(self, text: str) -> int:
+        return len(text)
 
     def flush(self) -> None:
-        return None
+        raise BrokenPipeError
 
 
 def test_rules_listing_into_a_closed_pipe_exits_cleanly(monkeypatch):
@@ -230,7 +263,7 @@ def test_stray_artifact_in_a_nested_region_is_reported_once(tmp_path: Path, caps
     (tmp_path / "pyproject.toml").write_text("[tool.lanorme]\n", encoding="utf-8")
     sub = tmp_path / "sub"
     sub.mkdir()
-    (sub / "lanorme.toml").write_text("", encoding="utf-8")
+    (sub / "lanorme.toml").write_text("[file_limits]\nparam_warn = 7\n", encoding="utf-8")
     (sub / "pic.png").write_bytes(b"\x89PNG")
 
     # Act.

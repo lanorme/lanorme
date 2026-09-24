@@ -25,13 +25,16 @@ from lanorme import CheckResult, Status, get_all_checks
 def tolerate_closed_pipe() -> Iterator[None]:
     """Let a reader that stops early (``| head``, ``| jq -n``) end the output quietly.
 
-    Without this a closed pipe surfaces as a ``BrokenPipeError`` traceback and
-    a second one at interpreter exit when stdout is flushed. Stdout is pointed
-    at the null device so that final flush has nowhere to fail; the caller's
-    exit code is unaffected.
+    Without this a closed pipe surfaces as a ``BrokenPipeError`` traceback, or
+    (when stdout is block-buffered, the normal case for a pipe) as an
+    "Exception ignored" message and exit 120 from the interpreter's final
+    flush. The output is flushed inside the guard so the failure is seen here,
+    and stdout is then pointed at the null device so the final flush has
+    nowhere to fail. The caller's exit code is unaffected.
     """
     try:
         yield
+        sys.stdout.flush()
     except BrokenPipeError:
         try:
             devnull = os.open(os.devnull, os.O_WRONLY)

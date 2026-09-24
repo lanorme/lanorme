@@ -49,7 +49,7 @@ from lanorme.filtering import (
     _apply_per_file_ignores,
     _apply_promotions,
     _apply_target_filter,
-    _path_excluded,
+    note_excluded_targets,
 )
 from lanorme.presets import _resolve_extends
 from lanorme.selectors import checks_for_selector, reject_unknown_selectors
@@ -303,7 +303,7 @@ def _run_regions(
     scan root under the root config. Results land in scan-root coordinates, the
     same as a single-region run, so the downstream pipeline is unchanged.
     """
-    checks = _selected(only=only)
+    checks, reported = _selected(only=only)
     by_name: dict[str, CheckResult] = {}
 
     restore_defaults(checks=get_all_checks(), snapshot=pristine)
@@ -331,16 +331,24 @@ def _run_regions(
     for name, check in checks.items():
         if isinstance(check, ResultAuditor):
             by_name[name] = run_audit(check, results=by_name)
-    return [by_name[name] for name in checks if name in by_name]
+    return [by_name[name] for name in reported if name in by_name]
 
 
-def _selected(*, only: list[Check] | None) -> dict[str, Check]:
-    """The registry narrowed to *only* (a ``--check`` selection), or all of it."""
+def _selected(*, only: list[Check] | None) -> tuple[dict[str, Check], list[str]]:
+    """The checks to run and the names to report for a ``--check`` selection.
+
+    A selected result auditor (``--check meta``) needs the other checks'
+    results to judge, so the whole registry runs and only its result is
+    reported; any other selection runs and reports just itself.
+    """
     checks = get_all_checks()
     if only is None:
-        return checks
+        return checks, list(checks)
     chosen = {id(check) for check in only}
-    return {name: check for name, check in checks.items() if id(check) in chosen}
+    reported = [name for name, check in checks.items() if id(check) in chosen]
+    if any(isinstance(check, ResultAuditor) for check in only):
+        return checks, reported
+    return {name: checks[name] for name in reported}, reported
 
 
 def _run_file_checks(
@@ -447,6 +455,7 @@ def _run_and_report(
     promote = _csv(args.promote) or _config_list(config.get("promote"))
     select = _csv(args.select) or _config_list(config.get("select"))
     output_format = reporting.resolve_output_format(explicit=args.output_format, as_json=args.json)
+    reject_unknown_selectors(selectors=promote, origin="'promote'")
 
     results = _collect_results(
         config=config, scan_root=scan_root, project_root=project_root, targets=targets,
@@ -456,8 +465,7 @@ def _run_and_report(
     if results is None:
         print("No checks registered.")
         return
-    reject_unknown_selectors(selectors=promote, origin="'promote'")
-    _note_excluded_targets(targets=targets, project_root=project_root, exclude=exclude)
+    note_excluded_targets(targets=targets, project_root=project_root, exclude=exclude)
 
     drifted: list[tuple[str, str]] = []
     if not args.no_baseline:
@@ -495,32 +503,6 @@ def _apply_baseline(
         results=results, project_root=project_root, baseline_path=baseline_path
     )
     return suppressed, drifted
-
-
-def _note_excluded_targets(*, targets: list[Path] | None, project_root: Path, exclude: list[str]) -> None:
-    """Say so on stderr when every requested path falls under an exclude glob.
-
-    A file target inside an excluded tree otherwise reports a clean run with
-    no hint that nothing was scanned.
-    """
-    if not targets or not exclude:
-        return
-    root = project_root.resolve()
-    for target in targets:
-        try:
-            relative = target.resolve().relative_to(root).as_posix()
-        except ValueError:
-            return
-        covered = _path_excluded(path=relative, patterns=exclude) or _path_excluded(
-            path=relative + "/", patterns=exclude
-        )
-        if not covered:
-            return
-    print(
-        "Note: every requested path matches an exclude glob, so nothing was checked. "
-        "Pass --exclude with another glob to override the configured excludes for one run.",
-        file=sys.stderr,
-    )
 
 
 def _run_check_command(*, args: argparse.Namespace) -> None:

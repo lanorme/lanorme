@@ -33,7 +33,7 @@ def _known_selectors() -> tuple[set[str], set[str]]:
     A check whose codes are user-defined declares a ``CAT-NNN`` placeholder
     (``domain_terms``); every code in such a category is accepted.
     """
-    codes = {rule_code(rule) for check in get_all_checks().values() for rule in check.rules}
+    codes = {rule_code(rule).upper() for check in get_all_checks().values() for rule in check.rules}
     categories = {code.partition("-")[0] for code in codes} | {"RUN"}
     return codes, categories
 

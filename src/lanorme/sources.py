@@ -16,9 +16,12 @@ number of checks; this module does it once and hands every check the same
 Trees are shared, so a check must never mutate one; copy first.
 
 The cache is process-global like the check registry and the active excludes,
-because the ``Check.run(*, src_root)`` protocol carries no run context. Entries
-are validated against the file's size and modification time and the whole
-cache is dropped at the start of each CLI run, so a stale tree is never served.
+because the ``Check.run(*, src_root)`` protocol carries no run context. The
+CLI drops it at the start of each run (and the test suite around each test),
+so a run never sees a tree from an earlier one. Within a process, an entry is
+also checked against the file's size, inode and timestamps, which catches an
+edit between two API calls except a same-size rewrite inside one timestamp
+tick of a coarse-grained filesystem.
 """
 
 from __future__ import annotations
@@ -68,11 +71,15 @@ class Unparseable:
     reason: str
 
 
+# What identifies one version of a file: size, inode, and both timestamps.
+_Signature = tuple[int, int, int, int]
+
+
 @dataclass(frozen=True)
 class _Entry:
     """A cached parse outcome, tagged with the file signature it was read from."""
 
-    signature: tuple[int, int]
+    signature: _Signature
     source: str
     tree: ast.Module | None
     reason: str
@@ -86,7 +93,7 @@ def clear_cache() -> None:
     _cache.clear()
 
 
-def _parse(path: Path, *, signature: tuple[int, int]) -> _Entry:
+def _parse(path: Path, *, signature: _Signature) -> _Entry:
     """Read and parse *path*, mapping every failure to an :class:`Unparseable` reason."""
     try:
         raw = path.read_bytes()
@@ -103,13 +110,13 @@ def _parse(path: Path, *, signature: tuple[int, int]) -> _Entry:
     return _Entry(signature=signature, source=source, tree=tree, reason="")
 
 
-def _signature(path: Path) -> tuple[int, int]:
-    """Size and mtime, the cheap freshness key; ``(0, 0)`` when the file is gone."""
+def _signature(path: Path) -> _Signature:
+    """The cheap freshness key from one ``stat``; all zeros when the file is gone."""
     try:
         stat = path.stat()
     except OSError:
-        return (0, 0)
-    return (stat.st_mtime_ns, stat.st_size)
+        return (0, 0, 0, 0)
+    return (stat.st_size, stat.st_ino, stat.st_mtime_ns, stat.st_ctime_ns)
 
 
 def _entry_for(path: Path) -> _Entry:

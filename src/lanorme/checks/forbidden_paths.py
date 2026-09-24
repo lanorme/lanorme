@@ -45,10 +45,12 @@ _VENDOR_SEGMENTS = frozenset(
 def _is_forbidden(*, relative: str, pattern: str) -> bool:
     """True if *relative* names a directory *pattern* forbids, at any depth.
 
-    A bare name (``build_artifacts``) matches a directory of that name anywhere
-    in the tree; a path (``legacy/src``) matches wherever those segments end a
-    path. Globs are allowed in either.
+    A bare name (``build_artifacts``, ``tmp*``) matches a directory's own name
+    anywhere in the tree, never its descendants; a path (``legacy/src``)
+    matches wherever those segments end a path. Globs are allowed in either.
     """
+    if "/" not in pattern:
+        return fnmatch.fnmatch(relative.rpartition("/")[2], pattern)
     return fnmatch.fnmatch(relative, pattern) or fnmatch.fnmatch(relative, f"*/{pattern}")
 
 

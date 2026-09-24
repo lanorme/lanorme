@@ -62,8 +62,8 @@ def _excluded(*, relative: str, patterns: tuple[str, ...]) -> bool:
     return any(fnmatch.fnmatch(relative, pattern) for pattern in patterns)
 
 
-def _walk(root: Path, *, prune: frozenset[str]) -> Iterator[tuple[Path, str, list[str]]]:
-    """Yield ``(directory, relative_prefix, filenames)`` for each directory kept.
+def _walk(root: Path, *, prune: frozenset[str]) -> Iterator[tuple[Path, str, list[str], list[str]]]:
+    """Yield ``(directory, relative_prefix, dirnames, filenames)`` for each directory kept.
 
     *prune* names are dropped by basename; any directory whose root-relative
     path matches an active exclude glob is dropped too. Pruning happens in
@@ -84,7 +84,7 @@ def _walk(root: Path, *, prune: frozenset[str]) -> Iterator[tuple[Path, str, lis
                 continue
             kept.append(name)
         dirnames[:] = sorted(kept)
-        yield here, prefix, filenames
+        yield here, prefix, dirnames, filenames
 
 
 def iter_files(
@@ -100,7 +100,7 @@ def iter_files(
     """
     patterns = _active_excludes
     found: list[Path] = []
-    for here, prefix, filenames in _walk(root, prune=prune):
+    for here, prefix, _dirs, filenames in _walk(root, prune=prune):
         for name in filenames:
             if suffix is not None and not name.endswith(suffix):
                 continue
@@ -111,8 +111,12 @@ def iter_files(
 
 
 def iter_dirs(root: Path, *, prune: frozenset[str] = DEFAULT_PRUNE_DIRS) -> list[Path]:
-    """Every directory under *root* (the root excluded) that the walk keeps, sorted."""
-    return sorted(here for here, prefix, _files in _walk(root, prune=prune) if prefix)
+    """Every directory under *root* (the root excluded) that the walk keeps, sorted.
+
+    Collected from each visited directory's kept children, so a symlink to a
+    directory is listed even though the walk does not descend into it.
+    """
+    return sorted(here / name for here, _prefix, dirnames, _files in _walk(root, prune=prune) for name in dirnames)
 
 
 def iter_py_files(root: Path) -> list[Path]:

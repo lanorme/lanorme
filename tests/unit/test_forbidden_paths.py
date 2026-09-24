@@ -203,3 +203,30 @@ def test_forbidden_dir_under_dotgit_suffixed_project_dir_should_fire(tmp_path: P
     # substring '.git/' match wrongly excludes it, so this xfails.
     assert result.status == Status.FAIL
     assert _files(result) == ["proj.git/legacy_src"]
+
+
+def test_glob_matches_a_directory_name_not_its_descendants(tmp_path: Path):
+    # Arrange: a forbidden name glob, a matching directory, and children below it.
+    (tmp_path / "tmp_cache" / "x" / "y").mkdir(parents=True)
+    check = ForbiddenPathsCheck()
+    check.configure(settings={"dirs": ["tmp*"]})
+
+    # Act.
+    result = check.run(src_root=str(tmp_path))
+
+    # Assert: the directory itself, once.
+    assert [v.file for v in result.violations] == ["tmp_cache"]
+
+
+def test_symlinked_forbidden_directory_is_reported(tmp_path: Path):
+    # Arrange: the forbidden name is a symlink to a real directory.
+    (tmp_path / "real").mkdir()
+    (tmp_path / "linked").symlink_to(tmp_path / "real", target_is_directory=True)
+    check = ForbiddenPathsCheck()
+    check.configure(settings={"dirs": ["linked"]})
+
+    # Act.
+    result = check.run(src_root=str(tmp_path))
+
+    # Assert.
+    assert [v.file for v in result.violations] == ["linked"]
