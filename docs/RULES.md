@@ -405,7 +405,7 @@ dirs = ["legacy_src", "build_artifacts"]
 
 ---
 
-## Layer dependencies: `LAYER-001..006`
+## Layer dependencies: `LAYER-001..007`
 
 For hexagonal / layered codebases with a `domain/`, `application/`,
 `infrastructure/`, `api/` layout. Inert in their absence.
@@ -426,6 +426,8 @@ stay relative to the scan target.
   `infrastructure/`.
 - `LAYER-006`: a `transport_layers` entry is not among the configured
   `layers`, so it has no effect (advisory **warning**, exit 0).
+- `LAYER-007`: a layer added through `layers` imports a layer its `allowed`
+  entry does not list. The fix names the layers it may import.
 
 These rules track Cockburn's hexagonal architecture and Seemann's
 composition-root pattern.

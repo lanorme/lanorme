@@ -1,8 +1,8 @@
 """End-to-end tests for cascading per-directory config (issue #28).
 
-Each test builds a small tree with a nested ``lanorme.toml``, runs the full
-``check`` command (cascading only applies to a full run, not a single ``--check``
-selector), and asserts which files a check fires on. ``naming_consistency`` is a
+Each test builds a small tree with a nested ``lanorme.toml``, runs the
+``check`` command (a full run or a single ``--check`` selector, which cascades
+the same way), and asserts which files a check fires on. ``naming_consistency`` is a
 clean lever: its NAMING-001 repository rule is opt-in via ``repo_crud`` and fires
 on any method under ``infrastructure/repositories/`` whose name uses a synonym
 prefix, so toggling it per region is directly observable.
@@ -182,13 +182,18 @@ def test_config_does_not_leak_between_invocations(tmp_path: Path, capsys):
     assert _violation_files(second["naming_consistency"]) == set()
 
 
-def test_single_check_selector_uses_root_config_not_regions(tmp_path: Path, capsys):
-    """A ``--check NAME`` run bypasses cascading and uses the root config only."""
+def test_single_check_selector_honours_nested_regions(tmp_path: Path, capsys):
+    """A ``--check NAME`` run cascades exactly like a full run.
+
+    It used to run at the scan root under the root config only, so a rule a
+    subtree enabled fired in the full run and vanished under ``--check``.
+    """
     # Arrange: repo_crud is enabled only in the nested region, never at the root.
     _write_root_and_strict_repo(tmp_path, "[naming_consistency]\nrepo_crud = true\n")
 
-    # Act: a single-check run does not apply the nested region's config.
+    # Act: a single-check run applies the nested region's config to its files.
     results = _run_full(tmp_path, capsys, "--check", "naming_consistency")
 
-    # Assert: the nested repo_crud is not honoured under the bypass.
-    assert _violation_files(results["naming_consistency"]) == set()
+    # Assert: the nested repo_crud is honoured, and only the selected check ran.
+    assert _violation_files(results["naming_consistency"]) == {"strict/infrastructure/repositories/store.py"}
+    assert set(results) == {"naming_consistency"}

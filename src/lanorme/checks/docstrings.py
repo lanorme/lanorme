@@ -38,9 +38,9 @@ import ast
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from lanorme import CheckResult, Status, Violation, register
+from lanorme import CheckResult, Violation, register
 from lanorme.checks.restating import _is_allowlisted, _split_identifier, _stem
-from lanorme.discovery import iter_py_files
+from lanorme.sources import parsed_modules
 
 # Definitions shorter than this need no docstring: a three-line helper whose
 # name says it all is not improved by a sentence repeating the name.
@@ -53,9 +53,7 @@ MIN_ABBREVIATION = 3
 # Files where a missing docstring is not a defect: package markers, fixtures
 # and generated code. Mirrors the file_limits skip list.
 _SKIP_FILES = frozenset({"__init__.py", "conftest.py", "setup.py"})
-_SKIP_DIRS = frozenset(
-    {".git", ".venv", "venv", "node_modules", "__pycache__", "dist", "build", "alembic", "migrations"}
-)
+_SKIP_DIRS = frozenset({"alembic", "migrations"})
 
 # Words carrying no information about what a definition does, beyond the
 # grammar needed to make a sentence of the name.
@@ -229,29 +227,23 @@ class DocstringsCheck:
     def run(self, *, src_root: str) -> CheckResult:
         """Walk every Python file and collect CMT-006 / CMT-007 violations."""
         if not self.enabled:
-            return CheckResult(check=self.name, status=Status.PASS, violations=[])
+            return CheckResult.from_findings(check=self.name)
         violations: list[Violation] = []
-        root = Path(src_root)
-        for path in iter_py_files(root):
+        for module in parsed_modules(Path(src_root)):
             # Match skip directories inside the root only: the absolute path's
             # ancestors are the user's filesystem, not the project layout.
-            relative = path.relative_to(root)
-            if any(part in _SKIP_DIRS for part in relative.parts) or path.name in _SKIP_FILES:
+            name = module.path.name
+            if any(part in _SKIP_DIRS for part in module.relative.split("/")) or name in _SKIP_FILES:
                 continue
-            if path.name.startswith("test_"):
-                continue
-            try:
-                tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
-            except (OSError, UnicodeDecodeError, SyntaxError):
+            if name.startswith("test_"):
                 continue
             violations.extend(_definition_violations(
-                tree=tree,
-                file=relative.as_posix(),
+                tree=module.tree,
+                file=module.relative,
                 min_lines=self.min_lines,
                 require_private=self.require_private,
             ))
-        status = Status.FAIL if violations else Status.PASS
-        return CheckResult(check=self.name, status=status, violations=violations)
+        return CheckResult.from_findings(check=self.name, violations=violations)
 
 
 register(DocstringsCheck())

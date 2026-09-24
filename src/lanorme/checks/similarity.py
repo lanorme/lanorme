@@ -52,10 +52,8 @@ from dataclasses import dataclass, field
 from itertools import combinations
 from pathlib import Path
 
-from lanorme import CheckResult, Status, Violation, register
-from lanorme.discovery import iter_py_files
-
-_SKIP_DIRS = frozenset({".git", ".venv", "venv", "node_modules", "__pycache__", "dist", "build"})
+from lanorme import CheckResult, Violation, register
+from lanorme.sources import parsed_modules
 
 # Files exempt from near-duplicate analysis (mirrors DRY-001): test functions
 # and migrations are legitimately parallel by nature.
@@ -69,8 +67,6 @@ def _should_skip(*, relative: Path) -> bool:
     *relative* is the path inside the scan root. Matching its parts, not the
     absolute path's, keeps the user's filesystem above the root out of it.
     """
-    if any(part in _SKIP_DIRS for part in relative.parts):
-        return True
     if relative.name in _EXCLUDED_FILENAMES or relative.name.startswith("test_"):
         return True
     return any(part in _EXCLUDED_DIR_PARTS for part in relative.parts)
@@ -377,9 +373,8 @@ def _pair_matches(
     # enum dispatch tables) where those names carry the whole rule.
     if not (left.strs or right.strs or left.calls or right.calls):
         return False
-    struct_ratio = difflib.SequenceMatcher(None, left.struct, right.struct).ratio()
-    if struct_ratio < thresholds.struct_ratio:
-        return False
+    # The set gates are cheap and reject most pairs; the sequence match, the
+    # expensive gate, runs last and only after its upper bounds clear the bar.
     if _weighted_jaccard(left=left.strs, right=right.strs) < thresholds.str_jaccard:
         return False
     op_jaccard = _weighted_jaccard(left=left.ops, right=right.ops, empty_is_agreement=True)
@@ -394,7 +389,12 @@ def _pair_matches(
     attr_jaccard = _weighted_jaccard(left=left.attrs, right=right.attrs, empty_is_agreement=True)
     if attr_jaccard < thresholds.attr_jaccard:
         return False
-    return True
+    matcher = difflib.SequenceMatcher(None, left.struct, right.struct)
+    if matcher.real_quick_ratio() < thresholds.struct_ratio:
+        return False
+    if matcher.quick_ratio() < thresholds.struct_ratio:
+        return False
+    return matcher.ratio() >= thresholds.struct_ratio
 
 
 def _collect_fingerprints(*, tree: ast.AST, min_statements: int) -> list[_FunctionFingerprint]:
@@ -479,33 +479,28 @@ class SimilarityCheck:
     def run(self, *, src_root: str) -> CheckResult:
         """Scan files under *src_root*; emit SIMILAR-001 warnings, never failing."""
         if not self.enabled:
-            return CheckResult(check=self.name, status=Status.PASS, warnings=[])
+            return CheckResult.from_findings(check=self.name)
         warnings: list[Violation] = []
-        root = Path(src_root)
         thresholds = self._thresholds()
-        for path in iter_py_files(root):
-            relative = path.relative_to(root)
-            if _should_skip(relative=relative):
+        for module in parsed_modules(Path(src_root)):
+            if _should_skip(relative=Path(module.relative)):
                 continue
-            relative_file = relative.as_posix()
-            # Per-file isolation: a single pathological file (parse error, or a
-            # deeply nested body that overflows the recursive walk) must never
-            # abort the whole advisory run.
+            # Per-file isolation: a single pathological file (a deeply nested
+            # body that overflows the recursive walk) must never abort the
+            # whole advisory run.
             try:
-                source = path.read_text(encoding="utf-8")
-                tree = ast.parse(source, filename=str(path))
                 warnings.extend(
                     _scan_file(
-                        tree=tree,
-                        relative_file=relative_file,
+                        tree=module.tree,
+                        relative_file=module.relative,
                         min_statements=self.min_statements,
                         thresholds=thresholds,
                     )
                 )
-            except (OSError, UnicodeDecodeError, SyntaxError, RecursionError):
+            except RecursionError:
                 continue
-        status = Status.WARN if warnings else Status.PASS
-        return CheckResult(check=self.name, status=status, warnings=warnings)
+        return CheckResult.from_findings(check=self.name, warnings=warnings)
+
 
 
 # Self-register on import.

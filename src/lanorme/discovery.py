@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import fnmatch
 import os
+from collections.abc import Iterator
 from pathlib import Path
 
 # Directories that are never first-party source. Pruned by basename during the
@@ -61,39 +62,57 @@ def _excluded(*, relative: str, patterns: tuple[str, ...]) -> bool:
     return any(fnmatch.fnmatch(relative, pattern) for pattern in patterns)
 
 
-def iter_files(root: Path, *, suffix: str | None = None) -> list[Path]:
-    """Walk *root*, pruning default and excluded directories, sorted by path.
+def _walk(root: Path, *, prune: frozenset[str]) -> Iterator[tuple[Path, str, list[str]]]:
+    """Yield ``(directory, relative_prefix, filenames)`` for each directory kept.
 
-    Prunes ``DEFAULT_PRUNE_DIRS`` by basename always and any directory whose
-    root-relative path matches an active exclude glob. Files whose relative
-    path matches an exclude glob are skipped too (so they are never read). If
-    *suffix* is given, only files ending with it are returned.
+    *prune* names are dropped by basename; any directory whose root-relative
+    path matches an active exclude glob is dropped too. Pruning happens in
+    place so ``os.walk`` never descends a dropped subtree. The prefix is the
+    directory's root-relative posix path plus ``/`` (empty at the root), so a
+    file's relative path is one concatenation rather than a ``relative_to``.
     """
     patterns = _active_excludes
     root = Path(root)
-    found: list[Path] = []
     for dirpath, dirnames, filenames in os.walk(root):
         here = Path(dirpath)
-        # Prune in place so os.walk does not descend pruned subtrees.
+        prefix = "" if here == root else here.relative_to(root).as_posix() + "/"
         kept: list[str] = []
         for name in dirnames:
-            if name in DEFAULT_PRUNE_DIRS:
+            if name in prune:
                 continue
-            child_rel = (here / name).relative_to(root).as_posix()
-            if patterns and _excluded(relative=child_rel, patterns=patterns):
+            if patterns and _excluded(relative=prefix + name, patterns=patterns):
                 continue
             kept.append(name)
-        dirnames[:] = kept
+        dirnames[:] = sorted(kept)
+        yield here, prefix, filenames
 
+
+def iter_files(
+    root: Path, *, suffix: str | None = None, prune: frozenset[str] = DEFAULT_PRUNE_DIRS
+) -> list[Path]:
+    """Walk *root*, pruning default and excluded directories, sorted by path.
+
+    Prunes *prune* (``DEFAULT_PRUNE_DIRS`` unless a check has its own vendor
+    set) by basename and any directory whose root-relative path matches an
+    active exclude glob. Files whose relative path matches an exclude glob are
+    skipped too (so they are never read). If *suffix* is given, only files
+    ending with it are returned.
+    """
+    patterns = _active_excludes
+    found: list[Path] = []
+    for here, prefix, filenames in _walk(root, prune=prune):
         for name in filenames:
             if suffix is not None and not name.endswith(suffix):
                 continue
-            path = here / name
-            rel = path.relative_to(root).as_posix()
-            if patterns and _excluded(relative=rel, patterns=patterns):
+            if patterns and _excluded(relative=prefix + name, patterns=patterns):
                 continue
-            found.append(path)
+            found.append(here / name)
     return sorted(found)
+
+
+def iter_dirs(root: Path, *, prune: frozenset[str] = DEFAULT_PRUNE_DIRS) -> list[Path]:
+    """Every directory under *root* (the root excluded) that the walk keeps, sorted."""
+    return sorted(here for here, prefix, _files in _walk(root, prune=prune) if prefix)
 
 
 def iter_py_files(root: Path) -> list[Path]:

@@ -44,15 +44,13 @@ import tokenize
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from lanorme import CheckResult, Status, Violation, register
-from lanorme.discovery import iter_py_files
+from lanorme import CheckResult, Violation, register
 from lanorme.filtering import _IGNORE_RE, _NOQA_RE
+from lanorme.sources import parsed_modules
 
 # Code lists that name no rule in particular, so the directive covers whatever
 # exists now and whatever lands later.
 _BLANKET_CODES = frozenset({"ALL", "*"})
-
-_SKIP_DIRS = frozenset({".git", ".venv", "venv", "node_modules", "__pycache__", "dist", "build"})
 
 
 @dataclass(frozen=True)
@@ -84,13 +82,12 @@ def _classify(*, comment: str) -> bool | None:
     return None
 
 
-def _directives_in(*, path: Path, relative: str) -> list[_Directive]:
+def _directives_in(*, source: str, relative: str) -> list[_Directive]:
     """Every suppression directive in one file, read from comment tokens only."""
     found: list[_Directive] = []
     try:
-        source = path.read_text(encoding="utf-8")
         tokens = list(tokenize.generate_tokens(io.StringIO(source).readline))
-    except (OSError, UnicodeDecodeError, SyntaxError, tokenize.TokenError, IndentationError):
+    except (tokenize.TokenError, IndentationError):
         return found
     for token in tokens:
         if token.type != tokenize.COMMENT:
@@ -165,23 +162,17 @@ class SuppressionsCheck:
     def run(self, *, src_root: str) -> CheckResult:
         """Collect every suppression directive, then price it."""
         if not self.enabled:
-            return CheckResult(check=self.name, status=Status.PASS, violations=[])
-        root = Path(src_root)
+            return CheckResult.from_findings(check=self.name)
         directives: list[_Directive] = []
-        for path in iter_py_files(root):
-            # Match skip directories inside the root only: the absolute path's
-            # ancestors are the user's filesystem, not the project layout.
-            relative = path.relative_to(root)
-            if any(part in _SKIP_DIRS for part in relative.parts):
-                continue
-            directives.extend(_directives_in(path=path, relative=relative.as_posix()))
+        for module in parsed_modules(Path(src_root)):
+            directives.extend(_directives_in(source=module.source, relative=module.relative))
         directives.sort(key=lambda d: (d.file, d.line))
 
         violations = _budget_violation(directives=directives, max_total=self.max_total)
         if not self.allow_blanket:
             violations.extend(_blanket_violations(directives=directives))
-        status = Status.FAIL if violations else Status.PASS
-        return CheckResult(check=self.name, status=status, violations=violations)
+        return CheckResult.from_findings(check=self.name, violations=violations)
+
 
 
 register(SuppressionsCheck())

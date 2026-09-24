@@ -29,11 +29,12 @@ Run:
 from __future__ import annotations
 
 import fnmatch
-import os
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from lanorme import CheckResult, Status, Violation, register
+from lanorme import CheckResult, Violation, register
+from lanorme.checkconfig import str_list_setting
+from lanorme.discovery import iter_files
 
 # Directories never scanned (vendored / generated / VCS).
 _VENDOR_DIRS = frozenset(
@@ -118,14 +119,16 @@ class StrayArtifactsCheck:
         ]
     )
 
-    def configure(self, *, settings: dict[str, list[str]]) -> None:
+    def configure(self, *, settings: dict[str, object]) -> None:
         """Apply ``[tool.lanorme.stray_artifacts]`` configuration."""
-        self.extra_patterns = tuple(settings.get("patterns", []))
-        self.extra_extensions = tuple(e.lower() for e in settings.get("extensions", []))
-        self.allow = tuple(settings.get("allow", []))
-        self.extra_excludes = tuple(settings.get("exclude", []))
+        self.extra_patterns = str_list_setting(settings=settings, key="patterns")
+        self.extra_extensions = tuple(
+            e.lower() for e in str_list_setting(settings=settings, key="extensions")
+        )
+        self.allow = str_list_setting(settings=settings, key="allow")
+        self.extra_excludes = str_list_setting(settings=settings, key="exclude")
         if "assets" in settings:
-            self.asset_dirs = (*_DEFAULT_ASSET_DIRS, *settings["assets"])
+            self.asset_dirs = (*_DEFAULT_ASSET_DIRS, *str_list_setting(settings=settings, key="assets"))
 
     def _classify(self, *, rel: Path) -> str | None:
         """Return the rule code a file violates, or None if it is fine."""
@@ -149,19 +152,16 @@ class StrayArtifactsCheck:
     def run(self, *, src_root: str) -> CheckResult:
         violations: list[Violation] = []
         root = Path(src_root)
-        skip = _VENDOR_DIRS | set(self.extra_excludes)
+        skip = _VENDOR_DIRS | frozenset(self.extra_excludes)
 
-        for dirpath, dirnames, filenames in os.walk(root):
-            dirnames[:] = [d for d in dirnames if d not in skip]
-            for filename in filenames:
-                rel = (Path(dirpath) / filename).relative_to(root)
-                code = self._classify(rel=rel)
-                if code is None:
-                    continue
-                violations.append(_build_violation(code=code, rel=rel))
+        for path in iter_files(root, prune=skip):
+            rel = path.relative_to(root)
+            code = self._classify(rel=rel)
+            if code is None:
+                continue
+            violations.append(_build_violation(code=code, rel=rel))
 
-        status = Status.FAIL if violations else Status.PASS
-        return CheckResult(check=self.name, status=status, violations=violations)
+        return CheckResult.from_findings(check=self.name, violations=violations)
 
 
 def _build_violation(*, code: str, rel: Path) -> Violation:
@@ -175,8 +175,8 @@ def _build_violation(*, code: str, rel: Path) -> Violation:
         rule=code,
         message=message,
         fix=(
-            "Delete the file, or — if intentional — add it to "
-            "[tool.lanorme.stray_artifacts] allow/assets/exclude"
+            "Delete the file; if it is intentional, list it under 'allow' (or its "
+            "directory under 'assets' or 'exclude') in [tool.lanorme.stray_artifacts]"
         ),
     )
 

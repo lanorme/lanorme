@@ -9,6 +9,60 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
 
 ## [Unreleased]
 
+### Changed
+
+- Every source file is read and parsed once per run and shared by all checks
+  (`lanorme.sources`), and the `meta` self-check audits the results the other
+  checks already produced instead of running them all a second time. A full
+  `lanorme check .` on this repository takes under half the time it did.
+- Files are decoded the way the interpreter decodes them: a UTF-8 BOM and a
+  `coding:` cookie are honoured, so a file that runs is a file that is scanned.
+  Previously such files were reported as parse errors or skipped by every
+  check, including `secrets`.
+- Advisory findings print as `WARNING:` in the human output; `VIOLATION:` is
+  reserved for errors. The concise summary gains a second line with the
+  finding totals (`Findings: N errors to fix, M advisory warnings.`) and says
+  `warned` rather than `warnings` for the check count.
+- `lanorme check <path> --check NAME` honours cascading per-directory config
+  exactly like a full run. It used to run at the scan root under the root
+  config only, so a rule a subtree enabled could vanish under `--check`.
+- A custom layer (one added through `layers`) that imports a layer its
+  `allowed` entry does not list is reported as `LAYER-007`, with the allowed
+  layers named in the fix. It used to carry the bare code `LAYER` and an
+  empty allowed list in the fix text.
+- Check authors: `CheckResult.from_findings(...)` derives a result's status
+  from its findings, `lanorme.sources.iter_modules` / `parsed_modules` replace
+  a per-check read-and-parse loop, and `lanorme.checkconfig` offers typed
+  setting readers (`str_list_setting`, `int_setting`, `is_flag_set`, ...) that
+  turn a mistyped value into the usual exit-2 config error.
+
+### Fixed
+
+- A single file the parser overflows on (a many-thousand-term expression) no
+  longer blanks a whole check into a `RUN-000` notice, which also flipped a
+  failing run to exit 0. It is skipped with that check's `-000` notice and the
+  other files' findings stand.
+- `--select`, `--ignore`, `--promote` and their config counterparts, and the
+  codes in `per-file-ignores`, are validated: a selector that names no known
+  rule code or category exits `2` instead of silently producing a clean run.
+- `forbidden_paths` and `stray_artifacts` honour the run's `exclude` globs and
+  the cascading region boundaries, so a stray file in a nested region is
+  reported once rather than once per region pass. `port_coverage` and the
+  region discovery walk prune the same way.
+- A mistyped setting (`dirs = "build"` where a list is expected, a
+  `domain_terms` rule without `canonical`, a non-string `extensions` entry) is
+  reported at configure time as a config error rather than iterated character
+  by character or raised at run time as a `RUN-000` notice.
+- `named_args` reports a file it cannot parse as `KWARG-000`, not `KWARG-001`,
+  so `--promote KWARG-001` no longer fails the build on a syntax-error skip.
+- Output piped into a reader that stops early (`| head`, `| jq -n`) ends
+  quietly with the run's exit code instead of a `BrokenPipeError` traceback.
+- `--show-config` prints `extends` and `baseline`, so a promoted or ignored
+  code can be traced to the profile that set it.
+- When every explicitly requested path falls under an exclude glob, a note on
+  stderr says nothing was checked instead of a bare `All N checks passed.`
+- Crash notices (`RUN-000`) are no longer dropped when a file target is given.
+
 ## [0.20.0]
 
 ### Fixed

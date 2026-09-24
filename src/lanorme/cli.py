@@ -29,15 +29,19 @@ from lanorme import baseline, reporting
 from lanorme import (
     Check,
     CheckResult,
+    ResultAuditor,
     Status,
     __version__,
     get_all_checks,
     get_check,
+    rule_code,
     run_all,
+    run_audit,
     run_check,
 )
 from lanorme.checkconfig import apply_check_config
 from lanorme.discovery import set_excludes
+from lanorme.sources import clear_cache
 from lanorme.filtering import (
     _apply_excludes,
     _apply_filters,
@@ -45,10 +49,10 @@ from lanorme.filtering import (
     _apply_per_file_ignores,
     _apply_promotions,
     _apply_target_filter,
-    _category,
-    _rule_code,
+    _path_excluded,
 )
 from lanorme.presets import _resolve_extends
+from lanorme.selectors import checks_for_selector, reject_unknown_selectors
 from lanorme.regions import (
     Region,
     child_exclude_globs,
@@ -114,21 +118,8 @@ def _discover_config(*, start: Path) -> tuple[dict, Path, str | None]:
 # --------------------------------------------------------------------------- #
 
 
-def _checks_for_selector(*, selector: str) -> list[Check]:
-    """Return the checks that own a rule whose code or category matches *selector*."""
-    wanted = selector.upper()
-    matched: list[Check] = []
-    for check in get_all_checks().values():
-        for rule in check.rules:
-            code = _rule_code(rule)
-            if code == wanted or _category(code) == wanted:
-                matched.append(check)
-                break
-    return sorted(matched, key=lambda c: c.name)
-
-
-def _resolve_single(*, selector: str, src_root: str) -> tuple[list[CheckResult], list[str]]:
-    """Run the check(s) named or coded by *selector*.
+def _resolve_single(*, selector: str) -> tuple[list[Check], list[str]]:
+    """The check(s) named or coded by *selector*, and the implicit code narrowing.
 
     Resolution is name-first (an exact check name like ``duplication``), then by
     rule code or category (``DRY-001`` / ``SIZE``, case-insensitive). When a code
@@ -137,11 +128,11 @@ def _resolve_single(*, selector: str, src_root: str) -> tuple[list[CheckResult],
     """
     by_name = get_check(selector)
     if by_name is not None:
-        return [run_check(by_name, src_root=src_root)], []
+        return [by_name], []
 
-    matched = _checks_for_selector(selector=selector)
+    matched = checks_for_selector(selector=selector)
     if matched:
-        return [run_check(check, src_root=src_root) for check in matched], [selector.upper()]
+        return matched, [selector.upper()]
 
     names = ", ".join(sorted(get_all_checks())) or "(none)"
     print(
@@ -298,8 +289,12 @@ def _run_regions(
     scan_root: Path,
     exclude: list[str],
     pristine: dict[str, object],
+    only: list[Check] | None = None,
 ) -> list[CheckResult]:
     """Run the checks under cascading per-directory config and merge the results.
+
+    *only* restricts the run to the given checks (a ``--check`` selection); the
+    default runs every registered check.
 
     File-level checks run once per region, each pass scoped to the files that
     region directly governs (the nested regions below it are excluded) and
@@ -308,19 +303,18 @@ def _run_regions(
     scan root under the root config. Results land in scan-root coordinates, the
     same as a single-region run, so the downstream pipeline is unchanged.
     """
-    checks = get_all_checks()
+    checks = _selected(only=only)
     by_name: dict[str, CheckResult] = {}
 
-    restore_defaults(checks=checks, snapshot=pristine)
+    restore_defaults(checks=get_all_checks(), snapshot=pristine)
     apply_check_config(config=root_config)
     set_excludes(exclude)
     for name, check in checks.items():
-        if is_tree_scoped(check):
+        if is_tree_scoped(check) and not isinstance(check, ResultAuditor):
             by_name[name] = run_check(check, src_root=str(scan_root))
 
-    root_dir = scan_root.resolve()
     for region in regions:
-        restore_defaults(checks=checks, snapshot=pristine)
+        restore_defaults(checks=get_all_checks(), snapshot=pristine)
         apply_check_config(config=region.merged)
         region_excludes = child_exclude_globs(region=region, regions=regions)
         # The user's excludes are written relative to the scan root, so they
@@ -328,19 +322,39 @@ def _run_regions(
         # regions walk from their own directory, where those globs would not
         # line up, so their user excludes are left to the post-filter, which
         # works in project-root coordinates and still drops the findings.
-        if region.directory == root_dir:
+        if region.directory == scan_root.resolve():
             region_excludes = list(exclude) + region_excludes
         set_excludes(region_excludes)
-        for name, check in checks.items():
-            if is_tree_scoped(check):
-                continue
-            result = run_check(check, src_root=str(region.directory))
-            (result,) = reanchor_results(
-                results=[result], from_root=region.directory, to_root=scan_root
-            )
+        for name, result in _run_file_checks(checks=checks, region=region, scan_root=scan_root):
             by_name[name] = combine_results(existing=by_name.get(name), addition=result)
 
+    for name, check in checks.items():
+        if isinstance(check, ResultAuditor):
+            by_name[name] = run_audit(check, results=by_name)
     return [by_name[name] for name in checks if name in by_name]
+
+
+def _selected(*, only: list[Check] | None) -> dict[str, Check]:
+    """The registry narrowed to *only* (a ``--check`` selection), or all of it."""
+    checks = get_all_checks()
+    if only is None:
+        return checks
+    chosen = {id(check) for check in only}
+    return {name: check for name, check in checks.items() if id(check) in chosen}
+
+
+def _run_file_checks(
+    *, checks: dict[str, Check], region: Region, scan_root: Path
+) -> list[tuple[str, CheckResult]]:
+    """One region's pass of the file-level checks, re-anchored to the scan root."""
+    passed: list[tuple[str, CheckResult]] = []
+    for name, check in checks.items():
+        if is_tree_scoped(check):
+            continue
+        result = run_check(check, src_root=str(region.directory))
+        (result,) = reanchor_results(results=[result], from_root=region.directory, to_root=scan_root)
+        passed.append((name, result))
+    return passed
 
 
 @dataclass(frozen=True)
@@ -372,22 +386,29 @@ def _collect_results(
     """
     src_root = str(scan_root)
     per_file_ignores = _parse_per_file_ignores(table=config.get("per-file-ignores", {}))
+    reject_unknown_selectors(selectors=filters.select, origin="'select'")
+    reject_unknown_selectors(selectors=filters.ignore, origin="'ignore'")
+    for pattern, codes in per_file_ignores.items():
+        reject_unknown_selectors(selectors=codes, origin=f"per-file-ignores entry '{pattern}'")
     set_excludes(filters.exclude)
+    clear_cache()
 
+    only: list[Check] | None = None
+    implicit_select: list[str] = []
     if filters.single:
-        results, implicit_select = _resolve_single(selector=filters.single, src_root=src_root)
-    else:
-        implicit_select = []
-        regions = discover_regions(
-            scan_root=scan_root, root_config=config, resolve_extends=_resolve_extends
+        only, implicit_select = _resolve_single(selector=filters.single)
+    regions = discover_regions(
+        scan_root=scan_root, root_config=config, resolve_extends=_resolve_extends
+    )
+    if len(regions) > 1:
+        results = _run_regions(
+            regions=regions, root_config=config, scan_root=scan_root,
+            exclude=filters.exclude, pristine=pristine, only=only,
         )
-        if len(regions) == 1:
-            results = run_all(src_root=src_root)
-        else:
-            results = _run_regions(
-                regions=regions, root_config=config, scan_root=scan_root,
-                exclude=filters.exclude, pristine=pristine,
-            )
+    elif only is not None:
+        results = [run_check(check, src_root=src_root) for check in only]
+    else:
+        results = run_all(src_root=src_root)
 
     if not results:
         return None
@@ -435,32 +456,71 @@ def _run_and_report(
     if results is None:
         print("No checks registered.")
         return
+    reject_unknown_selectors(selectors=promote, origin="'promote'")
+    _note_excluded_targets(targets=targets, project_root=project_root, exclude=exclude)
 
-    baseline_path = _baseline_path(config=config, project_root=project_root)
     drifted: list[tuple[str, str]] = []
-    if baseline_path is not None and not args.no_baseline:
-        if not baseline_path.exists():
-            print(
-                f"ERROR: baseline file '{baseline_path}' does not exist. "
-                "Run 'lanorme baseline write' first.",
-                file=sys.stderr,
-            )
-            sys.exit(2)
-        # Drift reads the raw findings: it has to see what the baseline did
-        # match to tell a moved anchor from debt that is genuinely new.
-        drifted = baseline.drifted_codes(
-            results=results, project_root=project_root, baseline_path=baseline_path
-        )
-        results = baseline.suppress(
-            results=results, project_root=project_root, baseline_path=baseline_path
-        )
+    if not args.no_baseline:
+        results, drifted = _apply_baseline(results=results, config=config, project_root=project_root)
 
     results = _apply_promotions(results=results, promote=promote)
-    reporting.emit(results=results, output_format=output_format)
-    reporting.print_baseline_drift(drifted=drifted, output_format=output_format)
-
-    if any(r.status == Status.FAIL for r in results):
+    failed = any(r.status == Status.FAIL for r in results)
+    with reporting.tolerate_closed_pipe():
+        reporting.emit(results=results, output_format=output_format)
+        reporting.print_baseline_drift(drifted=drifted, output_format=output_format)
+    if failed:
         sys.exit(1)
+
+
+def _apply_baseline(
+    *, results: list[CheckResult], config: dict[str, object], project_root: Path
+) -> tuple[list[CheckResult], list[tuple[str, str]]]:
+    """Suppress the configured baseline's findings; return the survivors and the drift."""
+    baseline_path = _baseline_path(config=config, project_root=project_root)
+    if baseline_path is None:
+        return results, []
+    if not baseline_path.exists():
+        print(
+            f"ERROR: baseline file '{baseline_path}' does not exist. "
+            "Run 'lanorme baseline write' first.",
+            file=sys.stderr,
+        )
+        sys.exit(2)
+    # Drift reads the raw findings: it has to see what the baseline did
+    # match to tell a moved anchor from debt that is genuinely new.
+    drifted = baseline.drifted_codes(
+        results=results, project_root=project_root, baseline_path=baseline_path
+    )
+    suppressed = baseline.suppress(
+        results=results, project_root=project_root, baseline_path=baseline_path
+    )
+    return suppressed, drifted
+
+
+def _note_excluded_targets(*, targets: list[Path] | None, project_root: Path, exclude: list[str]) -> None:
+    """Say so on stderr when every requested path falls under an exclude glob.
+
+    A file target inside an excluded tree otherwise reports a clean run with
+    no hint that nothing was scanned.
+    """
+    if not targets or not exclude:
+        return
+    root = project_root.resolve()
+    for target in targets:
+        try:
+            relative = target.resolve().relative_to(root).as_posix()
+        except ValueError:
+            return
+        covered = _path_excluded(path=relative, patterns=exclude) or _path_excluded(
+            path=relative + "/", patterns=exclude
+        )
+        if not covered:
+            return
+    print(
+        "Note: every requested path matches an exclude glob, so nothing was checked. "
+        "Pass --exclude with another glob to override the configured excludes for one run.",
+        file=sys.stderr,
+    )
 
 
 def _run_check_command(*, args: argparse.Namespace) -> None:
@@ -468,6 +528,7 @@ def _run_check_command(*, args: argparse.Namespace) -> None:
     scan_root, targets = _resolve_targets(args.paths)
 
     config, project_root, config_source = _discover_config(start=scan_root)
+    extends = config.get("extends")
     config = _resolve_extends(config=config, project_root=project_root)
     _load_plugin_modules([*config.get("plugins", []), *args.plugin])
     # Capture pristine defaults, then reset every check to them before applying
@@ -481,7 +542,9 @@ def _run_check_command(*, args: argparse.Namespace) -> None:
     apply_check_config(config=config)
 
     if args.show_config:
-        reporting.print_config(config=config, source=config_source, project_root=project_root)
+        reporting.print_config(
+            config=config, source=config_source, project_root=project_root, extends=extends
+        )
         return
 
     _run_and_report(
@@ -555,11 +618,14 @@ def main(argv: list[str] | None = None) -> None:
     _load_entry_point_checks()
 
     if args.command == "rules":
-        reporting.print_rules()
+        with reporting.tolerate_closed_pipe():
+            reporting.print_rules()
         return
 
     if args.command == "rule":
-        sys.exit(reporting.print_rule_detail(code=args.code))
+        with reporting.tolerate_closed_pipe():
+            status = reporting.print_rule_detail(code=args.code)
+        sys.exit(status)
 
     if args.command == "baseline":
         _run_baseline_command(args=args)

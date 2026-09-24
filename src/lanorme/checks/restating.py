@@ -31,8 +31,8 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from lanorme import CheckResult, Status, Violation, register
-from lanorme.discovery import iter_py_files
+from lanorme import CheckResult, Violation, register
+from lanorme.sources import parsed_modules
 
 MAX_CONTENT_WORDS = 4
 MIN_STEM_LEN = 4
@@ -86,9 +86,6 @@ _STMT_KEYWORD: dict[type, str] = {
     ast.Import: "import", ast.ImportFrom: "import",
     ast.For: "for", ast.AsyncFor: "for", ast.While: "while",
 }
-
-_SKIP_DIRS = frozenset({".git", ".venv", "venv", "node_modules", "__pycache__", "dist", "build"})
-
 
 def _split_identifier(*, name: str) -> list[str]:
     out: list[str] = []
@@ -314,27 +311,15 @@ class RestatingCheck:
 
     def run(self, *, src_root: str) -> CheckResult:
         if not self.enabled:
-            return CheckResult(check=self.name, status=Status.PASS, violations=[])
+            return CheckResult.from_findings(check=self.name)
         violations: list[Violation] = []
-        root = Path(src_root)
-        for path in iter_py_files(root):
-            # Match skip directories inside the root only: the absolute path's
-            # ancestors are the user's filesystem, not the project layout.
-            relative = path.relative_to(root)
-            if any(part in _SKIP_DIRS for part in relative.parts):
-                continue
-            try:
-                source = path.read_text(encoding="utf-8")
-                tree = ast.parse(source, filename=str(path))
-            except (OSError, UnicodeDecodeError, SyntaxError):
-                continue
-            source_lines = source.splitlines()
-            comments = _collect_comments(source=source, source_lines=source_lines)
+        for module in parsed_modules(Path(src_root)):
+            source_lines = module.lines
+            comments = _collect_comments(source=module.source, source_lines=source_lines)
             violations.extend(
-                _restating_violations(tree=tree, comments=comments, file=relative.as_posix())
+                _restating_violations(tree=module.tree, comments=comments, file=module.relative)
             )
-        status = Status.FAIL if violations else Status.PASS
-        return CheckResult(check=self.name, status=status, violations=violations)
+        return CheckResult.from_findings(check=self.name, violations=violations)
 
 
 register(RestatingCheck())

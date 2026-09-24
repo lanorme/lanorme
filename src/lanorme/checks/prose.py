@@ -45,7 +45,8 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from lanorme import CheckResult, Status, Violation, register
+from lanorme import CheckResult, Violation, register
+from lanorme.checkconfig import is_flag_set, str_list_setting
 from lanorme.discovery import iter_files
 
 _EM_DASH = "—"
@@ -153,15 +154,6 @@ def _strip_inline_code(line: str) -> str:
     return _INLINE_CODE.sub(lambda m: " " * len(m.group(0)), line)
 
 
-def _status_for(*, violations: list[Violation], warnings: list[Violation]) -> Status:
-    """Map findings to a status: any hard violation fails, an advisory warns."""
-    if violations:
-        return Status.FAIL
-    if warnings:
-        return Status.WARN
-    return Status.PASS
-
-
 def _compile_spellings(spellings: dict[str, str]) -> re.Pattern[str] | None:
     if not spellings:
         return None
@@ -193,17 +185,16 @@ class ProseCheck:
 
     def configure(self, *, settings: ProseSettings) -> None:
         """Apply ``[tool.lanorme.prose]`` configuration."""
-        if "enabled" in settings:
-            self.enabled = bool(settings["enabled"])
-        if "em_dash" in settings:
-            self.flag_em_dash = bool(settings["em_dash"])
-        if "emoji" in settings:
-            self.flag_emoji = bool(settings["emoji"])
-        if "em_dash_density" in settings:
-            self.flag_em_dash_density = bool(settings["em_dash_density"])
-        extensions = settings.get("extensions")
-        if isinstance(extensions, list):
-            self.extensions = tuple(ext.lower() for ext in extensions)
+        self.enabled = is_flag_set(settings=settings, key="enabled", default=self.enabled)
+        self.flag_em_dash = is_flag_set(settings=settings, key="em_dash", default=self.flag_em_dash)
+        self.flag_emoji = is_flag_set(settings=settings, key="emoji", default=self.flag_emoji)
+        self.flag_em_dash_density = is_flag_set(
+            settings=settings, key="em_dash_density", default=self.flag_em_dash_density
+        )
+        self.extensions = tuple(
+            ext.lower()
+            for ext in str_list_setting(settings=settings, key="extensions", default=self.extensions)
+        )
         spellings = settings.get("spellings")
         if isinstance(spellings, dict):
             self.spellings = {**self.spellings, **spellings}
@@ -372,7 +363,7 @@ class ProseCheck:
 
     def run(self, *, src_root: str) -> CheckResult:
         if not self.enabled:
-            return CheckResult(check=self.name, status=Status.PASS, violations=[])
+            return CheckResult.from_findings(check=self.name)
 
         violations: list[Violation] = []
         warnings: list[Violation] = []
@@ -389,12 +380,8 @@ class ProseCheck:
             violations.extend(file_violations)
             warnings.extend(file_warnings)
 
-        return CheckResult(
-            check=self.name,
-            status=_status_for(violations=violations, warnings=warnings),
-            violations=violations,
-            warnings=warnings,
-        )
+        return CheckResult.from_findings(check=self.name, violations=violations, warnings=warnings)
+
 
 
 register(ProseCheck())

@@ -38,7 +38,10 @@ import fnmatch
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from lanorme import CheckResult, Status, Violation, register
+from lanorme import CheckResult, Violation, register
+from lanorme.checkconfig import str_list_setting, str_setting
+from lanorme.discovery import iter_py_files
+from lanorme.sources import Module, parse_module
 
 # Adapter files that are pure utilities or re-exports, not port implementations.
 INFRA_SERVICE_SKIP_FILES = ("__init__.py",)
@@ -64,6 +67,11 @@ DEFAULT_COMPOSITION_ROOT = ("*dependencies/*", "*v1/main.py")
 
 
 # ---- AST helpers -----------------------------------------------------------
+
+
+def _posix_dir(value: str) -> str:
+    """A configured directory as a forward-slashed, unanchored relative path."""
+    return value.replace("\\", "/").strip("/")
 
 
 def _matches_glob(*, relative: str, patterns: tuple[str, ...]) -> bool:
@@ -200,11 +208,9 @@ def _ports_package_import_stems(*, tree: ast.AST, ports_parts: list[str]) -> set
 
 
 def _parse_file(*, py_file: Path) -> ast.AST | None:
-    try:
-        source = py_file.read_text(encoding="utf-8")
-        return ast.parse(source, filename=str(py_file))
-    except (OSError, UnicodeDecodeError, SyntaxError):
-        return None
+    """The file's tree from the shared per-run parse, or ``None`` if it does not parse."""
+    module = parse_module(py_file, root=py_file.parent)
+    return module.tree if isinstance(module, Module) else None
 
 
 # ---- Scanning --------------------------------------------------------------
@@ -249,7 +255,7 @@ def _scan_adapter_files(
         root_path = base / root
         if not root_path.is_dir():
             continue
-        for py_file in sorted(root_path.rglob("*.py")):
+        for py_file in iter_py_files(root_path):
             if py_file in seen or py_file.name in skip_files:
                 continue
             seen.add(py_file)
@@ -405,7 +411,7 @@ def _check_port003(
     if not api_dir.is_dir():
         return violations
 
-    for py_file in sorted(api_dir.rglob("*.py")):
+    for py_file in iter_py_files(api_dir):
         # Composition-root globs match the source-root-relative path; the
         # reported path stays anchored at the scan target.
         match_rel = py_file.relative_to(base).as_posix()
@@ -476,20 +482,17 @@ class PortCoverageCheck:
 
     def configure(self, *, settings: dict[str, object]) -> None:
         """Apply ``[tool.lanorme.port_coverage]`` configuration."""
-        source_root = settings.get("source_root")
-        if isinstance(source_root, str):
-            self.source_root = source_root.replace("\\", "/").strip("/")
-        ports_dir = settings.get("ports_dir")
-        if isinstance(ports_dir, str) and ports_dir:
-            self.ports_dir = ports_dir.replace("\\", "/").strip("/")
+        self.source_root = _posix_dir(str_setting(settings=settings, key="source_root", default=self.source_root))
+        ports_dir = str_setting(settings=settings, key="ports_dir", default="")
+        if ports_dir:
+            self.ports_dir = _posix_dir(ports_dir)
         for key in ("adapter_roots", "composition_root"):
-            value = settings.get(key)
-            if isinstance(value, list) and value:
-                setattr(self, key, tuple(str(item) for item in value))
+            value = str_list_setting(settings=settings, key=key, default=getattr(self, key))
+            if value:
+                setattr(self, key, value)
         for key in ("skip_files", "ports_without_impl"):
-            value = settings.get(key)
-            if isinstance(value, list):
-                setattr(self, key, frozenset(str(item) for item in value))
+            current = tuple(getattr(self, key))
+            setattr(self, key, frozenset(str_list_setting(settings=settings, key=key, default=current)))
 
     def run(self, *, src_root: str) -> CheckResult:
         """Scan ports and adapters and validate coverage."""
@@ -539,8 +542,7 @@ class PortCoverageCheck:
             )
         )
 
-        status = Status.FAIL if violations else Status.PASS
-        return CheckResult(check=self.name, status=status, violations=violations)
+        return CheckResult.from_findings(check=self.name, violations=violations)
 
 
 # Self-register on import.

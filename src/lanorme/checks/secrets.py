@@ -36,7 +36,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from lanorme import CheckResult, Status, Violation, register
-from lanorme.discovery import iter_py_files
+from lanorme.sources import parsed_modules
 
 # A name suggests a credential when (i) it matches one of these multi-segment
 # phrases as the whole name or as a ``_``-anchored suffix, OR (ii) one of its
@@ -102,9 +102,6 @@ _HIGH_ENTROPY_LEN = 32
 
 _RULE = "SECRETPY-001: No hardcoded secrets in source code"
 _FIX = "Read the value from an environment variable, secrets manager, or settings module"
-
-_SKIP_DIRS = frozenset({".git", ".venv", "venv", "node_modules", "__pycache__", "dist", "build"})
-
 
 def _normalise_name(name: str) -> str:
     return name.lower().replace("-", "_")
@@ -259,24 +256,12 @@ class SecretsCheck:
 
     def run(self, *, src_root: str) -> CheckResult:
         violations: list[Violation] = []
-        root = Path(src_root)
-        for path in iter_py_files(root):
-            # Match skip directories inside the root only: the absolute path's
-            # ancestors are the user's filesystem, not the project layout.
-            relative = path.relative_to(root)
-            if any(part in _SKIP_DIRS for part in relative.parts):
-                continue
-            file_name = path.name
+        for module in parsed_modules(Path(src_root)):
+            file_name = module.path.name
             if file_name in _SCAN_EXCLUDES or file_name.startswith("test_"):
                 continue
-            try:
-                source = path.read_text(encoding="utf-8")
-                tree = ast.parse(source, filename=str(path))
-            except (OSError, UnicodeDecodeError, SyntaxError):
-                continue
-            violations.extend(_scan_tree(tree=tree, file=relative.as_posix()))
-        status = Status.FAIL if violations else Status.PASS
-        return CheckResult(check=self.name, status=status, violations=violations)
+            violations.extend(_scan_tree(tree=module.tree, file=module.relative))
+        return CheckResult.from_findings(check=self.name, violations=violations)
 
 
 register(SecretsCheck())

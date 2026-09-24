@@ -9,14 +9,35 @@ parsing arguments and running checks.
 
 from __future__ import annotations
 
+import contextlib
 import dataclasses
 import json
 import os
 import sys
+from collections.abc import Iterator
 from importlib.resources import files as _resource_files
 from pathlib import Path
 
 from lanorme import CheckResult, Status, get_all_checks
+
+
+@contextlib.contextmanager
+def tolerate_closed_pipe() -> Iterator[None]:
+    """Let a reader that stops early (``| head``, ``| jq -n``) end the output quietly.
+
+    Without this a closed pipe surfaces as a ``BrokenPipeError`` traceback and
+    a second one at interpreter exit when stdout is flushed. Stdout is pointed
+    at the null device so that final flush has nowhere to fail; the caller's
+    exit code is unaffected.
+    """
+    try:
+        yield
+    except BrokenPipeError:
+        try:
+            devnull = os.open(os.devnull, os.O_WRONLY)
+            os.dup2(devnull, sys.stdout.fileno())
+        except (OSError, ValueError, AttributeError):
+            pass
 
 
 # --------------------------------------------------------------------------- #
@@ -63,8 +84,18 @@ def _emit_human(*, results: list[CheckResult], show_passed: bool) -> None:
     failed = sum(1 for r in results if r.status == Status.FAIL)
     if shown == 0:
         print(f"All {len(results)} checks passed.")
-    else:
-        print(f"Summary: {len(results)} checks — {passed} passed, {warned} warnings, {failed} failed.")
+        return
+    print(f"Summary: {len(results)} checks — {passed} passed, {warned} warned, {failed} failed.")
+    errors = sum(len(r.violations) for r in results)
+    advisories = sum(len(r.warnings) for r in results)
+    print(
+        f"Findings: {errors} {_plural(count=errors, noun='error')} to fix, "
+        f"{advisories} advisory {_plural(count=advisories, noun='warning')}."
+    )
+
+
+def _plural(*, count: int, noun: str) -> str:
+    return noun if count == 1 else f"{noun}s"
 
 
 def _gh_escape(text: str) -> str:
@@ -256,15 +287,26 @@ def _settings_repr(check: object) -> str:
     return summary
 
 
-def print_config(*, config: dict[str, object], source: str | None, project_root: Path) -> None:
-    """Print the discovered config file and the effective settings for every check."""
+_TOP_LEVEL_KEYS = ("extends", "select", "ignore", "promote", "exclude", "baseline", "source_root", "plugins")
+
+
+def print_config(
+    *, config: dict[str, object], source: str | None, project_root: Path, extends: object = None
+) -> None:
+    """Print the discovered config file and the effective settings for every check.
+
+    *extends* is the raw ``extends`` value: profile resolution folds it into
+    *config*, so it is passed separately to show where promoted or ignored
+    codes came from.
+    """
     print(f"config file:  {source or 'none (built-in defaults)'}")
     print(f"project root: {project_root}")
-    top = [k for k in ("select", "ignore", "promote", "exclude", "source_root", "plugins") if k in config]
-    if top or config.get("per-file-ignores"):
+    shown = {"extends": extends} if extends else {}
+    shown.update((k, config[k]) for k in _TOP_LEVEL_KEYS if k in config)
+    if shown or config.get("per-file-ignores"):
         print("\n[tool.lanorme]")
-        for key in top:
-            print(f"  {key} = {config[key]!r}")
+        for key, value in shown.items():
+            print(f"  {key} = {value!r}")
         if config.get("per-file-ignores"):
             print(f"  per-file-ignores = {config['per-file-ignores']!r}")
     print("\nchecks (effective settings):")

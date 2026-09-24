@@ -27,8 +27,8 @@ import json
 import sys
 from pathlib import Path
 
-from lanorme import CheckResult, Status, Violation
-from lanorme.filtering import _line_at, _rule_code
+from lanorme import CheckResult, Violation, rule_code
+from lanorme.filtering import _line_at
 
 BASELINE_VERSION = 1
 
@@ -87,7 +87,7 @@ def _finding_key(
     """The ``(path, code, anchor)`` identity used to match against the baseline."""
     return (
         _norm_path(finding.file),
-        _rule_code(finding.rule),
+        rule_code(finding.rule),
         _anchor(
             project_root=project_root,
             file=finding.file,
@@ -246,27 +246,19 @@ def suppress(
     consumed: dict[tuple[str, str, str], int] = {}
     cache: dict[str, list[str]] = {}
 
-    filtered: list[CheckResult] = []
-    for result in results:
-        violations = [
-            v
-            for v in result.violations
-            if not _is_suppressed(
-                index=index, consumed=consumed, project_root=project_root, finding=v, tier=_ERROR, cache=cache
-            )
-        ]
-        warnings = [
-            w
-            for w in result.warnings
-            if not _is_suppressed(
-                index=index, consumed=consumed, project_root=project_root, finding=w, tier=_WARNING, cache=cache
-            )
-        ]
-        status = Status.FAIL if violations else (Status.WARN if warnings else Status.PASS)
-        filtered.append(
-            CheckResult(check=result.check, status=status, violations=violations, warnings=warnings)
+    def is_kept(*, finding: Violation, tier: str) -> bool:
+        return not _is_suppressed(
+            index=index, consumed=consumed, project_root=project_root, finding=finding, tier=tier, cache=cache
         )
-    return filtered
+
+    return [
+        CheckResult.from_findings(
+            check=result.check,
+            violations=[v for v in result.violations if is_kept(finding=v, tier=_ERROR)],
+            warnings=[w for w in result.warnings if is_kept(finding=w, tier=_WARNING)],
+        )
+        for result in results
+    ]
 
 
 def drifted_codes(

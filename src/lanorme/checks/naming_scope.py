@@ -38,8 +38,8 @@ import ast
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from lanorme import CheckResult, Status, Violation, register
-from lanorme.discovery import iter_py_files
+from lanorme import CheckResult, Violation, register
+from lanorme.sources import parsed_modules
 
 # Beyond this many lines between binding and last use, a short name stops
 # paying for itself. Roughly one screen: see the calibration above.
@@ -57,9 +57,7 @@ DEFAULT_ALLOW = frozenset({
     "db", "id", "fd", "fh", "ok", "lo", "hi", "lr", "ax", "df", "ts",
 })
 
-_SKIP_DIRS = frozenset(
-    {".git", ".venv", "venv", "node_modules", "__pycache__", "dist", "build", "alembic", "migrations"}
-)
+_SKIP_DIRS = frozenset({"alembic", "migrations"})
 _FUNCTION_TYPES = (ast.FunctionDef, ast.AsyncFunctionDef)
 
 
@@ -172,30 +170,23 @@ class NamingScopeCheck:
     def run(self, *, src_root: str) -> CheckResult:
         """Walk every Python file and collect NAMING-005 violations."""
         if not self.enabled:
-            return CheckResult(check=self.name, status=Status.PASS, violations=[])
+            return CheckResult.from_findings(check=self.name)
         resolved = _Settings(
             max_span=self.max_span,
             max_short_length=self.max_short_length,
             allow=frozenset(self.allow),
         )
         violations: list[Violation] = []
-        root = Path(src_root)
-        for path in iter_py_files(root):
+        for module in parsed_modules(Path(src_root)):
             # Match skip directories inside the root only: the absolute path's
             # ancestors are the user's filesystem, not the project layout.
-            relative = path.relative_to(root)
-            if any(part in _SKIP_DIRS for part in relative.parts) or path.name.startswith("test_"):
+            if any(part in _SKIP_DIRS for part in module.relative.split("/")) or module.path.name.startswith("test_"):
                 continue
-            try:
-                tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
-            except (OSError, UnicodeDecodeError, SyntaxError):
-                continue
-            file = relative.as_posix()
-            for node in ast.walk(tree):
+            file = module.relative
+            for node in ast.walk(module.tree):
                 if isinstance(node, _FUNCTION_TYPES):
                     violations.extend(_function_violations(func=node, file=file, settings=resolved))
-        status = Status.FAIL if violations else Status.PASS
-        return CheckResult(check=self.name, status=status, violations=violations)
+        return CheckResult.from_findings(check=self.name, violations=violations)
 
 
 register(NamingScopeCheck())

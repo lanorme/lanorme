@@ -14,8 +14,8 @@ import ast
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from lanorme import CheckResult, Status, Violation, register
-from lanorme.discovery import iter_py_files
+from lanorme import CheckResult, Violation, register
+from lanorme.sources import TOO_DEEP, Unparseable, iter_modules, skip_notice, unparseable_notice
 
 # ---------------------------------------------------------------------------
 # IMPORT-001: No inline imports inside functions
@@ -242,20 +242,21 @@ class PatternDivergenceCheck:
         """Scan Python files under src/ for pattern divergence."""
         violations: list[Violation] = []
         warnings: list[Violation] = []
-        src_path = Path(src_root)
 
-        for py_file in iter_py_files(src_path):
-            relative_file = py_file.relative_to(src_path).as_posix()
+        for module in iter_modules(Path(src_root)):
+            relative_file = module.relative
 
             # Skip test files.
-            if Path(relative_file).name.startswith("test_"):
+            if module.path.name.startswith("test_"):
                 continue
 
-            try:
-                source = py_file.read_text(encoding="utf-8")
-                tree = ast.parse(source, filename=str(py_file))
-                source_lines = source.splitlines()
+            if isinstance(module, Unparseable):
+                warnings.append(unparseable_notice(prefix="PATTERN", failure=module))
+                continue
 
+            tree = module.tree
+            source_lines = module.lines
+            try:
                 # IMPORT-001: inline imports (violation)
                 file_violations = _check_inline_imports(
                     tree=tree,
@@ -269,42 +270,24 @@ class PatternDivergenceCheck:
                     source_lines=source_lines,
                     relative_file=relative_file,
                 )
-            except (OSError, UnicodeDecodeError, SyntaxError):
-                warnings.append(
-                    Violation(
-                        file=relative_file,
-                        line=0,
-                        rule="PATTERN-000: parse error",
-                        message=f"Could not parse {py_file.name} — skipping",
-                        fix="Fix the syntax error first",
-                    ),
-                )
-                continue
             except RecursionError:
                 # A deeply nested AST (for example a very long attribute chain in
                 # an endpoint) overflows the recursive depth walk. Skip the file
                 # rather than crash the whole run.
                 warnings.append(
-                    Violation(
-                        file=relative_file,
-                        line=0,
-                        rule="ENDPOINT-000: too deeply nested",
-                        message=f"{py_file.name} is too deeply nested to analyse — skipping",
-                        fix="No action needed; this file is exempt from pattern_divergence",
-                    ),
+                    skip_notice(
+                        prefix="ENDPOINT",
+                        file=module.relative,
+                        name=module.path.name,
+                        reason=TOO_DEEP,
+                    )
                 )
                 continue
 
             violations.extend(file_violations)
             warnings.extend(file_warnings)
 
-        status = Status.FAIL if violations else (Status.WARN if warnings else Status.PASS)
-        return CheckResult(
-            check=self.name,
-            status=status,
-            violations=violations,
-            warnings=warnings,
-        )
+        return CheckResult.from_findings(check=self.name, violations=violations, warnings=warnings)
 
 
 # Self-register on import.

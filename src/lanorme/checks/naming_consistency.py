@@ -21,8 +21,8 @@ import ast
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from lanorme import CheckResult, Status, Violation, register
-from lanorme.discovery import iter_py_files
+from lanorme import CheckResult, Violation, register
+from lanorme.sources import parsed_modules
 
 # Allowed public method prefixes for repositories and services.
 ALLOWED_PREFIXES = ("get_", "create_", "update_", "delete_", "list_")
@@ -345,16 +345,10 @@ class NamingConsistencyCheck:
         """Scan source files and validate naming conventions."""
         violations: list[Violation] = []
         warnings: list[Violation] = []
-        src_path = Path(src_root)
 
-        for py_file in iter_py_files(src_path):
-            relative_file = py_file.relative_to(src_path).as_posix()
-
-            try:
-                source = py_file.read_text(encoding="utf-8")
-                tree = ast.parse(source, filename=str(py_file))
-            except (OSError, UnicodeDecodeError, SyntaxError):
-                continue
+        for module in parsed_modules(Path(src_root)):
+            relative_file = module.relative
+            tree = module.tree
 
             # NAMING-001: Repository method naming (opt-in; conflicts with DDD ubiquitous-language).
             if self.repo_crud and _file_is_under(relative_path=relative_file, directories=REPO_DIRS):
@@ -395,13 +389,7 @@ class NamingConsistencyCheck:
                 ),
             )
 
-        status = Status.FAIL if violations else (Status.WARN if warnings else Status.PASS)
-        return CheckResult(
-            check=self.name,
-            status=status,
-            violations=violations,
-            warnings=warnings,
-        )
+        return CheckResult.from_findings(check=self.name, violations=violations, warnings=warnings)
 
 
 # Self-register on import.

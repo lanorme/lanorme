@@ -35,15 +35,14 @@ root-level and are applied once by the CLI pipeline.
 from __future__ import annotations
 
 import copy
-import os
 import sys
 import tomllib
 from collections.abc import Callable
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 
-from lanorme import Check, CheckResult, Status, Violation
-from lanorme.discovery import DEFAULT_PRUNE_DIRS
+from lanorme import Check, CheckResult, Violation
+from lanorme.discovery import iter_dirs
 
 # A loaded TOML config: string keys to arbitrary scalar / list / table values.
 Config = dict[str, object]
@@ -166,11 +165,10 @@ def discover_regions(
     scan_root = scan_root.resolve()
     regions = [Region(directory=scan_root, raw=root_config)]
 
-    for dirpath, dirnames, _filenames in os.walk(scan_root):
-        dirnames[:] = sorted(name for name in dirnames if name not in DEFAULT_PRUNE_DIRS)
-        here = Path(dirpath).resolve()
-        if here == scan_root:
-            continue
+    # The walk honours the run's excludes, so an excluded fixture tree that
+    # carries its own pyproject never becomes a region of its own.
+    for directory in iter_dirs(scan_root):
+        here = directory.resolve()
         config = load_lanorme_config(here)
         if config:
             if resolve_extends is not None:
@@ -261,11 +259,10 @@ def combine_results(*, existing: CheckResult | None, addition: CheckResult) -> C
     """
     if existing is None:
         return addition
-    violations = existing.violations + addition.violations
-    warnings = existing.warnings + addition.warnings
-    status = Status.FAIL if violations else (Status.WARN if warnings else Status.PASS)
-    return CheckResult(
-        check=addition.check, status=status, violations=violations, warnings=warnings
+    return CheckResult.from_findings(
+        check=addition.check,
+        violations=existing.violations + addition.violations,
+        warnings=existing.warnings + addition.warnings,
     )
 
 

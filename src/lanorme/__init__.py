@@ -24,6 +24,7 @@ List every registered rule:
 from __future__ import annotations
 
 import enum
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from typing import Protocol, runtime_checkable
 
@@ -51,7 +52,7 @@ class Violation:
     @property
     def code(self) -> str:
         """The rule code (e.g. ``DRY-001``) parsed from the rule string."""
-        return self.rule.split(":", 1)[0].strip().split()[0]
+        return rule_code(self.rule)
 
     def to_dict(self) -> dict[str, str | int]:
         return {
@@ -63,22 +64,56 @@ class Violation:
             "fix": self.fix,
         }
 
-    def format_human(self) -> str:
+    def format_human(self, *, label: str = "VIOLATION") -> str:
+        """The three-line human rendering; *label* tells a violation from a warning."""
         return (
-            f"  VIOLATION: {self.file}:{self.line} — {self.message}\n"
+            f"  {label}: {self.file}:{self.line} — {self.message}\n"
             f"    Rule: {self.rule}\n"
             f"    Fix: {self.fix}"
         )
 
 
+def rule_code(rule: str) -> str:
+    """The code (``DRY-001``) at the head of a rule string, or ``""`` for an empty one."""
+    head = rule.split(":", 1)[0].split()
+    return head[0] if head else ""
+
+
 @dataclass
 class CheckResult:
-    """Result of running a single check."""
+    """Result of running a single check.
+
+    Build one with :meth:`from_findings` so the status always agrees with the
+    finding lists: any violation is ``FAIL``, otherwise any warning is ``WARN``,
+    otherwise ``PASS``.
+    """
 
     check: str
     status: Status
     violations: list[Violation] = field(default_factory=list)
     warnings: list[Violation] = field(default_factory=list)
+
+    @classmethod
+    def from_findings(
+        cls,
+        *,
+        check: str,
+        violations: Iterable[Violation] = (),
+        warnings: Iterable[Violation] = (),
+    ) -> CheckResult:
+        """A result whose status is derived from its findings."""
+        hard = list(violations)
+        soft = list(warnings)
+        status = Status.FAIL if hard else (Status.WARN if soft else Status.PASS)
+        return cls(check=check, status=status, violations=hard, warnings=soft)
+
+    def narrow(self, keep: Callable[[Violation], bool]) -> CheckResult:
+        """A copy holding only the findings *keep* accepts, status recomputed."""
+        return CheckResult.from_findings(
+            check=self.check,
+            violations=[v for v in self.violations if keep(v)],
+            warnings=[w for w in self.warnings if keep(w)],
+        )
 
     def to_dict(self) -> dict[str, str | list[dict[str, str | int]]]:
         return {
@@ -93,7 +128,7 @@ class CheckResult:
         for v in self.violations:
             lines.append(v.format_human())
         for w in self.warnings:
-            lines.append(w.format_human())
+            lines.append(w.format_human(label="WARNING"))
         lines.append(
             f"--- {self.check}: {len(self.violations)} violations, {len(self.warnings)} warnings ---"
         )
@@ -127,6 +162,20 @@ class Configurable(Protocol):
         ...
 
 
+@runtime_checkable
+class ResultAuditor(Protocol):
+    """A check that judges the other checks' results rather than the tree.
+
+    The runner hands it every other check's result, keyed by registry name,
+    once they are all in; ``run()`` stays the standalone path (``--check``),
+    where the check gathers those results itself.
+    """
+
+    def audit(self, *, results: dict[str, CheckResult]) -> CheckResult:
+        """Inspect *results* and return this check's own result."""
+        ...
+
+
 # --- Check registry ---
 
 _registry: dict[str, Check] = {}
@@ -147,6 +196,22 @@ def get_all_checks() -> dict[str, Check]:
     return dict(_registry)
 
 
+def _crash_notice(*, check: Check, exc: BaseException) -> CheckResult:
+    """The advisory result standing in for a check that raised."""
+    return CheckResult.from_findings(
+        check=check.name,
+        warnings=[
+            Violation(
+                file="",
+                line=0,
+                rule="RUN-000: check raised an exception",
+                message=f"Check {check.name!r} failed on this tree: {type(exc).__name__}",
+                fix="This is a bug in the check; the rest of the run continued",
+            ),
+        ],
+    )
+
+
 def run_check(check: Check, *, src_root: str) -> CheckResult:
     """Run one check, isolating any exception so it cannot abort the whole run.
 
@@ -157,21 +222,28 @@ def run_check(check: Check, *, src_root: str) -> CheckResult:
     try:
         return check.run(src_root=src_root)
     except Exception as exc:  # noqa: BLE001 - one check must not sink the run
-        return CheckResult(
-            check=check.name,
-            status=Status.WARN,
-            warnings=[
-                Violation(
-                    file="",
-                    line=0,
-                    rule="RUN-000: check raised an exception",
-                    message=f"Check {check.name!r} failed on this tree: {type(exc).__name__}",
-                    fix="This is a bug in the check; the rest of the run continued",
-                ),
-            ],
-        )
+        return _crash_notice(check=check, exc=exc)
+
+
+def run_audit(check: ResultAuditor, *, results: dict[str, CheckResult]) -> CheckResult:
+    """Run one result auditor with the same isolation as :func:`run_check`."""
+    try:
+        return check.audit(results=results)
+    except Exception as exc:  # noqa: BLE001 - one check must not sink the run
+        return _crash_notice(check=check, exc=exc)
 
 
 def run_all(*, src_root: str) -> list[CheckResult]:
-    """Run all registered checks and return their results."""
-    return [run_check(check, src_root=src_root) for check in _registry.values()]
+    """Run all registered checks and return their results, in registry order.
+
+    Result auditors run last, over the results the other checks produced, so
+    the tree is walked once per check rather than once more for the audit.
+    """
+    by_name: dict[str, CheckResult] = {}
+    for name, check in _registry.items():
+        if not isinstance(check, ResultAuditor):
+            by_name[name] = run_check(check, src_root=src_root)
+    for name, check in _registry.items():
+        if isinstance(check, ResultAuditor):
+            by_name[name] = run_audit(check, results=by_name)
+    return [by_name[name] for name in _registry]

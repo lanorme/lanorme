@@ -5,6 +5,11 @@ and this module hands the result to the checks: each ``[tool.lanorme.<check>]``
 sub-table goes to that check's ``configure()``. Both the single-config run and
 the cascading runner come through here, so a value the user got wrong is
 reported the same way wherever it was written.
+
+The ``*_setting`` readers are for ``configure()`` bodies: each returns the
+typed value or raises ``TypeError`` naming the key, which the plumbing below
+turns into the usual exit-2 usage error. A check that reads its table through
+them never carries a mistyped value into ``run()``.
 """
 
 from __future__ import annotations
@@ -12,6 +17,46 @@ from __future__ import annotations
 import sys
 
 from lanorme import Configurable, get_all_checks
+
+Settings = dict[str, object]
+
+
+def _reject(*, key: str, expected: str, value: object) -> TypeError:
+    return TypeError(f"'{key}' must be {expected}, got {type(value).__name__}")
+
+
+def is_flag_set(*, settings: Settings, key: str, default: bool) -> bool:
+    """A boolean flag; ``true``/``false`` in TOML, nothing else."""
+    value = settings.get(key, default)
+    if not isinstance(value, bool):
+        raise _reject(key=key, expected="true or false", value=value)
+    return value
+
+
+def int_setting(*, settings: Settings, key: str, default: int) -> int:
+    """An integer threshold; a bool or a float is refused rather than coerced."""
+    value = settings.get(key, default)
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise _reject(key=key, expected="an integer", value=value)
+    return value
+
+
+def str_setting(*, settings: Settings, key: str, default: str) -> str:
+    """A single string, such as a path."""
+    value = settings.get(key, default)
+    if not isinstance(value, str):
+        raise _reject(key=key, expected="a string", value=value)
+    return value
+
+
+def str_list_setting(*, settings: Settings, key: str, default: tuple[str, ...] = ()) -> tuple[str, ...]:
+    """A list of strings; a bare string is refused so it is never iterated by character."""
+    value = settings.get(key, default)
+    if isinstance(value, tuple):
+        value = list(value)
+    if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
+        raise _reject(key=key, expected="a list of strings", value=value)
+    return tuple(value)
 
 # Top-level ``source_root`` is injected into these layout-aware checks only;
 # every other check scans the full target tree.
@@ -32,7 +77,7 @@ def _offending_key(*, check: Configurable, settings: dict[str, object]) -> str |
             return None
         try:
             probe.configure(settings={key: value})
-        except (TypeError, ValueError):
+        except (TypeError, ValueError, AttributeError, KeyError):
             return key
     return None
 
@@ -47,7 +92,7 @@ def _configure_or_fail(*, check: Configurable, name: str, settings: dict[str, ob
     """
     try:
         check.configure(settings=settings)
-    except (TypeError, ValueError) as error:
+    except (TypeError, ValueError, AttributeError, KeyError) as error:
         key = _offending_key(check=check, settings=settings)
         location = f"[tool.lanorme.{name}] {key}" if key else f"[tool.lanorme.{name}]"
         print(

@@ -28,7 +28,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from lanorme import CheckResult, Status, Violation, register
-from lanorme.discovery import iter_py_files
+from lanorme.sources import Unparseable, iter_modules, unparseable_notice
 
 # Default thresholds. Each is the default of the matching ``FileLimitsCheck``
 # field, so ``[tool.lanorme.file_limits]`` overrides them per project.
@@ -507,45 +507,23 @@ class FileLimitsCheck:
         """Scan all Python files under src/ and enforce size limits."""
         violations: list[Violation] = []
         warnings: list[Violation] = []
-        src_path = Path(src_root)
 
-        for py_file in iter_py_files(src_path):
-            relative = py_file.relative_to(src_path)
-            if _should_exclude(relative=relative):
+        for module in iter_modules(Path(src_root)):
+            if _should_exclude(relative=Path(module.relative)):
                 continue
-
-            relative_file = relative.as_posix()
-
-            try:
-                source = py_file.read_text(encoding="utf-8")
-                tree = ast.parse(source, filename=str(py_file))
-            except (OSError, UnicodeDecodeError, SyntaxError):
-                warnings.append(
-                    Violation(
-                        file=relative_file,
-                        line=0,
-                        rule="SIZE-000: parse error",
-                        message=f"Could not parse {py_file.name} — skipping",
-                        fix="Fix the syntax error first",
-                    ),
-                )
+            if isinstance(module, Unparseable):
+                warnings.append(unparseable_notice(prefix="SIZE", failure=module))
                 continue
 
             found, warned = self._scan_source(
-                tree=tree,
-                source=source,
-                relative_file=relative_file,
+                tree=module.tree,
+                source=module.source,
+                relative_file=module.relative,
             )
             violations.extend(found)
             warnings.extend(warned)
 
-        status = Status.FAIL if violations else (Status.WARN if warnings else Status.PASS)
-        return CheckResult(
-            check=self.name,
-            status=status,
-            violations=violations,
-            warnings=warnings,
-        )
+        return CheckResult.from_findings(check=self.name, violations=violations, warnings=warnings)
 
 
 # Self-register on import.

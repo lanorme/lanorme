@@ -33,8 +33,8 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from lanorme import CheckResult, Status, Violation, register
-from lanorme.discovery import iter_py_files
+from lanorme import CheckResult, Violation, register
+from lanorme.sources import parsed_modules
 
 # Default marker vocabulary. AAA + BDD + a few common aliases.
 _DEFAULT_MARKERS = ("arrange", "act", "assert", "given", "when", "then")
@@ -49,8 +49,6 @@ _SECTION_ALIASES: dict[str, frozenset[str]] = {
 
 # Directories that look like tests but are not (fixtures, factories, conftest).
 _TEST_NON_TEST_STEMS = frozenset({"conftest", "__init__", "fixtures", "factories"})
-
-_SKIP_DIRS = frozenset({".git", ".venv", "venv", "node_modules", "__pycache__", "dist", "build"})
 
 
 def _is_test_file(*, path: Path) -> bool:
@@ -254,37 +252,25 @@ class TestStyleCheck:
 
     def run(self, *, src_root: str) -> CheckResult:
         if not self.enabled:
-            return CheckResult(check=self.name, status=Status.PASS, violations=[])
+            return CheckResult.from_findings(check=self.name)
         marker_re, alias_to_section = self._build_alias_map()
         violations: list[Violation] = []
-        root = Path(src_root)
-        for path in iter_py_files(root):
-            # Match skip directories inside the root only: the absolute path's
-            # ancestors are the user's filesystem, not the project layout.
-            relative = path.relative_to(root)
-            if any(part in _SKIP_DIRS for part in relative.parts):
+        for module in parsed_modules(Path(src_root)):
+            if not _is_test_file(path=module.path):
                 continue
-            if not _is_test_file(path=path):
-                continue
-            try:
-                source = path.read_text(encoding="utf-8")
-                tree = ast.parse(source, filename=str(path))
-            except (OSError, UnicodeDecodeError, SyntaxError):
-                continue
-            relative_file = relative.as_posix()
-            source_lines = source.splitlines()
+            relative_file = module.relative
             violations.extend(
                 self._aaa_violations(
-                    tree=tree,
-                    source_lines=source_lines,
+                    tree=module.tree,
+                    source_lines=module.lines,
                     relative_file=relative_file,
                     marker_re=marker_re,
                     alias_to_section=alias_to_section,
                 )
             )
-            violations.extend(self._dry_violations(tree=tree, relative_file=relative_file))
-        status = Status.FAIL if violations else Status.PASS
-        return CheckResult(check=self.name, status=status, violations=violations)
+            violations.extend(self._dry_violations(tree=module.tree, relative_file=relative_file))
+        return CheckResult.from_findings(check=self.name, violations=violations)
+
 
 
 register(TestStyleCheck())

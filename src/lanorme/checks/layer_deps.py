@@ -59,8 +59,9 @@ import fnmatch
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from lanorme import CheckResult, Status, Violation, register
-from lanorme.discovery import iter_py_files
+from lanorme import CheckResult, Violation, register
+from lanorme.checkconfig import str_list_setting, str_setting
+from lanorme.sources import Unparseable, iter_modules, unparseable_notice
 
 # The architectural layers in a hexagonal backend (default).
 LAYERS = ("domain", "application", "infrastructure", "api")
@@ -95,6 +96,7 @@ RULE_MAP = {
     "infrastructure": "LAYER-003: infrastructure/ can only import from domain/ and application/",
     "api": "LAYER-004: api/ can only import from domain/ and application/",
     "api_composition": "LAYER-005: only the composition root may import from infrastructure/",
+    "custom": "LAYER-007: a configured layer may only import the layers its 'allowed' entry lists",
 }
 
 # Inner layers carry their own rules (LAYER-001..003). Any OTHER layer (api/ or a
@@ -176,9 +178,11 @@ def _suggest_fix(
         ("application", "api"): "Application must not know about the API layer: invert the dependency",
         ("api", "infrastructure"): "Use dependency injection via the composition root instead of direct imports",
     }
+    allowed = ", ".join(f"{name}/" for name in sorted(allowed_imports.get(source_layer, set())))
     return suggestions.get(
         (source_layer, target_layer),
-        f"Remove the import from {target_layer}/: only allowed: {', '.join(sorted(allowed_imports.get(source_layer, set())))}",
+        f"Remove the import from {target_layer}/; {source_layer}/ may import "
+        + (f"only {allowed}" if allowed else "no other layer"),
     )
 
 
@@ -204,6 +208,7 @@ class LayerDepsCheck:
             "LAYER-004: api/ can only import from domain/ and application/",
             "LAYER-005: only the composition root may import from infrastructure/",
             "LAYER-006: a transport layer is not among the configured layers",
+            "LAYER-007: a configured layer may only import the layers its 'allowed' entry lists",
         ]
     )
 
@@ -214,18 +219,20 @@ class LayerDepsCheck:
 
     def configure(self, *, settings: dict[str, object]) -> None:
         """Apply ``[tool.lanorme.layer_deps]`` configuration."""
-        source_root = settings.get("source_root")
-        if isinstance(source_root, str):
-            self.source_root = source_root.replace("\\", "/").strip("/")
-        comp = settings.get("composition_root")
-        if isinstance(comp, list):
-            self.composition_root = tuple(str(pattern) for pattern in comp)
-        layers = settings.get("layers")
-        if isinstance(layers, list) and layers:
-            self.layers = tuple(str(layer) for layer in layers)
-        transport = settings.get("transport_layers")
-        if isinstance(transport, list) and transport:
-            self.transport_layers = tuple(str(layer) for layer in transport)
+        self.source_root = (
+            str_setting(settings=settings, key="source_root", default=self.source_root)
+            .replace("\\", "/")
+            .strip("/")
+        )
+        self.composition_root = str_list_setting(
+            settings=settings, key="composition_root", default=self.composition_root
+        )
+        layers = str_list_setting(settings=settings, key="layers", default=self.layers)
+        if layers:
+            self.layers = layers
+        transport = str_list_setting(settings=settings, key="transport_layers", default=())
+        if transport:
+            self.transport_layers = transport
             self._transport_configured = True
         allowed = settings.get("allowed")
         if isinstance(allowed, dict):
@@ -252,7 +259,7 @@ class LayerDepsCheck:
                 "in application/ports/ instead"
             )
         else:
-            rule = RULE_MAP.get(layer, f"LAYER: {layer}/ cannot import {target_layer}/")
+            rule = RULE_MAP.get(layer, RULE_MAP["custom"])
             fix = _suggest_fix(source_layer=layer, target_layer=target_layer, allowed_imports=self.allowed_imports)
         return Violation(
             file=relative,
@@ -296,32 +303,20 @@ class LayerDepsCheck:
         # which case only a bare layer name (domain.models) is a project import.
         package = self.source_root.rsplit("/", 1)[-1] if self.source_root else ""
 
-        for py_file in iter_py_files(src_path):
-            relative = py_file.relative_to(src_path).as_posix()
+        for module in iter_modules(src_path):
+            relative = module.relative
             try:
-                classify_rel = py_file.relative_to(base).as_posix()
+                classify_rel = module.path.relative_to(base).as_posix()
             except ValueError:
                 continue  # outside the source root → layer-exempt
             layer = _classify_layer(relative=classify_rel, layers=self.layers)
             if layer is None:
                 continue
-
-            try:
-                source = py_file.read_text(encoding="utf-8")
-                tree = ast.parse(source, filename=str(py_file))
-            except (OSError, UnicodeDecodeError, SyntaxError):
-                warnings.append(
-                    Violation(
-                        file=relative,
-                        line=0,
-                        rule="LAYER-000: parse error",
-                        message=f"Could not parse {py_file.name} — skipping",
-                        fix="Fix the syntax error first",
-                    )
-                )
+            if isinstance(module, Unparseable):
+                warnings.append(unparseable_notice(prefix="LAYER", failure=module))
                 continue
 
-            imports = _extract_src_imports(tree=tree, layers=self.layers, package=package)
+            imports = _extract_src_imports(tree=module.tree, layers=self.layers, package=package)
             allowed = self._allowed_for_file(relative=classify_rel, layer=layer)
             # A composition root only counts inside a transport layer, so a file
             # matching a glob in another layer is not silently treated as exempt.
@@ -342,13 +337,7 @@ class LayerDepsCheck:
                     )
                 )
 
-        status = Status.FAIL if violations else (Status.WARN if warnings else Status.PASS)
-        return CheckResult(
-            check=self.name,
-            status=status,
-            violations=violations,
-            warnings=warnings,
-        )
+        return CheckResult.from_findings(check=self.name, violations=violations, warnings=warnings)
 
 
 # Self-register on import.

@@ -12,14 +12,9 @@ import fnmatch
 import re
 from pathlib import Path
 
-from lanorme import CheckResult, Status, Violation
+from lanorme import CheckResult, Violation, rule_code
 
 _CODE_RE = re.compile(r"^([A-Z]+)-\d+")
-
-
-def _rule_code(rule: str) -> str:
-    """Extract the rule code (e.g. 'LAYER-002') from a rule string."""
-    return rule.split(":", 1)[0].strip().split()[0]
 
 
 def _category(code: str) -> str:
@@ -42,7 +37,7 @@ def _matches(*, code: str, patterns: list[str]) -> bool:
 
 
 def _keep(*, rule: str, select: list[str], ignore: list[str]) -> bool:
-    code = _rule_code(rule)
+    code = rule_code(rule)
     selected = not select or _matches(code=code, patterns=select)
     return selected and not _matches(code=code, patterns=ignore)
 
@@ -58,16 +53,10 @@ def _apply_filters(
     """Drop violations/warnings whose rule code is deselected, recompute status."""
     if not select and not ignore:
         return results
-
-    filtered: list[CheckResult] = []
-    for result in results:
-        violations = [v for v in result.violations if _keep(rule=v.rule, select=select, ignore=ignore)]
-        warnings = [w for w in result.warnings if _keep(rule=w.rule, select=select, ignore=ignore)]
-        status = Status.FAIL if violations else (Status.WARN if warnings else Status.PASS)
-        filtered.append(
-            CheckResult(check=result.check, status=status, violations=violations, warnings=warnings)
-        )
-    return filtered
+    return [
+        result.narrow(lambda finding: _keep(rule=finding.rule, select=select, ignore=ignore))
+        for result in results
+    ]
 
 
 def _apply_target_filter(
@@ -87,18 +76,12 @@ def _apply_target_filter(
     dirs = {t.resolve() for t in targets if t.is_dir()}
 
     def should_keep(finding: Violation) -> bool:
+        if not finding.file:
+            return True  # a RUN-000 crash notice belongs to no path; never drop it
         absolute = (scan_root / finding.file).resolve()
         return absolute in files or any(absolute == d or d in absolute.parents for d in dirs)
 
-    filtered: list[CheckResult] = []
-    for result in results:
-        violations = [v for v in result.violations if should_keep(v)]
-        warnings = [w for w in result.warnings if should_keep(w)]
-        status = Status.FAIL if violations else (Status.WARN if warnings else Status.PASS)
-        filtered.append(
-            CheckResult(check=result.check, status=status, violations=violations, warnings=warnings)
-        )
-    return filtered
+    return [result.narrow(should_keep) for result in results]
 
 
 def _path_excluded(*, path: str, patterns: list[str]) -> bool:
@@ -110,21 +93,15 @@ def _apply_excludes(*, results: list[CheckResult], exclude: list[str]) -> list[C
     """Drop violations/warnings whose file path matches an exclude glob."""
     if not exclude:
         return results
-
-    filtered: list[CheckResult] = []
-    for result in results:
-        violations = [v for v in result.violations if not _path_excluded(path=v.file, patterns=exclude)]
-        warnings = [w for w in result.warnings if not _path_excluded(path=w.file, patterns=exclude)]
-        status = Status.FAIL if violations else (Status.WARN if warnings else Status.PASS)
-        filtered.append(
-            CheckResult(check=result.check, status=status, violations=violations, warnings=warnings)
-        )
-    return filtered
+    return [
+        result.narrow(lambda finding: not _path_excluded(path=finding.file, patterns=exclude))
+        for result in results
+    ]
 
 
 def _per_file_silences(*, file: str, rule: str, table: dict[str, list[str]]) -> bool:
     """True if *rule* (full code or category) is silenced for *file* by *table*."""
-    code = _rule_code(rule)
+    code = rule_code(rule)
     normalised = file.replace("\\", "/")
     for pattern, codes in table.items():
         if fnmatch.fnmatch(normalised, pattern) and _matches(code=code, patterns=codes):
@@ -138,20 +115,12 @@ def _apply_per_file_ignores(
     """Drop findings whose ``(file, rule)`` pair is silenced by the per-file-ignores table."""
     if not table:
         return results
-
-    filtered: list[CheckResult] = []
-    for result in results:
-        violations = [
-            v for v in result.violations if not _per_file_silences(file=v.file, rule=v.rule, table=table)
-        ]
-        warnings = [
-            w for w in result.warnings if not _per_file_silences(file=w.file, rule=w.rule, table=table)
-        ]
-        status = Status.FAIL if violations else (Status.WARN if warnings else Status.PASS)
-        filtered.append(
-            CheckResult(check=result.check, status=status, violations=violations, warnings=warnings)
+    return [
+        result.narrow(
+            lambda finding: not _per_file_silences(file=finding.file, rule=finding.rule, table=table)
         )
-    return filtered
+        for result in results
+    ]
 
 
 # --------------------------------------------------------------------------- #
@@ -180,7 +149,7 @@ def _directive_silences(*, pattern: re.Pattern[str], line: str, rule: str) -> bo
     if match.group(1) is None:
         return True
     codes = [c.strip() for c in match.group(1).split(",") if c.strip()]
-    return _matches(code=_rule_code(rule), patterns=codes)
+    return _matches(code=rule_code(rule), patterns=codes)
 
 
 # Categories no inline directive may silence. A budget on suppressions that an
@@ -191,7 +160,7 @@ _UNSUPPRESSABLE = frozenset({"SUPPRESS"})
 
 def _line_silences(*, line: str, rule: str) -> bool:
     """True if a ``# noqa`` or ``# lanorme: ignore`` on *line* covers *rule*."""
-    if _category(_rule_code(rule)) in _UNSUPPRESSABLE:
+    if _category(rule_code(rule)) in _UNSUPPRESSABLE:
         return False
     return _directive_silences(pattern=_NOQA_RE, line=line, rule=rule) or _directive_silences(
         pattern=_IGNORE_RE, line=line, rule=rule
@@ -224,20 +193,7 @@ def _apply_inline_ignores(*, results: list[CheckResult], project_root: Path) -> 
         )
         return not _line_silences(line=line, rule=violation.rule)
 
-    filtered: list[CheckResult] = []
-    for result in results:
-        violations = [v for v in result.violations if should_keep(v)]
-        warnings = [w for w in result.warnings if should_keep(w)]
-        status = Status.FAIL if violations else (Status.WARN if warnings else Status.PASS)
-        filtered.append(
-            CheckResult(
-                check=result.check,
-                status=status,
-                violations=violations,
-                warnings=warnings,
-            )
-        )
-    return filtered
+    return [result.narrow(should_keep) for result in results]
 
 
 # --------------------------------------------------------------------------- #
@@ -262,7 +218,7 @@ def _apply_promotions(*, results: list[CheckResult], promote: list[str]) -> list
         escalated: list[Violation] = []
         kept: list[Violation] = []
         for warning in result.warnings:
-            code = _rule_code(warning.rule)
+            code = rule_code(warning.rule)
             # ``-000`` codes are skip/parse-error notices ("could not analyse,
             # skipping"), not findings, so promotion (including ``ALL``) leaves
             # them as warnings rather than failing the build on a non-issue.
@@ -270,14 +226,9 @@ def _apply_promotions(*, results: list[CheckResult], promote: list[str]) -> list
                 escalated.append(warning)
             else:
                 kept.append(warning)
-        violations = [*result.violations, *escalated]
-        status = Status.FAIL if violations else (Status.WARN if kept else Status.PASS)
         promoted_results.append(
-            CheckResult(
-                check=result.check,
-                status=status,
-                violations=violations,
-                warnings=kept,
+            CheckResult.from_findings(
+                check=result.check, violations=[*result.violations, *escalated], warnings=kept
             )
         )
     return promoted_results

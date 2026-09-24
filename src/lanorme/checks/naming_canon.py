@@ -29,7 +29,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from lanorme import CheckResult, Status, Violation, register
+from lanorme import CheckResult, Violation, register
 from lanorme.checks.naming_shapes import (
     FUNCTION_TYPES,
     Definition,
@@ -239,8 +239,8 @@ class NamingCanonCheck:
             for definition in iter_definitions(tree=tree):
                 warnings.extend(_findings(definition=definition, file=relative, settings=settings))
         warnings.sort(key=lambda warning: (warning.file, warning.line))
-        status = Status.WARN if warnings else Status.PASS
-        return CheckResult(check=self.name, status=status, warnings=warnings)
+        return CheckResult.from_findings(check=self.name, warnings=warnings)
+
 
 
 register(NamingCanonCheck())

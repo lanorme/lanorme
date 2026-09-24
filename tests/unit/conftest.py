@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from lanorme import discovery, get_check
+from lanorme import discovery, get_check, sources
 from lanorme.checks.layer_deps import TRANSPORT_LAYERS
 
 
@@ -31,8 +31,10 @@ def _reset_global_state(monkeypatch):
     """
     monkeypatch.delenv("GITHUB_ACTIONS", raising=False)
     discovery.set_excludes(())
+    sources.clear_cache()
     yield
     discovery.set_excludes(())
+    sources.clear_cache()
     for name in ("layer_deps", "port_coverage", "security_patterns"):
         check = get_check(name)
         if check is not None:

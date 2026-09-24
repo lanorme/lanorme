@@ -24,7 +24,7 @@ from lanorme.checks.naming_words import (
     HOOK_SUFFIXES,
     PROTOCOL_NAMES,
 )
-from lanorme.discovery import iter_py_files
+from lanorme.sources import parsed_modules
 
 FUNCTION_TYPES = (ast.FunctionDef, ast.AsyncFunctionDef)
 
@@ -101,18 +101,13 @@ def iter_definitions(*, tree: ast.Module) -> Iterator[Definition]:
 def iter_modules(*, root: Path) -> Iterator[tuple[str, ast.Module]]:
     """Every parseable module under *root* with its root-relative posix path.
 
-    Parsing from bytes honours a BOM and a coding cookie. A file the parser
-    rejects, including one that overflows it, is skipped rather than raised.
+    Generated migration trees are skipped; a file the parser rejects is skipped
+    by :func:`parsed_modules` rather than raised.
     """
-    for path in iter_py_files(root):
-        relative = path.relative_to(root)
-        if any(part in _SKIP_DIRS for part in relative.parts):
+    for module in parsed_modules(root):
+        if any(part in _SKIP_DIRS for part in module.relative.split("/")):
             continue
-        try:
-            tree = ast.parse(path.read_bytes(), filename=str(path))
-        except (OSError, SyntaxError, ValueError, RecursionError, MemoryError):
-            continue
-        yield relative.as_posix(), tree
+        yield module.relative, module.tree
 
 
 def decorator_leaves(*, node: ast.FunctionDef | ast.AsyncFunctionDef) -> set[str]:

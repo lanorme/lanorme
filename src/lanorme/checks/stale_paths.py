@@ -28,8 +28,9 @@ import tokenize
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from lanorme import CheckResult, Status, Violation, register
-from lanorme.discovery import iter_py_files
+from lanorme import CheckResult, Violation, register
+from lanorme.checkconfig import str_list_setting
+from lanorme.sources import parsed_modules
 
 # Default is empty → the check is inert until configured.
 _STALE_TOKENS: tuple[str, ...] = ()
@@ -94,16 +95,11 @@ def _iter_comments(source: str) -> list[tuple[int, str]]:
 
 def _scan_file(
     *,
-    py_file: Path,
+    source: str,
+    tree: ast.Module,
     relative_file: str,
     patterns: list[re.Pattern[str]],
 ) -> list[Violation]:
-    try:
-        source = py_file.read_text(encoding="utf-8")
-        tree = ast.parse(source, filename=str(py_file))
-    except (OSError, UnicodeDecodeError, SyntaxError):
-        return []
-
     violations: list[Violation] = []
 
     # Inline comments (tokenize-extracted, so a '#' in a string never counts).
@@ -155,27 +151,30 @@ class StalePathsCheck:
         ]
     )
 
-    def configure(self, *, settings: dict[str, list[str]]) -> None:
+    def configure(self, *, settings: dict[str, object]) -> None:
         """Apply ``[tool.lanorme.stale_paths]`` configuration."""
-        self.tokens = tuple(settings.get("tokens", []))
+        self.tokens = str_list_setting(settings=settings, key="tokens")
 
     def run(self, *, src_root: str) -> CheckResult:
         violations: list[Violation] = []
         patterns = _compile_patterns(self.tokens)
         if not patterns:
-            return CheckResult(check=self.name, status=Status.PASS, violations=[])
+            return CheckResult.from_findings(check=self.name)
 
-        src_path = Path(src_root)
-        for py_file in iter_py_files(src_path):
-            relative_file = py_file.relative_to(src_path).as_posix()
-            if _is_exempt(relative_path=relative_file):
+        for module in parsed_modules(Path(src_root)):
+            if _is_exempt(relative_path=module.relative):
                 continue
             violations.extend(
-                _scan_file(py_file=py_file, relative_file=relative_file, patterns=patterns)
+                _scan_file(
+                    source=module.source,
+                    tree=module.tree,
+                    relative_file=module.relative,
+                    patterns=patterns,
+                )
             )
 
-        status = Status.FAIL if violations else Status.PASS
-        return CheckResult(check=self.name, status=status, violations=violations)
+        return CheckResult.from_findings(check=self.name, violations=violations)
+
 
 
 register(StalePathsCheck())

@@ -41,8 +41,8 @@ import ast
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from lanorme import CheckResult, Status, Violation, register
-from lanorme.discovery import iter_py_files
+from lanorme import CheckResult, Violation, register
+from lanorme.sources import parsed_modules
 
 _ATTR_BUILTINS = frozenset({"getattr", "hasattr", "setattr", "delattr"})
 
@@ -162,26 +162,19 @@ class AttributeAccessCheck:
 
     def run(self, *, src_root: str) -> CheckResult:
         if not self.enabled:
-            return CheckResult(check=self.name, status=Status.PASS, violations=[], warnings=[])
+            return CheckResult.from_findings(check=self.name)
 
         warnings: list[Violation] = []
-        root = Path(src_root)
-        for path in iter_py_files(root):
-            relative = path.relative_to(root).as_posix()
-            if _is_exempt_file(relative=relative):
+        for module in parsed_modules(Path(src_root)):
+            if _is_exempt_file(relative=module.relative):
                 continue
-            try:
-                tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
-            except (OSError, UnicodeDecodeError, SyntaxError):
-                continue
-            for node in ast.walk(tree):
+            for node in ast.walk(module.tree):
                 if isinstance(node, ast.Call):
-                    warning = self._call_warning(call=node, relative=relative)
+                    warning = self._call_warning(call=node, relative=module.relative)
                     if warning is not None:
                         warnings.append(warning)
 
-        status = Status.WARN if warnings else Status.PASS
-        return CheckResult(check=self.name, status=status, violations=[], warnings=warnings)
+        return CheckResult.from_findings(check=self.name, warnings=warnings)
 
 
 # Self-register on import.

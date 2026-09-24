@@ -22,8 +22,9 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from lanorme import CheckResult, Status, Violation, register
-from lanorme.discovery import iter_py_files
+from lanorme import CheckResult, Violation, register
+from lanorme.checkconfig import str_setting
+from lanorme.sources import TOO_DEEP, parsed_modules, skip_notice
 
 # HTTP methods that mutate data, these MUST have auth.
 MUTATION_METHODS = {"post", "put", "patch", "delete"}
@@ -379,9 +380,11 @@ class SecurityPatternsCheck:
 
     def configure(self, *, settings: dict[str, object]) -> None:
         """Apply ``[tool.lanorme.security_patterns]`` configuration."""
-        source_root = settings.get("source_root")
-        if isinstance(source_root, str):
-            self.source_root = source_root.replace("\\", "/").strip("/")
+        self.source_root = (
+            str_setting(settings=settings, key="source_root", default=self.source_root)
+            .replace("\\", "/")
+            .strip("/")
+        )
 
     def _layer_relative(self, *, relative_file: str) -> str:
         """Re-anchor *relative_file* at the architectural source root.
@@ -402,15 +405,12 @@ class SecurityPatternsCheck:
         """Scan all Python files under src/ for security violations."""
         violations: list[Violation] = []
         warnings: list[Violation] = []
-        src_path = Path(src_root)
 
-        for py_file in iter_py_files(src_path):
-            relative_file = py_file.relative_to(src_path).as_posix()
+        for module in parsed_modules(Path(src_root)):
+            relative_file = module.relative
+            tree = module.tree
 
             try:
-                source = py_file.read_text(encoding="utf-8")
-                tree = ast.parse(source, filename=str(py_file))
-
                 # AUTHN-001: Only check endpoint files (api/ layer).
                 file_violations: list[Violation] = []
                 if self._layer_relative(relative_file=relative_file).startswith("api/"):
@@ -420,32 +420,21 @@ class SecurityPatternsCheck:
 
                 # SQL-001: Check all files for raw SQL (except alembic).
                 file_violations.extend(_check_raw_sql(tree=tree, relative_file=relative_file))
-            except (OSError, UnicodeDecodeError, SyntaxError):
-                continue
             except RecursionError:
                 # A long ``"a" + "a" + ...`` chain makes _sql_from_binop and
                 # _sql_string_from recurse on BinOp.left/.right until the stack
                 # overflows. Skip the file rather than crash the whole run.
                 warnings.append(
-                    Violation(
-                        file=relative_file,
-                        line=0,
-                        rule="SQL-000: too deeply nested",
-                        message=f"{py_file.name} is too deeply nested to analyse — skipping",
-                        fix="No action needed; this file is exempt from SQL-001",
-                    ),
+                    skip_notice(
+                        prefix="SQL", file=relative_file, name=module.path.name, reason=TOO_DEEP
+                    )
                 )
                 continue
 
             violations.extend(file_violations)
 
-        status = Status.FAIL if violations else (Status.WARN if warnings else Status.PASS)
-        return CheckResult(
-            check=self.name,
-            status=status,
-            violations=violations,
-            warnings=warnings,
-        )
+        return CheckResult.from_findings(check=self.name, violations=violations, warnings=warnings)
+
 
 
 # Self-register on import.

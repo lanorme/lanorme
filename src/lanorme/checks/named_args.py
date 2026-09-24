@@ -21,8 +21,8 @@ import ast
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from lanorme import CheckResult, Status, Violation, register
-from lanorme.discovery import iter_py_files
+from lanorme import CheckResult, Violation, register
+from lanorme.sources import Unparseable, iter_modules, unparseable_notice
 
 # Parameters that are implicit receiver, never counted.
 SELF_CLS_NAMES = {"self", "cls"}
@@ -186,36 +186,24 @@ class NamedArgsCheck:
     def run(self, *, src_root: str) -> CheckResult:
         """Scan all Python files under src/ and flag functions missing bare ``*``."""
         if not self.enabled:
-            return CheckResult(check=self.name, status=Status.PASS, violations=[])
+            return CheckResult.from_findings(check=self.name)
         violations: list[Violation] = []
         warnings: list[Violation] = []
-        src_path = Path(src_root)
 
-        for py_file in iter_py_files(src_path):
-            relative_file = py_file.relative_to(src_path).as_posix()
+        for module in iter_modules(Path(src_root)):
+            relative_file = module.relative
 
             # Skip test files entirely.
             if _is_test_file(file_path=relative_file):
                 continue
 
-            try:
-                source = py_file.read_text(encoding="utf-8")
-                tree = ast.parse(source, filename=str(py_file))
-            except (OSError, UnicodeDecodeError, SyntaxError):
-                warnings.append(
-                    Violation(
-                        file=relative_file,
-                        line=0,
-                        rule="KWARG-001: parse error",
-                        message=f"Could not parse {py_file.name} — skipping",
-                        fix="Fix the syntax error first",
-                    ),
-                )
+            if isinstance(module, Unparseable):
+                warnings.append(unparseable_notice(prefix="KWARG", failure=module))
                 continue
 
-            source_lines = source.splitlines()
+            source_lines = module.lines
 
-            for node in ast.walk(tree):
+            for node in ast.walk(module.tree):
                 if not isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
                     continue
 
@@ -227,13 +215,7 @@ class NamedArgsCheck:
                 if violation:
                     violations.append(violation)
 
-        status = Status.FAIL if violations else (Status.WARN if warnings else Status.PASS)
-        return CheckResult(
-            check=self.name,
-            status=status,
-            violations=violations,
-            warnings=warnings,
-        )
+        return CheckResult.from_findings(check=self.name, violations=violations, warnings=warnings)
 
 
 # Self-register on import.

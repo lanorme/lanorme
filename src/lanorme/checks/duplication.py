@@ -19,13 +19,12 @@ Run:
 from __future__ import annotations
 
 import ast
-import copy
 from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from lanorme import CheckResult, Status, Violation, register
-from lanorme.discovery import iter_py_files
+from lanorme import CheckResult, Violation, register
+from lanorme.sources import TOO_DEEP, Unparseable, iter_modules, skip_notice, unparseable_notice
 
 # Minimum number of statements in a function body to consider for duplication.
 MIN_BODY_STATEMENTS = 5
@@ -49,68 +48,56 @@ def _should_exclude(*, relative: Path) -> bool:
     return any(part in EXCLUDED_DIR_PARTS for part in relative.parts)
 
 
-class _AstNormalizer(ast.NodeTransformer):
-    """Replace variable names and string literals with placeholders.
+# Fields whose value is a name the normaliser replaces with a placeholder.
+_NAME_FIELDS: dict[type[ast.AST], str] = {
+    ast.Name: "id",
+    ast.arg: "arg",
+    ast.FunctionDef: "name",
+    ast.AsyncFunctionDef: "name",
+}
 
-    This makes structurally identical functions match even when they use
-    different variable names or string constants.
+
+class _NormalisedDump:
+    """Render a body as a dump with names and string literals abstracted away.
+
+    Structurally identical functions produce the same string even when they
+    use different variable names or string constants. Names are replaced by
+    sequential placeholders in first-seen order and every string literal by
+    one token. The tree is read, never copied or mutated: it is shared with
+    every other check this run.
     """
 
     def __init__(self) -> None:
-        super().__init__()
         self._name_map: dict[str, str] = {}
-        self._name_counter: int = 0
 
-    def _normalize_name(self, *, name: str) -> str:
-        """Map a variable name to a sequential placeholder."""
+    def _placeholder(self, name: str) -> str:
+        """Map a name to a sequential placeholder."""
         if name not in self._name_map:
-            self._name_map[name] = f"_var{self._name_counter}"
-            self._name_counter += 1
+            self._name_map[name] = f"_var{len(self._name_map)}"
         return self._name_map[name]
 
-    def visit_Name(self, node: ast.Name) -> ast.Name:  # noqa: N802
-        """Normalize variable references."""
-        node.id = self._normalize_name(name=node.id)
-        self.generic_visit(node)
-        return node
-
-    def visit_arg(self, node: ast.arg) -> ast.arg:
-        """Normalize function argument names."""
-        node.arg = self._normalize_name(name=node.arg)
-        self.generic_visit(node)
-        return node
-
-    def visit_Constant(self, node: ast.Constant) -> ast.Constant:  # noqa: N802
-        """Replace string literals with a placeholder."""
-        if isinstance(node.value, str):
-            node.value = "_STR_"
-        return node
-
-    def visit_FunctionDef(self, node: ast.FunctionDef) -> ast.FunctionDef:  # noqa: N802
-        """Normalize the function name itself."""
-        node.name = self._normalize_name(name=node.name)
-        self.generic_visit(node)
-        return node
-
-    def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> ast.AsyncFunctionDef:  # noqa: N802
-        """Normalize async function name."""
-        node.name = self._normalize_name(name=node.name)
-        self.generic_visit(node)
-        return node
+    def render(self, value: object) -> str:
+        """The normalised dump of a node, a list of nodes, or a leaf value."""
+        if isinstance(value, ast.AST):
+            name_field = _NAME_FIELDS.get(type(value))
+            parts: list[str] = []
+            for field_name, child in ast.iter_fields(value):
+                if field_name == name_field:
+                    rendered = self._placeholder(str(child))
+                elif isinstance(value, ast.Constant) and isinstance(child, str):
+                    rendered = "_STR_"
+                else:
+                    rendered = self.render(child)
+                parts.append(f"{field_name}={rendered}")
+            return f"{type(value).__name__}({', '.join(parts)})"
+        if isinstance(value, list):
+            return "[" + ", ".join(self.render(item) for item in value) + "]"
+        return repr(value)
 
 
 def _normalize_function_body(*, func_node: ast.FunctionDef | ast.AsyncFunctionDef) -> str:
-    """Return a normalized AST dump of a function's body for comparison.
-
-    Creates a deep copy to avoid mutating the original tree, then strips
-    variable names and string literals so structurally identical functions
-    produce the same dump string.
-    """
-    body_copy = copy.deepcopy(func_node.body)
-    wrapper = ast.Module(body=body_copy, type_ignores=[])
-    normalizer = _AstNormalizer()
-    normalized = normalizer.visit(wrapper)
-    return ast.dump(normalized)
+    """Return a normalized dump of a function's body for comparison."""
+    return _NormalisedDump().render(func_node.body)
 
 
 @dataclass(frozen=True)
@@ -199,44 +186,28 @@ class DuplicationCheck:
     def run(self, *, src_root: str) -> CheckResult:
         """Scan all Python files under src/ and detect near-duplicate functions."""
         warnings: list[Violation] = []
-        src_path = Path(src_root)
 
         # Map normalized body hash -> list of locations.
         body_groups: dict[str, list[_FunctionLocation]] = defaultdict(list)
 
-        for py_file in iter_py_files(src_path):
-            relative = py_file.relative_to(src_path)
-            if _should_exclude(relative=relative):
+        for module in iter_modules(Path(src_root)):
+            if _should_exclude(relative=Path(module.relative)):
+                continue
+            if isinstance(module, Unparseable):
+                warnings.append(unparseable_notice(prefix="DRY", failure=module))
                 continue
 
-            relative_file = relative.as_posix()
+            relative_file = module.relative
 
             try:
-                source = py_file.read_text(encoding="utf-8")
-                tree = ast.parse(source, filename=str(py_file))
-                collected = _collect_functions(tree=tree, relative_file=relative_file)
-            except (OSError, UnicodeDecodeError, SyntaxError):
-                warnings.append(
-                    Violation(
-                        file=relative_file,
-                        line=0,
-                        rule="DRY-000: parse error",
-                        message=f"Could not parse {py_file.name} — skipping",
-                        fix="Fix the syntax error first",
-                    ),
-                )
-                continue
+                collected = _collect_functions(tree=module.tree, relative_file=relative_file)
             except RecursionError:
                 # A deeply nested AST overflows the deepcopy used to normalise a
                 # body. Skip the file rather than crash the whole run.
                 warnings.append(
-                    Violation(
-                        file=relative_file,
-                        line=0,
-                        rule="DRY-000: too deeply nested",
-                        message=f"{py_file.name} is too deeply nested to normalise — skipping",
-                        fix="No action needed; this file is exempt from DRY-001",
-                    ),
+                    skip_notice(
+                        prefix="DRY", file=relative_file, name=module.path.name, reason=TOO_DEEP
+                    )
                 )
                 continue
 
@@ -245,13 +216,7 @@ class DuplicationCheck:
 
         violations = _build_violations(groups=body_groups)
 
-        status = Status.FAIL if violations else (Status.WARN if warnings else Status.PASS)
-        return CheckResult(
-            check=self.name,
-            status=status,
-            violations=violations,
-            warnings=warnings,
-        )
+        return CheckResult.from_findings(check=self.name, violations=violations, warnings=warnings)
 
 
 # Self-register on import.

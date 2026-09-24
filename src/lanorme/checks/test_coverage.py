@@ -24,7 +24,7 @@ import ast
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from lanorme import CheckResult, Status, Violation, register
+from lanorme import CheckResult, Violation, register
 
 
 # ---------------------------------------------------------------------------
@@ -248,12 +248,8 @@ class TestCoverageCheck:
         coverage_warnings = _check_module_coverage(
             src_root=src_root, backend_root=backend_root, test_roots=self.test_roots
         )
-        status = Status.WARN if coverage_warnings else Status.PASS
-        return CheckResult(
-            check=self.name,
-            status=status,
-            warnings=coverage_warnings,
-        )
+        return CheckResult.from_findings(check=self.name, warnings=coverage_warnings)
+
 
 
 register(TestCoverageCheck())

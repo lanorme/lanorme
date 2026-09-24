@@ -44,7 +44,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from lanorme import CheckResult, Status, Violation, register
-from lanorme.discovery import iter_py_files
+from lanorme.sources import TOO_DEEP, Unparseable, iter_modules, skip_notice, unparseable_notice
 
 _BARE_CONTAINERS = frozenset(
     {"dict", "list", "tuple", "set", "frozenset", "Dict", "List", "Tuple", "Set", "FrozenSet"}
@@ -336,6 +336,18 @@ def _check_function(
     return violations, warnings
 
 
+def _scan_module(*, tree: ast.AST, relative_file: str) -> tuple[list[Violation], list[Violation]]:
+    """TYPE-001..004 over every function in one parsed module."""
+    violations: list[Violation] = []
+    warnings: list[Violation] = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
+            found, warned = _check_function(func=node, relative_file=relative_file)
+            violations.extend(found)
+            warnings.extend(warned)
+    return violations, warnings
+
+
 @dataclass
 class StrongTypesCheck:
     """Enforces strong typing at signature boundaries, no weakly-typed dicts."""
@@ -354,56 +366,29 @@ class StrongTypesCheck:
     def run(self, *, src_root: str) -> CheckResult:
         violations: list[Violation] = []
         warnings: list[Violation] = []
-        src_path = Path(src_root)
 
-        for py_file in iter_py_files(src_path):
-            relative_file = py_file.relative_to(src_path).as_posix()
-            if _is_exempt_path(relative_path=relative_file):
+        for module in iter_modules(Path(src_root)):
+            if _is_exempt_path(relative_path=module.relative):
                 continue
-
+            if isinstance(module, Unparseable):
+                warnings.append(unparseable_notice(prefix="TYPE", failure=module))
+                continue
             try:
-                source = py_file.read_text(encoding="utf-8")
-                tree = ast.parse(source, filename=str(py_file))
-                for node in ast.walk(tree):
-                    if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
-                        func_violations, func_warnings = _check_function(
-                            func=node, relative_file=relative_file
-                        )
-                        violations.extend(func_violations)
-                        warnings.extend(func_warnings)
-            except (OSError, UnicodeDecodeError, SyntaxError):
-                warnings.append(
-                    Violation(
-                        file=relative_file,
-                        line=0,
-                        rule="TYPE-000: parse error",
-                        message=f"Could not parse {py_file.name} — skipping",
-                        fix="Fix the syntax error first",
-                    )
-                )
-                continue
+                found, warned = _scan_module(tree=module.tree, relative_file=module.relative)
             except RecursionError:
                 # A deeply nested annotation (e.g. a union with thousands of
                 # terms) overflows the recursive annotation walk. Skip the file
                 # rather than crash the whole run.
                 warnings.append(
-                    Violation(
-                        file=relative_file,
-                        line=0,
-                        rule="TYPE-000: too deeply nested",
-                        message=f"{py_file.name} is too deeply nested to analyse — skipping",
-                        fix="No action needed; this file is exempt from TYPE-001..003",
+                    skip_notice(
+                        prefix="TYPE", file=module.relative, name=module.path.name, reason=TOO_DEEP
                     )
                 )
                 continue
+            violations.extend(found)
+            warnings.extend(warned)
 
-        status = Status.FAIL if violations else (Status.WARN if warnings else Status.PASS)
-        return CheckResult(
-            check=self.name,
-            status=status,
-            violations=violations,
-            warnings=warnings,
-        )
+        return CheckResult.from_findings(check=self.name, violations=violations, warnings=warnings)
 
 
 register(StrongTypesCheck())

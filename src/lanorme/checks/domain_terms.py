@@ -28,8 +28,8 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from lanorme import CheckResult, Status, Violation, register
-from lanorme.discovery import iter_py_files
+from lanorme import CheckResult, Violation, register
+from lanorme.sources import Unparseable, iter_modules, unparseable_notice
 
 # Each rule maps forbidden terms to a canonical replacement. Empty by default →
 # the check is inert until a project supplies its own vocabulary.
@@ -175,57 +175,55 @@ class DomainTermsCheck:
         ]
     )
 
-    def configure(self, *, settings: dict[str, list[dict[str, str | list[str]]]]) -> None:
-        """Apply ``[tool.lanorme.domain_terms]`` configuration."""
-        self.term_rules = list(settings.get("rules", []))
+    def configure(self, *, settings: dict[str, object]) -> None:
+        """Apply ``[tool.lanorme.domain_terms]`` configuration.
+
+        Each ``[[rules]]`` entry needs a string ``id`` and ``canonical`` and a
+        list of ``forbidden`` strings; anything else is refused here, not at
+        run time.
+        """
+        rules = settings.get("rules", [])
+        if not isinstance(rules, list):
+            raise TypeError(f"'rules' must be a list of tables, got {type(rules).__name__}")
+        for rule in rules:
+            if not isinstance(rule, dict):
+                raise TypeError(f"each 'rules' entry must be a table, got {type(rule).__name__}")
+            for key in ("id", "canonical"):
+                if not isinstance(rule.get(key), str):
+                    raise TypeError(f"'rules' entry {rule.get('id', '?')!r} needs a string '{key}'")
+            forbidden = rule.get("forbidden", [])
+            if not isinstance(forbidden, list) or not all(isinstance(t, str) for t in forbidden):
+                raise TypeError(f"'rules' entry {rule['id']!r}: 'forbidden' must be a list of strings")
+        self.term_rules = list(rules)
 
     def run(self, *, src_root: str) -> CheckResult:
         violations: list[Violation] = []
         warnings: list[Violation] = []
         compiled = _compile_rules(self.term_rules)
         if not compiled:
-            return CheckResult(check=self.name, status=Status.PASS, violations=[])
+            return CheckResult.from_findings(check=self.name)
 
-        src_path = Path(src_root)
-        for py_file in iter_py_files(src_path):
-            relative_file = py_file.relative_to(src_path).as_posix()
+        for module in iter_modules(Path(src_root)):
+            relative_file = module.relative
             if _is_exempt_path(relative_path=relative_file):
                 continue
-
-            try:
-                source = py_file.read_text(encoding="utf-8")
-                tree = ast.parse(source, filename=str(py_file))
-            except (OSError, UnicodeDecodeError, SyntaxError):
-                warnings.append(
-                    Violation(
-                        file=relative_file,
-                        line=0,
-                        rule="TERM-000: parse error",
-                        message=f"Could not parse {py_file.name} — skipping",
-                        fix="Fix the syntax error first",
-                    ),
-                )
+            if isinstance(module, Unparseable):
+                warnings.append(unparseable_notice(prefix="TERM", failure=module))
                 continue
 
             violations.extend(
-                _scan_identifiers(tree=tree, relative_file=relative_file, compiled=compiled),
+                _scan_identifiers(tree=module.tree, relative_file=relative_file, compiled=compiled),
             )
             violations.extend(
                 _scan_comments_and_docstrings(
-                    source_lines=source.splitlines(),
-                    tree=tree,
+                    source_lines=module.lines,
+                    tree=module.tree,
                     relative_file=relative_file,
                     compiled=compiled,
                 ),
             )
 
-        status = Status.FAIL if violations else (Status.WARN if warnings else Status.PASS)
-        return CheckResult(
-            check=self.name,
-            status=status,
-            violations=violations,
-            warnings=warnings,
-        )
+        return CheckResult.from_findings(check=self.name, violations=violations, warnings=warnings)
 
 
 register(DomainTermsCheck())

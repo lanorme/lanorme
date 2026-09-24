@@ -7,6 +7,10 @@ Inspects every registered check (excluding itself) and verifies:
     META-004  When run, check returns a ``CheckResult`` with the correct ``check`` name
     META-005  All violations in the result have non-empty ``file``, ``rule``, ``message``, ``fix``
 
+In a full run the runner hands this check the results the other checks already
+produced (the ``ResultAuditor`` protocol), so nothing is run twice. Standalone
+(``--check=meta``) it runs the other checks itself.
+
 Run:
     lanorme check . --check=meta
 """
@@ -15,7 +19,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from lanorme import CheckResult, Status, Violation, get_all_checks, register
+from lanorme import CheckResult, Violation, get_all_checks, register, run_check
 
 
 def _validate_name(*, check_name: str) -> Violation | None:
@@ -123,69 +127,54 @@ class MetaCheck:
     )
 
     def run(self, *, src_root: str) -> CheckResult:
-        """Inspect all registered checks (excluding self) for structural correctness."""
-        violations: list[Violation] = []
-        all_checks = get_all_checks()
+        """Standalone entry: run every other check, then audit what they returned."""
+        results = {
+            check_name: run_check(check, src_root=src_root)
+            for check_name, check in get_all_checks().items()
+            if check_name != self.name
+        }
+        return self.audit(results=results)
 
-        for check_name, check in sorted(all_checks.items()):
-            # Skip self to avoid infinite recursion.
+    def audit(self, *, results: dict[str, CheckResult]) -> CheckResult:
+        """Inspect every registered check (excluding self) and its result in *results*."""
+        violations: list[Violation] = []
+        for check_name, check in sorted(get_all_checks().items()):
+            # Skip self to avoid auditing our own (not yet produced) result.
             if check_name == self.name:
                 continue
+            violations.extend(_static_violations(check=check))
+            result = results.get(check_name)
+            if result is not None:
+                violations.extend(_result_violations(check_name=check.name, result=result))
+        return CheckResult.from_findings(check=self.name, violations=violations)
 
-            # META-001: non-empty name.
-            name_violation = _validate_name(check_name=check.name)
-            if name_violation:
-                violations.append(name_violation)
 
-            # META-002: non-empty description.
-            desc_violation = _validate_description(
-                check_name=check.name,
-                description=check.description,
+def _static_violations(*, check: object) -> list[Violation]:
+    """META-001..003: the declarations a check must carry."""
+    found: list[Violation] = []
+    name = getattr(check, "name", "")
+    for violation in (
+        _validate_name(check_name=name),
+        _validate_description(check_name=name, description=getattr(check, "description", "")),
+        _validate_rules(check_name=name, rules=getattr(check, "rules", [])),
+    ):
+        if violation:
+            found.append(violation)
+    return found
+
+
+def _result_violations(*, check_name: str, result: CheckResult) -> list[Violation]:
+    """META-004..005: the shape of what a check returned."""
+    found: list[Violation] = []
+    mismatch = _validate_result_check_name(check_name=check_name, result=result)
+    if mismatch:
+        found.append(mismatch)
+    for source, findings in (("violation", result.violations), ("warning", result.warnings)):
+        for finding in findings:
+            found.extend(
+                _validate_violation_fields(check_name=check_name, violation=finding, source=source)
             )
-            if desc_violation:
-                violations.append(desc_violation)
-
-            # META-003: non-empty rules list.
-            rules_violation = _validate_rules(
-                check_name=check.name,
-                rules=check.rules,
-            )
-            if rules_violation:
-                violations.append(rules_violation)
-
-            # META-004: run the check and verify result.check matches.
-            result = check.run(src_root=src_root)
-            result_violation = _validate_result_check_name(
-                check_name=check.name,
-                result=result,
-            )
-            if result_violation:
-                violations.append(result_violation)
-
-            # META-005: all violations and warnings have required fields.
-            for violation in result.violations:
-                violations.extend(
-                    _validate_violation_fields(
-                        check_name=check.name,
-                        violation=violation,
-                        source="violation",
-                    ),
-                )
-            for warning in result.warnings:
-                violations.extend(
-                    _validate_violation_fields(
-                        check_name=check.name,
-                        violation=warning,
-                        source="warning",
-                    ),
-                )
-
-        status = Status.FAIL if violations else Status.PASS
-        return CheckResult(
-            check=self.name,
-            status=status,
-            violations=violations,
-        )
+    return found
 
 
 # Self-register on import.

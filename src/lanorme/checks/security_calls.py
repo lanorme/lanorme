@@ -29,10 +29,8 @@ import ast
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from lanorme import CheckResult, Status, Violation, register
-from lanorme.discovery import iter_py_files
-
-_SKIP_DIRS = frozenset({".git", ".venv", "venv", "node_modules", "__pycache__", "dist", "build"})
+from lanorme import CheckResult, Violation, register
+from lanorme.sources import parsed_modules
 
 
 def _attr_chain(node: ast.AST) -> tuple[str, ...]:
@@ -379,21 +377,9 @@ class SecurityCallsCheck:
 
     def run(self, *, src_root: str) -> CheckResult:
         violations: list[Violation] = []
-        root = Path(src_root)
-        for path in iter_py_files(root):
-            # Match skip directories inside the root only: the absolute path's
-            # ancestors are the user's filesystem, not the project layout.
-            relative = path.relative_to(root)
-            if any(part in _SKIP_DIRS for part in relative.parts):
-                continue
-            try:
-                source = path.read_text(encoding="utf-8")
-                tree = ast.parse(source, filename=str(path))
-            except (OSError, UnicodeDecodeError, SyntaxError):
-                continue
-            violations.extend(self._scan_tree(tree=tree, relative_file=relative.as_posix()))
-        status = Status.FAIL if violations else Status.PASS
-        return CheckResult(check=self.name, status=status, violations=violations)
+        for module in parsed_modules(Path(src_root)):
+            violations.extend(self._scan_tree(tree=module.tree, relative_file=module.relative))
+        return CheckResult.from_findings(check=self.name, violations=violations)
 
 
 register(SecurityCallsCheck())

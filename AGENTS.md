@@ -20,6 +20,12 @@ This runs the unit tests, the dogfood lint (`lanorme check .`), and a build. It
 is the same set CI and the pre-commit hooks enforce. A green run here means a
 green PR. Do not finish with a red gate.
 
+For a machine-readable view of the findings use
+`lanorme check . --output-format=ndjson` (one JSON object per finding, with
+`severity`, `code`, `file`, `line`, `message`, `fix`) and `lanorme rule CODE`
+for the reference section of a rule. Exit code `1` means an error-tier finding
+to fix, `0` clean or advisory only, `2` a usage or config error.
+
 ## Project facts
 
 - Python 3.13+. Standard library only, no runtime dependencies. The only dev
@@ -51,8 +57,19 @@ one-line fix, a doc edit. Anything larger gets the phases above.
 
 ## When you touch a check
 
-- Scan files through `lanorme.discovery.iter_py_files` / `iter_files`, never
-  `Path.rglob`, so directory pruning and the user's `exclude` globs are honoured.
+- Read Python sources through `lanorme.sources.iter_modules` (or
+  `parsed_modules`), which parses each file once per run and shares the tree
+  with every check; never read or `ast.parse` a file yourself, and never
+  mutate a tree. Other files go through `lanorme.discovery.iter_files` /
+  `iter_dirs`, never `Path.rglob` or `os.walk`, so directory pruning and the
+  user's `exclude` globs are honoured.
+- Build the result with `CheckResult.from_findings(check=self.name, ...)` so
+  the status always agrees with the finding lists. Report a file you skip with
+  `unparseable_notice` / `skip_notice` (a `<PREFIX>-000` warning) or skip it
+  silently; never let an exception escape.
+- Read settings in `configure()` through the `lanorme.checkconfig` readers
+  (`str_list_setting`, `int_setting`, `is_flag_set`, `str_setting`) so a
+  mistyped value is an exit-2 config error, not a run-time failure.
 - One category prefix per check. Rule codes (`SQL-001`, `LAYER-005`) are the
   public surface and are stable: renaming or removing one is a breaking change.
 - Put a hard finding in `violations` (fails the run) and an advisory in

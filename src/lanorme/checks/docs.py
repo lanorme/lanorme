@@ -37,7 +37,7 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from lanorme import CheckResult, Status, Violation, register
+from lanorme import CheckResult, Violation, register
 from lanorme.discovery import iter_files
 
 # Vendored or generated directories that are never part of a docs tree.
@@ -430,7 +430,7 @@ class DocsCheck:
 
     def run(self, *, src_root: str) -> CheckResult:
         if not self.enabled:
-            return CheckResult(check=self.name, status=Status.PASS)
+            return CheckResult.from_findings(check=self.name)
 
         root = Path(src_root)
         docs_dir = root / self.docs_root
@@ -466,8 +466,8 @@ class DocsCheck:
 
         warnings.extend(self._section_index_findings(docs_dir=docs_dir, pages=pages))
 
-        status = Status.FAIL if violations else (Status.WARN if warnings else Status.PASS)
-        return CheckResult(check=self.name, status=status, violations=violations, warnings=warnings)
+        return CheckResult.from_findings(check=self.name, violations=violations, warnings=warnings)
+
 
 
 register(DocsCheck())

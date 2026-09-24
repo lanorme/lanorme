@@ -35,9 +35,9 @@ import tokenize
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from lanorme import CheckResult, Status, Violation, register
+from lanorme import CheckResult, Violation, register
 from lanorme.checks.file_limits import _cyclomatic_complexity
-from lanorme.discovery import iter_py_files
+from lanorme.sources import parsed_modules
 
 _EM_DASH = "—"
 
@@ -52,8 +52,6 @@ _EMOJI = re.compile(
     "\U0000200d"
     "]"
 )
-
-_SKIP_DIRS = frozenset({".git", ".venv", "venv", "node_modules", "__pycache__", "dist", "build"})
 
 # Comment text starting with one of these is tooling, not prose or code.
 _PRAGMA_PREFIXES = (
@@ -339,7 +337,7 @@ class CommentsCheck:
         return found
 
     def _verbose_violations(
-        self, *, comments: list[_Comment], relative_file: str, spans: list[_Span]
+        self, *, comments: list[_Comment], relative_file: str, tree: ast.Module
     ) -> list[Violation]:
         found: list[Violation] = []
         for comment in comments:
@@ -353,20 +351,29 @@ class CommentsCheck:
                         fix="Tighten it, or move the detail into a docstring",
                     )
                 )
-        found.extend(self._block_violations(comments=comments, relative_file=relative_file, spans=spans))
+        found.extend(self._block_violations(comments=comments, relative_file=relative_file, tree=tree))
         return found
 
     def _block_violations(
-        self, *, comments: list[_Comment], relative_file: str, spans: list[_Span]
+        self, *, comments: list[_Comment], relative_file: str, tree: ast.Module
     ) -> list[Violation]:
         found: list[Violation] = []
         standalone = [c for c in comments if c.standalone]
+        # Function complexities are only needed once a block is longer than the
+        # base allowance, which most blocks never are, so they are computed on
+        # first need rather than for every file.
+        spans: list[_Span] | None = None
         index = 0
         while index < len(standalone):
             end = index
             while end + 1 < len(standalone) and standalone[end + 1].line == standalone[end].line + 1:
                 end += 1
             length = end - index + 1
+            if length <= self.max_block_lines:
+                index = end + 1
+                continue
+            if spans is None:
+                spans = _function_spans(tree=tree)
             complexity = _complexity_near(
                 spans=spans, start=standalone[index].line, end=standalone[end].line
             )
@@ -411,7 +418,7 @@ class CommentsCheck:
             )
         if self.flag_verbose:
             found.extend(self._verbose_violations(
-                comments=comments, relative_file=relative_file, spans=_function_spans(tree=tree)
+                comments=comments, relative_file=relative_file, tree=tree
             ))
         if self.flag_em_dash or self.flag_emoji:
             for comment in comments:
@@ -424,30 +431,18 @@ class CommentsCheck:
 
     def run(self, *, src_root: str) -> CheckResult:
         violations: list[Violation] = []
-        root = Path(src_root)
-        for py_file in iter_py_files(root):
-            # Match skip directories inside the root only: the absolute path's
-            # ancestors are the user's filesystem, not the project layout.
-            relative = py_file.relative_to(root)
-            if any(part in _SKIP_DIRS for part in relative.parts):
-                continue
-            try:
-                source = py_file.read_text(encoding="utf-8")
-                tree = ast.parse(source)
-            except (OSError, UnicodeDecodeError, SyntaxError):
-                continue
-            source_lines = source.splitlines()
+        for module in parsed_modules(Path(src_root)):
+            source_lines = module.lines
             violations.extend(
                 self._scan_file(
-                    tree=tree,
-                    comments=_collect_comments(source=source, source_lines=source_lines),
+                    tree=module.tree,
+                    comments=_collect_comments(source=module.source, source_lines=source_lines),
                     source_lines=source_lines,
-                    relative_file=relative.as_posix(),
+                    relative_file=module.relative,
                 )
             )
 
-        status = Status.FAIL if violations else Status.PASS
-        return CheckResult(check=self.name, status=status, violations=violations)
+        return CheckResult.from_findings(check=self.name, violations=violations)
 
 
 register(CommentsCheck())

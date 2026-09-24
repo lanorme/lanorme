@@ -31,7 +31,7 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from lanorme import CheckResult, Status, Violation, register
+from lanorme import CheckResult, Violation, register
 from lanorme.discovery import iter_files
 
 NAME_MAX = 64
@@ -439,7 +439,7 @@ class SkillsCheck:
 
     def run(self, *, src_root: str) -> CheckResult:
         if not self.enabled:
-            return CheckResult(check=self.name, status=Status.PASS)
+            return CheckResult.from_findings(check=self.name)
 
         violations: list[Violation] = []
         warnings: list[Violation] = []
@@ -457,8 +457,8 @@ class SkillsCheck:
             violations.extend(file_violations)
             warnings.extend(file_warnings)
 
-        status = Status.FAIL if violations else (Status.WARN if warnings else Status.PASS)
-        return CheckResult(check=self.name, status=status, violations=violations, warnings=warnings)
+        return CheckResult.from_findings(check=self.name, violations=violations, warnings=warnings)
+
 
 
 register(SkillsCheck())
