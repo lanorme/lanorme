@@ -9,6 +9,31 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
 
 ## [Unreleased]
 
+### Added
+
+- Findings carry their position: `column`, `end_line` and `end_column` in the
+  JSON and ndjson records (from the AST node a check reports), a `scope`
+  (`file`, `line` or `span`), a `promoted` flag, and a `fingerprint` that is
+  stable across edits elsewhere in the file. GitHub annotations use the span.
+- `--output-format summary` prints the totals and the counts by code and by
+  top-level directory, for trees too large to read finding by finding.
+- The concise summary says what a clean run would otherwise hide: findings
+  suppressed inline, by `per-file-ignores` and by the baseline; opt-in checks
+  that are not enabled; and, past 25 errors with no baseline, the adoption tip.
+- `lanorme rules --json` and `lanorme rule CODE --json` for tooling. `rule`
+  opens with the declared rule string, its check and opt-in state.
+- `--show-config` lists the TOML keys each check reads (`keys:`), and when no
+  config is found says which files it looked for.
+- `--check NAME` on an opt-in check that is not enabled says so on stderr.
+- `lanorme.errors.UsageError`: a usage or configuration mistake raised from the
+  library, mapped to `ERROR: ...` and exit 2 in one place by the CLI.
+  Diagnostics go through the `lanorme` logger (stderr); findings stay on
+  stdout.
+- Ruff enforces trailing commas and formatting (dev dependency, the gates, the
+  pre-commit hooks). LaNorme itself is checked with Clean Code naming
+  (`NAMING-009..011`) enabled and promoted: every function is named for what
+  it does.
+
 ### Changed
 
 - Every source file is read and parsed once per run and shared by all checks
@@ -30,11 +55,39 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
   `allowed` entry does not list is reported as `LAYER-007`, with the allowed
   layers named in the fix. It used to carry the bare code `LAYER` and an
   empty allowed list in the fix text.
+- Configuration discovery walks up to the outermost config (stopping below one
+  that sets `root = true`) and treats every config between it and the scan
+  path as a region, so `lanorme check tests` under a `tests/lanorme.toml`
+  applies the project's config with the subtree's overrides instead of the
+  subtree's file alone. Region passes run from the scan root, so a nested
+  region's files keep their `tests/` and `migrations/` exemptions and
+  `per-file-ignores` globs match them.
+- Every per-check table is validated: a value of the wrong type (a quoted
+  number, a bare string where a list is expected, a float for an int) or a key
+  the check does not read is an exit-2 config error naming the table and key.
+  `int("1")`-style coercion is gone.
+- A check may emit the bare rule code (`rule="SHELL-001"`); the runner expands
+  it to the declared `CODE: description`, so the `rule` field is uniform in
+  every output and a description is spelled once per check.
+- `lanorme rule CODE` resolves the exact code: a heading naming it exactly
+  beats one naming its family, and a `#` line inside a fenced code block no
+  longer ends a section early.
+- `naming_consistency` recognises its layout directories at any depth
+  (`src/app/infrastructure/repositories/`), not only at the root.
+- `TYPE-002` names the passing form (`dict[str, int]`, `list[str]`) and its fix
+  agrees with its message. `RUN-000` carries the exception text.
+- `baseline status` groups stale entries by file and code.
 - Check authors: `CheckResult.from_findings(...)` derives a result's status
-  from its findings, `lanorme.sources.iter_modules` / `iter_parsed_modules` replace
-  a per-check read-and-parse loop, and `lanorme.checkconfig` offers typed
-  setting readers (`read_str_list`, `read_int`, `is_flag_set`, ...) that
-  turn a mistyped value into the usual exit-2 config error.
+  from its findings; `lanorme.sources.iter_modules` / `iter_parsed_modules`
+  replace a per-check read-and-parse loop; `Module.index` is a per-file node
+  index (`collect(ast.Call)`, `functions`) built once and shared by every
+  check; `locate(node)` fills a finding's span; `lanorme.checkconfig` offers
+  typed setting readers (`read_str_list`, `read_int`, `read_str`,
+  `is_flag_set`) and a check declares the keys it reads in `settings_keys`.
+  Internal modules and helpers are named for what they are and do
+  (`lanorme.filters`, `lanorme.reports`, `lanorme.runner`,
+  `lanorme.reference`, `lanorme.diagnostics`; `extract_code`,
+  `build_skip_notice`, `filter_findings`, ...).
 
 ### Fixed
 

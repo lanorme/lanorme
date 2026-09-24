@@ -16,9 +16,12 @@ Run the gates and make sure they pass:
 scripts/check.sh
 ```
 
-This runs the unit tests, the dogfood lint (`lanorme check .`), and a build. It
-is the same set CI and the pre-commit hooks enforce. A green run here means a
-green PR. Do not finish with a red gate.
+This runs ruff (trailing commas and formatting), the unit tests, the dogfood
+lint (`lanorme check .`), and a build. It is the same set CI and the pre-commit
+hooks enforce. A green run here means a green PR. Do not finish with a red
+gate.
+`uv run --group dev ruff check --fix . && uv run --group dev ruff format .`
+fixes what ruff reports.
 
 For a machine-readable view of the findings use
 `lanorme check . --output-format=ndjson` (one JSON object per finding, with
@@ -32,8 +35,9 @@ to fix, `0` clean or advisory only, `2` a usage or config error.
   dependency is `pytest`; `pre-commit` is run through `uvx`.
 - Setup: `uv sync --group dev`, then `uvx pre-commit install`.
 - Layout: checks live in `src/lanorme/checks/`, the CLI in `src/lanorme/cli.py`,
-  the public API and registry in `src/lanorme/__init__.py`, the shared file walk
-  in `src/lanorme/discovery.py`.
+  the run pipeline in `src/lanorme/runner.py`, the public API and registry in
+  `src/lanorme/__init__.py`, the shared parse layer in `src/lanorme/sources.py`,
+  the shared file walk in `src/lanorme/discovery.py`.
 
 ## How we build features
 
@@ -58,18 +62,28 @@ one-line fix, a doc edit. Anything larger gets the phases above.
 ## When you touch a check
 
 - Read Python sources through `lanorme.sources.iter_modules` (or
-  `iter_parsed_modules`), which parses each file once per run and shares the tree
-  with every check; never read or `ast.parse` a file yourself, and never
-  mutate a tree. Other files go through `lanorme.discovery.iter_files` /
-  `iter_dirs`, never `Path.rglob` or `os.walk`, so directory pruning and the
-  user's `exclude` globs are honoured.
+  `iter_parsed_modules`), which parses each file once per run and shares the
+  tree with every check; never read or `ast.parse` a file yourself, and never
+  mutate a tree. Walk the tree through `module.index` (`collect(ast.Call)`,
+  `functions`), one shared walk per file, not `ast.walk(tree)`. Other files go
+  through `lanorme.discovery.iter_files` / `iter_dirs`, never `Path.rglob` or
+  `os.walk`, so directory pruning and the user's `exclude` globs are honoured.
 - Build the result with `CheckResult.from_findings(check=self.name, ...)` so
-  the status always agrees with the finding lists. Report a file you skip with
-  `build_unparseable_notice` / `build_skip_notice` (a `<PREFIX>-000` warning) or skip it
-  silently; never let an exception escape.
+  the status always agrees with the finding lists; give a finding its span with
+  `**locate(node)`; emit the bare code (`rule="SIZE-001"`) and let the runner
+  expand it. Report a file you skip with `build_unparseable_notice` /
+  `build_skip_notice` (a `<PREFIX>-000` warning) or skip it silently; never let
+  an exception escape.
 - Read settings in `configure()` through the `lanorme.checkconfig` readers
-  (`read_str_list`, `read_int`, `is_flag_set`, `read_str`) so a
-  mistyped value is an exit-2 config error, not a run-time failure.
+  (`read_str_list`, `read_int`, `read_str`, `is_flag_set`) and declare the keys
+  the check reads in `settings_keys`, so a mistyped value or key is an exit-2
+  config error, not a run-time failure.
+- Raise `lanorme.errors.UsageError` for a mistake the user made; never print to
+  stderr or call `sys.exit` outside `cli.main`. Diagnostics go through
+  `logging.getLogger(__name__)`; findings go to stdout through the reporters.
+- Names: a function is named for what it does, verb first (`build_`,
+  `collect_`, `find_`, `read_`, `is_`); modules and classes are nouns. The
+  dogfood enforces NAMING-006..011 as errors.
 - One category prefix per check. Rule codes (`SQL-001`, `LAYER-005`) are the
   public surface and are stable: renaming or removing one is a breaking change.
 - Put a hard finding in `violations` (fails the run) and an advisory in
