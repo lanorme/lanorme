@@ -24,8 +24,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import ClassVar
 
 from lanorme import CheckResult, Violation, register
+from lanorme.checkconfig import is_flag_set
 from lanorme.checks.naming_canon import verb_fix
 from lanorme.checks.naming_shapes import (
     FUNCTION_TYPES,
@@ -47,6 +49,7 @@ from lanorme.checks.naming_words import (
     leading_verb_index,
     split_name,
 )
+from lanorme.sources import span
 
 RULE_009 = "NAMING-009: A class name carries no noise word (Manager, Processor, Data, Info, Helper, Util)"
 RULE_010 = "NAMING-010: A module is not a junk drawer (utils, helpers, common, misc)"
@@ -77,6 +80,7 @@ def _noise_findings(*, definition: Definition, file: str, settings: _Settings) -
         rule=RULE_009,
         message=f"Class '{name}' ends in '{tokens[-1]}', a noise word that names a job title, not a thing",
         fix="Say what it is (a Registry, a Pool, a Cache, a Scheduler) or what it holds (an Order, a Profile)",
+        **span(definition.node),
     )]
 
 
@@ -127,6 +131,7 @@ def _verb_findings(*, definition: Definition, file: str, settings: _Settings) ->
                 "or is_/has_ for a predicate"
             ),
         ),
+        **span(node),
     )]
 
 
@@ -150,11 +155,11 @@ class NamingCleanCodeCheck:
     verbs: frozenset[str] = frozenset()
     exempt: frozenset[str] = frozenset()
     rules: list[str] = field(default_factory=lambda: [RULE_009, RULE_010, RULE_011])
+    settings_keys: ClassVar[frozenset[str]] = frozenset({"enabled", "verbs", "exempt"})
 
     def configure(self, *, settings: dict[str, bool | list[str]]) -> None:
         """Apply ``[tool.lanorme.naming_clean_code]`` configuration."""
-        if "enabled" in settings:
-            self.enabled = bool(settings["enabled"])
+        self.enabled = is_flag_set(settings=settings, key="enabled", default=self.enabled)
         verbs = name_setting(settings=settings, key="verbs")
         if verbs is not None:
             self.verbs = frozenset(word.lower() for word in verbs)

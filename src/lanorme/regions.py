@@ -35,7 +35,6 @@ root-level and are applied once by the CLI pipeline.
 from __future__ import annotations
 
 import copy
-import sys
 import tomllib
 from collections.abc import Callable
 from dataclasses import dataclass, field, replace
@@ -43,6 +42,7 @@ from pathlib import Path
 
 from lanorme import Check, CheckResult, Violation
 from lanorme.discovery import iter_dirs
+from lanorme.errors import UsageError
 
 # A loaded TOML config: string keys to arbitrary scalar / list / table values.
 Config = dict[str, object]
@@ -52,7 +52,7 @@ DEDICATED_CONFIG_FILES: tuple[str, ...] = ("lanorme.toml", ".lanorme.toml")
 
 
 def read_toml(path: Path) -> Config:
-    """Parse *path*, exiting 2 with the file and the reason if it is not valid TOML.
+    """Parse *path*, raising :class:`UsageError` with the reason if it is not valid TOML.
 
     A config file the user wrote by hand is a configuration error when it does
     not parse, not a crash, so it reports like every other usage error.
@@ -61,8 +61,7 @@ def read_toml(path: Path) -> Config:
         with path.open("rb") as handle:
             return tomllib.load(handle)
     except tomllib.TOMLDecodeError as error:
-        print(f"ERROR: {path} is not valid TOML: {error}", file=sys.stderr)
-        sys.exit(2)
+        raise UsageError(f"{path} is not valid TOML: {error}") from error
 
 
 def dedicated_config_file(directory: Path) -> Path | None:
@@ -197,8 +196,8 @@ def _resolve_merged(*, region: Region, regions: list[Region]) -> Config:
     return merged
 
 
-def child_exclude_globs(*, region: Region, regions: list[Region]) -> list[str]:
-    """Globs (relative to *region*) that prune every nested region below it.
+def child_exclude_globs(*, region: Region, regions: list[Region], scan_root: Path) -> list[str]:
+    """Globs (relative to *scan_root*) that prune every nested region below *region*.
 
     Running a region's file-level pass with these excludes scopes it to the files
     it directly governs: each nested region's subtree is left to that region. The
@@ -210,10 +209,71 @@ def child_exclude_globs(*, region: Region, regions: list[Region]) -> list[str]:
         if candidate.directory == region.directory:
             continue
         if region.directory in candidate.directory.parents:
-            relative = candidate.directory.relative_to(region.directory).as_posix()
+            relative = candidate.directory.relative_to(scan_root.resolve()).as_posix()
             globs.append(relative)
             globs.append(f"{relative}/*")
     return globs
+
+
+def region_prefix(*, region: Region, scan_root: Path) -> str:
+    """The region's directory relative to the scan root, posix, ``""`` at the root."""
+    resolved = scan_root.resolve()
+    if region.directory == resolved:
+        return ""
+    return region.directory.relative_to(resolved).as_posix()
+
+
+@dataclass(frozen=True)
+class Discovered:
+    """The configuration in force at a scan path, and where it came from."""
+
+    config: Config
+    project_root: Path
+    source: str | None
+    extends: object
+
+
+def discover_config(*, start: Path, resolve_extends: Callable[..., Config]) -> Discovered:
+    """Walk up from *start* and fold every config on the way into one.
+
+    The project root is the outermost directory carrying a config, or the
+    first one below it that declares ``root = true``; every config between it
+    and *start* is a region whose settings cascade over the ones above, the
+    same as when the whole tree is scanned. So ``lanorme check tests`` under a
+    ``tests/lanorme.toml`` applies the project's config with the subtree's
+    overrides, not the subtree's file alone.
+    """
+    start = start.resolve()
+    search_dir = start if start.is_dir() else start.parent
+    chain: list[tuple[Path, Config]] = []
+    for directory in (search_dir, *search_dir.parents):
+        config = load_lanorme_config(directory)
+        if config is None:
+            continue
+        chain.append((directory, config))
+        if config.get("root"):
+            break
+    if not chain:
+        return Discovered(config={}, project_root=search_dir, source=None, extends=None)
+
+    merged: Config = {}
+    for directory, config in reversed(chain):
+        resolved = resolve_extends(config=config, project_root=directory)
+        merged = merge_config(base=merged, override=_strip_root(resolved))
+    outer_dir, outer_config = chain[-1]
+    labels = [_config_label(directory) for directory, _config in reversed(chain)]
+    source = labels[0] + (f" (+ nested: {', '.join(labels[1:])})" if len(labels) > 1 else "")
+    return Discovered(
+        config=merged, project_root=outer_dir, source=source, extends=outer_config.get("extends")
+    )
+
+
+def _config_label(directory: Path) -> str:
+    """How ``--show-config`` names the config file found in *directory*."""
+    dedicated = dedicated_config_file(directory)
+    if dedicated is not None:
+        return str(dedicated)
+    return f"{directory / 'pyproject.toml'} [tool.lanorme]"
 
 
 def is_tree_scoped(check: Check) -> bool:

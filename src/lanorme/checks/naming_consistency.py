@@ -20,9 +20,11 @@ from __future__ import annotations
 import ast
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import ClassVar
 
 from lanorme import CheckResult, Violation, register
-from lanorme.sources import parsed_modules
+from lanorme.checkconfig import is_flag_set
+from lanorme.sources import Module, parsed_modules, span
 
 # Allowed public method prefixes for repositories and services.
 ALLOWED_PREFIXES = ("get_", "create_", "update_", "delete_", "list_")
@@ -83,23 +85,21 @@ ENDPOINT_DIRS = ("api/v1/endpoints",)
 
 def _extract_public_class_methods(
     *,
-    tree: ast.Module,
-) -> list[tuple[str, str, int]]:
-    """Extract public method names from all classes in a module.
+    module: Module,
+) -> list[tuple[str, ast.FunctionDef | ast.AsyncFunctionDef]]:
+    """Extract public methods from all classes in a module.
 
     Returns:
-        List of (class_name, method_name, line_number) tuples for public methods.
+        List of (class_name, method_node) tuples for public methods.
     """
-    results: list[tuple[str, str, int]] = []
-    for node in ast.walk(tree):
-        if not isinstance(node, ast.ClassDef):
-            continue
+    results: list[tuple[str, ast.FunctionDef | ast.AsyncFunctionDef]] = []
+    for node in module.index.nodes(ast.ClassDef):
         for item in node.body:
             if not isinstance(item, ast.FunctionDef | ast.AsyncFunctionDef):
                 continue
             if item.name.startswith("_"):
                 continue
-            results.append((node.name, item.name, item.lineno))
+            results.append((node.name, item))
     return results
 
 
@@ -120,30 +120,31 @@ def _check_forbidden_prefixes(
 
 def _check_repo_and_service_naming(
     *,
-    tree: ast.Module,
-    relative_file: str,
+    module: Module,
     rule: str,
     layer_label: str,
 ) -> list[Violation]:
     """NAMING-001 / NAMING-002: Check method prefixes on classes."""
     violations: list[Violation] = []
-    methods = _extract_public_class_methods(tree=tree)
+    methods = _extract_public_class_methods(module=module)
 
-    for class_name, method_name, line in methods:
+    for class_name, method in methods:
+        method_name = method.name
         match = _check_forbidden_prefixes(method_name=method_name)
         if match is None:
             continue
         forbidden, suggested = match
         violations.append(
             Violation(
-                file=relative_file,
-                line=line,
+                file=module.relative,
+                line=method.lineno,
                 rule=rule,
                 message=(
                     f"{layer_label} method '{class_name}.{method_name}' "
                     f"uses forbidden prefix '{forbidden}'"
                 ),
                 fix=f"Rename to '{suggested}{method_name[len(forbidden) :]}'",
+                **span(method),
             ),
         )
 
@@ -165,18 +166,11 @@ def _extract_http_method_from_decorator(
     return None
 
 
-def _check_endpoint_verb_naming(
-    *,
-    tree: ast.Module,
-    relative_file: str,
-) -> list[Violation]:
+def _check_endpoint_verb_naming(*, module: Module) -> list[Violation]:
     """NAMING-003: Endpoint handler names should match HTTP verb."""
     warnings: list[Violation] = []
 
-    for node in ast.walk(tree):
-        if not isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
-            continue
-
+    for node in module.index.functions:
         if node.name in VERB_EXEMPT_ENDPOINTS:
             continue
 
@@ -190,7 +184,7 @@ def _check_endpoint_verb_naming(
                 expected_str = " or ".join(f"'{p}'" for p in expected_prefixes)
                 warnings.append(
                     Violation(
-                        file=relative_file,
+                        file=module.relative,
                         line=node.lineno,
                         rule=(
                             f"NAMING-003: @router.{http_method} handler "
@@ -204,6 +198,7 @@ def _check_endpoint_verb_naming(
                             f"Rename to '{expected_prefixes[0]}{node.name}' "
                             f"or add '{node.name}' to VERB_EXEMPT_ENDPOINTS if intentional"
                         ),
+                        **span(node),
                     ),
                 )
             break  # Only check the first matching decorator per function.
@@ -239,15 +234,13 @@ def _is_protocol_base(*, base: ast.expr) -> bool:
     return isinstance(target, ast.Attribute) and target.attr == "Protocol"
 
 
-def _collect_protocol_members(*, tree: ast.Module) -> set[int]:
+def _collect_protocol_members(*, module: Module) -> set[int]:
     """Collect node ids of functions defined directly inside Protocol classes."""
     # ast.walk yields nodes without parent links, so Protocol membership is
     # resolved up front: any function in this skip set belongs to a class whose
     # bases include Protocol (e.g. Protocol, typing.Protocol, Protocol[T]).
     members: set[int] = set()
-    for node in ast.walk(tree):
-        if not isinstance(node, ast.ClassDef):
-            continue
+    for node in module.index.nodes(ast.ClassDef):
         if not any(_is_protocol_base(base=base) for base in node.bases):
             continue
         for item in node.body:
@@ -266,19 +259,12 @@ def _bool_rename_fix(*, name: str) -> str:
     return f"Rename to 'is_{suggested}' or another boolean prefix (has_, can_, should_)"
 
 
-def _check_bool_naming(
-    *,
-    tree: ast.Module,
-    relative_file: str,
-) -> list[Violation]:
+def _check_bool_naming(*, module: Module) -> list[Violation]:
     """NAMING-004: Boolean functions should use is_/has_/can_/should_ prefix."""
     warnings: list[Violation] = []
-    protocol_members = _collect_protocol_members(tree=tree)
+    protocol_members = _collect_protocol_members(module=module)
 
-    for node in ast.walk(tree):
-        if not isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
-            continue
-
+    for node in module.index.functions:
         if node.name.startswith("_"):
             continue
 
@@ -296,11 +282,12 @@ def _check_bool_naming(
 
         warnings.append(
             Violation(
-                file=relative_file,
+                file=module.relative,
                 line=node.lineno,
                 rule="NAMING-004: Boolean functions should use is_/has_/can_/should_ prefix",
                 message=f"Function '{node.name}' returns bool but lacks a boolean prefix",
                 fix=_bool_rename_fix(name=node.name),
+                **span(node),
             ),
         )
 
@@ -308,9 +295,14 @@ def _check_bool_naming(
 
 
 def _file_is_under(*, relative_path: str, directories: tuple[str, ...]) -> bool:
-    """Check if a relative path falls under one of the given directories."""
-    normalized = relative_path.replace("\\", "/")
-    return any(normalized.startswith(f"{d}/") for d in directories)
+    """True if the path passes through one of the layout directories.
+
+    Matched at any depth, so a ``src/`` layout or a nested region's package
+    (``strict/infrastructure/repositories/``) is recognised without a
+    ``source_root`` setting.
+    """
+    normalized = "/" + relative_path.replace("\\", "/")
+    return any(f"/{d}/" in normalized for d in directories)
 
 
 @dataclass
@@ -333,13 +325,16 @@ class NamingConsistencyCheck:
             "NAMING-004: Boolean functions should use is_/has_/can_/should_ prefix (warning)",
         ],
     )
+    settings_keys: ClassVar[frozenset[str]] = frozenset({"repo_crud", "service_crud"})
 
-    def configure(self, *, settings: dict[str, bool]) -> None:
+    def configure(self, *, settings: dict[str, object]) -> None:
         """Apply ``[tool.lanorme.naming_consistency]`` configuration."""
-        if "repo_crud" in settings:
-            self.repo_crud = bool(settings["repo_crud"])
-        if "service_crud" in settings:
-            self.service_crud = bool(settings["service_crud"])
+        self.repo_crud = is_flag_set(settings=settings, key="repo_crud", default=self.repo_crud)
+        self.service_crud = is_flag_set(
+            settings=settings,
+            key="service_crud",
+            default=self.service_crud,
+        )
 
     def run(self, *, src_root: str) -> CheckResult:
         """Scan source files and validate naming conventions."""
@@ -348,14 +343,12 @@ class NamingConsistencyCheck:
 
         for module in parsed_modules(Path(src_root)):
             relative_file = module.relative
-            tree = module.tree
 
             # NAMING-001: Repository method naming (opt-in; conflicts with DDD ubiquitous-language).
             if self.repo_crud and _file_is_under(relative_path=relative_file, directories=REPO_DIRS):
                 violations.extend(
                     _check_repo_and_service_naming(
-                        tree=tree,
-                        relative_file=relative_file,
+                        module=module,
                         rule="NAMING-001: Repository methods must use get_/create_/update_/delete_/list_ prefixes",
                         layer_label="Repository",
                     ),
@@ -365,8 +358,7 @@ class NamingConsistencyCheck:
             if self.service_crud and _file_is_under(relative_path=relative_file, directories=SERVICE_DIRS):
                 violations.extend(
                     _check_repo_and_service_naming(
-                        tree=tree,
-                        relative_file=relative_file,
+                        module=module,
                         rule="NAMING-002: Service methods must use get_/create_/update_/delete_/list_ prefixes",
                         layer_label="Service",
                     ),
@@ -374,20 +366,10 @@ class NamingConsistencyCheck:
 
             # NAMING-003: Endpoint handler verb matching (warning only).
             if _file_is_under(relative_path=relative_file, directories=ENDPOINT_DIRS):
-                warnings.extend(
-                    _check_endpoint_verb_naming(
-                        tree=tree,
-                        relative_file=relative_file,
-                    ),
-                )
+                warnings.extend(_check_endpoint_verb_naming(module=module))
 
             # NAMING-004: Boolean function prefixes (warning only, all files).
-            warnings.extend(
-                _check_bool_naming(
-                    tree=tree,
-                    relative_file=relative_file,
-                ),
-            )
+            warnings.extend(_check_bool_naming(module=module))
 
         return CheckResult.from_findings(check=self.name, violations=violations, warnings=warnings)
 

@@ -9,11 +9,14 @@ statuses recomputed; none mutates its input.
 from __future__ import annotations
 
 import fnmatch
+import logging
 import re
-import sys
+from dataclasses import replace
 from pathlib import Path
 
 from lanorme import CheckResult, Violation, rule_code
+
+logger = logging.getLogger(__name__)
 
 _CODE_RE = re.compile(r"^([A-Z]+)-\d+")
 
@@ -143,10 +146,9 @@ def note_excluded_targets(*, targets: list[Path] | None, project_root: Path, exc
         )
         if not covered:
             return
-    print(
-        "Note: every requested path matches an exclude glob, so nothing was checked. "
-        "Pass --exclude with another glob to override the configured excludes for one run.",
-        file=sys.stderr,
+    logger.warning(
+        "every requested path matches an exclude glob, so nothing was checked. "
+        "Pass --exclude with another glob to override the configured excludes for one run."
     )
 
 
@@ -250,7 +252,7 @@ def _apply_promotions(*, results: list[CheckResult], promote: list[str]) -> list
             # skipping"), not findings, so promotion (including ``ALL``) leaves
             # them as warnings rather than failing the build on a non-issue.
             if not code.endswith("-000") and _matches(code=code, patterns=promote):
-                escalated.append(warning)
+                escalated.append(replace(warning, promoted=True))
             else:
                 kept.append(warning)
         promoted_results.append(

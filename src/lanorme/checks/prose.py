@@ -44,6 +44,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import ClassVar
 
 from lanorme import CheckResult, Violation, register
 from lanorme.checkconfig import is_flag_set, str_list_setting
@@ -149,6 +150,23 @@ _SKIP_PARTS = frozenset(
 )
 
 
+def _table_setting(*, settings: ProseSettings, key: str) -> dict[str, object] | None:
+    """A sub-table (``[tool.lanorme.prose.<key>]``), or None when absent."""
+    value = settings.get(key)
+    if value is None:
+        return None
+    if not isinstance(value, dict):
+        raise TypeError(f"'{key}' must be a table, got {type(value).__name__}")
+    return value
+
+
+def _number(*, key: str, value: object) -> float:
+    """A density threshold: an int or a float, never a bool or a string."""
+    if isinstance(value, bool) or not isinstance(value, int | float):
+        raise TypeError(f"'{key}' must be a number, got {type(value).__name__}")
+    return value
+
+
 def _strip_inline_code(line: str) -> str:
     """Blank out inline `code` spans, preserving length for column fidelity."""
     return _INLINE_CODE.sub(lambda m: " " * len(m.group(0)), line)
@@ -164,6 +182,10 @@ def _compile_spellings(spellings: dict[str, str]) -> re.Pattern[str] | None:
 @dataclass
 class ProseCheck:
     """Opt-in prose style for docs: em dashes, US spelling, emoji."""
+
+    settings_keys: ClassVar[frozenset[str]] = frozenset(
+        {"enabled", "extensions", "em_dash", "emoji", "em_dash_density", "spellings", "density"}
+    )
 
     name: str = "prose"
     description: str = "Prose style for Markdown/docs (em dashes, US spelling, emoji)"
@@ -195,18 +217,18 @@ class ProseCheck:
             ext.lower()
             for ext in str_list_setting(settings=settings, key="extensions", default=self.extensions)
         )
-        spellings = settings.get("spellings")
-        if isinstance(spellings, dict):
+        spellings = _table_setting(settings=settings, key="spellings")
+        if spellings is not None:
             self.spellings = {**self.spellings, **spellings}
-        density = settings.get("density")
-        if isinstance(density, dict):
+        density = _table_setting(settings=settings, key="density")
+        if density is not None:
             self._apply_density(table=density)
 
-    def _apply_density(self, *, table: dict[str, float]) -> None:
+    def _apply_density(self, *, table: dict[str, object]) -> None:
         """Merge a ``[tool.lanorme.prose.density]`` table over the defaults."""
         for key in _DENSITY_DEFAULTS:
             if key in table:
-                self.density[key] = table[key]
+                self.density[key] = _number(key=key, value=table[key])
 
     def _scan_line(
         self,

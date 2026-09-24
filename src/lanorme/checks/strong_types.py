@@ -44,7 +44,15 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from lanorme import CheckResult, Status, Violation, register
-from lanorme.sources import TOO_DEEP, Unparseable, iter_modules, skip_notice, unparseable_notice
+from lanorme.sources import (
+    TOO_DEEP,
+    Module,
+    Unparseable,
+    iter_modules,
+    skip_notice,
+    span,
+    unparseable_notice,
+)
 
 _BARE_CONTAINERS = frozenset(
     {"dict", "list", "tuple", "set", "frozenset", "Dict", "List", "Tuple", "Set", "FrozenSet"}
@@ -96,6 +104,30 @@ def _annotation_text(annotation: ast.expr) -> str:
         return "<unparseable>"
 
 
+# TYPE-002 asks for the parameterised form of the container, so the message
+# and the fix name the same remedy: the key/value pair for a mapping, the
+# element type for a sequence or set.
+_MAPPING_CONTAINERS = frozenset({"dict", "Dict"})
+_TYPE_002_FIX = (
+    "Parameterise the container (dict[str, int], list[str]); "
+    "use a TypedDict when the keys are fixed"
+)
+
+
+def _bare_container_message(*, name: str) -> str:
+    """The TYPE-002 message for a bare container annotation, naming the passing form."""
+    if name in _MAPPING_CONTAINERS:
+        hint = f"annotate the key and value types, e.g. {name}[str, int]"
+    else:
+        hint = f"annotate the element type, e.g. {name}[str]"
+    return f"Bare '{name}' annotation lacks type parameters — {hint}"
+
+
+def _fix_for(*, rule: str, default: str) -> str:
+    """The fix text for a classified annotation: TYPE-002 names its own remedy."""
+    return _TYPE_002_FIX if rule == "TYPE-002" else default
+
+
 def _classify_annotation(annotation: ast.expr) -> tuple[str, str, str] | None:
     """Classify an annotation.
 
@@ -105,11 +137,7 @@ def _classify_annotation(annotation: ast.expr) -> tuple[str, str, str] | None:
     """
     # Bare container: `dict`, `list`, `Dict`, etc. (no subscript at all).
     if isinstance(annotation, ast.Name) and annotation.id in _BARE_CONTAINERS:
-        return (
-            "fail",
-            "TYPE-002",
-            f"Bare '{annotation.id}' annotation lacks type parameters — use '{annotation.id}[K, V]' or similar",
-        )
+        return ("fail", "TYPE-002", _bare_container_message(name=annotation.id))
 
     # Subscripted container with weak value type: `dict[str, Any]`, `list[Any]`,
     # `list[object]`, etc.
@@ -227,7 +255,8 @@ def _returns_real_value(*, own_nodes: list[ast.AST]) -> bool:
     return False
 
 
-_Finding = tuple[str, str, int, str, str]  # (severity, rule, line, message, fix)
+# (severity, rule, anchor node, message, fix); the finding is reported at the anchor's line.
+_Finding = tuple[str, str, ast.AST, str, str]
 
 
 def _param_findings(*, func: ast.FunctionDef | ast.AsyncFunctionDef) -> list[_Finding]:
@@ -243,9 +272,15 @@ def _param_findings(*, func: ast.FunctionDef | ast.AsyncFunctionDef) -> list[_Fi
                 (
                     severity,
                     rule,
-                    arg.lineno,
+                    arg,
                     f"Parameter '{arg.arg}' in '{func.name}': {message}",
-                    "Introduce a domain type (TypedDict, dataclass, or value object) and annotate with it",
+                    _fix_for(
+                        rule=rule,
+                        default=(
+                            "Introduce a domain type (TypedDict, dataclass, or value object) "
+                            "and annotate with it"
+                        ),
+                    ),
                 )
             )
     return findings
@@ -269,7 +304,7 @@ def _kwarg_findings(*, func: ast.FunctionDef | ast.AsyncFunctionDef) -> list[_Fi
         (
             "fail",
             "TYPE-003",
-            kw.lineno,
+            kw,
             f"'**{kw.arg}' in '{func.name}' is weakly typed ('{ann_text}') — use Unpack[TypedDict]",
             "Define a TypedDict for the kwargs shape and annotate as 'Unpack[YourTypedDict]'",
         )
@@ -287,9 +322,9 @@ def _return_findings(*, func: ast.FunctionDef | ast.AsyncFunctionDef) -> list[_F
             (
                 severity,
                 rule,
-                func.lineno,
+                func,
                 f"Return type of '{func.name}': {message}",
-                "Introduce a domain type and annotate the return with it",
+                _fix_for(rule=rule, default="Introduce a domain type and annotate the return with it"),
             )
         ]
     # TYPE-004: a complete-enough signature (annotated params, a real value
@@ -306,7 +341,7 @@ def _return_findings(*, func: ast.FunctionDef | ast.AsyncFunctionDef) -> list[_F
             (
                 "warn",
                 "TYPE-004",
-                func.lineno,
+                func,
                 f"'{func.name}' has annotated parameters and returns a value but no "
                 "return annotation. Declare the return type so the signature is complete.",
                 "Add a return annotation (for example '-> ResultType') to the signature",
@@ -326,25 +361,26 @@ def _check_function(
 
     violations: list[Violation] = []
     warnings: list[Violation] = []
-    for severity, rule, line, message, fix in (
+    for severity, rule, node, message, fix in (
         *_param_findings(func=func),
         *_kwarg_findings(func=func),
         *_return_findings(func=func),
     ):
-        finding = Violation(file=relative_file, line=line, rule=rule, message=message, fix=fix)
+        finding = Violation(
+            file=relative_file, line=node.lineno, rule=rule, message=message, fix=fix, **span(node)
+        )
         (violations if severity == "fail" else warnings).append(finding)
     return violations, warnings
 
 
-def _scan_module(*, tree: ast.AST, relative_file: str) -> tuple[list[Violation], list[Violation]]:
+def _scan_module(*, module: Module) -> tuple[list[Violation], list[Violation]]:
     """TYPE-001..004 over every function in one parsed module."""
     violations: list[Violation] = []
     warnings: list[Violation] = []
-    for node in ast.walk(tree):
-        if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
-            found, warned = _check_function(func=node, relative_file=relative_file)
-            violations.extend(found)
-            warnings.extend(warned)
+    for node in module.index.functions:
+        found, warned = _check_function(func=node, relative_file=module.relative)
+        violations.extend(found)
+        warnings.extend(warned)
     return violations, warnings
 
 
@@ -374,7 +410,7 @@ class StrongTypesCheck:
                 warnings.append(unparseable_notice(prefix="TYPE", failure=module))
                 continue
             try:
-                found, warned = _scan_module(tree=module.tree, relative_file=module.relative)
+                found, warned = _scan_module(module=module)
             except RecursionError:
                 # A deeply nested annotation (e.g. a union with thousands of
                 # terms) overflows the recursive annotation walk. Skip the file

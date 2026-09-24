@@ -13,6 +13,10 @@ cd "$(git rev-parse --show-toplevel)"
 echo "==> agent artifacts in sync"
 scripts/sync-agents.sh --check
 
+echo "==> ruff (trailing commas, formatting)"
+uv run --group dev ruff check .
+uv run --group dev ruff format --check .
+
 echo "==> unit tests"
 uv run --group dev pytest tests/unit -q
 

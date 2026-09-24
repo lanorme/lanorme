@@ -37,11 +37,12 @@ import ast
 import fnmatch
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import ClassVar
 
 from lanorme import CheckResult, Violation, register
 from lanorme.checkconfig import str_list_setting, str_setting
 from lanorme.discovery import iter_py_files
-from lanorme.sources import Module, parse_module
+from lanorme.sources import Module, parse_module, span
 
 # Adapter files that are pure utilities or re-exports, not port implementations.
 INFRA_SERVICE_SKIP_FILES = ("__init__.py",)
@@ -68,6 +69,10 @@ DEFAULT_COMPOSITION_ROOT = ("*dependencies/*", "*v1/main.py")
 
 # ---- AST helpers -----------------------------------------------------------
 
+_ImportNode = ast.Import | ast.ImportFrom
+# One scanned adapter file: (relative_file, parsed module, its imports).
+_AdapterFile = tuple[str, Module, list[tuple[str, _ImportNode]]]
+
 
 def _posix_dir(value: str) -> str:
     """A configured directory as a forward-slashed, unanchored relative path."""
@@ -79,12 +84,10 @@ def _matches_glob(*, relative: str, patterns: tuple[str, ...]) -> bool:
     return any(fnmatch.fnmatch(rel, pattern) for pattern in patterns)
 
 
-def _extract_protocol_names(*, tree: ast.AST) -> list[tuple[str, int]]:
-    """Find all ``class Foo(Protocol): ...`` definitions, as (name, line)."""
-    protocols: list[tuple[str, int]] = []
-    for node in ast.walk(tree):
-        if not isinstance(node, ast.ClassDef):
-            continue
+def _extract_protocol_names(*, parsed: Module) -> list[tuple[str, ast.ClassDef]]:
+    """Find all ``class Foo(Protocol): ...`` definitions, as (name, node)."""
+    protocols: list[tuple[str, ast.ClassDef]] = []
+    for node in parsed.index.nodes(ast.ClassDef):
         for base in node.bases:
             base_name: str | None = None
             if isinstance(base, ast.Name):
@@ -92,27 +95,27 @@ def _extract_protocol_names(*, tree: ast.AST) -> list[tuple[str, int]]:
             elif isinstance(base, ast.Attribute):
                 base_name = base.attr
             if base_name == "Protocol":
-                protocols.append((node.name, node.lineno))
+                protocols.append((node.name, node))
                 break
     return protocols
 
 
-def _extract_import_modules(*, tree: ast.AST) -> list[tuple[str, int]]:
-    """Extract import source modules as (dotted_module, line) pairs."""
-    modules: list[tuple[str, int]] = []
-    for node in ast.walk(tree):
+def _extract_import_modules(*, parsed: Module) -> list[tuple[str, _ImportNode]]:
+    """Extract import source modules as (dotted_module, import node) pairs."""
+    modules: list[tuple[str, _ImportNode]] = []
+    for node in parsed.index.nodes(ast.Import, ast.ImportFrom):
         if isinstance(node, ast.Import):
             for alias in node.names:
-                modules.append((alias.name, node.lineno))
+                modules.append((alias.name, node))
         elif isinstance(node, ast.ImportFrom) and node.module:
-            modules.append((node.module, node.lineno))
+            modules.append((node.module, node))
     return modules
 
 
-def _extract_imported_names(*, tree: ast.AST) -> set[str]:
+def _extract_imported_names(*, parsed: Module) -> set[str]:
     """Collect all names brought into scope via import statements."""
     names: set[str] = set()
-    for node in ast.walk(tree):
+    for node in parsed.index.nodes(ast.Import, ast.ImportFrom):
         if isinstance(node, ast.Import):
             for alias in node.names:
                 names.add(alias.asname if alias.asname else alias.name.split(".")[-1])
@@ -122,7 +125,7 @@ def _extract_imported_names(*, tree: ast.AST) -> set[str]:
     return names
 
 
-def _adapter_bound_names(*, tree: ast.AST, adapter_dotted: tuple[str, ...]) -> set[str]:
+def _adapter_bound_names(*, parsed: Module, adapter_dotted: tuple[str, ...]) -> set[str]:
     """Local names bound to an adapter module, e.g. ``redis_registry`` from
     ``from infrastructure.services import redis_registry``.
 
@@ -131,7 +134,7 @@ def _adapter_bound_names(*, tree: ast.AST, adapter_dotted: tuple[str, ...]) -> s
     receiver check keeps the detection from firing on an unrelated same-named call.
     """
     bound: set[str] = set()
-    for node in ast.walk(tree):
+    for node in parsed.index.nodes(ast.Import, ast.ImportFrom):
         if isinstance(node, ast.ImportFrom) and node.module:
             if any(dotted in node.module for dotted in adapter_dotted):
                 bound.update(alias.asname or alias.name for alias in node.names)
@@ -142,25 +145,23 @@ def _adapter_bound_names(*, tree: ast.AST, adapter_dotted: tuple[str, ...]) -> s
     return bound
 
 
-def _extract_attr_call_pairs(*, tree: ast.AST) -> list[tuple[str, str, int]]:
-    """Find ``value.attr(...)`` calls, returning (value_name, attr, line) triples."""
-    pairs: list[tuple[str, str, int]] = []
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
-            if isinstance(node.func.value, ast.Name):
-                pairs.append((node.func.value.id, node.func.attr, node.lineno))
+def _extract_attr_call_pairs(*, parsed: Module) -> list[tuple[str, str, ast.Call]]:
+    """Find ``value.attr(...)`` calls, returning (value_name, attr, call) triples."""
+    pairs: list[tuple[str, str, ast.Call]] = []
+    for node in parsed.index.nodes(ast.Call):
+        if isinstance(node.func, ast.Attribute) and isinstance(node.func.value, ast.Name):
+            pairs.append((node.func.value.id, node.func.attr, node))
     return pairs
 
 
-def _extract_call_names(*, tree: ast.AST) -> list[tuple[str, int]]:
-    """Find ``SomeClass(...)`` call expressions and return (name, line)."""
-    calls: list[tuple[str, int]] = []
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Call):
-            if isinstance(node.func, ast.Name):
-                calls.append((node.func.id, node.lineno))
-            elif isinstance(node.func, ast.Attribute):
-                calls.append((node.func.attr, node.lineno))
+def _extract_call_names(*, parsed: Module) -> list[tuple[str, ast.Call]]:
+    """Find ``SomeClass(...)`` call expressions and return (name, call)."""
+    calls: list[tuple[str, ast.Call]] = []
+    for node in parsed.index.nodes(ast.Call):
+        if isinstance(node.func, ast.Name):
+            calls.append((node.func.id, node))
+        elif isinstance(node.func, ast.Attribute):
+            calls.append((node.func.attr, node))
     return calls
 
 
@@ -169,9 +170,9 @@ def _extract_top_level_class_names(*, tree: ast.AST) -> list[str]:
     return [node.name for node in ast.iter_child_nodes(tree) if isinstance(node, ast.ClassDef)]
 
 
-def _imports_from_ports(*, import_modules: list[tuple[str, int]], ports_dotted: str) -> bool:
+def _imports_from_ports(*, import_modules: list[tuple[str, _ImportNode]], ports_dotted: str) -> bool:
     """True if any import comes from the ports package (``application.ports`` by default)."""
-    return any(ports_dotted in module for module, _line in import_modules)
+    return any(ports_dotted in module for module, _node in import_modules)
 
 
 def _port_module_stem(*, module: str, ports_parts: list[str]) -> str | None:
@@ -181,14 +182,14 @@ def _port_module_stem(*, module: str, ports_parts: list[str]) -> str | None:
     ``src.application.ports.registry`` -> ``registry``.
     """
     parts = module.split(".")
-    span = len(ports_parts)
-    for i in range(len(parts) - span + 1):
-        if parts[i : i + span] == ports_parts:
-            return parts[i + span] if i + span < len(parts) else None
+    width = len(ports_parts)
+    for i in range(len(parts) - width + 1):
+        if parts[i : i + width] == ports_parts:
+            return parts[i + width] if i + width < len(parts) else None
     return None
 
 
-def _ports_package_import_stems(*, tree: ast.AST, ports_parts: list[str]) -> set[str]:
+def _ports_package_import_stems(*, parsed: Module, ports_parts: list[str]) -> set[str]:
     """Port stems imported via the module-as-name form ``from <ports_pkg> import <stem>``.
 
     ``_port_module_stem`` handles ``from application.ports.registry import X`` and
@@ -198,19 +199,18 @@ def _ports_package_import_stems(*, tree: ast.AST, ports_parts: list[str]) -> set
     at the ports package and the imported *name* is the port module stem. Without
     this, a genuinely implemented port is wrongly flagged by PORT-002.
     """
-    span = len(ports_parts)
+    width = len(ports_parts)
     stems: set[str] = set()
-    for node in ast.walk(tree):
-        if isinstance(node, ast.ImportFrom) and node.module:
-            if node.module.split(".")[-span:] == ports_parts:
-                stems.update(alias.name for alias in node.names)
+    for node in parsed.index.nodes(ast.ImportFrom):
+        if node.module and node.module.split(".")[-width:] == ports_parts:
+            stems.update(alias.name for alias in node.names)
     return stems
 
 
-def _parse_file(*, py_file: Path) -> ast.AST | None:
-    """The file's tree from the shared per-run parse, or ``None`` if it does not parse."""
-    module = parse_module(py_file, root=py_file.parent)
-    return module.tree if isinstance(module, Module) else None
+def _parse_file(*, py_file: Path) -> Module | None:
+    """The file's parse from the shared per-run cache, or ``None`` if it does not parse."""
+    parsed = parse_module(py_file, root=py_file.parent)
+    return parsed if isinstance(parsed, Module) else None
 
 
 # ---- Scanning --------------------------------------------------------------
@@ -222,9 +222,9 @@ def _collect_port_protocols(
     report_root: Path,
     ports_dir: str,
     ports_without_impl: frozenset[str],
-) -> dict[str, tuple[str, int, str]]:
-    """Scan the ports directory and return {ProtocolName: (relative_file, line, stem)}."""
-    protocols: dict[str, tuple[str, int, str]] = {}
+) -> dict[str, tuple[str, ast.ClassDef, str]]:
+    """Scan the ports directory and return {ProtocolName: (relative_file, node, stem)}."""
+    protocols: dict[str, tuple[str, ast.ClassDef, str]] = {}
     ports_path = base / ports_dir
     if not ports_path.is_dir():
         return protocols
@@ -232,12 +232,12 @@ def _collect_port_protocols(
     for py_file in sorted(ports_path.glob("*.py")):
         if py_file.name == "__init__.py" or py_file.name in ports_without_impl:
             continue
-        tree = _parse_file(py_file=py_file)
-        if tree is None:
+        parsed = _parse_file(py_file=py_file)
+        if parsed is None:
             continue
         relative = py_file.relative_to(report_root).as_posix()
-        for name, line in _extract_protocol_names(tree=tree):
-            protocols[name] = (relative, line, py_file.stem)
+        for name, node in _extract_protocol_names(parsed=parsed):
+            protocols[name] = (relative, node, py_file.stem)
     return protocols
 
 
@@ -247,9 +247,9 @@ def _scan_adapter_files(
     report_root: Path,
     adapter_roots: tuple[str, ...],
     skip_files: frozenset[str],
-) -> list[tuple[str, ast.AST, list[tuple[str, int]]]]:
-    """Scan the adapter roots recursively and return (relative_file, tree, imports)."""
-    results: list[tuple[str, ast.AST, list[tuple[str, int]]]] = []
+) -> list[_AdapterFile]:
+    """Scan the adapter roots recursively and return (relative_file, module, imports)."""
+    results: list[_AdapterFile] = []
     seen: set[Path] = set()
     for root in adapter_roots:
         root_path = base / root
@@ -259,11 +259,11 @@ def _scan_adapter_files(
             if py_file in seen or py_file.name in skip_files:
                 continue
             seen.add(py_file)
-            tree = _parse_file(py_file=py_file)
-            if tree is None:
+            parsed = _parse_file(py_file=py_file)
+            if parsed is None:
                 continue
             relative = py_file.relative_to(report_root).as_posix()
-            results.append((relative, tree, _extract_import_modules(tree=tree)))
+            results.append((relative, parsed, _extract_import_modules(parsed=parsed)))
     return results
 
 
@@ -272,13 +272,13 @@ def _scan_adapter_files(
 
 def _check_port001(
     *,
-    adapter_files: list[tuple[str, ast.AST, list[tuple[str, int]]]],
+    adapter_files: list[_AdapterFile],
     ports_dotted: str,
     ports_dir: str,
 ) -> list[Violation]:
     """PORT-001: every adapter file must import from the ports directory."""
     violations: list[Violation] = []
-    for relative_file, _tree, import_modules in adapter_files:
+    for relative_file, _parsed, import_modules in adapter_files:
         if _imports_from_ports(import_modules=import_modules, ports_dotted=ports_dotted):
             continue
         violations.append(
@@ -298,27 +298,27 @@ def _check_port001(
 
 def _check_port002(
     *,
-    port_protocols: dict[str, tuple[str, int, str]],
-    adapter_files: list[tuple[str, ast.AST, list[tuple[str, int]]]],
+    port_protocols: dict[str, tuple[str, ast.ClassDef, str]],
+    adapter_files: list[_AdapterFile],
     ports_parts: list[str],
 ) -> list[Violation]:
     """PORT-002: every port Protocol must be referenced by an adapter file."""
     referenced_port_stems: set[str] = set()
-    for _relative, tree, import_modules in adapter_files:
-        for module, _line in import_modules:
+    for _relative, parsed, import_modules in adapter_files:
+        for module, _node in import_modules:
             stem = _port_module_stem(module=module, ports_parts=ports_parts)
             if stem is not None:
                 referenced_port_stems.add(stem)
-        referenced_port_stems |= _ports_package_import_stems(tree=tree, ports_parts=ports_parts)
+        referenced_port_stems |= _ports_package_import_stems(parsed=parsed, ports_parts=ports_parts)
 
     violations: list[Violation] = []
-    for proto_name, (relative_file, line, port_stem) in sorted(port_protocols.items()):
+    for proto_name, (relative_file, node, port_stem) in sorted(port_protocols.items()):
         if port_stem in referenced_port_stems:
             continue
         violations.append(
             Violation(
                 file=relative_file,
-                line=line,
+                line=node.lineno,
                 rule="PORT-002: Port Protocol has no infrastructure implementation",
                 message=(
                     f"Protocol '{proto_name}' (in {port_stem}.py) "
@@ -328,6 +328,7 @@ def _check_port002(
                     "Create an adapter that imports from this port module, "
                     "or add the port file to ports_without_impl"
                 ),
+                **span(node),
             )
         )
     return violations
@@ -336,16 +337,16 @@ def _check_port002(
 def _direct_import_violation(
     *,
     relative: str,
-    import_modules: list[tuple[str, int]],
+    import_modules: list[tuple[str, _ImportNode]],
     imported_infra: set[str],
     adapter_dotted: tuple[str, ...],
 ) -> Violation | None:
     """Report an api/ file importing adapter classes outside the composition root."""
-    for module, line in import_modules:
+    for module, node in import_modules:
         if any(dotted in module for dotted in adapter_dotted):
             return Violation(
                 file=relative,
-                line=line,
+                line=node.lineno,
                 rule="PORT-003: Direct import of infra service in api/ layer",
                 message=(
                     f"Imports infrastructure adapter class(es) "
@@ -355,13 +356,14 @@ def _direct_import_violation(
                     "Depend on the port Protocol from the ports directory instead, "
                     "or move the import to the composition root"
                 ),
+                **span(node),
             )
     return None
 
 
 def _instantiation_violations(
     *,
-    tree: ast.AST,
+    parsed: Module,
     relative: str,
     infra_class_names: set[str],
     imported_infra: set[str],
@@ -370,28 +372,30 @@ def _instantiation_violations(
     """PORT-003 instantiation findings for one api/ file (both call forms)."""
     found: list[Violation] = []
     # Class-import form: ``from ...redis_registry import RedisRegistry`` then ``RedisRegistry()``.
-    for call_name, call_line in _extract_call_names(tree=tree):
+    for call_name, call in _extract_call_names(parsed=parsed):
         if call_name in imported_infra:
             found.append(
                 Violation(
                     file=relative,
-                    line=call_line,
+                    line=call.lineno,
                     rule="PORT-003: Direct instantiation of infra service in api/ layer",
                     message=f"'{call_name}(...)' instantiated directly — use dependency injection",
                     fix="Move the construction to the composition root and inject it",
+                    **span(call),
                 )
             )
     # Module-attribute form: ``from ...services import redis_registry`` then
     # ``redis_registry.RedisRegistry()``, where the receiver is an adapter module.
-    for value_name, attr, call_line in _extract_attr_call_pairs(tree=tree):
+    for value_name, attr, call in _extract_attr_call_pairs(parsed=parsed):
         if attr in infra_class_names and value_name in adapter_bound:
             found.append(
                 Violation(
                     file=relative,
-                    line=call_line,
+                    line=call.lineno,
                     rule="PORT-003: Direct instantiation of infra service in api/ layer",
                     message=f"'{value_name}.{attr}(...)' instantiated directly — use dependency injection",
                     fix="Move the construction to the composition root and inject it",
+                    **span(call),
                 )
             )
     return found
@@ -419,21 +423,21 @@ def _check_port003(
         if _matches_glob(relative=match_rel, patterns=composition_root):
             continue
 
-        tree = _parse_file(py_file=py_file)
-        if tree is None:
+        parsed = _parse_file(py_file=py_file)
+        if parsed is None:
             continue
 
-        import_modules = _extract_import_modules(tree=tree)
-        if not any(dotted in module for module, _line in import_modules for dotted in adapter_dotted):
+        import_modules = _extract_import_modules(parsed=parsed)
+        if not any(dotted in module for module, _node in import_modules for dotted in adapter_dotted):
             continue
 
-        imported_infra = _extract_imported_names(tree=tree) & infra_class_names
-        adapter_bound = _adapter_bound_names(tree=tree, adapter_dotted=adapter_dotted)
+        imported_infra = _extract_imported_names(parsed=parsed) & infra_class_names
+        adapter_bound = _adapter_bound_names(parsed=parsed, adapter_dotted=adapter_dotted)
         if not imported_infra and not adapter_bound:
             continue
 
         instantiations = _instantiation_violations(
-            tree=tree,
+            parsed=parsed,
             relative=relative,
             infra_class_names=infra_class_names,
             imported_infra=imported_infra,
@@ -460,6 +464,17 @@ def _check_port003(
 @dataclass
 class PortCoverageCheck:
     """Validates port/adapter coverage in the hexagonal architecture (configurable)."""
+
+    settings_keys: ClassVar[frozenset[str]] = frozenset(
+        {
+            "source_root",
+            "ports_dir",
+            "adapter_roots",
+            "composition_root",
+            "skip_files",
+            "ports_without_impl",
+        }
+    )
 
     name: str = "port_coverage"
     description: str = "Port coverage enforcement (Protocol / infrastructure alignment)"
@@ -529,8 +544,8 @@ class PortCoverageCheck:
         )
 
         infra_class_names: set[str] = set()
-        for _relative, tree, _imports in adapter_files:
-            infra_class_names.update(_extract_top_level_class_names(tree=tree))
+        for _relative, parsed, _imports in adapter_files:
+            infra_class_names.update(_extract_top_level_class_names(tree=parsed.tree))
 
         violations.extend(
             _check_port003(

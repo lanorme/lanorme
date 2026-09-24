@@ -40,9 +40,11 @@ from __future__ import annotations
 import ast
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import ClassVar
 
 from lanorme import CheckResult, Violation, register
-from lanorme.sources import parsed_modules
+from lanorme.checkconfig import is_flag_set
+from lanorme.sources import parsed_modules, span
 
 _ATTR_BUILTINS = frozenset({"getattr", "hasattr", "setattr", "delattr"})
 
@@ -76,20 +78,21 @@ def _is_dunder(name: str) -> bool:
     return name.startswith("__") and name.endswith("__")
 
 
-def _attr001(*, builtin: str, name: str, relative: str, line: int) -> Violation:
+def _attr001(*, builtin: str, name: str, relative: str, call: ast.Call) -> Violation:
     return Violation(
         file=relative,
-        line=line,
+        line=call.lineno,
         rule="ATTR-001: Avoid hasattr() for type discrimination",
         message=f"hasattr(..., '{name}') branches on structure (duck typing)",
         fix=(
             "Model the expected shape as a runtime_checkable Protocol and use "
             "isinstance, or use try/except AttributeError (EAFP)"
         ),
+        **span(call),
     )
 
 
-def _attr002(*, builtin: str, name: str, relative: str, line: int) -> Violation:
+def _attr002(*, builtin: str, name: str, relative: str, call: ast.Call) -> Violation:
     access = {
         "getattr": f"obj.{name}",
         "setattr": f"obj.{name} = value",
@@ -97,10 +100,11 @@ def _attr002(*, builtin: str, name: str, relative: str, line: int) -> Violation:
     }[builtin]
     return Violation(
         file=relative,
-        line=line,
+        line=call.lineno,
         rule="ATTR-002: Avoid getattr/setattr/delattr with a literal attribute name",
         message=f"{builtin}(..., '{name}') with a constant name defeats static typing",
         fix=f"Use direct attribute access ({access})",
+        **span(call),
     )
 
 
@@ -118,13 +122,12 @@ class AttributeAccessCheck:
             "ATTR-002: Avoid getattr/setattr/delattr with a literal attribute name",
         ]
     )
+    settings_keys: ClassVar[frozenset[str]] = frozenset({"enabled", "flag_dynamic"})
 
     def configure(self, *, settings: dict[str, object]) -> None:
         """Apply ``[tool.lanorme.attribute_access]`` configuration."""
-        if "enabled" in settings:
-            self.enabled = bool(settings["enabled"])
-        if "flag_dynamic" in settings:
-            self.flag_dynamic = bool(settings["flag_dynamic"])
+        self.enabled = is_flag_set(settings=settings, key="enabled", default=self.enabled)
+        self.flag_dynamic = is_flag_set(settings=settings, key="flag_dynamic", default=self.flag_dynamic)
 
     def _call_warning(self, *, call: ast.Call, relative: str) -> Violation | None:
         builtin = _builtin_name(call=call)
@@ -140,8 +143,8 @@ class AttributeAccessCheck:
         if not name.isidentifier() or _is_dunder(name):
             return None
         if builtin == "hasattr":
-            return _attr001(builtin=builtin, name=name, relative=relative, line=call.lineno)
-        return _attr002(builtin=builtin, name=name, relative=relative, line=call.lineno)
+            return _attr001(builtin=builtin, name=name, relative=relative, call=call)
+        return _attr002(builtin=builtin, name=name, relative=relative, call=call)
 
     def _dynamic_warning(self, *, builtin: str, call: ast.Call, relative: str) -> Violation | None:
         """Flag a non-literal attribute name only when flag_dynamic is enabled."""
@@ -158,6 +161,7 @@ class AttributeAccessCheck:
             rule=rule,
             message=f"{builtin}(...) with a dynamic attribute name (reflection)",
             fix="Prefer a typed object or Protocol over reflective attribute access",
+            **span(call),
         )
 
     def run(self, *, src_root: str) -> CheckResult:
@@ -168,11 +172,10 @@ class AttributeAccessCheck:
         for module in parsed_modules(Path(src_root)):
             if _is_exempt_file(relative=module.relative):
                 continue
-            for node in ast.walk(module.tree):
-                if isinstance(node, ast.Call):
-                    warning = self._call_warning(call=node, relative=module.relative)
-                    if warning is not None:
-                        warnings.append(warning)
+            for node in module.index.nodes(ast.Call):
+                warning = self._call_warning(call=node, relative=module.relative)
+                if warning is not None:
+                    warnings.append(warning)
 
         return CheckResult.from_findings(check=self.name, warnings=warnings)
 

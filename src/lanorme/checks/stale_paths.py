@@ -27,10 +27,11 @@ import re
 import tokenize
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import ClassVar
 
 from lanorme import CheckResult, Violation, register
 from lanorme.checkconfig import str_list_setting
-from lanorme.sources import parsed_modules
+from lanorme.sources import Module, parsed_modules, span
 
 # Default is empty → the check is inert until configured.
 _STALE_TOKENS: tuple[str, ...] = ()
@@ -52,58 +53,53 @@ def _is_exempt(*, relative_path: str) -> bool:
     return any(normalised.startswith(p) for p in _EXEMPT_PATH_FRAGMENTS)
 
 
-def _scan_text(
+def _scan_docstring(
     *,
-    text: str,
-    line_offset: int,
+    const: ast.Constant,
     relative_file: str,
     patterns: list[re.Pattern[str]],
 ) -> list[Violation]:
     findings: list[Violation] = []
-    for lineno_0, line in enumerate(text.splitlines()):
+    for lineno_0, line in enumerate(const.value.splitlines()):
         for pattern in patterns:
             for match in pattern.finditer(line):
                 findings.append(
                     Violation(
                         file=relative_file,
-                        line=line_offset + lineno_0,
+                        line=const.lineno + lineno_0,
                         rule="STALE-001",
                         message=f"Stale path reference '{match.group(0)}'",
                         fix=f"Update '{match.group(0)}' to the current path",
+                        **span(const),
                     )
                 )
     return findings
 
 
-def _iter_comments(source: str) -> list[tuple[int, str]]:
-    """Yield ``(lineno, comment_text)`` for every real comment in *source*.
+def _iter_comments(source: str) -> list[tuple[int, int, str]]:
+    """Yield ``(lineno, column, comment_text)`` for every real comment in *source*.
 
     Uses :mod:`tokenize` so that a ``#`` inside a string literal is never
     mistaken for a comment. Un-tokenisable sources yield no comments (a graceful
     fallback that keeps the check silent rather than risking a false positive).
     """
-    comments: list[tuple[int, str]] = []
+    comments: list[tuple[int, int, str]] = []
     try:
         tokens = tokenize.generate_tokens(io.StringIO(source).readline)
         for tok in tokens:
             if tok.type == tokenize.COMMENT:
-                comments.append((tok.start[0], tok.string))
+                comments.append((tok.start[0], tok.start[1], tok.string))
     except (tokenize.TokenError, IndentationError):
         return []
     return comments
 
 
-def _scan_file(
-    *,
-    source: str,
-    tree: ast.Module,
-    relative_file: str,
-    patterns: list[re.Pattern[str]],
-) -> list[Violation]:
+def _scan_file(*, module: Module, patterns: list[re.Pattern[str]]) -> list[Violation]:
+    relative_file = module.relative
     violations: list[Violation] = []
 
     # Inline comments (tokenize-extracted, so a '#' in a string never counts).
-    for lineno, comment_text in _iter_comments(source):
+    for lineno, column, comment_text in _iter_comments(module.source):
         for pattern in patterns:
             for match in pattern.finditer(comment_text):
                 violations.append(
@@ -113,25 +109,21 @@ def _scan_file(
                         rule="STALE-001",
                         message=f"Stale path reference '{match.group(0)}' in comment",
                         fix=f"Update '{match.group(0)}' to the current path",
+                        column=column,
                     )
                 )
 
     # Docstrings, module, class, function.
-    for node in ast.walk(tree):
+    for node in module.index.nodes(ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef):
         if (
-            isinstance(node, ast.Module | ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef)
-            and node.body
+            node.body
             and isinstance(node.body[0], ast.Expr)
             and isinstance(node.body[0].value, ast.Constant)
             and isinstance(node.body[0].value.value, str)
         ):
-            const = node.body[0].value
             violations.extend(
-                _scan_text(
-                    text=const.value,
-                    line_offset=const.lineno,
-                    relative_file=relative_file,
-                    patterns=patterns,
+                _scan_docstring(
+                    const=node.body[0].value, relative_file=relative_file, patterns=patterns
                 )
             )
 
@@ -141,6 +133,8 @@ def _scan_file(
 @dataclass
 class StalePathsCheck:
     """Catches stale path references in Python docstrings and comments."""
+
+    settings_keys: ClassVar[frozenset[str]] = frozenset({"tokens"})
 
     name: str = "stale_paths"
     description: str = "Stale path references (old directory tokens) in Python source"
@@ -164,14 +158,7 @@ class StalePathsCheck:
         for module in parsed_modules(Path(src_root)):
             if _is_exempt(relative_path=module.relative):
                 continue
-            violations.extend(
-                _scan_file(
-                    source=module.source,
-                    tree=module.tree,
-                    relative_file=module.relative,
-                    patterns=patterns,
-                )
-            )
+            violations.extend(_scan_file(module=module, patterns=patterns))
 
         return CheckResult.from_findings(check=self.name, violations=violations)
 

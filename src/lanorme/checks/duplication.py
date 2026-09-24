@@ -24,7 +24,15 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from lanorme import CheckResult, Violation, register
-from lanorme.sources import TOO_DEEP, Unparseable, iter_modules, skip_notice, unparseable_notice
+from lanorme.sources import (
+    TOO_DEEP,
+    Module,
+    Unparseable,
+    iter_modules,
+    skip_notice,
+    span,
+    unparseable_notice,
+)
 
 # Minimum number of statements in a function body to consider for duplication.
 MIN_BODY_STATEMENTS = 5
@@ -107,20 +115,16 @@ class _FunctionLocation:
     file: str
     line: int
     name: str
+    column: int | None = None
+    end_line: int | None = None
+    end_column: int | None = None
 
 
-def _collect_functions(
-    *,
-    tree: ast.AST,
-    relative_file: str,
-) -> list[tuple[str, _FunctionLocation]]:
+def _collect_functions(*, module: Module) -> list[tuple[str, _FunctionLocation]]:
     """Walk the AST and return (normalized_hash, location) for qualifying functions."""
     results: list[tuple[str, _FunctionLocation]] = []
 
-    for node in ast.walk(tree):
-        if not isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
-            continue
-
+    for node in module.index.functions:
         # Skip functions with fewer statements than the threshold.
         if len(node.body) < MIN_BODY_STATEMENTS:
             continue
@@ -128,9 +132,10 @@ def _collect_functions(
         # Skip if the entire body is a single docstring + pass or similar trivial patterns.
         normalized = _normalize_function_body(func_node=node)
         location = _FunctionLocation(
-            file=relative_file,
+            file=module.relative,
             line=node.lineno,
             name=node.name,
+            **span(node),
         )
         results.append((normalized, location))
 
@@ -164,6 +169,9 @@ def _build_violations(
                         f"matching: {', '.join(peers)}"
                     ),
                     fix="Extract shared logic into a common helper function",
+                    column=loc.column,
+                    end_line=loc.end_line,
+                    end_column=loc.end_column,
                 ),
             )
 
@@ -200,7 +208,7 @@ class DuplicationCheck:
             relative_file = module.relative
 
             try:
-                collected = _collect_functions(tree=module.tree, relative_file=relative_file)
+                collected = _collect_functions(module=module)
             except RecursionError:
                 # A deeply nested AST overflows the deepcopy used to normalise a
                 # body. Skip the file rather than crash the whole run.

@@ -32,9 +32,11 @@ import ast
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import ClassVar
 
 from lanorme import CheckResult, Violation, register
-from lanorme.sources import parsed_modules
+from lanorme.checkconfig import int_setting, is_flag_set, str_list_setting
+from lanorme.sources import Module, parsed_modules, span
 
 # Default marker vocabulary. AAA + BDD + a few common aliases.
 _DEFAULT_MARKERS = ("arrange", "act", "assert", "given", "when", "then")
@@ -118,6 +120,10 @@ class TestStyleCheck:
     # class is the check implementation, not a test class.
     __test__ = False
 
+    settings_keys: ClassVar[frozenset[str]] = frozenset(
+        {"enabled", "min_statements", "required_markers", "dry_prefix_statements", "synonyms"}
+    )
+
     name: str = "test_style"
     description: str = "AAA-style and DRY enforcement for pytest test suites"
     # Ships default-off: the audit flagged AAA-001's comment-marker
@@ -135,20 +141,21 @@ class TestStyleCheck:
         ]
     )
 
-    def configure(self, *, settings: dict[str, bool | int | list[str]]) -> None:
+    def configure(self, *, settings: dict[str, object]) -> None:
         """Apply ``[tool.lanorme.test_style]`` configuration."""
-        if "enabled" in settings:
-            self.enabled = bool(settings["enabled"])
-        if "min_statements" in settings:
-            self.min_statements = int(settings["min_statements"])  # type: ignore[arg-type]
-        if "required_markers" in settings:
-            value = int(settings["required_markers"])  # type: ignore[arg-type]
-            self.required_markers = max(1, min(3, value))
-        if "dry_prefix_statements" in settings:
-            self.dry_prefix_statements = int(settings["dry_prefix_statements"])  # type: ignore[arg-type]
-        synonyms = settings.get("synonyms")
-        if isinstance(synonyms, list):
-            self.extra_synonyms = tuple(s.lower() for s in synonyms if isinstance(s, str))
+        self.enabled = is_flag_set(settings=settings, key="enabled", default=self.enabled)
+        self.min_statements = int_setting(
+            settings=settings, key="min_statements", default=self.min_statements
+        )
+        markers = int_setting(settings=settings, key="required_markers", default=self.required_markers)
+        self.required_markers = max(1, min(3, markers))
+        self.dry_prefix_statements = int_setting(
+            settings=settings, key="dry_prefix_statements", default=self.dry_prefix_statements
+        )
+        self.extra_synonyms = tuple(
+            synonym.lower()
+            for synonym in str_list_setting(settings=settings, key="synonyms", default=self.extra_synonyms)
+        )
 
     def _build_alias_map(self) -> tuple[re.Pattern[str], dict[str, str]]:
         """Compile the comment-marker regex and the alias-to-section table."""
@@ -174,14 +181,13 @@ class TestStyleCheck:
     def _aaa_violations(
         self,
         *,
-        tree: ast.Module,
-        source_lines: list[str],
-        relative_file: str,
+        module: Module,
         marker_re: re.Pattern[str],
         alias_to_section: dict[str, str],
     ) -> list[Violation]:
         found: list[Violation] = []
-        for node in ast.walk(tree):
+        source_lines = module.lines
+        for node in module.index.functions:
             if not _is_test_function(node=node):
                 continue
             statements = _statements_in(node=node)
@@ -198,7 +204,7 @@ class TestStyleCheck:
             present = ", ".join(sorted(sections)) if sections else "none"
             found.append(
                 Violation(
-                    file=relative_file,
+                    file=module.relative,
                     line=node.lineno,
                     rule="AAA-001",
                     message=(
@@ -207,22 +213,17 @@ class TestStyleCheck:
                         f"need >= {self.required_markers}"
                     ),
                     fix="Add inline '# Arrange', '# Act', '# Assert' (or Given/When/Then) markers",
+                    **span(node),
                 )
             )
         return found
 
-    def _dry_violations(
-        self,
-        *,
-        tree: ast.Module,
-        relative_file: str,
-    ) -> list[Violation]:
+    def _dry_violations(self, *, module: Module) -> list[Violation]:
         """Flag any two test functions that share the same arrange prefix."""
         per_prefix: dict[str, list[ast.FunctionDef | ast.AsyncFunctionDef]] = {}
-        for node in ast.walk(tree):
+        for node in module.index.functions:
             if not _is_test_function(node=node):
                 continue
-            assert isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef)
             statements = _statements_in(node=node)
             digest = _normalize_prefix(
                 statements=statements, prefix_len=self.dry_prefix_statements
@@ -237,7 +238,7 @@ class TestStyleCheck:
             for node in nodes:
                 found.append(
                     Violation(
-                        file=relative_file,
+                        file=module.relative,
                         line=node.lineno,
                         rule="AAA-002",
                         message=(
@@ -246,6 +247,7 @@ class TestStyleCheck:
                             f"{len(nodes) - 1} other test(s) in this file"
                         ),
                         fix="Extract the repeated arrange block into a pytest fixture or helper",
+                        **span(node),
                     )
                 )
         return found
@@ -258,17 +260,12 @@ class TestStyleCheck:
         for module in parsed_modules(Path(src_root)):
             if not _is_test_file(path=module.path):
                 continue
-            relative_file = module.relative
             violations.extend(
                 self._aaa_violations(
-                    tree=module.tree,
-                    source_lines=module.lines,
-                    relative_file=relative_file,
-                    marker_re=marker_re,
-                    alias_to_section=alias_to_section,
+                    module=module, marker_re=marker_re, alias_to_section=alias_to_section
                 )
             )
-            violations.extend(self._dry_violations(tree=module.tree, relative_file=relative_file))
+            violations.extend(self._dry_violations(module=module))
         return CheckResult.from_findings(check=self.name, violations=violations)
 
 

@@ -51,9 +51,11 @@ from collections import Counter
 from dataclasses import dataclass, field
 from itertools import combinations
 from pathlib import Path
+from typing import ClassVar
 
 from lanorme import CheckResult, Violation, register
-from lanorme.sources import parsed_modules
+from lanorme.checkconfig import int_setting, is_flag_set
+from lanorme.sources import Module, parsed_modules, span
 
 # Files exempt from near-duplicate analysis (mirrors DRY-001): test functions
 # and migrations are legitimately parallel by nature.
@@ -99,7 +101,7 @@ class _FunctionFingerprint:
     """The structural token sequence and three anchor multisets of a function."""
 
     name: str
-    line: int
+    node: _FuncDef
     struct: tuple[str, ...]
     calls: Counter[str]
     strs: Counter[str]
@@ -307,7 +309,7 @@ def _fingerprint(*, func: _FuncDef) -> _FunctionFingerprint:
     calls, strs, ops, attrs = _build_anchors(func=func)
     return _FunctionFingerprint(
         name=func.name,
-        line=func.lineno,
+        node=func,
         struct=tuple(visitor.tokens),
         calls=calls,
         strs=strs,
@@ -343,6 +345,17 @@ def _weighted_jaccard(
     intersection = sum((left & right).values())
     union = sum((left | right).values())
     return intersection / union if union else 1.0
+
+
+_THRESHOLD_KEYS = ("struct_ratio", "str_jaccard", "op_jaccard", "call_jaccard", "attr_jaccard")
+
+
+def _ratio_setting(*, settings: dict[str, object], key: str, default: float) -> float:
+    """A threshold in ``[0, 1]``; an int or a float, never a bool or a string."""
+    value = settings.get(key, default)
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise TypeError(f"'{key}' must be a number, got {type(value).__name__}")
+    return float(value)
 
 
 @dataclass(frozen=True)
@@ -397,32 +410,31 @@ def _pair_matches(
     return matcher.ratio() >= thresholds.struct_ratio
 
 
-def _collect_fingerprints(*, tree: ast.AST, min_statements: int) -> list[_FunctionFingerprint]:
+def _collect_fingerprints(*, module: Module, min_statements: int) -> list[_FunctionFingerprint]:
     """Fingerprint every function (incl. methods and nested) clearing the floor."""
     prints: list[_FunctionFingerprint] = []
-    for node in ast.walk(tree):
-        if isinstance(node, _FuncDef) and len(node.body) >= min_statements:
+    for node in module.index.functions:
+        if len(node.body) >= min_statements:
             prints.append(_fingerprint(func=node))
     return prints
 
 
 def _scan_file(
     *,
-    tree: ast.AST,
-    relative_file: str,
+    module: Module,
     min_statements: int,
     thresholds: _Thresholds,
 ) -> list[Violation]:
     """Pair the qualifying functions WITHIN one file and warn on near-dupes."""
-    prints = _collect_fingerprints(tree=tree, min_statements=min_statements)
+    prints = _collect_fingerprints(module=module, min_statements=min_statements)
     warnings: list[Violation] = []
     for left, right in combinations(prints, 2):
         if _pair_matches(left=left, right=right, thresholds=thresholds):
-            first, second = sorted((left, right), key=lambda fp: fp.line)
+            first, second = sorted((left, right), key=lambda fp: fp.node.lineno)
             warnings.append(
                 Violation(
-                    file=relative_file,
-                    line=first.line,
+                    file=module.relative,
+                    line=first.node.lineno,
                     rule="SIMILAR-001",
                     message=(
                         f"Functions '{first.name}' and '{second.name}' are structurally "
@@ -430,6 +442,7 @@ def _scan_file(
                         f"names and numbers) and agree on their strings, calls and operators"
                     ),
                     fix="Extract the shared logic into a common helper function",
+                    **span(first.node),
                 )
             )
     return warnings
@@ -456,16 +469,21 @@ class SimilarityCheck:
             "share a helper (advisory; default-off)",
         ]
     )
+    settings_keys: ClassVar[frozenset[str]] = frozenset(
+        {"enabled", "min_statements", *_THRESHOLD_KEYS},
+    )
 
     def configure(self, *, settings: dict[str, object]) -> None:
-        """Apply ``[tool.lanorme.similarity]`` configuration (unknown keys ignored)."""
-        if "enabled" in settings:
-            self.enabled = bool(settings["enabled"])
-        if "min_statements" in settings:
-            self.min_statements = int(settings["min_statements"])  # type: ignore[arg-type]
-        for key in ("struct_ratio", "str_jaccard", "op_jaccard", "call_jaccard", "attr_jaccard"):
-            if key in settings:
-                setattr(self, key, float(settings[key]))  # type: ignore[arg-type]
+        """Apply ``[tool.lanorme.similarity]`` configuration."""
+        self.enabled = is_flag_set(settings=settings, key="enabled", default=self.enabled)
+        self.min_statements = int_setting(
+            settings=settings,
+            key="min_statements",
+            default=self.min_statements,
+        )
+        for key in _THRESHOLD_KEYS:
+            current: float = getattr(self, key)
+            setattr(self, key, _ratio_setting(settings=settings, key=key, default=current))
 
     def _thresholds(self) -> _Thresholds:
         return _Thresholds(
@@ -491,8 +509,7 @@ class SimilarityCheck:
             try:
                 warnings.extend(
                     _scan_file(
-                        tree=module.tree,
-                        relative_file=module.relative,
+                        module=module,
                         min_statements=self.min_statements,
                         thresholds=thresholds,
                     )

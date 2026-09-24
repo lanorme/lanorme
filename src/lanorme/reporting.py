@@ -15,10 +15,29 @@ import json
 import os
 import sys
 from collections.abc import Iterator
-from importlib.resources import files as _resource_files
 from pathlib import Path
 
 from lanorme import CheckResult, Status, Violation, get_all_checks
+from lanorme.baseline import fingerprint
+
+
+@dataclasses.dataclass(frozen=True)
+class RunNotes:
+    """What the run did around the findings, for the summary and the records."""
+
+    project_root: Path
+    suppressed_inline: int = 0
+    suppressed_per_file: int = 0
+    suppressed_baseline: int = 0
+    baseline_configured: bool = False
+
+    @property
+    def opt_in_disabled(self) -> int:
+        """Registered checks that ship off and were not enabled for this run."""
+        return sum(
+            1 for check in get_all_checks().values()
+            if hasattr(check, "enabled") and not check.enabled
+        )
 
 
 @contextlib.contextmanager
@@ -48,28 +67,73 @@ def tolerate_closed_pipe() -> Iterator[None]:
 # --------------------------------------------------------------------------- #
 
 
-def _finding_records(*, result: CheckResult) -> list[dict[str, str | int]]:
+def _finding_records(
+    *, result: CheckResult, project_root: Path | None, cache: dict[str, list[str]]
+) -> list[dict[str, object]]:
     """Flatten a check result into one record per finding (violations + warnings)."""
-    records: list[dict[str, str | int]] = []
+    records: list[dict[str, object]] = []
     for severity, items in (("error", result.violations), ("warning", result.warnings)):
         for finding in items:
-            records.append({"check": result.check, "severity": severity, **finding.to_dict()})
+            record: dict[str, object] = {"check": result.check, "severity": severity, **finding.to_dict()}
+            if project_root is not None:
+                record["fingerprint"] = fingerprint(
+                    project_root=project_root, finding=finding, cache=cache
+                )
+            records.append(record)
     return records
 
 
-def _emit_ndjson(*, results: list[CheckResult]) -> None:
+def _emit_ndjson(*, results: list[CheckResult], project_root: Path | None) -> None:
     """Print one JSON object per finding, newline-delimited (grep/jq friendly)."""
+    cache: dict[str, list[str]] = {}
     for result in results:
-        for record in _finding_records(result=result):
+        for record in _finding_records(result=result, project_root=project_root, cache=cache):
             print(json.dumps(record))
 
 
-def _emit_human(*, results: list[CheckResult], show_passed: bool) -> None:
+def _emit_json(*, results: list[CheckResult], project_root: Path | None) -> None:
+    """Print one object per check, each finding carrying its fingerprint."""
+    cache: dict[str, list[str]] = {}
+    payload = []
+    for result in results:
+        records = _finding_records(result=result, project_root=project_root, cache=cache)
+        payload.append(
+            {
+                "check": result.check,
+                "status": result.status.value,
+                "violations": [r for r in records if r["severity"] == "error"],
+                "warnings": [r for r in records if r["severity"] == "warning"],
+            }
+        )
+    print(json.dumps(payload, indent=2))
+
+
+def _emit_summary(*, results: list[CheckResult]) -> None:
+    """Counts only: by code, by top-level directory, and the totals. For large trees."""
+    by_code: dict[tuple[str, str], int] = {}
+    by_dir: dict[str, int] = {}
+    for result in results:
+        for severity, items in (("error", result.violations), ("warning", result.warnings)):
+            for finding in items:
+                by_code[(finding.code, severity)] = by_code.get((finding.code, severity), 0) + 1
+                top = finding.file.split("/", 1)[0] if "/" in finding.file else "."
+                by_dir[top] = by_dir.get(top, 0) + 1
+    _print_totals(results=results)
+    if by_code:
+        print("By code:")
+        for (code, severity), count in sorted(by_code.items(), key=lambda item: (-item[1], item[0])):
+            print(f"  {code:<16} {severity:<8} {count}")
+        print("By directory:")
+        for directory, count in sorted(by_dir.items(), key=lambda item: (-item[1], item[0])):
+            print(f"  {directory + '/':<24} {count}")
+
+
+def _emit_human(*, results: list[CheckResult], show_passed: bool, notes: RunNotes | None) -> None:
     """Print the human report.
 
     ``full`` (*show_passed* true) reproduces the verbose per-check listing exactly,
     with no summary footer. ``concise`` (*show_passed* false) prints only the checks
-    that found something, then a one-line summary so an empty run is not silent.
+    that found something, then the summary so an empty run is not silent.
     """
     shown = 0
     for result in results:
@@ -81,13 +145,18 @@ def _emit_human(*, results: list[CheckResult], show_passed: bool) -> None:
 
     if show_passed:
         return
+    if shown == 0:
+        print(f"All {len(results)} checks passed.")
+    else:
+        _print_totals(results=results)
+    if notes is not None:
+        _print_notes(results=results, notes=notes)
 
+
+def _print_totals(*, results: list[CheckResult]) -> None:
     passed = sum(1 for r in results if r.status == Status.PASS)
     warned = sum(1 for r in results if r.status == Status.WARN)
     failed = sum(1 for r in results if r.status == Status.FAIL)
-    if shown == 0:
-        print(f"All {len(results)} checks passed.")
-        return
     print(f"Summary: {len(results)} checks — {passed} passed, {warned} warned, {failed} failed.")
     errors = sum(len(r.violations) for r in results)
     advisories = sum(len(r.warnings) for r in results)
@@ -95,6 +164,31 @@ def _emit_human(*, results: list[CheckResult], show_passed: bool) -> None:
         f"Findings: {errors} {_plural(count=errors, noun='error')} to fix, "
         f"{advisories} advisory {_plural(count=advisories, noun='warning')}."
     )
+
+
+# Past this many errors with no baseline, the adoption path is worth a line.
+_BASELINE_TIP_THRESHOLD = 25
+
+
+def _print_notes(*, results: list[CheckResult], notes: RunNotes) -> None:
+    """What a clean or dirty summary would otherwise hide: suppressions, opt-ins, adoption."""
+    suppressed = (notes.suppressed_inline, notes.suppressed_per_file, notes.suppressed_baseline)
+    if any(suppressed):
+        print(
+            f"Suppressed: {suppressed[0]} by inline ignores, {suppressed[1]} by per-file-ignores, "
+            f"{suppressed[2]} by the baseline."
+        )
+    if notes.opt_in_disabled:
+        print(
+            f"Opt-in checks not enabled: {notes.opt_in_disabled} "
+            "('lanorme check --show-config' lists them)."
+        )
+    errors = sum(len(r.violations) for r in results)
+    if errors >= _BASELINE_TIP_THRESHOLD and not notes.baseline_configured:
+        print(
+            "Tip: 'lanorme baseline write' records today's findings as debt so that only "
+            "new ones report (see the adoption tutorial)."
+        )
 
 
 def _plural(*, count: int, noun: str) -> str:
@@ -158,7 +252,7 @@ def print_baseline_drift(*, drifted: list[tuple[str, str]], output_format: str) 
     machine-readable formats stay a pure finding stream, so the note is for the
     human ones only.
     """
-    if not drifted or output_format in {"json", "ndjson", "github"}:
+    if not drifted or output_format in {"json", "ndjson", "github", "summary"}:
         return
     count = len(drifted)
     print(
@@ -175,101 +269,19 @@ def print_baseline_drift(*, drifted: list[tuple[str, str]], output_format: str) 
     )
 
 
-def emit(*, results: list[CheckResult], output_format: str) -> None:
+def emit(*, results: list[CheckResult], output_format: str, notes: RunNotes | None = None) -> None:
     """Dispatch results to the requested output format."""
+    project_root = notes.project_root if notes is not None else None
     if output_format == "json":
-        print(json.dumps([r.to_dict() for r in results], indent=2))
+        _emit_json(results=results, project_root=project_root)
     elif output_format == "ndjson":
-        _emit_ndjson(results=results)
+        _emit_ndjson(results=results, project_root=project_root)
     elif output_format == "github":
         _emit_github(results=results)
+    elif output_format == "summary":
+        _emit_summary(results=results)
     else:
-        _emit_human(results=results, show_passed=output_format == "full")
-
-
-# --------------------------------------------------------------------------- #
-# Rules listing
-# --------------------------------------------------------------------------- #
-
-
-def print_rules() -> None:
-    """Print every registered check and its rules."""
-    checks = get_all_checks()
-    if not checks:
-        print("No checks registered.")
-        return
-    for check in sorted(checks.values(), key=lambda c: c.name):
-        print(f"\n## {check.name} — {check.description}")
-        for rule in check.rules:
-            print(f"  {rule}")
-
-
-# --------------------------------------------------------------------------- #
-# Single-rule reference (docs/RULES.md)
-# --------------------------------------------------------------------------- #
-
-
-def _rules_reference_path() -> Path | None:
-    """Locate the rule reference Markdown, preferring the package-bundled copy."""
-    bundled = _resource_files("lanorme").joinpath("RULES.md")
-    if bundled.is_file():
-        return Path(str(bundled))
-    for candidate in (
-        Path(__file__).resolve().parents[2] / "docs" / "RULES.md",
-        Path.cwd() / "docs" / "RULES.md",
-    ):
-        if candidate.is_file():
-            return candidate
-    return None
-
-
-def _rule_reference_section(*, code: str) -> str | None:
-    """Return the ``docs/RULES.md`` section that documents *code*, or None.
-
-    Matches by looking for a Markdown header whose backtick-quoted token
-    starts with the code (e.g. ``### `CMT-001`: ...``) or a category
-    header (e.g. ``## Comments: `CMT-*` ...``) where the code's category
-    appears in a backtick token. The section is everything up to the next
-    same-or-shallower header.
-    """
-    reference = _rules_reference_path()
-    if reference is None:
-        return None
-    text = reference.read_text(encoding="utf-8")
-    code_token = f"`{code}`"
-    category = code.split("-", 1)[0]
-    category_token = f"`{category}-"
-    lines = text.splitlines()
-    exact = [i for i, line in enumerate(lines) if line.startswith("#") and code_token in line]
-    category_only = [
-        i for i, line in enumerate(lines) if line.startswith("#") and category_token in line
-    ]
-    if not exact and not category_only:
-        return None
-    start = exact[0] if exact else category_only[0]
-    header_level = len(lines[start]) - len(lines[start].lstrip("#"))
-    end = len(lines)
-    for index in range(start + 1, len(lines)):
-        if lines[index].startswith("#"):
-            level = len(lines[index]) - len(lines[index].lstrip("#"))
-            if level <= header_level:
-                end = index
-                break
-    return "\n".join(lines[start:end]).rstrip() + "\n"
-
-
-def print_rule_detail(*, code: str) -> int:
-    """Print the reference section for *code* and return an exit code."""
-    section = _rule_reference_section(code=code.upper())
-    if section is not None:
-        print(section)
-        return 0
-    print(
-        f"No reference section found for {code!r}. Run 'lanorme rules' for the list "
-        "of emitted codes, or browse docs/RULES.md directly.",
-        file=sys.stderr,
-    )
-    return 2
+        _emit_human(results=results, show_passed=output_format == "full", notes=notes)
 
 
 # --------------------------------------------------------------------------- #
@@ -300,6 +312,9 @@ def _settings_repr(check: object) -> str:
     summary = " ".join(parts)
     if hasattr(check, "enabled") and not check.enabled:
         summary += "   (opt-in, not enabled)"
+    keys = getattr(check, "settings_keys", None)
+    if keys:
+        summary += f"\n{'':<21}keys: {', '.join(sorted(keys))}"
     return summary
 
 
@@ -315,7 +330,13 @@ def print_config(
     *config*, so it is passed separately to show where promoted or ignored
     codes came from.
     """
-    print(f"config file:  {source or 'none (built-in defaults)'}")
+    if source is None:
+        print(
+            "config file:  none, built-in defaults (looked for lanorme.toml, .lanorme.toml "
+            f"and a [tool.lanorme] table in pyproject.toml from {project_root} upwards)"
+        )
+    else:
+        print(f"config file:  {source}")
     print(f"project root: {project_root}")
     shown = {"extends": extends} if extends else {}
     shown.update((k, config[k]) for k in _TOP_LEVEL_KEYS if k in config)

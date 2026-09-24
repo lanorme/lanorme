@@ -37,9 +37,11 @@ from __future__ import annotations
 import ast
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import ClassVar
 
 from lanorme import CheckResult, Violation, register
-from lanorme.sources import parsed_modules
+from lanorme.checkconfig import int_setting, is_flag_set, str_list_setting
+from lanorme.sources import parsed_modules, span
 
 # Beyond this many lines between binding and last use, a short name stops
 # paying for itself. Roughly one screen: see the calibration above.
@@ -58,20 +60,29 @@ DEFAULT_ALLOW = frozenset({
 })
 
 _SKIP_DIRS = frozenset({"alembic", "migrations"})
-_FUNCTION_TYPES = (ast.FunctionDef, ast.AsyncFunctionDef)
 
 
 @dataclass
 class _Extent:
-    """Where a name is first bound and last referenced, in line numbers."""
+    """Where a name is first bound and last referenced, in line numbers.
+
+    ``node`` is the earliest binding or reference seen, where the finding is placed.
+    """
 
     first: int
     last: int
+    node: ast.AST
 
     @property
     def span(self) -> int:
         """Lines a reader must carry the name across, inclusive."""
         return self.last - self.first + 1
+
+    def extend(self, *, line: int, node: ast.AST) -> None:
+        """Widen the extent to *line*; an earlier line moves the anchor to *node*."""
+        if line < self.first:
+            self.first, self.node = line, node
+        self.last = max(self.last, line)
 
 
 def _is_short(*, name: str, max_short_length: int, allow: frozenset[str]) -> bool:
@@ -106,7 +117,10 @@ def _local_extents(*, func: ast.AST) -> dict[str, _Extent]:
         if line is None:
             continue
         seen = extents.get(name)
-        extents[name] = _Extent(first=min(seen.first, line), last=max(seen.last, line)) if seen else _Extent(first=line, last=line)
+        if seen is None:
+            extents[name] = _Extent(first=line, last=line, node=node)
+        else:
+            seen.extend(line=line, node=node)
     return {name: extent for name, extent in extents.items() if name in bound}
 
 
@@ -126,6 +140,7 @@ def _function_violations(*, func: ast.AST, file: str, settings: _Settings) -> li
                 f"in '{getattr(func, 'name', '?')}' (limit: {settings.max_span})"
             ),
             fix="Give it a name that reads at the point of use, or shorten the span it lives across",
+            **span(extent.node),
         ))
     return violations
 
@@ -154,18 +169,22 @@ class NamingScopeCheck:
             "NAMING-005: A short name must not be carried across a long span",
         ]
     )
+    settings_keys: ClassVar[frozenset[str]] = frozenset(
+        {"enabled", "max_span", "max_short_length", "allow"},
+    )
 
-    def configure(self, *, settings: dict[str, bool | int | list[str]]) -> None:
+    def configure(self, *, settings: dict[str, object]) -> None:
         """Apply ``[tool.lanorme.naming_scope]`` configuration."""
-        if "enabled" in settings:
-            self.enabled = bool(settings["enabled"])
-        if "max_span" in settings:
-            self.max_span = int(settings["max_span"])
-        if "max_short_length" in settings:
-            self.max_short_length = int(settings["max_short_length"])
-        extra = settings.get("allow")
-        if isinstance(extra, list):
-            self.allow = DEFAULT_ALLOW | {str(item) for item in extra}
+        self.enabled = is_flag_set(settings=settings, key="enabled", default=self.enabled)
+        self.max_span = int_setting(settings=settings, key="max_span", default=self.max_span)
+        self.max_short_length = int_setting(
+            settings=settings,
+            key="max_short_length",
+            default=self.max_short_length,
+        )
+        if "allow" in settings:
+            extra = str_list_setting(settings=settings, key="allow")
+            self.allow = DEFAULT_ALLOW | frozenset(extra)
 
     def run(self, *, src_root: str) -> CheckResult:
         """Walk every Python file and collect NAMING-005 violations."""
@@ -183,9 +202,8 @@ class NamingScopeCheck:
             if any(part in _SKIP_DIRS for part in module.relative.split("/")) or module.path.name.startswith("test_"):
                 continue
             file = module.relative
-            for node in ast.walk(module.tree):
-                if isinstance(node, _FUNCTION_TYPES):
-                    violations.extend(_function_violations(func=node, file=file, settings=resolved))
+            for node in module.index.functions:
+                violations.extend(_function_violations(func=node, file=file, settings=resolved))
         return CheckResult.from_findings(check=self.name, violations=violations)
 
 

@@ -13,6 +13,7 @@ import pytest
 
 from lanorme import get_all_checks
 from lanorme.cli import _load_builtin_checks, main
+from lanorme.errors import UsageError
 from lanorme.presets import _bundled_profiles, _load_profile, _resolve_extends
 
 # Default-off checks the strict profile leaves off on purpose. Empty today: a
@@ -165,11 +166,10 @@ def test_no_extends_is_returned_unchanged():
     assert merged is config
 
 
-def test_unknown_profile_exits_two():
-    # Act / Assert.
-    with pytest.raises(SystemExit) as exc:
+def test_unknown_profile_is_a_usage_error():
+    # Act / Assert: the library raises; the CLI turns it into exit 2.
+    with pytest.raises(UsageError, match="unknown profile 'does-not-exist'"):
         _load_profile(name="does-not-exist", project_root=Path("."))
-    assert exc.value.code == 2
 
 
 # --- red-team regressions: malformed `extends`, malformed profiles, region cascade ---
@@ -180,26 +180,23 @@ def test_extends_as_a_table_is_rejected():
     config = {"extends": {"strict": True}}
 
     # Act / Assert: rejected, not silently iterated into ['strict'].
-    with pytest.raises(SystemExit) as exc:
+    with pytest.raises(UsageError, match="'extends' must be"):
         _resolve_extends(config=config, project_root=Path("."))
-    assert exc.value.code == 2
 
 
 def test_extends_as_a_scalar_is_rejected():
-    # Act / Assert: a bare scalar must exit cleanly, not raise TypeError.
-    with pytest.raises(SystemExit) as exc:
+    # Act / Assert: a bare scalar is a usage error, not a TypeError.
+    with pytest.raises(UsageError, match="got int"):
         _resolve_extends(config={"extends": 5}, project_root=Path("."))
-    assert exc.value.code == 2
 
 
 def test_malformed_profile_toml_exits_cleanly(tmp_path: Path):
     # Arrange.
     (tmp_path / "bad.toml").write_text("this is = = not toml\n", encoding="utf-8")
 
-    # Act / Assert: a clean exit 2, not a raw TOMLDecodeError traceback.
-    with pytest.raises(SystemExit) as exc:
+    # Act / Assert: a usage error naming the file, not a raw TOMLDecodeError.
+    with pytest.raises(UsageError, match="bad.toml' is not valid TOML"):
         _load_profile(name="bad.toml", project_root=tmp_path)
-    assert exc.value.code == 2
 
 
 def test_hexagonal_exempts_a_package_form_composition_root(tmp_path: Path, capsys):

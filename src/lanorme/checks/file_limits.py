@@ -26,8 +26,10 @@ import ast
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import ClassVar
 
 from lanorme import CheckResult, Status, Violation, register
+from lanorme.checkconfig import int_setting
 from lanorme.sources import Module, Unparseable, iter_modules, span, unparseable_notice
 
 # Default thresholds. Each is the default of the matching ``FileLimitsCheck``
@@ -422,6 +424,7 @@ class FileLimitsCheck:
             "PARAM-001: Parameter count warn at 5 by default, error at 8 (excluding self/cls)",
         ],
     )
+    settings_keys: ClassVar[frozenset[str]] = frozenset(_THRESHOLD_KEYS)
 
     def configure(self, *, settings: dict[str, object]) -> None:
         """Apply ``[tool.lanorme.file_limits]`` configuration.
@@ -431,8 +434,7 @@ class FileLimitsCheck:
         rather than switch the rules off.
         """
         for key in _THRESHOLD_KEYS:
-            if key in settings:
-                setattr(self, key, int(settings[key]))  # type: ignore[call-overload]
+            setattr(self, key, int_setting(settings=settings, key=key, default=getattr(self, key)))
 
     def _bounds(self) -> tuple[_Bounds, _Bounds, _Bounds, _Bounds]:
         """The file, function, complexity and parameter pairs for this run."""

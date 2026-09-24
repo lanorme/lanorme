@@ -28,6 +28,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import ClassVar
 
 from lanorme import CheckResult, Violation, register
 from lanorme.checks.naming_shapes import (
@@ -52,6 +53,7 @@ from lanorme.checks.naming_words import (
     split_name,
     verb_first,
 )
+from lanorme.sources import span
 
 RULE_006 = "NAMING-006: A class is named as a thing, not as an action"
 RULE_007 = "NAMING-007: A function that does something is named verb-first"
@@ -119,6 +121,7 @@ def _class_findings(*, definition: Definition, file: str, settings: _Settings) -
             f"Name it for what it is (for example '{_thing_name(name=name, tokens=tokens)}'), "
             "or mark a message object with a suffix such as 'Command'"
         ),
+        **span(definition.node),
     )]
 
 
@@ -155,6 +158,7 @@ def _command_findings(*, definition: Definition, file: str, settings: _Settings)
             verbs=settings.verbs,
             otherwise="Start with the verb for what it does (write_, register_, apply_, record_, ...)",
         ),
+        **span(definition.node),
     )]
 
 
@@ -180,6 +184,7 @@ def _weak_verb_findings(*, definition: Definition, file: str, settings: _Setting
             f"to '{rest}' without saying what"
         ),
         fix=f"Name the action: parse_{rest}, store_{rest}, validate_{rest}, ...",
+        **span(definition.node),
     )]
 
 
@@ -206,6 +211,9 @@ class NamingCanonCheck:
     weak_verbs: frozenset[str] = WEAK_VERBS
     exempt: frozenset[str] = frozenset()
     rules: list[str] = field(default_factory=lambda: [RULE_006, RULE_007, RULE_008])
+    settings_keys: ClassVar[frozenset[str]] = frozenset(
+        {"verbs", "command_suffixes", "weak_verbs", "exempt"}
+    )
 
     def configure(self, *, settings: dict[str, bool | list[str]]) -> None:
         """Apply ``[tool.lanorme.naming_canon]``.

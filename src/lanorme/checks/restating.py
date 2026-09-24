@@ -30,8 +30,10 @@ import tokenize
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import ClassVar
 
 from lanorme import CheckResult, Violation, register
+from lanorme.checkconfig import is_flag_set
 from lanorme.sources import parsed_modules
 
 MAX_CONTENT_WORDS = 4
@@ -207,6 +209,7 @@ def _code_tokens(*, s: ast.stmt) -> set[str]:
 @dataclass(frozen=True)
 class _Comment:
     line: int
+    column: int
     text: str
     standalone: bool
 
@@ -253,7 +256,12 @@ def _collect_comments(*, source: str, source_lines: list[str]) -> list[_Comment]
             row, col = token.start
             before = source_lines[row - 1][:col] if 0 <= row - 1 < len(source_lines) else ""
             comments.append(
-                _Comment(line=row, text=token.string.lstrip("#").strip(), standalone=not before.strip())
+                _Comment(
+                    line=row,
+                    column=col,
+                    text=token.string.lstrip("#").strip(),
+                    standalone=not before.strip(),
+                )
             )
     except (tokenize.TokenError, IndentationError, SyntaxError):
         pass
@@ -286,6 +294,7 @@ def _restating_violations(*, tree: ast.Module, comments: list[_Comment], file: s
                     rule="CMT-005",
                     message=f"Comment restates the code: {comment.text[:50]}",
                     fix="Remove it, or explain the why rather than the what",
+                    column=comment.column,
                 )
             )
     return found
@@ -303,11 +312,11 @@ class RestatingCheck:
             "CMT-005: No comments that restate the next line of code (experimental)",
         ]
     )
+    settings_keys: ClassVar[frozenset[str]] = frozenset({"enabled"})
 
-    def configure(self, *, settings: dict[str, bool]) -> None:
+    def configure(self, *, settings: dict[str, object]) -> None:
         """Apply ``[tool.lanorme.restating]`` configuration."""
-        if "enabled" in settings:
-            self.enabled = bool(settings["enabled"])
+        self.enabled = is_flag_set(settings=settings, key="enabled", default=self.enabled)
 
     def run(self, *, src_root: str) -> CheckResult:
         if not self.enabled:

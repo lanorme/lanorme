@@ -15,7 +15,15 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from lanorme import CheckResult, Violation, register
-from lanorme.sources import TOO_DEEP, Unparseable, iter_modules, skip_notice, unparseable_notice
+from lanorme.sources import (
+    TOO_DEEP,
+    Module,
+    Unparseable,
+    iter_modules,
+    skip_notice,
+    span,
+    unparseable_notice,
+)
 
 # ---------------------------------------------------------------------------
 # IMPORT-001: No inline imports inside functions
@@ -84,13 +92,9 @@ def _line_has_noqa(*, source_lines: list[str], lineno: int, rule: str) -> bool:
     return False
 
 
-def _check_inline_imports(
-    *,
-    tree: ast.AST,
-    source_lines: list[str],
-    relative_file: str,
-) -> list[Violation]:
+def _check_inline_imports(*, module: Module) -> list[Violation]:
     """IMPORT-001: Find import statements inside function bodies."""
+    relative_file = module.relative
     # Exempt paths where conditional imports are legitimate.
     normalized = relative_file.replace("\\", "/")
     for exempt in _PATTERN_001_EXEMPT_PATHS:
@@ -98,12 +102,10 @@ def _check_inline_imports(
             return []
 
     violations: list[Violation] = []
-    parents = _build_parent_map(tree=tree)
+    source_lines = module.lines
+    parents = _build_parent_map(tree=module.tree)
 
-    for node in ast.walk(tree):
-        if not isinstance(node, ast.Import | ast.ImportFrom):
-            continue
-
+    for node in module.index.nodes(ast.Import, ast.ImportFrom):
         if not _is_inside_function(node=node, parents=parents):
             continue
 
@@ -131,6 +133,7 @@ def _check_inline_imports(
                 rule="IMPORT-001: No inline imports inside functions",
                 message=f"Import '{module_name}' found inside a function body",
                 fix="Move this import to the top of the file, at module level",
+                **span(node),
             ),
         )
 
@@ -171,23 +174,17 @@ def _max_nesting_depth(*, node: ast.AST, depth: int = 0) -> int:
     return max_depth
 
 
-def _check_endpoint_nesting(
-    *,
-    tree: ast.AST,
-    source_lines: list[str],
-    relative_file: str,
-) -> list[Violation]:
+def _check_endpoint_nesting(*, module: Module) -> list[Violation]:
     """ENDPOINT-001: Flag endpoint functions with nesting > 4 levels."""
+    relative_file = module.relative
     normalized = relative_file.replace("\\", "/")
     if not normalized.startswith(_ENDPOINTS_DIR):
         return []
 
     warnings: list[Violation] = []
+    source_lines = module.lines
 
-    for node in ast.walk(tree):
-        if not isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
-            continue
-
+    for node in module.index.functions:
         depth = _max_nesting_depth(node=node)
         if depth <= _MAX_NESTING_DEPTH:
             continue
@@ -212,6 +209,7 @@ def _check_endpoint_nesting(
                     "Extract deeply nested logic into private helper functions "
                     "or service methods to reduce cognitive complexity"
                 ),
+                **span(node),
             ),
         )
 
@@ -254,22 +252,12 @@ class PatternDivergenceCheck:
                 warnings.append(unparseable_notice(prefix="PATTERN", failure=module))
                 continue
 
-            tree = module.tree
-            source_lines = module.lines
             try:
                 # IMPORT-001: inline imports (violation)
-                file_violations = _check_inline_imports(
-                    tree=tree,
-                    source_lines=source_lines,
-                    relative_file=relative_file,
-                )
+                file_violations = _check_inline_imports(module=module)
 
                 # ENDPOINT-001: endpoint nesting depth (warning)
-                file_warnings = _check_endpoint_nesting(
-                    tree=tree,
-                    source_lines=source_lines,
-                    relative_file=relative_file,
-                )
+                file_warnings = _check_endpoint_nesting(module=module)
             except RecursionError:
                 # A deeply nested AST (for example a very long attribute chain in
                 # an endpoint) overflows the recursive depth walk. Skip the file

@@ -58,10 +58,11 @@ import ast
 import fnmatch
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import ClassVar
 
 from lanorme import CheckResult, Violation, register
 from lanorme.checkconfig import str_list_setting, str_setting
-from lanorme.sources import Unparseable, iter_modules, unparseable_notice
+from lanorme.sources import Module, Unparseable, iter_modules, span, unparseable_notice
 
 # The architectural layers in a hexagonal backend (default).
 LAYERS = ("domain", "application", "infrastructure", "api")
@@ -120,20 +121,23 @@ def _classify_layer(*, relative: str, layers: tuple[str, ...]) -> str | None:
     return None
 
 
+_ImportNode = ast.Import | ast.ImportFrom
+
+
 def _extract_src_imports(
-    *, tree: ast.AST, layers: tuple[str, ...], package: str
-) -> list[tuple[str, int]]:
-    """Extract imports that reference architectural layers, as (target_layer, line)."""
-    imports: list[tuple[str, int]] = []
-    for node in ast.walk(tree):
+    *, module: Module, layers: tuple[str, ...], package: str
+) -> list[tuple[str, _ImportNode]]:
+    """Extract imports that reference architectural layers, as (target_layer, import node)."""
+    imports: list[tuple[str, _ImportNode]] = []
+    for node in module.index.nodes(ast.Import, ast.ImportFrom):
         if isinstance(node, ast.Import):
             for alias in node.names:
                 _record_layer_import(
-                    module=alias.name, line=node.lineno, imports=imports, layers=layers, package=package
+                    module=alias.name, node=node, imports=imports, layers=layers, package=package
                 )
         elif isinstance(node, ast.ImportFrom) and node.module:
             _record_layer_import(
-                module=node.module, line=node.lineno, imports=imports, layers=layers, package=package
+                module=node.module, node=node, imports=imports, layers=layers, package=package
             )
     return imports
 
@@ -141,8 +145,8 @@ def _extract_src_imports(
 def _record_layer_import(
     *,
     module: str,
-    line: int,
-    imports: list[tuple[str, int]],
+    node: _ImportNode,
+    imports: list[tuple[str, _ImportNode]],
     layers: tuple[str, ...],
     package: str,
 ) -> None:
@@ -160,7 +164,7 @@ def _record_layer_import(
     else:
         return
     if target in layers:
-        imports.append((target, line))
+        imports.append((target, node))
 
 
 def _suggest_fix(
@@ -189,6 +193,10 @@ def _suggest_fix(
 @dataclass
 class LayerDepsCheck:
     """Validates hexagonal layer dependency rules (configurable layout)."""
+
+    settings_keys: ClassVar[frozenset[str]] = frozenset(
+        {"source_root", "composition_root", "layers", "transport_layers", "allowed"}
+    )
 
     name: str = "layer_deps"
     description: str = "Hexagonal architecture layer dependency validation"
@@ -235,6 +243,8 @@ class LayerDepsCheck:
             self.transport_layers = transport
             self._transport_configured = True
         allowed = settings.get("allowed")
+        if allowed is not None and not isinstance(allowed, dict):
+            raise TypeError(f"'allowed' must be a table, got {type(allowed).__name__}")
         if isinstance(allowed, dict):
             self.allowed_imports = {
                 str(layer): {str(target) for target in targets}
@@ -250,7 +260,7 @@ class LayerDepsCheck:
         return allowed
 
     def _violation_for(
-        self, *, layer: str, target_layer: str, relative: str, line: int, is_comp_root: bool
+        self, *, layer: str, target_layer: str, relative: str, node: _ImportNode, is_comp_root: bool
     ) -> Violation:
         if target_layer == "infrastructure" and layer not in _INNER_LAYERS and not is_comp_root:
             rule = RULE_MAP["api_composition"]
@@ -263,10 +273,11 @@ class LayerDepsCheck:
             fix = _suggest_fix(source_layer=layer, target_layer=target_layer, allowed_imports=self.allowed_imports)
         return Violation(
             file=relative,
-            line=line,
+            line=node.lineno,
             rule=rule,
             message=f"{layer}/ imports from {target_layer}/",
             fix=fix,
+            **span(node),
         )
 
     def _config_warnings(self) -> list[Violation]:
@@ -316,7 +327,7 @@ class LayerDepsCheck:
                 warnings.append(unparseable_notice(prefix="LAYER", failure=module))
                 continue
 
-            imports = _extract_src_imports(tree=module.tree, layers=self.layers, package=package)
+            imports = _extract_src_imports(module=module, layers=self.layers, package=package)
             allowed = self._allowed_for_file(relative=classify_rel, layer=layer)
             # A composition root only counts inside a transport layer, so a file
             # matching a glob in another layer is not silently treated as exempt.
@@ -324,7 +335,7 @@ class LayerDepsCheck:
                 relative=classify_rel, patterns=self.composition_root
             )
 
-            for target_layer, line in imports:
+            for target_layer, node in imports:
                 if target_layer == layer or target_layer in allowed:
                     continue
                 violations.append(
@@ -332,7 +343,7 @@ class LayerDepsCheck:
                         layer=layer,
                         target_layer=target_layer,
                         relative=relative,
-                        line=line,
+                        node=node,
                         is_comp_root=is_comp_root,
                     )
                 )

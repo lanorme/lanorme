@@ -30,7 +30,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from lanorme import CheckResult, Violation, register
-from lanorme.sources import parsed_modules
+from lanorme.sources import Module, parsed_modules, span
 
 
 def _attr_chain(node: ast.AST) -> tuple[str, ...]:
@@ -81,6 +81,7 @@ def _shell_violations(*, call: ast.Call, relative_file: str) -> list[Violation]:
                 rule="SHELL-001",
                 message=f"{'.'.join(chain)} runs the argument through the shell",
                 fix="Use subprocess.run([...], shell=False) with an argv list instead",
+                **span(call),
             )
         ]
     if len(chain) == 2 and chain[0] == "subprocess" and chain[1] in _SUBPROCESS_FUNCS:
@@ -92,6 +93,7 @@ def _shell_violations(*, call: ast.Call, relative_file: str) -> list[Violation]:
                     rule="SHELL-001",
                     message=f"subprocess.{chain[1]}(..., shell=True) runs the argument through the shell",
                     fix="Drop shell=True and pass the command as a list of arguments",
+                    **span(call),
                 )
             ]
     return []
@@ -124,6 +126,7 @@ def _deserial_violations(*, call: ast.Call, relative_file: str) -> list[Violatio
                 rule="DESERIAL-001",
                 message=f"{'.'.join(chain)} on untrusted input is an RCE primitive",
                 fix="Replace with a safe serialiser (json, msgpack), or # noqa: DESERIAL-001 if the input is trusted",
+                **span(call),
             )
         ]
     if chain == ("yaml", "load"):
@@ -141,6 +144,7 @@ def _deserial_violations(*, call: ast.Call, relative_file: str) -> list[Violatio
                     rule="DESERIAL-001",
                     message="yaml.load without Loader=SafeLoader is an RCE primitive",
                     fix="Use yaml.safe_load(...) or pass Loader=yaml.SafeLoader explicitly",
+                    **span(call),
                 )
             ]
     if chain == ("yaml", "unsafe_load"):
@@ -151,6 +155,7 @@ def _deserial_violations(*, call: ast.Call, relative_file: str) -> list[Violatio
                 rule="DESERIAL-001",
                 message="yaml.unsafe_load constructs arbitrary Python objects",
                 fix="Use yaml.safe_load(...) instead",
+                **span(call),
             )
         ]
     return []
@@ -176,6 +181,7 @@ def _eval_violations(*, call: ast.Call, relative_file: str) -> list[Violation]:
             rule="EVAL-001",
             message=f"{call.func.id}() on a non-literal argument is an RCE primitive",
             fix="Use ast.literal_eval for trusted-shape parsing, or build a dispatch table",
+            **span(call),
         )
     ]
 
@@ -201,6 +207,7 @@ def _crypto_call_violations(*, call: ast.Call, relative_file: str) -> list[Viola
                 rule="CRYPTO-001",
                 message=f"hashlib.{chain[1]} is a weak hash for security purposes",
                 fix="Use hashlib.sha256+ for security; pass usedforsecurity=False for non-security uses",
+                **span(call),
             )
         ]
     if chain == ("hashlib", "new") and call.args:
@@ -213,6 +220,7 @@ def _crypto_call_violations(*, call: ast.Call, relative_file: str) -> list[Viola
                     rule="CRYPTO-001",
                     message=f"hashlib.new({first.value!r}) is a weak hash for security purposes",
                     fix="Use hashlib.new('sha256') or stronger",
+                    **span(call),
                 )
             ]
     return []
@@ -228,6 +236,7 @@ def _crypto_attribute_violations(*, node: ast.Attribute, relative_file: str) -> 
                 rule="CRYPTO-001",
                 message=f"ssl.{chain[1]} is a deprecated TLS protocol",
                 fix="Use ssl.PROTOCOL_TLS_CLIENT (TLS 1.2+) or higher",
+                **span(node),
             )
         ]
     return []
@@ -248,6 +257,7 @@ def _tls_violations(*, call: ast.Call, relative_file: str) -> list[Violation]:
                 rule="TLS-001",
                 message=f"{'.'.join(chain)}(..., verify=False) disables certificate verification",
                 fix="Remove verify=False (or pin a CA bundle via verify=<path>) — MITM enabler in production",
+                **span(call),
             )
         ]
     if chain == ("ssl", "_create_unverified_context"):
@@ -258,6 +268,7 @@ def _tls_violations(*, call: ast.Call, relative_file: str) -> list[Violation]:
                 rule="TLS-001",
                 message="ssl._create_unverified_context disables certificate verification globally",
                 fix="Use ssl.create_default_context() instead",
+                **span(call),
             )
         ]
     return []
@@ -273,6 +284,7 @@ def _tls_attribute_violations(*, node: ast.Attribute, relative_file: str) -> lis
                 rule="TLS-001",
                 message="ssl.CERT_NONE disables certificate verification when assigned to verify_mode",
                 fix="Use ssl.CERT_REQUIRED (the default) and provide a trust store",
+                **span(node),
             )
         ]
     return []
@@ -299,6 +311,7 @@ def _debug_violations(*, call: ast.Call, relative_file: str) -> list[Violation]:
                 rule="DEBUG-001",
                 message=f"{constructor}(debug=True) exposes the interactive debugger in production",
                 fix="Set debug from an environment variable; default it to False",
+                **span(call),
             )
         ]
     # app.run(debug=True) / app.run_server(debug=True).
@@ -310,6 +323,7 @@ def _debug_violations(*, call: ast.Call, relative_file: str) -> list[Violation]:
                 rule="DEBUG-001",
                 message=f"{'.'.join(chain)}(debug=True) starts the server in debug mode",
                 fix="Read debug from configuration; never hard-code True",
+                **span(call),
             )
         ]
     return []
@@ -333,6 +347,7 @@ def _settings_assign_violations(*, node: ast.Assign, relative_file: str) -> list
                     rule="DEBUG-001",
                     message=f"DEBUG = True at module scope in {file_name}",
                     fix="Default DEBUG = False; flip it via an environment variable in development only",
+                    **span(node),
                 )
             )
     return found
@@ -358,9 +373,10 @@ class SecurityCallsCheck:
         ]
     )
 
-    def _scan_tree(self, *, tree: ast.AST, relative_file: str) -> list[Violation]:
+    def _scan_module(self, *, module: Module) -> list[Violation]:
         found: list[Violation] = []
-        for node in ast.walk(tree):
+        relative_file = module.relative
+        for node in module.index.nodes(ast.Call, ast.Attribute, ast.Assign):
             if isinstance(node, ast.Call):
                 found.extend(_shell_violations(call=node, relative_file=relative_file))
                 found.extend(_deserial_violations(call=node, relative_file=relative_file))
@@ -378,7 +394,7 @@ class SecurityCallsCheck:
     def run(self, *, src_root: str) -> CheckResult:
         violations: list[Violation] = []
         for module in parsed_modules(Path(src_root)):
-            violations.extend(self._scan_tree(tree=module.tree, relative_file=module.relative))
+            violations.extend(self._scan_module(module=module))
         return CheckResult.from_findings(check=self.name, violations=violations)
 
 

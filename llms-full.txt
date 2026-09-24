@@ -1369,9 +1369,9 @@ The check must be enabled first. With `enabled = true` and the default
 today's count; set `max_total` to that number.
 
 Comments are read through `tokenize` and matched from the start of the
-comment, so a directive named in prose (`# lines up with --exclude and
-# noqa handling`) or quoted in a string is documentation, not an escape,
-and does not count against the budget.
+comment, so a directive named in prose (a sentence such as "lines up with
+`--exclude` and `# noqa` handling") or quoted in a string is documentation,
+not an escape, and does not count against the budget.
 
 Config:
 ```toml

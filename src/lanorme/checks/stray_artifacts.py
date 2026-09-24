@@ -31,6 +31,7 @@ from __future__ import annotations
 import fnmatch
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import ClassVar
 
 from lanorme import CheckResult, Violation, register
 from lanorme.checkconfig import str_list_setting
@@ -104,6 +105,10 @@ def _matches_any(*, name: str, globs: tuple[str, ...]) -> bool:
 @dataclass
 class StrayArtifactsCheck:
     """Flags stray clutter files (screenshots, scratch, OS junk, stray binaries)."""
+
+    settings_keys: ClassVar[frozenset[str]] = frozenset(
+        {"patterns", "extensions", "assets", "allow", "exclude"}
+    )
 
     name: str = "stray_artifacts"
     description: str = "Stray artifact detection (screenshots, scratch files, OS junk)"

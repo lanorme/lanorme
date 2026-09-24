@@ -8,6 +8,18 @@
 repos:
   - repo: local
     hooks:
+      - id: ruff
+        name: ruff (trailing commas, formatting)
+        entry: uv run --group dev ruff check --fix
+        language: system
+        types: [python]
+        require_serial: true
+      - id: ruff-format
+        name: ruff format
+        entry: uv run --group dev ruff format
+        language: system
+        types: [python]
+        require_serial: true
       - id: lanorme
         name: lanorme (dogfood)
         entry: uv run lanorme check .

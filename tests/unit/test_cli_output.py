@@ -132,7 +132,7 @@ def test_ndjson_emits_one_record_per_finding_with_all_fields(tmp_py_file, capsys
     assert len(lines) >= 3
     expected = {
         "check", "severity", "code", "rule", "file", "line", "column", "end_line", "end_column",
-        "message", "fix",
+        "scope", "message", "fix", "promoted", "fingerprint",
     }
     codes: set[str] = set()
     for line in lines:

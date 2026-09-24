@@ -27,9 +27,10 @@ import ast
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import ClassVar
 
 from lanorme import CheckResult, Violation, register
-from lanorme.sources import Unparseable, iter_modules, unparseable_notice
+from lanorme.sources import Module, Unparseable, iter_modules, span, unparseable_notice
 
 # Each rule maps forbidden terms to a canonical replacement. Empty by default →
 # the check is inert until a project supplies its own vocabulary.
@@ -66,14 +67,14 @@ def _extract_comment(*, line: str) -> str | None:
     return line[idx:] if idx != -1 else None
 
 
-def _names_from_node(node: ast.AST) -> list[tuple[str, int]]:
-    """Extract (identifier, line) pairs declared or referenced by a single AST node."""
+def _names_from_node(node: ast.AST) -> list[tuple[str, int, ast.AST]]:
+    """Extract (identifier, line, anchor node) declared or referenced by a single AST node."""
     if isinstance(node, ast.ClassDef):
-        return [(node.name, node.lineno)]
+        return [(node.name, node.lineno, node)]
     if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
-        pairs = [(node.name, node.lineno)]
+        pairs = [(node.name, node.lineno, node)]
         pairs.extend(
-            (arg.arg, getattr(arg, "lineno", node.lineno))
+            (arg.arg, getattr(arg, "lineno", node.lineno), arg)
             for arg in node.args.args + node.args.kwonlyargs
         )
         return pairs
@@ -82,48 +83,41 @@ def _names_from_node(node: ast.AST) -> list[tuple[str, int]]:
         # ast.Name children, so ast.walk reaches them here. Handling Assign
         # and AnnAssign separately would visit the same target twice and emit
         # duplicate violations, so we deliberately leave them to this branch.
-        return [(node.id, getattr(node, "lineno", 0))]
+        return [(node.id, getattr(node, "lineno", 0), node)]
     if isinstance(node, ast.Attribute):
-        return [(node.attr, getattr(node, "lineno", 0))]
+        return [(node.attr, getattr(node, "lineno", 0), node)]
     return []
 
 
-def _scan_identifiers(
-    *,
-    tree: ast.Module,
-    relative_file: str,
-    compiled: list[_RuleSpec],
-) -> list[Violation]:
+def _scan_identifiers(*, module: Module, compiled: list[_RuleSpec]) -> list[Violation]:
     """Walk the AST and check identifier names against the compiled rules."""
     violations: list[Violation] = []
 
-    for node in ast.walk(tree):
-        for name, lineno in _names_from_node(node):
+    for node in module.index.nodes(
+        ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef, ast.Name, ast.Attribute
+    ):
+        for name, lineno, anchor in _names_from_node(node):
             for rule_id, canonical, pattern in compiled:
                 for match in pattern.finditer(name):
                     matched_term = match.group(1)
                     violations.append(
                         Violation(
-                            file=relative_file,
+                            file=module.relative,
                             line=lineno,
                             rule=f"{rule_id}: Use '{canonical}' instead of '{matched_term}'",
                             message=f"Forbidden term '{matched_term}' in identifier '{name}'",
                             fix=f"Rename — use '{canonical}' instead of '{matched_term}'",
+                            **span(anchor),
                         ),
                     )
 
     return violations
 
 
-def _scan_comments_and_docstrings(
-    *,
-    source_lines: list[str],
-    tree: ast.Module,
-    relative_file: str,
-    compiled: list[_RuleSpec],
-) -> list[Violation]:
+def _scan_comments_and_docstrings(*, module: Module, compiled: list[_RuleSpec]) -> list[Violation]:
     """Scan inline comments and docstrings for forbidden terms."""
     violations: list[Violation] = []
+    relative_file = module.relative
 
     def _scan_text(*, text: str, line_number: int) -> None:
         for rule_id, canonical, pattern in compiled:
@@ -139,7 +133,7 @@ def _scan_comments_and_docstrings(
                     ),
                 )
 
-    for lineno_0, line in enumerate(source_lines):
+    for lineno_0, line in enumerate(module.lines):
         stripped = line.lstrip()
         if stripped.startswith("import ") or stripped.startswith("from "):
             continue
@@ -147,10 +141,9 @@ def _scan_comments_and_docstrings(
         if comment:
             _scan_text(text=comment, line_number=lineno_0 + 1)
 
-    for node in ast.walk(tree):
+    for node in module.index.nodes(ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef):
         if (
-            isinstance(node, ast.Module | ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef)
-            and node.body
+            node.body
             and isinstance(node.body[0], ast.Expr)
             and isinstance(node.body[0].value, ast.Constant)
             and isinstance(node.body[0].value.value, str)
@@ -174,6 +167,7 @@ class DomainTermsCheck:
             "TERM-NNN: Use the canonical term instead of a configured forbidden synonym",
         ]
     )
+    settings_keys: ClassVar[frozenset[str]] = frozenset({"rules"})
 
     def configure(self, *, settings: dict[str, object]) -> None:
         """Apply ``[tool.lanorme.domain_terms]`` configuration.
@@ -211,17 +205,8 @@ class DomainTermsCheck:
                 warnings.append(unparseable_notice(prefix="TERM", failure=module))
                 continue
 
-            violations.extend(
-                _scan_identifiers(tree=module.tree, relative_file=relative_file, compiled=compiled),
-            )
-            violations.extend(
-                _scan_comments_and_docstrings(
-                    source_lines=module.lines,
-                    tree=module.tree,
-                    relative_file=relative_file,
-                    compiled=compiled,
-                ),
-            )
+            violations.extend(_scan_identifiers(module=module, compiled=compiled))
+            violations.extend(_scan_comments_and_docstrings(module=module, compiled=compiled))
 
         return CheckResult.from_findings(check=self.name, violations=violations, warnings=warnings)
 

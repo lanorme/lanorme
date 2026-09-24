@@ -43,8 +43,10 @@ import io
 import tokenize
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import ClassVar
 
 from lanorme import CheckResult, Violation, register
+from lanorme.checkconfig import int_setting, is_flag_set
 from lanorme.filtering import _IGNORE_RE, _NOQA_RE
 from lanorme.sources import parsed_modules
 
@@ -59,6 +61,7 @@ class _Directive:
 
     file: str
     line: int
+    column: int
     text: str
     blanket: bool
 
@@ -96,7 +99,11 @@ def _directives_in(*, source: str, relative: str) -> list[_Directive]:
         if blanket is None:
             continue
         found.append(_Directive(
-            file=relative, line=token.start[0], text=token.string.strip(), blanket=blanket
+            file=relative,
+            line=token.start[0],
+            column=token.start[1],
+            text=token.string.strip(),
+            blanket=blanket,
         ))
     return found
 
@@ -114,6 +121,7 @@ def _budget_violation(*, directives: list[_Directive], max_total: int) -> list[V
     return [Violation(
         file=anchor.file,
         line=anchor.line,
+        column=anchor.column,
         rule="SUPPRESS-001: Inline suppressions must stay within the project's budget",
         message=(
             f"{len(directives)} inline suppressions across {len(per_file)} files "
@@ -128,6 +136,7 @@ def _blanket_violations(*, directives: list[_Directive]) -> list[Violation]:
     return [Violation(
         file=directive.file,
         line=directive.line,
+        column=directive.column,
         rule="SUPPRESS-002: A suppression must name the rule it silences",
         message=f"Blanket directive '{directive.text}' silences every rule, including future ones",
         fix="Name the codes it needs: '# noqa: TYPE-001' or '# lanorme: ignore[TYPE-001]'",
@@ -149,15 +158,17 @@ class SuppressionsCheck:
             "SUPPRESS-002: A suppression must name the rule it silences",
         ]
     )
+    settings_keys: ClassVar[frozenset[str]] = frozenset({"enabled", "max_total", "allow_blanket"})
 
-    def configure(self, *, settings: dict[str, bool | int]) -> None:
+    def configure(self, *, settings: dict[str, object]) -> None:
         """Apply ``[tool.lanorme.suppressions]`` configuration."""
-        if "enabled" in settings:
-            self.enabled = bool(settings["enabled"])
-        if "max_total" in settings:
-            self.max_total = int(settings["max_total"])
-        if "allow_blanket" in settings:
-            self.allow_blanket = bool(settings["allow_blanket"])
+        self.enabled = is_flag_set(settings=settings, key="enabled", default=self.enabled)
+        self.max_total = int_setting(settings=settings, key="max_total", default=self.max_total)
+        self.allow_blanket = is_flag_set(
+            settings=settings,
+            key="allow_blanket",
+            default=self.allow_blanket,
+        )
 
     def run(self, *, src_root: str) -> CheckResult:
         """Collect every suppression directive, then price it."""

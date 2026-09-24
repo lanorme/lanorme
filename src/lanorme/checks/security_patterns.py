@@ -21,10 +21,11 @@ import ast
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import ClassVar
 
 from lanorme import CheckResult, Violation, register
 from lanorme.checkconfig import str_setting
-from lanorme.sources import TOO_DEEP, parsed_modules, skip_notice
+from lanorme.sources import TOO_DEEP, Module, parsed_modules, skip_notice, span
 
 # HTTP methods that mutate data, these MUST have auth.
 MUTATION_METHODS = {"post", "put", "patch", "delete"}
@@ -104,18 +105,11 @@ def _has_auth_dependency(node: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
     return False
 
 
-def _check_auth_on_mutations(
-    *,
-    tree: ast.AST,
-    relative_file: str,
-) -> list[Violation]:
+def _check_auth_on_mutations(*, module: Module) -> list[Violation]:
     """AUTHN-001: Every mutation endpoint must have an auth dependency."""
     violations = []
 
-    for node in ast.walk(tree):
-        if not isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
-            continue
-
+    for node in module.index.functions:
         method = _is_mutation_endpoint(node)
         if method is None:
             continue
@@ -127,7 +121,7 @@ def _check_auth_on_mutations(
         if not _has_auth_dependency(node):
             violations.append(
                 Violation(
-                    file=relative_file,
+                    file=module.relative,
                     line=node.lineno,
                     rule="AUTHN-001: Mutation endpoints must have auth dependency",
                     message=f"@router.{method} endpoint '{node.name}' has no auth dependency",
@@ -135,6 +129,7 @@ def _check_auth_on_mutations(
                         "Add a parameter like: "
                         "current_user: Annotated[AuthenticatedUser, Depends(get_current_user)]"
                     ),
+                    **span(node),
                 )
             )
 
@@ -151,6 +146,23 @@ def _is_text_constructor(node: ast.expr) -> bool:
     )
 
 
+def _literal_node(node: ast.expr) -> ast.expr | None:
+    """Return the SQL-bearing literal at *node* (``text(...)`` unwrapped), or ``None``.
+
+    Knows the literal shapes of :func:`_sql_string_from`: constants, f-strings,
+    BinOps and ``.format(...)`` calls. A ``Name`` has no literal of its own, so
+    it resolves to ``None`` and the caller looks it up in its constants.
+    """
+    if isinstance(node, ast.Constant | ast.JoinedStr | ast.BinOp):
+        return node
+    if isinstance(node, ast.Call):
+        if _is_text_constructor(node) and node.args:
+            return _literal_node(node.args[0])
+        if isinstance(node.func, ast.Attribute) and node.func.attr == "format":
+            return node
+    return None
+
+
 def _literal_lineno(
     node: ast.expr, *, constants: dict[str, "_SqlConst"] | None = None
 ) -> int | None:
@@ -162,16 +174,14 @@ def _literal_lineno(
     elsewhere, we point at the assignment line in *constants*; otherwise we
     return ``None`` so the caller falls back to the call site.
     """
-    if isinstance(node, ast.Constant | ast.JoinedStr | ast.BinOp):
-        return node.lineno
+    literal = _literal_node(node)
+    if literal is not None:
+        return literal.lineno
+    while isinstance(node, ast.Call) and _is_text_constructor(node) and node.args:
+        node = node.args[0]
     if isinstance(node, ast.Name) and constants is not None:
         entry = constants.get(node.id)
         return entry.lineno if entry is not None else None
-    if isinstance(node, ast.Call):
-        if _is_text_constructor(node) and node.args:
-            return _literal_lineno(node.args[0], constants=constants)
-        if isinstance(node.func, ast.Attribute) and node.func.attr == "format":
-            return node.lineno
     return None
 
 
@@ -251,7 +261,7 @@ class _SqlConst:
     lineno: int
 
 
-def _collect_string_constants(*, tree: ast.AST) -> dict[str, _SqlConst]:
+def _collect_string_constants(*, module: Module) -> dict[str, _SqlConst]:
     """Return ``{NAME: _SqlConst}`` for every ``NAME = "<str>"`` assign in *tree*.
 
     Walks the whole tree (not just module body), so function-local SQL
@@ -260,8 +270,8 @@ def _collect_string_constants(*, tree: ast.AST) -> dict[str, _SqlConst]:
     acceptable since we only need *some* SQL string to flag the call.
     """
     constants: dict[str, _SqlConst] = {}
-    for node in ast.walk(tree):
-        if not isinstance(node, ast.Assign) or len(node.targets) != 1:
+    for node in module.index.nodes(ast.Assign):
+        if len(node.targets) != 1:
             continue
         target = node.targets[0]
         if not isinstance(target, ast.Name):
@@ -314,19 +324,29 @@ def _is_safely_parameterised(*, call: ast.Call, sql: str, kind: str) -> bool:
     return False
 
 
-def _check_raw_sql(
-    *,
-    tree: ast.AST,
-    relative_file: str,
-) -> list[Violation]:
+def _finding_span(*, first: ast.expr, call: ast.Call, report_lineno: int) -> dict[str, int | None]:
+    """The span of an SQL-001 finding reported at *report_lineno*.
+
+    The literal when it sits inside the call, the call itself when the line
+    fell back to it, and nothing when the line points at an assignment
+    elsewhere in the file (no node for it is at hand).
+    """
+    literal = _literal_node(first)
+    if literal is not None:
+        return span(literal)
+    if report_lineno == call.lineno:
+        return span(call)
+    return {}
+
+
+def _check_raw_sql(*, module: Module) -> list[Violation]:
     """SQL-001: only flag raw SQL that actually reaches a DB execution sink."""
+    relative_file = module.relative
     if "alembic" in relative_file or Path(relative_file).name.startswith("test_"):
         return []
-    constants = _collect_string_constants(tree=tree)
+    constants = _collect_string_constants(module=module)
     violations: list[Violation] = []
-    for node in ast.walk(tree):
-        if not isinstance(node, ast.Call):
-            continue
+    for node in module.index.nodes(ast.Call):
         kind = _sink_kind(node)
         if kind is None or not node.args:
             continue
@@ -338,6 +358,7 @@ def _check_raw_sql(
         # Name references and text(Name) wrappers, point at the assignment
         # line in the constants map; otherwise fall back to the call site.
         report_lineno = _literal_lineno(first, constants=constants) or node.lineno
+        anchor_span = _finding_span(first=first, call=node, report_lineno=report_lineno)
         if interp:
             violations.append(
                 Violation(
@@ -346,6 +367,7 @@ def _check_raw_sql(
                     rule="SQL-001: No raw SQL — use an ORM or parameterized queries",
                     message="f-string interpolation into SQL is an injection vector",
                     fix="Bind the value as a parameter instead of interpolating it into the SQL text",
+                    **anchor_span,
                 )
             )
             continue
@@ -359,6 +381,7 @@ def _check_raw_sql(
                 rule="SQL-001: No raw SQL — use an ORM or parameterized queries",
                 message=f"Raw SQL passed to a database sink: {snippet}",
                 fix="Use an ORM expression, or bind values via parameters instead of inlining them",
+                **anchor_span,
             )
         )
     return violations
@@ -377,6 +400,7 @@ class SecurityPatternsCheck:
             "SQL-001: No raw SQL — use an ORM or parameterized queries",
         ]
     )
+    settings_keys: ClassVar[frozenset[str]] = frozenset({"source_root"})
 
     def configure(self, *, settings: dict[str, object]) -> None:
         """Apply ``[tool.lanorme.security_patterns]`` configuration."""
@@ -408,18 +432,15 @@ class SecurityPatternsCheck:
 
         for module in parsed_modules(Path(src_root)):
             relative_file = module.relative
-            tree = module.tree
 
             try:
                 # AUTHN-001: Only check endpoint files (api/ layer).
                 file_violations: list[Violation] = []
                 if self._layer_relative(relative_file=relative_file).startswith("api/"):
-                    file_violations.extend(
-                        _check_auth_on_mutations(tree=tree, relative_file=relative_file)
-                    )
+                    file_violations.extend(_check_auth_on_mutations(module=module))
 
                 # SQL-001: Check all files for raw SQL (except alembic).
-                file_violations.extend(_check_raw_sql(tree=tree, relative_file=relative_file))
+                file_violations.extend(_check_raw_sql(module=module))
             except RecursionError:
                 # A long ``"a" + "a" + ...`` chain makes _sql_from_binop and
                 # _sql_string_from recurse on BinOp.left/.right until the stack

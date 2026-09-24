@@ -14,9 +14,8 @@ them never carries a mistyped value into ``run()``.
 
 from __future__ import annotations
 
-import sys
-
 from lanorme import Configurable, get_all_checks
+from lanorme.errors import UsageError
 
 Settings = dict[str, object]
 
@@ -82,6 +81,27 @@ def _offending_key(*, check: Configurable, settings: dict[str, object]) -> str |
     return None
 
 
+def _reject_unknown_keys(*, check: Configurable, name: str, settings: dict[str, object]) -> None:
+    """Refuse a table that names a key the check does not declare.
+
+    A check that declares ``settings_keys`` (the TOML keys its ``configure()``
+    reads) gets a mistyped key reported like a mistyped value, instead of the
+    key being ignored and the default silently kept. A check without the
+    declaration accepts anything, as before.
+    """
+    declared = getattr(check, "settings_keys", None)
+    if declared is None:
+        return
+    unknown = sorted(key for key in settings if key not in declared)
+    if not unknown:
+        return
+    listed = ", ".join(repr(key) for key in unknown)
+    raise UsageError(
+        f"unknown key in [tool.lanorme.{name}]: {listed}.\n"
+        f"  Keys this check reads: {', '.join(sorted(declared))}."
+    )
+
+
 def _configure_or_fail(*, check: Configurable, name: str, settings: dict[str, object]) -> None:
     """Configure one check, turning a rejected value into a usage error.
 
@@ -90,18 +110,17 @@ def _configure_or_fail(*, check: Configurable, name: str, settings: dict[str, ob
     every other config failure is reported (exit 2) instead of unwinding a
     traceback from inside the check.
     """
+    _reject_unknown_keys(check=check, name=name, settings=settings)
     try:
         check.configure(settings=settings)
     except (TypeError, ValueError, AttributeError, KeyError) as error:
         key = _offending_key(check=check, settings=settings)
         location = f"[tool.lanorme.{name}] {key}" if key else f"[tool.lanorme.{name}]"
-        print(
-            f"ERROR: invalid value for {location}: {error}\n"
+        raise UsageError(
+            f"invalid value for {location}: {error}\n"
             f"  Run 'lanorme check . --show-config' to see the effective settings "
-            f"for every check.",
-            file=sys.stderr,
-        )
-        sys.exit(2)
+            f"for every check."
+        ) from error
 
 
 def apply_check_config(*, config: dict[str, object]) -> None:

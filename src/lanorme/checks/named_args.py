@@ -20,9 +20,11 @@ from __future__ import annotations
 import ast
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import ClassVar
 
 from lanorme import CheckResult, Violation, register
-from lanorme.sources import Unparseable, iter_modules, unparseable_notice
+from lanorme.checkconfig import is_flag_set
+from lanorme.sources import Unparseable, iter_modules, span, unparseable_notice
 
 # Parameters that are implicit receiver, never counted.
 SELF_CLS_NAMES = {"self", "cls"}
@@ -158,6 +160,7 @@ def _check_function(
         rule="KWARG-001: Functions with >1 parameter must use bare * separator",
         message=f"Function '{node.name}' has {real_positional} positional params without bare *",
         fix="Add a bare * separator: def foo(self, *, param1: str, param2: int)",
+        **span(node),
     )
 
 
@@ -177,11 +180,11 @@ class NamedArgsCheck:
             "KWARG-001: Functions with >1 parameter must use bare * separator (opt-in)",
         ],
     )
+    settings_keys: ClassVar[frozenset[str]] = frozenset({"enabled"})
 
-    def configure(self, *, settings: dict[str, bool]) -> None:
+    def configure(self, *, settings: dict[str, object]) -> None:
         """Apply ``[tool.lanorme.named_args]`` configuration."""
-        if "enabled" in settings:
-            self.enabled = bool(settings["enabled"])
+        self.enabled = is_flag_set(settings=settings, key="enabled", default=self.enabled)
 
     def run(self, *, src_root: str) -> CheckResult:
         """Scan all Python files under src/ and flag functions missing bare ``*``."""
@@ -203,10 +206,7 @@ class NamedArgsCheck:
 
             source_lines = module.lines
 
-            for node in ast.walk(module.tree):
-                if not isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
-                    continue
-
+            for node in module.index.functions:
                 violation = _check_function(
                     node=node,
                     source_lines=source_lines,

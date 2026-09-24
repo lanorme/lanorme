@@ -23,8 +23,10 @@ from __future__ import annotations
 import ast
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import ClassVar
 
 from lanorme import CheckResult, Violation, register
+from lanorme.checkconfig import str_list_setting
 
 
 # ---------------------------------------------------------------------------
@@ -219,6 +221,8 @@ def _check_module_coverage(
 class TestCoverageCheck:
     """Validates that every production module has a corresponding test file."""
 
+    settings_keys: ClassVar[frozenset[str]] = frozenset({"test_roots"})
+
     name: str = "test_coverage"
     description: str = "Test coverage: every production module has a test"
     scope = "tree"  # needs the whole test-file set to know a module is covered
@@ -234,13 +238,13 @@ class TestCoverageCheck:
 
         ``test_roots`` is a list of directories (relative to the backend root,
         ``src_root.parent``) scanned for partner ``test_*.py`` files. An empty
-        or malformed value falls back to the default of ``tests/integration``.
+        list (or one holding only empty strings) keeps the current roots; a
+        value that is not a list of strings is a config error.
         """
-        roots = settings.get("test_roots")
-        if isinstance(roots, list):
-            cleaned = tuple(str(r) for r in roots if isinstance(r, str) and r)
-            if cleaned:
-                self.test_roots = cleaned
+        roots = str_list_setting(settings=settings, key="test_roots", default=self.test_roots)
+        cleaned = tuple(root for root in roots if root)
+        if cleaned:
+            self.test_roots = cleaned
 
     def run(self, *, src_root: str) -> CheckResult:
         """Run the coverage check and return advisory warnings."""

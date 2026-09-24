@@ -24,10 +24,10 @@ from __future__ import annotations
 
 import hashlib
 import json
-import sys
 from pathlib import Path
 
 from lanorme import CheckResult, Violation, rule_code
+from lanorme.errors import UsageError
 from lanorme.filtering import _line_at
 
 BASELINE_VERSION = 1
@@ -98,15 +98,27 @@ def _finding_key(
     )
 
 
+def fingerprint(*, project_root: Path, finding: Violation, cache: dict[str, list[str]]) -> str:
+    """A short stable identity for a finding, the baseline's key hashed.
+
+    It survives edits elsewhere in the file (the anchor is the finding's own
+    line) and is what a tool should key on to tell a fixed finding from a
+    moved one. Empty for a finding that belongs to no file.
+    """
+    if not finding.file:
+        return ""
+    key = _finding_key(project_root=project_root, finding=finding, cache=cache)
+    return hashlib.sha256("|".join(key).encode("utf-8")).hexdigest()[:16]
+
+
 # --------------------------------------------------------------------------- #
 # File I/O
 # --------------------------------------------------------------------------- #
 
 
 def _fail(message: str) -> None:
-    """Print an error and exit 2 (the configuration/usage failure code)."""
-    print(f"ERROR: {message}", file=sys.stderr)
-    sys.exit(2)
+    """Refuse the baseline file with a usage error (exit 2 at the CLI)."""
+    raise UsageError(message)
 
 
 def load_index(path: Path) -> dict[tuple[str, str, str], dict[str, object]]:
@@ -358,6 +370,10 @@ def print_status(*, results: list[CheckResult], project_root: Path, baseline_pat
         print(f"Baseline is current: all {len(index)} entries still match a finding.")
         return
     print(f"{len(stale)} stale baseline {'entry' if len(stale) == 1 else 'entries'} (matched nothing this run):")
+    grouped: dict[tuple[str, str], int] = {}
     for file, code, _anchor_hash in stale:
-        print(f"  {file}  {code}")
+        grouped[(file, code)] = grouped.get((file, code), 0) + 1
+    for (file, code), count in grouped.items():
+        suffix = f"  (x{count})" if count > 1 else ""
+        print(f"  {file}  {code}{suffix}")
     print("\nRun 'lanorme baseline write' to prune them.")

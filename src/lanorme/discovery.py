@@ -45,6 +45,31 @@ DEFAULT_PRUNE_DIRS: frozenset[str] = frozenset(
 # post-filter uses so the two stay consistent.
 _active_excludes: tuple[str, ...] = ()
 
+# A root-relative directory the walk is confined to ("" for the whole tree).
+# The cascading runner scopes each region's pass to the region's own subtree
+# while every check still runs from, and reports relative to, the scan root.
+_active_scope: str = ""
+
+
+def set_scope(prefix: str) -> None:
+    """Confine the walk to *prefix* (a root-relative posix directory, or ``""``)."""
+    global _active_scope
+    _active_scope = prefix.strip("/")
+
+
+def active_scope() -> str:
+    """The directory the walk is currently confined to (``""`` for the whole tree)."""
+    return _active_scope
+
+
+def _on_scope_path(*, relative: str, scope: str) -> bool:
+    """True if a directory is the scope, lies under it, or leads down to it."""
+    return (
+        relative == scope
+        or relative.startswith(scope + "/")
+        or scope.startswith(relative + "/")
+    )
+
 
 def set_excludes(patterns: tuple[str, ...] | list[str]) -> None:
     """Publish the exclude globs honoured by discovery for the current run."""
@@ -72,6 +97,7 @@ def _walk(root: Path, *, prune: frozenset[str]) -> Iterator[tuple[Path, str, lis
     file's relative path is one concatenation rather than a ``relative_to``.
     """
     patterns = _active_excludes
+    scope = _active_scope
     root = Path(root)
     for dirpath, dirnames, filenames in os.walk(root):
         here = Path(dirpath)
@@ -82,8 +108,12 @@ def _walk(root: Path, *, prune: frozenset[str]) -> Iterator[tuple[Path, str, lis
                 continue
             if patterns and _excluded(relative=prefix + name, patterns=patterns):
                 continue
+            if scope and not _on_scope_path(relative=prefix + name, scope=scope):
+                continue
             kept.append(name)
         dirnames[:] = sorted(kept)
+        if scope and not prefix.startswith(scope + "/"):
+            filenames = []  # a directory above the scope: only the path down counts
         yield here, prefix, dirnames, filenames
 
 
@@ -116,7 +146,14 @@ def iter_dirs(root: Path, *, prune: frozenset[str] = DEFAULT_PRUNE_DIRS) -> list
     Collected from each visited directory's kept children, so a symlink to a
     directory is listed even though the walk does not descend into it.
     """
-    return sorted(here / name for here, _prefix, dirnames, _files in _walk(root, prune=prune) for name in dirnames)
+    scope = _active_scope
+    found: list[Path] = []
+    for here, prefix, dirnames, _files in _walk(root, prune=prune):
+        for name in dirnames:
+            if scope and not (prefix + name).startswith(scope + "/") and prefix + name != scope:
+                continue
+            found.append(here / name)
+    return sorted(found)
 
 
 def iter_py_files(root: Path) -> list[Path]:

@@ -119,11 +119,12 @@ def test_setting_one_key_leaves_the_others_at_their_defaults(key: str) -> None:
     assert {k: getattr(check, k) for k in untouched} == untouched
 
 
-def test_configure_coerces_to_int() -> None:
-    # TOML gives ints, but configure() mirrors the comments check and coerces.
+def test_configure_refuses_a_string_where_an_int_is_expected() -> None:
+    # A quoted number is a config mistake, refused rather than coerced.
     check = FileLimitsCheck()
-    check.configure(settings={"param_error": "6"})
-    assert check.param_error == 6
+    with pytest.raises(TypeError, match="'param_error' must be an integer"):
+        check.configure(settings={"param_error": "6"})
+    assert check.param_error != 6
 
 
 def test_unknown_keys_are_ignored() -> None:

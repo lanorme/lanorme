@@ -25,6 +25,7 @@ from __future__ import annotations
 import fnmatch
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import ClassVar
 
 from lanorme import CheckResult, Violation, register
 from lanorme.checkconfig import str_list_setting
@@ -57,6 +58,8 @@ def _is_forbidden(*, relative: str, pattern: str) -> bool:
 @dataclass
 class ForbiddenPathsCheck:
     """Asserts that configured forbidden directories do not exist in the tree."""
+
+    settings_keys: ClassVar[frozenset[str]] = frozenset({"dirs"})
 
     name: str = "forbidden_paths"
     description: str = "Project-level invariants: forbidden directories must not exist"

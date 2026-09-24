@@ -30,8 +30,10 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import ClassVar
 
 from lanorme import CheckResult, Violation, register
+from lanorme.checkconfig import is_flag_set
 from lanorme.discovery import iter_files
 
 NAME_MAX = 64
@@ -378,13 +380,16 @@ class SkillsCheck:
             "SKILL-006: frontmatter parses cleanly",
         ]
     )
+    settings_keys: ClassVar[frozenset[str]] = frozenset({"enabled", "check_links"})
 
     def configure(self, *, settings: dict[str, object]) -> None:
         """Apply ``[tool.lanorme.skills]`` configuration."""
-        if "enabled" in settings:
-            self.enabled = bool(settings["enabled"])
-        if "check_links" in settings:
-            self.check_links = bool(settings["check_links"])
+        self.enabled = is_flag_set(settings=settings, key="enabled", default=self.enabled)
+        self.check_links = is_flag_set(
+            settings=settings,
+            key="check_links",
+            default=self.check_links,
+        )
 
     def _scan_file(self, *, path: Path, file: str) -> tuple[list[Violation], list[Violation]]:
         """Return (violations, warnings) for one SKILL.md file."""

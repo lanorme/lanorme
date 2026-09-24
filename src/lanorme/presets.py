@@ -11,11 +11,11 @@ loader can call it.
 from __future__ import annotations
 
 import os
-import sys
 import tomllib
 from importlib.resources import files as resource_files
 from pathlib import Path
 
+from lanorme.errors import UsageError
 from lanorme.regions import merge_config
 
 
@@ -30,8 +30,7 @@ def _parse_profile_toml(*, text: str, label: str) -> dict[str, object]:
     try:
         return tomllib.loads(text)
     except tomllib.TOMLDecodeError as error:
-        print(f"ERROR: profile '{label}' is not valid TOML: {error}", file=sys.stderr)
-        sys.exit(2)
+        raise UsageError(f"profile '{label}' is not valid TOML: {error}") from error
 
 
 def _load_profile(*, name: str, project_root: Path) -> dict[str, object]:
@@ -39,19 +38,16 @@ def _load_profile(*, name: str, project_root: Path) -> dict[str, object]:
     if name.endswith(".toml") or "/" in name or os.sep in name:
         path = (project_root / name).resolve()
         if not path.is_file():
-            print(f"ERROR: profile file '{name}' does not exist.", file=sys.stderr)
-            sys.exit(2)
+            raise UsageError(f"profile file '{name}' does not exist.")
         return _parse_profile_toml(text=path.read_text(encoding="utf-8"), label=name)
 
     resource = resource_files("lanorme") / "profiles" / f"{name}.toml"
     if not resource.is_file():
         available = ", ".join(_bundled_profiles()) or "(none)"
-        print(
-            f"ERROR: unknown profile '{name}'. Bundled profiles: {available}.\n"
-            f"  Use a name, or a path to a .toml file.",
-            file=sys.stderr,
+        raise UsageError(
+            f"unknown profile '{name}'. Bundled profiles: {available}.\n"
+            f"  Use a name, or a path to a .toml file."
         )
-        sys.exit(2)
     return _parse_profile_toml(text=resource.read_text(encoding="utf-8"), label=name)
 
 
@@ -71,12 +67,10 @@ def _resolve_extends(*, config: dict[str, object], project_root: Path) -> dict[s
     elif isinstance(raw, list) and all(isinstance(entry, str) for entry in raw):
         names = raw
     else:
-        print(
-            "ERROR: 'extends' must be a profile name or a list of names/paths "
-            f"(got {type(raw).__name__}).",
-            file=sys.stderr,
+        raise UsageError(
+            "'extends' must be a profile name or a list of names/paths "
+            f"(got {type(raw).__name__})."
         )
-        sys.exit(2)
 
     base: dict[str, object] = {}
     for name in names:

@@ -36,7 +36,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from lanorme import CheckResult, Status, Violation, register
-from lanorme.sources import parsed_modules
+from lanorme.sources import Module, parsed_modules, span
 
 # A name suggests a credential when (i) it matches one of these multi-segment
 # phrases as the whole name or as a ``_``-anchored suffix, OR (ii) one of its
@@ -145,34 +145,35 @@ def _value_is_real_secret(value: ast.expr) -> str | None:
     return text
 
 
-def _violation(*, file: str, lineno: int, message: str) -> Violation:
-    return Violation(file=file, line=lineno, rule=_RULE, message=message, fix=_FIX)
+def _violation(*, file: str, node: ast.AST, message: str) -> Violation:
+    """The SECRETPY-001 finding anchored at *node*."""
+    return Violation(file=file, line=node.lineno, rule=_RULE, message=message, fix=_FIX, **span(node))
 
 
 def _flag_assignment(
-    *, name: str, value: ast.expr, lineno: int, file: str
+    *, name: str, value: ast.expr, node: ast.AST, file: str
 ) -> Violation | None:
-    """Flag ``<credname> = "<literal>"`` style bindings."""
+    """Flag ``<credname> = "<literal>"`` style bindings, reported at *node*."""
     if not _name_is_credential(name):
         return None
     if _value_is_real_secret(value) is None:
         return None
-    return _violation(file=file, lineno=lineno, message=f"Hardcoded credential value bound to '{name}'")
+    return _violation(file=file, node=node, message=f"Hardcoded credential value bound to '{name}'")
 
 
-def _shape_violation(*, value: str, lineno: int, file: str) -> Violation | None:
+def _shape_violation(*, value: str, node: ast.Constant, file: str) -> Violation | None:
     """Flag SECRET-shape literals that betray themselves regardless of variable name."""
     if _PEM_BLOCK_RE.search(value):
-        return _violation(file=file, lineno=lineno, message="PEM-formatted private key in source")
+        return _violation(file=file, node=node, message="PEM-formatted private key in source")
     if _JWT_RE.search(value):
-        return _violation(file=file, lineno=lineno, message="JWT-shaped token literal in source")
+        return _violation(file=file, node=node, message="JWT-shaped token literal in source")
     if _URL_WITH_CREDS_RE.search(value):
-        return _violation(file=file, lineno=lineno, message="Database / cache URL with embedded credentials")
+        return _violation(file=file, node=node, message="Database / cache URL with embedded credentials")
     if _BEARER_RE.search(value):
-        return _violation(file=file, lineno=lineno, message="Bearer-token literal in source")
+        return _violation(file=file, node=node, message="Bearer-token literal in source")
     for pattern, description in _VENDOR_TOKEN_PATTERNS:
         if pattern.search(value):
-            return _violation(file=file, lineno=lineno, message=description)
+            return _violation(file=file, node=node, message=description)
     return None
 
 
@@ -181,7 +182,7 @@ def _from_assign(node: ast.Assign, *, file: str) -> list[Violation]:
     for target in node.targets:
         if not isinstance(target, ast.Name):
             continue
-        hit = _flag_assignment(name=target.id, value=node.value, lineno=node.lineno, file=file)
+        hit = _flag_assignment(name=target.id, value=node.value, node=node, file=file)
         if hit is not None:
             found.append(hit)
     return found
@@ -190,7 +191,7 @@ def _from_assign(node: ast.Assign, *, file: str) -> list[Violation]:
 def _from_annassign(node: ast.AnnAssign, *, file: str) -> list[Violation]:
     if not isinstance(node.target, ast.Name) or node.value is None:
         return []
-    hit = _flag_assignment(name=node.target.id, value=node.value, lineno=node.lineno, file=file)
+    hit = _flag_assignment(name=node.target.id, value=node.value, node=node, file=file)
     return [hit] if hit is not None else []
 
 
@@ -199,7 +200,7 @@ def _from_dict(node: ast.Dict, *, file: str) -> list[Violation]:
     for key, value in zip(node.keys, node.values, strict=False):
         if not (isinstance(key, ast.Constant) and isinstance(key.value, str)):
             continue
-        hit = _flag_assignment(name=key.value, value=value, lineno=key.lineno, file=file)
+        hit = _flag_assignment(name=key.value, value=value, node=key, file=file)
         if hit is not None:
             found.append(hit)
     return found
@@ -210,7 +211,7 @@ def _from_call_kwargs(node: ast.Call, *, file: str) -> list[Violation]:
     for kw in node.keywords:
         if kw.arg is None:
             continue
-        hit = _flag_assignment(name=kw.arg, value=kw.value, lineno=kw.value.lineno, file=file)
+        hit = _flag_assignment(name=kw.arg, value=kw.value, node=kw.value, file=file)
         if hit is not None:
             found.append(hit)
     return found
@@ -219,13 +220,14 @@ def _from_call_kwargs(node: ast.Call, *, file: str) -> list[Violation]:
 def _from_string_constant(node: ast.Constant, *, file: str) -> list[Violation]:
     if not isinstance(node.value, str):
         return []
-    hit = _shape_violation(value=node.value, lineno=node.lineno, file=file)
+    hit = _shape_violation(value=node.value, node=node, file=file)
     return [hit] if hit is not None else []
 
 
-def _scan_tree(*, tree: ast.AST, file: str) -> list[Violation]:
+def _scan_tree(*, module: Module) -> list[Violation]:
+    file = module.relative
     found: list[Violation] = []
-    for node in ast.walk(tree):
+    for node in module.index.nodes(ast.Assign, ast.AnnAssign, ast.Dict, ast.Call, ast.Constant):
         if isinstance(node, ast.Assign):
             found.extend(_from_assign(node, file=file))
         elif isinstance(node, ast.AnnAssign):
@@ -260,7 +262,7 @@ class SecretsCheck:
             file_name = module.path.name
             if file_name in _SCAN_EXCLUDES or file_name.startswith("test_"):
                 continue
-            violations.extend(_scan_tree(tree=module.tree, file=module.relative))
+            violations.extend(_scan_tree(module=module))
         return CheckResult.from_findings(check=self.name, violations=violations)
 
 

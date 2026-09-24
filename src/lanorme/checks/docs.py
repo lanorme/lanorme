@@ -36,8 +36,10 @@ import fnmatch
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import ClassVar
 
 from lanorme import CheckResult, Violation, register
+from lanorme.checkconfig import is_flag_set, str_list_setting, str_setting
 from lanorme.discovery import iter_files
 
 # Vendored or generated directories that are never part of a docs tree.
@@ -95,12 +97,10 @@ class _Heading:
     line: int
 
 
-def _str_list(*, value: object, fallback: tuple[str, ...]) -> tuple[str, ...]:
-    """Normalise a config value to a tuple of strings, or keep the fallback."""
-    if isinstance(value, list):
-        items = tuple(str(item) for item in value)
-        return items if items else fallback
-    return fallback
+def _str_list(*, settings: dict[str, object], key: str, fallback: tuple[str, ...]) -> tuple[str, ...]:
+    """The list of strings under *key*; an absent or empty list keeps the fallback."""
+    items = str_list_setting(settings=settings, key=key, default=fallback)
+    return items if items else fallback
 
 
 def _parse_headings(*, lines: list[str]) -> list[_Heading]:
@@ -346,24 +346,25 @@ class DocsCheck:
             "DOCS-008: Headings are not numbered by hand",
         ]
     )
+    settings_keys: ClassVar[frozenset[str]] = frozenset(
+        {"enabled", "docs_root", "sections", "known_top_level", "raster_extensions", "allow"}
+    )
 
     def configure(self, *, settings: dict[str, object]) -> None:
         """Apply ``[tool.lanorme.docs]`` configuration."""
-        if "enabled" in settings:
-            self.enabled = bool(settings["enabled"])
-        if isinstance(settings.get("docs_root"), str):
-            self.docs_root = str(settings["docs_root"])
-        self.sections = _str_list(value=settings.get("sections"), fallback=self.sections)
+        self.enabled = is_flag_set(settings=settings, key="enabled", default=self.enabled)
+        self.docs_root = str_setting(settings=settings, key="docs_root", default=self.docs_root)
+        self.sections = _str_list(settings=settings, key="sections", fallback=self.sections)
         self.known_top_level = _str_list(
-            value=settings.get("known_top_level"), fallback=self.known_top_level
+            settings=settings, key="known_top_level", fallback=self.known_top_level
         )
         self.raster_extensions = tuple(
             ext.lower()
             for ext in _str_list(
-                value=settings.get("raster_extensions"), fallback=self.raster_extensions
+                settings=settings, key="raster_extensions", fallback=self.raster_extensions
             )
         )
-        self.allow = _str_list(value=settings.get("allow"), fallback=self.allow)
+        self.allow = _str_list(settings=settings, key="allow", fallback=self.allow)
 
     def _page_findings(
         self, *, lines: list[str], file: str, is_content: bool

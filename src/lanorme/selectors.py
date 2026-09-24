@@ -8,9 +8,8 @@ or ``[tool.lanorme] ignore`` is a usage error rather than a silently clean run.
 
 from __future__ import annotations
 
-import sys
-
 from lanorme import Check, get_all_checks, rule_code
+from lanorme.errors import UsageError
 from lanorme.filtering import _category
 
 
@@ -50,7 +49,7 @@ def _selector_is_known(*, selector: str, codes: set[str], categories: set[str]) 
 
 
 def reject_unknown_selectors(*, selectors: list[str], origin: str) -> None:
-    """Exit 2 when a selector names no known rule.
+    """Refuse a selector that names no known rule.
 
     A typo in ``--select``, ``--ignore``, ``--promote`` or their config
     counterparts used to be accepted silently, so a mistyped code produced a
@@ -64,9 +63,7 @@ def reject_unknown_selectors(*, selectors: list[str], origin: str) -> None:
     if not unknown:
         return
     listed = ", ".join(repr(s.strip()) for s in unknown)
-    print(
-        f"ERROR: {origin} names no known rule code or category: {listed}.\n"
-        f"  Run 'lanorme rules' to list every code and category.",
-        file=sys.stderr,
+    raise UsageError(
+        f"{origin} names no known rule code or category: {listed}.\n"
+        f"  Run 'lanorme rules' to list every code and category."
     )
-    sys.exit(2)

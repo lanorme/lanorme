@@ -34,10 +34,12 @@ import re
 import tokenize
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import ClassVar
 
 from lanorme import CheckResult, Violation, register
+from lanorme.checkconfig import int_setting, is_flag_set
 from lanorme.checks.file_limits import _cyclomatic_complexity
-from lanorme.sources import parsed_modules
+from lanorme.sources import Module, parsed_modules
 
 _EM_DASH = "—"
 
@@ -96,6 +98,7 @@ _CODE_NODES = (
 @dataclass(frozen=True)
 class _Comment:
     line: int
+    column: int
     text: str
     standalone: bool
 
@@ -110,19 +113,22 @@ def _collect_comments(*, source: str, source_lines: list[str]) -> list[_Comment]
             row, col = token.start
             before = source_lines[row - 1][:col] if 0 <= row - 1 < len(source_lines) else ""
             comments.append(
-                _Comment(line=row, text=token.string.lstrip("#").strip(), standalone=not before.strip())
+                _Comment(
+                    line=row,
+                    column=col,
+                    text=token.string.lstrip("#").strip(),
+                    standalone=not before.strip(),
+                )
             )
     except (tokenize.TokenError, IndentationError, SyntaxError):
         pass
     return comments
 
 
-def _docstring_lines(*, tree: ast.Module) -> list[tuple[int, str]]:
+def _docstring_lines(*, module: Module) -> list[tuple[int, str]]:
     """Return (line, text) for each line of every module/class/function docstring."""
     out: list[tuple[int, str]] = []
-    for node in ast.walk(tree):
-        if not isinstance(node, ast.Module | ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef):
-            continue
+    for node in module.index.nodes(ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef):
         doc = ast.get_docstring(node, clean=False)
         if doc is None or not node.body:
             continue
@@ -228,8 +234,18 @@ def _pep723_metadata_lines(source_lines: list[str]) -> frozenset[int]:
     return frozenset(flagged)
 
 
-def _violation(*, relative_file: str, line: int, code: str, message: str, fix: str) -> Violation:
-    return Violation(file=relative_file, line=line, rule=code, message=message, fix=fix)
+def _violation(
+    *,
+    relative_file: str,
+    line: int,
+    code: str,
+    message: str,
+    fix: str,
+    column: int | None = None,
+) -> Violation:
+    return Violation(
+        file=relative_file, line=line, rule=code, message=message, fix=fix, column=column
+    )
 
 
 # How far a comment block may run before CMT-002 calls it verbose is not a
@@ -250,12 +266,10 @@ class _Span:
     complexity: int
 
 
-def _function_spans(*, tree: ast.Module) -> list[_Span]:
+def _function_spans(*, module: Module) -> list[_Span]:
     """Line range and complexity of every function in the module."""
     spans: list[_Span] = []
-    for node in ast.walk(tree):
-        if not isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
-            continue
+    for node in module.index.functions:
         end = getattr(node, "end_lineno", node.lineno)
         spans.append(_Span(
             start=node.lineno, end=end, complexity=_cyclomatic_complexity(func_node=node)
@@ -298,21 +312,39 @@ class CommentsCheck:
             "PROSE-003: No emoji in comments or docstrings (opt-in)",
         ]
     )
+    settings_keys: ClassVar[frozenset[str]] = frozenset(
+        {
+            "commented_code",
+            "verbose",
+            "em_dash",
+            "emoji",
+            "max_block_lines",
+            "max_comment_chars",
+            "block_lines_per_branch",
+        }
+    )
 
-    def configure(self, *, settings: dict[str, bool | int]) -> None:
+    def configure(self, *, settings: dict[str, object]) -> None:
         """Apply ``[tool.lanorme.comments]`` configuration."""
-        for key in ("flag_commented_code", "flag_verbose"):
-            short = key.removeprefix("flag_")
-            if short in settings:
-                setattr(self, key, bool(settings[short]))
-        for short in ("em_dash", "emoji"):
-            if short in settings:
-                setattr(self, f"flag_{short}", bool(settings[short]))
-        for key in ("max_block_lines", "max_comment_chars", "block_lines_per_branch"):
-            if key in settings:
-                setattr(self, key, int(settings[key]))
+        self.flag_commented_code = is_flag_set(
+            settings=settings, key="commented_code", default=self.flag_commented_code
+        )
+        self.flag_verbose = is_flag_set(settings=settings, key="verbose", default=self.flag_verbose)
+        self.flag_em_dash = is_flag_set(settings=settings, key="em_dash", default=self.flag_em_dash)
+        self.flag_emoji = is_flag_set(settings=settings, key="emoji", default=self.flag_emoji)
+        self.max_block_lines = int_setting(
+            settings=settings, key="max_block_lines", default=self.max_block_lines
+        )
+        self.max_comment_chars = int_setting(
+            settings=settings, key="max_comment_chars", default=self.max_comment_chars
+        )
+        self.block_lines_per_branch = int_setting(
+            settings=settings, key="block_lines_per_branch", default=self.block_lines_per_branch
+        )
 
-    def _style_violations(self, *, text: str, line: int, relative_file: str) -> list[Violation]:
+    def _style_violations(
+        self, *, text: str, line: int, relative_file: str, column: int | None = None
+    ) -> list[Violation]:
         found: list[Violation] = []
         if self.flag_em_dash and _EM_DASH in text:
             found.append(
@@ -322,6 +354,7 @@ class CommentsCheck:
                     code="PROSE-001",
                     message="Em dash in comment/docstring",
                     fix="Rewrite with a comma, parentheses, or a full stop",
+                    column=column,
                 )
             )
         if self.flag_emoji and _EMOJI.search(text):
@@ -332,31 +365,29 @@ class CommentsCheck:
                     code="PROSE-003",
                     message="Emoji in comment/docstring",
                     fix="Remove the emoji",
+                    column=column,
                 )
             )
         return found
 
-    def _verbose_violations(
-        self, *, comments: list[_Comment], relative_file: str, tree: ast.Module
-    ) -> list[Violation]:
+    def _verbose_violations(self, *, comments: list[_Comment], module: Module) -> list[Violation]:
         found: list[Violation] = []
         for comment in comments:
             if len(comment.text) > self.max_comment_chars:
                 found.append(
                     _violation(
-                        relative_file=relative_file,
+                        relative_file=module.relative,
                         line=comment.line,
                         code="CMT-002",
                         message=f"Comment line is {len(comment.text)} chars (limit {self.max_comment_chars})",
                         fix="Tighten it, or move the detail into a docstring",
+                        column=comment.column,
                     )
                 )
-        found.extend(self._block_violations(comments=comments, relative_file=relative_file, tree=tree))
+        found.extend(self._block_violations(comments=comments, module=module))
         return found
 
-    def _block_violations(
-        self, *, comments: list[_Comment], relative_file: str, tree: ast.Module
-    ) -> list[Violation]:
+    def _block_violations(self, *, comments: list[_Comment], module: Module) -> list[Violation]:
         found: list[Violation] = []
         standalone = [c for c in comments if c.standalone]
         # Function complexities are only needed once a block is longer than the
@@ -373,7 +404,7 @@ class CommentsCheck:
                 index = end + 1
                 continue
             if spans is None:
-                spans = _function_spans(tree=tree)
+                spans = _function_spans(module=module)
             complexity = _complexity_near(
                 spans=spans, start=standalone[index].line, end=standalone[end].line
             )
@@ -381,7 +412,7 @@ class CommentsCheck:
             if length > allowance:
                 found.append(
                     _violation(
-                        relative_file=relative_file,
+                        relative_file=module.relative,
                         line=standalone[index].line,
                         code="CMT-002",
                         message=(
@@ -389,22 +420,17 @@ class CommentsCheck:
                             f"at complexity {complexity})"
                         ),
                         fix="Tighten it, or move the detail into a docstring",
+                        column=standalone[index].column,
                     )
                 )
             index = end + 1
         return found
 
-    def _scan_file(
-        self,
-        *,
-        tree: ast.Module,
-        comments: list[_Comment],
-        source_lines: list[str],
-        relative_file: str,
-    ) -> list[Violation]:
+    def _scan_file(self, *, module: Module, comments: list[_Comment]) -> list[Violation]:
         found: list[Violation] = []
+        relative_file = module.relative
         if self.flag_commented_code:
-            metadata_lines = _pep723_metadata_lines(source_lines)
+            metadata_lines = _pep723_metadata_lines(module.lines)
             found.extend(
                 _violation(
                     relative_file=relative_file,
@@ -412,33 +438,32 @@ class CommentsCheck:
                     code="CMT-001",
                     message=f"Commented-out code: {c.text[:60]}",
                     fix="Delete it; version control remembers",
+                    column=c.column,
                 )
                 for c in comments
                 if c.line not in metadata_lines and _looks_like_code(text=c.text)
             )
         if self.flag_verbose:
-            found.extend(self._verbose_violations(
-                comments=comments, relative_file=relative_file, tree=tree
-            ))
+            found.extend(self._verbose_violations(comments=comments, module=module))
         if self.flag_em_dash or self.flag_emoji:
             for comment in comments:
-                found.extend(
-                    self._style_violations(text=comment.text, line=comment.line, relative_file=relative_file)
-                )
-            for line, text in _docstring_lines(tree=tree):
+                found.extend(self._style_violations(
+                    text=comment.text,
+                    line=comment.line,
+                    relative_file=relative_file,
+                    column=comment.column,
+                ))
+            for line, text in _docstring_lines(module=module):
                 found.extend(self._style_violations(text=text, line=line, relative_file=relative_file))
         return found
 
     def run(self, *, src_root: str) -> CheckResult:
         violations: list[Violation] = []
         for module in parsed_modules(Path(src_root)):
-            source_lines = module.lines
             violations.extend(
                 self._scan_file(
-                    tree=module.tree,
-                    comments=_collect_comments(source=module.source, source_lines=source_lines),
-                    source_lines=source_lines,
-                    relative_file=module.relative,
+                    module=module,
+                    comments=_collect_comments(source=module.source, source_lines=module.lines),
                 )
             )
 

@@ -37,10 +37,12 @@ from __future__ import annotations
 import ast
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import ClassVar
 
 from lanorme import CheckResult, Violation, register
+from lanorme.checkconfig import int_setting, is_flag_set
 from lanorme.checks.restating import _is_allowlisted, _split_identifier, _stem
-from lanorme.sources import parsed_modules
+from lanorme.sources import Module, parsed_modules, span
 
 # Definitions shorter than this need no docstring: a three-line helper whose
 # name says it all is not improved by a sentence repeating the name.
@@ -155,28 +157,26 @@ def _noun(*, node: ast.AST) -> str:
     return "Class" if isinstance(node, ast.ClassDef) else "Function"
 
 
-def _owners(*, tree: ast.Module) -> dict[int, str]:
+def _owners(*, module: Module) -> dict[int, str]:
     """Map each method to its enclosing class name, keyed by node id.
 
     A method's docstring is read next to its class, so ``Refill the bucket.``
     on ``Bucket.refill`` restates the pair and adds nothing.
     """
     owned: dict[int, str] = {}
-    for node in ast.walk(tree):
-        if isinstance(node, ast.ClassDef):
-            for child in node.body:
-                if isinstance(child, _DEF_TYPES):
-                    owned[id(child)] = node.name
+    for node in module.index.nodes(ast.ClassDef):
+        for child in node.body:
+            if isinstance(child, _DEF_TYPES):
+                owned[id(child)] = node.name
     return owned
 
 
-def _definition_violations(*, tree: ast.Module, file: str, min_lines: int, require_private: bool) -> list[Violation]:
+def _definition_violations(*, module: Module, min_lines: int, require_private: bool) -> list[Violation]:
     """Check every in-scope definition in one module for CMT-006 and CMT-007."""
     violations: list[Violation] = []
-    owned = _owners(tree=tree)
-    for node in ast.walk(tree):
-        if not isinstance(node, _DEF_TYPES):
-            continue
+    file = module.relative
+    owned = _owners(module=module)
+    for node in module.index.nodes(*_DEF_TYPES):
         if _skip(node=node, min_lines=min_lines, require_private=require_private):
             continue
         doc = ast.get_docstring(node)
@@ -187,6 +187,7 @@ def _definition_violations(*, tree: ast.Module, file: str, min_lines: int, requi
                 rule="CMT-006: Public definitions past the size floor need a docstring",
                 message=f"{_noun(node=node)} '{node.name}' has no docstring",
                 fix="Say what it is for, or what a caller needs to know that the signature does not show",
+                **span(node),
             ))
         elif _is_vacuous(doc=doc, node=node, owner=owned.get(id(node), "")):
             violations.append(Violation(
@@ -195,6 +196,7 @@ def _definition_violations(*, tree: ast.Module, file: str, min_lines: int, requi
                 rule="CMT-007: A docstring must say more than the signature",
                 message=f"Docstring of '{node.name}' only restates its name and parameters",
                 fix="Add what the signature cannot show: the why, a caveat, a unit, or a reference",
+                **span(node),
             ))
     return violations
 
@@ -214,15 +216,15 @@ class DocstringsCheck:
             "CMT-007: A docstring must say more than the signature",
         ]
     )
+    settings_keys: ClassVar[frozenset[str]] = frozenset({"enabled", "min_lines", "require_private"})
 
-    def configure(self, *, settings: dict[str, bool | int]) -> None:
+    def configure(self, *, settings: dict[str, object]) -> None:
         """Apply ``[tool.lanorme.docstrings]`` configuration."""
-        if "enabled" in settings:
-            self.enabled = bool(settings["enabled"])
-        if "min_lines" in settings:
-            self.min_lines = int(settings["min_lines"])
-        if "require_private" in settings:
-            self.require_private = bool(settings["require_private"])
+        self.enabled = is_flag_set(settings=settings, key="enabled", default=self.enabled)
+        self.min_lines = int_setting(settings=settings, key="min_lines", default=self.min_lines)
+        self.require_private = is_flag_set(
+            settings=settings, key="require_private", default=self.require_private
+        )
 
     def run(self, *, src_root: str) -> CheckResult:
         """Walk every Python file and collect CMT-006 / CMT-007 violations."""
@@ -238,8 +240,7 @@ class DocstringsCheck:
             if name.startswith("test_"):
                 continue
             violations.extend(_definition_violations(
-                tree=module.tree,
-                file=module.relative,
+                module=module,
                 min_lines=self.min_lines,
                 require_private=self.require_private,
             ))

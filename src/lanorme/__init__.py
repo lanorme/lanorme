@@ -59,23 +59,40 @@ class Violation:
     column: int | None = None
     end_line: int | None = None
     end_column: int | None = None
+    promoted: bool = False
 
     @property
     def code(self) -> str:
         """The rule code (e.g. ``DRY-001``) parsed from the rule string."""
         return rule_code(self.rule)
 
-    def to_dict(self) -> dict[str, str | int | None]:
+    @property
+    def scope(self) -> str:
+        """``span`` when the extent is known, ``file`` for a whole-file finding, else ``line``.
+
+        A whole-file finding is reported at line 0 or 1 with no position (the
+        convention SIZE-001, PORT-001 and the baseline share); a finding that
+        knows its column is about that line even when it is line 1.
+        """
+        if self.end_line is not None:
+            return "span"
+        if self.line <= 1 and self.column is None:
+            return "file"
+        return "line"
+
+    def to_dict(self) -> dict[str, str | int | bool | None]:
         return {
             "file": self.file,
             "line": self.line,
             "column": self.column,
             "end_line": self.end_line,
             "end_column": self.end_column,
+            "scope": self.scope,
             "code": self.code,
             "rule": self.rule,
             "message": self.message,
             "fix": self.fix,
+            "promoted": self.promoted,
         }
 
     def format_human(self, *, label: str = "VIOLATION") -> str:
@@ -129,7 +146,7 @@ class CheckResult:
             warnings=[w for w in self.warnings if keep(w)],
         )
 
-    def to_dict(self) -> dict[str, str | list[dict[str, str | int | None]]]:
+    def to_dict(self) -> dict[str, str | list[dict[str, str | int | bool | None]]]:
         return {
             "check": self.check,
             "status": self.status.value,
@@ -219,8 +236,14 @@ def _crash_notice(*, check: Check, exc: BaseException) -> CheckResult:
                 file="",
                 line=0,
                 rule="RUN-000: check raised an exception",
-                message=f"Check {check.name!r} failed on this tree: {type(exc).__name__}",
-                fix="This is a bug in the check; the rest of the run continued",
+                message=(
+                    f"Check {check.name!r} failed on this tree: "
+                    f"{type(exc).__name__}: {str(exc)[:200] or 'no detail'}"
+                ),
+                fix=(
+                    "This is a bug in the check (or a setting it did not validate); "
+                    "the rest of the run continued"
+                ),
             ),
         ],
     )
