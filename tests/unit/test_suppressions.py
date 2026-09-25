@@ -230,3 +230,49 @@ def test_root_under_a_skip_named_ancestor_is_still_scanned(
 
     # Assert
     assert _collect_codes(result=result) == ["SUPPRESS-001"]
+
+
+# --------------------------------------------------------------------------- #
+# Another tool's directives
+# --------------------------------------------------------------------------- #
+
+
+def test_directives_naming_only_another_tools_codes_do_not_count(
+    check: SuppressionsCheck,
+    tmp_path: Path,
+) -> None:
+    # Arrange: ruff, flake8, bandit and mypy directives, none of which silences
+    # a LaNorme rule.
+    _write(
+        root=tmp_path,
+        body=(
+            "x = 1  # noqa: E501\n"
+            "y = 2  # type: ignore\n"
+            "z = 3  # pragma: no cover\n"
+            "import subprocess  # nosec\n"
+            "w = subprocess.run  # noqa: S603, PLC0415\n"
+        ),
+    )
+
+    # Act.
+    result = check.run(src_root=str(tmp_path))
+
+    # Assert: nothing to price.
+    assert result.status == Status.PASS
+    assert _collect_codes(result=result) == []
+
+
+def test_a_lanorme_code_in_a_mixed_list_counts(
+    check: SuppressionsCheck,
+    tmp_path: Path,
+) -> None:
+    # Arrange: one line mixing a ruff code with a LaNorme rule, one naming a
+    # LaNorme category.
+    _write(root=tmp_path, body="x = 1  # noqa: E501,DRY-001\ny = 2  # noqa: TYPE\n")
+
+    # Act.
+    result = check.run(src_root=str(tmp_path))
+
+    # Assert: two suppressions against a zero budget, neither blanket.
+    assert _collect_codes(result=result) == ["SUPPRESS-001"]
+    assert "2 inline suppressions" in result.violations[0].message

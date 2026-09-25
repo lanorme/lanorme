@@ -290,9 +290,12 @@ dynamic form only hides the attribute from the type checker.
 
 High-confidence cases only. Exempt: three-argument `getattr(x, "name",
 default)` (the safe-access idiom); dunder names (`__class__`, `__name__`, ...);
-names that are not valid identifiers (cannot be written as `x.name`); and files
-under `tests/` or `test/`. Dynamic names (`getattr(x, name)`) are reflection and exempt
-unless `flag_dynamic` is set.
+names that are not valid identifiers (cannot be written as `x.name`); a
+receiver bound by a plain `import` (`hasattr(os, "fork")`,
+`hasattr(socket, "AF_UNIX")`), which is platform feature detection on a
+module rather than duck typing of an object; and files under `tests/` or
+`test/`. Dynamic names (`getattr(x, name)`) are reflection and exempt unless
+`flag_dynamic` is set.
 
 Config:
 ```toml
@@ -311,7 +314,14 @@ Default-on. Walks every `#` comment and parses its text as Python; if the
 result is one of `_CODE_NODES` (imports, assigns, defs, control flow,
 returns / raises / asserts, ...), the comment is treated as disabled code.
 Guards: comments ending in `.` / `?` / `!` are prose; `foo(...)` (literal
-`...`) is illustrative; `label: type` with no value is documentation; tooling
+`...`) is illustrative; `label: type` with no value is documentation, and
+`label: word = value` is a labelled note unless the word is a type
+(`# TODO: retries = 5` and `# cython: boundscheck=False` are notes,
+`# x: int = 5` is code); an assignment of a foreign literal (`# enabled = true`,
+`# timeout = null`) is TOML, YAML or JSON, not Python; a keyword followed only
+by an adverb (`# return early`, `# import lazily`, `# raise instead`) is a
+prose fragment; the lines that follow a `Usage:`, `Example:` or `e.g.:`
+header in the same block show a call shape rather than disable one; tooling
 pragmas (`# noqa`, `# type:`, ...) are skipped; and the lines of a
 [PEP 723](https://peps.python.org/pep-0723/) `# /// script` ... `# ///` inline
 metadata block are tooling, not code.
@@ -363,6 +373,13 @@ complexity it scored so the number is never a mystery.
 
 Set `block_lines_per_branch = 0` for a flat cap.
 
+A preamble above a decorated function counts as sitting above the function:
+the decorators do not push it out of reach. Exempt from the block cap: a
+block carrying a licence or copyright marker (the Apache preamble is as long
+as it is), and a PEP 723 metadata block. Exempt from the line cap: a pragma
+line, and the URL part of a line (a URL cannot be wrapped, so only the text
+around it is measured).
+
 Config:
 ```toml
 [tool.lanorme.comments]
@@ -403,13 +420,15 @@ dashes and emoji. The cheapest way to satisfy all of them is to write
 nothing. These two point the other way.
 
 - `CMT-006`: a public function or class whose span reaches `min_lines`
-  (default 5) carries a docstring. Dunders, private names, `test_*` files,
+  (default 5) carries a docstring. Dunders, private names, members of a
+  private class, functions nested inside a function, `test_*` files,
   `__init__.py`, `conftest.py`, `setup.py`, `alembic/` and `migrations/` are
-  out of scope.
+  out of scope. A definition under a module-level `if` or `try` is in scope.
 - `CMT-007`: that docstring says more than the signature. A docstring is
   vacuous when every content word in it is already carried by the
   definition's name, its parameters, or its enclosing class. Padding does
-  not help, because padding is restatement.
+  not help, because padding is restatement, and a placeholder
+  (`"""TODO"""`, `"""Docstring."""`) is filler.
 
 `CMT-007` reuses the vocabulary machinery behind `CMT-005`: identifier
 splitting, stemming, and the 11-category allowlist that exempts a comment
@@ -450,7 +469,10 @@ require_private = false  # also require them on _private definitions
 
 Off until enabled. The same rule codes that the `prose` check emits on
 Markdown also fire here, on `#` comments and `"""..."""` docstrings,
-when configured.
+when configured. An emoji is a code point with Unicode's Emoji property, or
+any symbol followed by the emoji presentation selector (U+FE0F); a check mark
+(U+2713), a ballot box, a star, a die or a musical note is not one, and
+neither is the zero-width joiner that Hindi or Arabic text carries.
 
 Config:
 ```toml
@@ -464,7 +486,10 @@ emoji   = true   # emit PROSE-003 on comments/docstrings
 ## Docs: `DOCS-001..008`
 
 Opt-in (default-off), tree-scoped. Enforces a familiar Diataxis-style structure
-and accessibility on a Markdown documentation tree. It inspects only Markdown
+and accessibility on a Markdown documentation tree. Headings and images inside
+a fenced code block, YAML front matter or an inline code span are never
+matched, and a rule (`---`) under a list item, a quote or a table row is a
+thematic break, not a setext heading. It inspects only Markdown
 under `docs_root` (default `docs`); files anywhere else are ignored, so it never
 imposes a docs structure on source trees or stray Markdown. Headings and images
 inside fenced code blocks are never matched, so a sample showing a hash heading
@@ -539,12 +564,15 @@ forbidden = ["Cust", "Client"]
 ## Duplication: `DRY-001`
 
 Default-on. Detects **exact structural clones**: functions with an identical
-normalised AST body and at least five statements. Normalisation strips variable
-names and string literals, so two functions differing only in identifier
-spelling or string-constant content still match. It is precise but strict: a
-single added statement, a reordering, a changed number, or a renamed attribute
-defeats the match. For the fuzzier "these should share a helper" cases, see
-`SIMILAR-001` below.
+normalised AST body and at least five statements (a leading docstring is
+documentation and counts for neither). Normalisation strips variable names and
+string literals, so two functions differing only in identifier spelling or
+string-constant content still match. The name a call targets is kept, like an
+attribute name: `min(...)` against `max(...)`, or `any(...)` against
+`all(...)`, is a different operation, not a renamed variable. It is precise but
+strict: a single added statement, a reordering, a changed number, a renamed
+attribute or a renamed call defeats the match. For the fuzzier "these should
+share a helper" cases, see `SIMILAR-001` below.
 
 Config: none. False positives on intentionally parallel
 adapters across bounded contexts are a known limit; suppress them with
@@ -596,7 +624,9 @@ All default-on.
 
 - `SIZE-001`: Python files. Warn at 300 effective (non-blank,
   non-comment) lines; error at 500.
-- `SIZE-002`: functions and methods. Warn at 50 lines; error at 80.
+- `SIZE-002`: functions and methods. Warn at 50 lines; error at 80. The
+  docstring is left out: it documents the function rather than lengthening
+  it.
 - `SIZE-003`: classes with more than 10 methods (warning only). Useful
   as a smell on services and views; on rich aggregate roots in a DDD
   codebase, expect to silence it via `per-file-ignores`.
@@ -612,8 +642,9 @@ All default-on.
   `[f(x) for x in xs]` costs nothing. That keeps the 10 / 15 thresholds
   calibrated for code that leans on comprehensions; the conditional and
   nested-loop branching they can hide still counts.
-- `PARAM-001`: function/method parameter count, excluding `self` /
-  `cls`. Warn at 5; error at 8.
+- `PARAM-001`: function/method parameter count, excluding the receiver
+  (`self` / `cls`, or `mcs` / `metacls` in a metaclass). Warn at 5; error
+  at 8.
 
 Skips `__init__.py`, `conftest.py`, `alembic/`, `migrations/`, and
 `test_*` files.
@@ -690,6 +721,11 @@ stay relative to the scan target.
 These rules track Cockburn's hexagonal architecture and Seemann's
 composition-root pattern.
 
+A relative import is resolved against the importing file's package first, so
+`from .application import X` inside `domain/` names a sibling module in the
+domain layer, not the application layer, while `from ..infrastructure import db`
+still reaches the infrastructure layer.
+
 The composition-root exception applies to any layer listed in
 `transport_layers` (default `["api"]`). Apps with several peer transport
 adapters (a REST `api/`, an `mcp_server/`, a `grpc_server/`) can list them all
@@ -703,7 +739,11 @@ Config (all keys optional; the defaults are shown):
 # Files allowed to import infrastructure (the composition root).
 # fnmatch globs against the source-relative path, so a module FILE
 # (api/dependencies.py) is recognised, not only a directory.
-composition_root = ["api/dependencies/**", "api/v1/dependencies/**", "api/v1/main.py"]
+composition_root = [
+  "api/dependencies/**", "api/dependencies.py", "api/deps.py",
+  "api/v1/dependencies/**", "api/v1/dependencies.py", "api/v1/deps.py",
+  "api/v1/main.py",
+]
 
 # For layouts whose layers differ. Defaults shown.
 layers = ["domain", "application", "infrastructure", "api"]
@@ -738,7 +778,9 @@ it conforms.
 ## Keyword arguments: `KWARG-001`
 
 Opt-in. With `enabled = true`, every multi-argument function definition
-must contain a bare `*` separator to force keyword-only call sites.
+must contain a bare `*` separator to force keyword-only call sites. Dunder
+methods and methods decorated `@override` are exempt: their signature is fixed
+by the protocol or the base class, so the finding belongs there.
 
 Config:
 ```toml
@@ -1078,7 +1120,8 @@ top-level `[tool.lanorme] source_root` anchors `ports_dir`, `adapter_roots`,
 and `composition_root` under a nested package directory when set.
 
 - `PORT-001`: every adapter file (under the adapter roots) must import
-  from the ports directory.
+  from the ports directory. A private module (`_retry.py`) is a utility by
+  convention and is not asked to.
 - `PORT-002`: every `Protocol` declared in the ports directory must
   have at least one implementation. Build-failing like `PORT-001` and
   `PORT-003`. Ports realised only by test doubles or sibling plugins are
@@ -1092,7 +1135,7 @@ Config (all keys optional; the defaults are shown):
 [tool.lanorme.port_coverage]
 ports_dir        = "application/ports"     # where port Protocols live
 adapter_roots    = ["infrastructure/services"]  # dirs scanned for adapters (recursive)
-composition_root = ["*dependencies/*", "*v1/main.py"]  # PORT-003 exemption (globs)
+composition_root = ["*dependencies/*", "*dependencies.py", "*deps.py", "*v1/main.py"]  # PORT-003 exemption (globs)
 skip_files         = ["__init__.py"]
 ports_without_impl = ["repositories.py", "unit_of_work.py", "otel.py", "metrics.py"]
 ```
@@ -1108,9 +1151,15 @@ Off until enabled.
 
 - `PROSE-001`: em dashes (U+2014) in prose.
 - `PROSE-002`: American spellings; suggests the British form.
-- `PROSE-003`: emoji in prose.
+- `PROSE-003`: emoji in prose (Unicode's Emoji property, or a symbol carrying
+  the emoji presentation selector; a check mark or a star is not one).
 
-Skips fenced code blocks (` ``` `, `~~~`) and inline `` `code` `` spans.
+Skips fenced code blocks (` ``` `, `~~~`; a fence closes only on a run at
+least as long as the one that opened it), YAML front matter, inline
+`` `code` `` spans, link targets, URLs and HTML tags. `PROSE-002` also
+ignores tokens that are code rather than words: a flag (`--color`), a dotted
+name (`settings.color`), a path, an assignment, or anything holding a digit
+or an underscore (`org-color-42`).
 
 ### `PROSE-004`: Em-dash density above natural English
 
@@ -1165,18 +1214,30 @@ false sense of security). Use `# noqa: <CODE>` or `# lanorme: ignore[<CODE>]`
 for legitimate uses (e.g. a pickle load on a trusted local cache) or
 `[tool.lanorme.per-file-ignores]` for broader patches.
 
+Every rule sees a call through the module's own imports: `import
+subprocess as sp` and `from subprocess import run as sh` resolve to
+`subprocess.run`. A name the module rebinds itself (a parameter, a local
+`def`, an assignment) is unknown, so a local `run(cmd, shell=True)` or an
+AST visitor's own `eval(node)` never fires. A `shell=` / `verify=` /
+`usedforsecurity=` value that is not a literal is ambiguous and stays quiet.
+
 - `SHELL-001`: `subprocess.run` / `call` / `check_call` /
   `check_output` / `Popen` with `shell=True`; `os.system`; `os.popen`.
 - `DESERIAL-001`: `pickle.load(s)`, `marshal.load(s)`, `dill.load(s)`,
-  `cPickle.load(s)`, `yaml.load` without `Loader=SafeLoader` /
-  `CSafeLoader` / `BaseLoader`, `yaml.unsafe_load`.
-- `EVAL-001`: `eval` / `exec` / `compile` where the first argument is
-  not a string literal. (Literal-arg `compile(...)` flows are accepted.)
-- `CRYPTO-001`: `hashlib.md5` / `hashlib.sha1` used for security
-  (`usedforsecurity=False` is honoured), `hashlib.new("md5"/"sha1", ...)`,
-  `ssl.PROTOCOL_SSLv2` / `SSLv3` / `TLSv1` / `TLSv1_1`.
-- `TLS-001`: `requests` / `httpx` / `aiohttp` call with `verify=False`,
-  `ssl._create_unverified_context`, `ssl.CERT_NONE` attribute reference.
+  `cPickle.load(s)`, `yaml.load` without `SafeLoader` / `CSafeLoader` /
+  `BaseLoader` as the `Loader=` keyword or the second positional argument,
+  `yaml.unsafe_load`.
+- `EVAL-001`: `eval` / `exec` / `compile` (bare or as `builtins.eval`)
+  where the first argument is not a string literal. (Literal-arg
+  `compile(...)` flows are accepted.)
+- `CRYPTO-001`: `hashlib.md5` / `hashlib.sha1` / `hashlib.new("md5"/"sha1",
+  ...)` used for security (`usedforsecurity=False` is honoured on all
+  three), `ssl.PROTOCOL_SSLv2` / `SSLv3` / `TLSv1` / `TLSv1_1` referenced
+  anywhere but as a comparison operand (`if proto == ssl.PROTOCOL_TLSv1:
+  reject()` is a guard, not a use).
+- `TLS-001`: `requests` / `httpx` call with `verify=False`, `aiohttp` call
+  with `ssl=False` / `verify_ssl=False`, `ssl._create_unverified_context`,
+  `ssl.CERT_NONE` referenced anywhere but as a comparison operand.
 - `DEBUG-001`: `Flask(...)` / `FastAPI(...)` constructor with
   `debug=True`, `*.run(debug=True)` / `*.run_server(debug=True)`,
   module-level `DEBUG = True` in `*settings.py` / `*config.py`.
@@ -1189,8 +1250,10 @@ Each rule has a positive + negative unit test under
 ## Security patterns: `AUTHN-001` / `SQL-001` / `SECRETPY-001`
 
 - `AUTHN-001`: default-on. `@router.post` / `put` / `patch` / `delete`
-  handlers must have an auth dependency (a parameter annotated with
-  `Depends(get_current_user)` or `Depends(require_*)`). FastAPI-shaped;
+  handlers must have an auth dependency: `Depends(get_current_user)` /
+  `Depends(require_*)` (or `Security(...)`) in a parameter annotation, a
+  parameter default (`user: User = Depends(get_current_user)`), or the
+  decorator's `dependencies=[...]` list. FastAPI-shaped;
   the rule checks for **authentication presence only**, not
   authorisation. Only endpoint files under `api/` are scanned; when the
   package sits under a nested directory (a src layout), set the top-level
@@ -1201,32 +1264,37 @@ Each rule has a positive + negative unit test under
   reach a database execution sink (`.execute` / `.executemany` /
   `.executescript` on a DB-shaped receiver, or `read_sql` /
   `read_sql_query`). Unwraps `text(...)` constructors, resolves module-
-  level and function-local string constants, and treats `+` /
-  `%`-formatted / `.format`-built SQL as interpolated (always flagged).
-  Static SQL passed alongside a `params=` / `parameters=` kwarg (or a
-  second positional on `.execute`) with placeholder marks (`:name`,
-  `%s`, `?`) is treated as safely parameterised and not flagged.
-  Excludes `alembic/` and `test_*` files. Measured against
-  `evals/corpora/security_raw_sql/` (120 labels): **P = 1.000 /
-  R = 1.000 / F1 = 1.000**. Known limitations not in the corpus: SQL
+  level and function-local string constants, and treats `%`-formatted /
+  `.format`-built SQL, or a `+` join with a non-literal side, as
+  interpolated (always flagged); a `+` join of literals and literal
+  constants only is static. Static SQL passed alongside a `params=` /
+  `parameters=` kwarg (or a second positional on `.execute`) with
+  placeholder marks (`:name`, `%s`, `?`) is treated as safely
+  parameterised and not flagged. Excludes `alembic/` and `test_*` files.
+  Measured against `evals/corpora/security_raw_sql/` (125 labels):
+  **P = 1.000 / R = 1.000 / F1 = 1.000**. Known limitations not in the corpus: SQL
   built across multiple statements with helper functions; lazy-loaded
   query templates; non-Python query files.
 - `SECRETPY-001`: default-on. Lives in the `secrets` check. AST-based:
   flags credential-named assignments
-  (variable, dict key, or call kwarg) whose value looks like a real
-  secret, plus shape-only matches (PEM private-key blocks, JWT-shaped
-  tokens, Bearer headers, DB / cache URLs with embedded `user:pass@host`
-  credentials, and vendor-prefixed credentials: AWS `AKIA` / `ASIA`,
-  GitHub `ghp_` / `gho_` / `github_pat_`, Slack `xox*`, Stripe
-  `sk_live_` / `sk_test_`). Names whose first segment is `help_` /
-  `hint_` / `msg_` / etc. are documentation; names whose last segment
-  is structural (`pattern`, `endpoint`, `header`, `name`, `len`, ...)
-  are not credentials. Placeholder markers (`<your-...>`, `REPLACE_ME`,
+  (variable, dict key, or call kwarg) whose value is a string or bytes
+  literal that looks like a real secret, plus shape-only matches (PEM
+  private-key blocks, JWT-shaped tokens, Bearer headers, DB / cache URLs
+  with embedded `user:pass@host` credentials, and vendor-prefixed
+  credentials: AWS `AKIA` / `ASIA`, GitHub `ghp_` / `gho_` /
+  `github_pat_`, Slack `xox*`, Stripe `sk_live_` / `sk_test_`, Django
+  `django-insecure-`), wherever the literal sits, including as the
+  fallback of an `os.environ.get(...)` call. Names whose first segment is
+  `help_` / `hint_` / `msg_` / etc. are documentation; names whose last
+  segment is structural (`pattern`, `endpoint`, `header`, `name`, `len`,
+  `env`, `var`, `id`, `file`, `algorithm`, `backend`, ...) point at a
+  secret rather than hold one, unless the whole name is a credential
+  phrase (`aws_access_key_id`). Placeholder markers (`<your-...>`, `REPLACE_ME`,
   `example`, ...) skip a value unless it is high-entropy enough (32+
   chars, mixed case, digits) to defeat the marker (AWS docs-style
   example secret keys). Excludes `conftest.py`, `seed_dev.py`, and
   files starting with `test_`. Measured against
-  `evals/corpora/security_hardcoded_secrets/` (155 labels):
+  `evals/corpora/security_hardcoded_secrets/` (169 labels):
   **P = 1.000 / R = 1.000 / F1 = 1.000**. **Scope warning**:
   Python-source only; `.env`, `*.yaml`, `*.ipynb`, `*.tf`, `Dockerfile`,
   GitHub Actions workflows are out of scope until a separate
@@ -1291,12 +1359,13 @@ PII.
 - `JUNK-001`: files matching scratch / temp / OS / build name globs such
   as `screenshot*`, `scratch*`, `untitled*`, `*~`, `*.bak`, `*.orig`,
   `*.rej`, `*.swp`, `*.swo`, `*.tmp`, `tmp.*`, `temp.*`, `.DS_Store`,
-  `Thumbs.db`, `desktop.ini`, `nohup.out`, `core.*`, `*.pyc`, `*.pyo`,
-  `.coverage`, `coverage.xml`.
+  `Thumbs.db`, `desktop.ini`, `nohup.out`, `core.[0-9]*` (a core dump, not a
+  `core.py` module), `*.pyc`, `*.pyo`, `.coverage`, `.coverage.*`,
+  `coverage.xml`.
 - `JUNK-002`: image / binary extensions outside an asset directory.
   Default extensions: `.png`, `.jpg`, `.jpeg`, `.gif`, `.bmp`, `.webp`.
   Default asset directories: `assets/`, `static/`, `images/`, `img/`,
-  `media/`, `public/`, `docs/`, `.github/`.
+  `media/`, `public/`, `docs/`, `.github/`, `fixtures/`, `resources/`.
 
 Config:
 ```toml
@@ -1322,6 +1391,10 @@ build-failing; `TYPE-004` is an advisory warning.
   parameters.
 - `TYPE-003`: `**kwargs` must be annotated with a concrete type or
   `Unpack[TypedDict]`; bare `**kwargs: Any` is rejected.
+
+For all three, a wrapper changes nothing: `dict[str, Any] | None`,
+`Optional[dict]` and `list[dict[str, Any]]` carry the same weak type, and a
+qualified `typing.Any` reads as `Any`.
 - `TYPE-004` (advisory warning): a function with at least one annotated
   parameter that returns a real value in its own scope should also declare a
   return type. This is the high-signal completeness subset of ruff's `ANN`,
@@ -1372,7 +1445,10 @@ today's count; set `max_total` to that number.
 Comments are read through `tokenize` and matched from the start of the
 comment, so a directive named in prose (a sentence such as "lines up with
 `--exclude` and `# noqa` handling") or quoted in a string is documentation,
-not an escape, and does not count against the budget.
+not an escape, and does not count against the budget. Nor does a `noqa` whose
+codes all belong to another tool (`# noqa: E501`, `# noqa: S603`): it silences
+no LaNorme rule. A LaNorme code or category anywhere in the list
+(`# noqa: E501,DRY-001`) counts once.
 
 Config:
 ```toml

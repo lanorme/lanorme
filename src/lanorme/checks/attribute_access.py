@@ -22,6 +22,9 @@ cases only:
     - Dunder names (``__class__``, ``__name__`` ...) are introspection, exempt.
     - Three-argument ``getattr(x, "name", default)`` is the legitimate
       safe-access idiom, exempt.
+    - A receiver bound by a plain ``import`` (``hasattr(os, "fork")``,
+      ``hasattr(socket, "AF_UNIX")``) is platform feature detection on a
+      module, not duck typing of an object, exempt.
     - Files under ``tests/`` are exempt (tests poke internals on purpose).
 
 Dynamic names (``getattr(x, name)``, ``getattr(x, "_" + n)``) are genuine
@@ -44,7 +47,7 @@ from typing import ClassVar
 
 from lanorme import CheckResult, Violation, register
 from lanorme.checkconfig import is_flag_set
-from lanorme.sources import iter_parsed_modules, locate
+from lanorme.sources import Module, iter_parsed_modules, locate
 
 _ATTR_BUILTINS = frozenset({"getattr", "hasattr", "setattr", "delattr"})
 
@@ -57,6 +60,21 @@ def _is_exempt_file(*, relative: str) -> bool:
     if Path(norm).name.startswith("test_"):
         return True
     return any(norm.startswith(p) or f"/{p}" in norm for p in _EXEMPT_PATH_FRAGMENTS)
+
+
+def _collect_imported_module_names(*, module: Module) -> frozenset[str]:
+    """The local names a plain ``import x`` / ``import x.y as z`` binds to a module."""
+    names: set[str] = set()
+    for node in module.index.collect(ast.Import):
+        for alias in node.names:
+            names.add(alias.asname or alias.name.split(".")[0])
+    return frozenset(names)
+
+
+def _is_module_receiver(*, call: ast.Call, module_names: frozenset[str]) -> bool:
+    """True when the object probed is a module the file imported."""
+    receiver = call.args[0]
+    return isinstance(receiver, ast.Name) and receiver.id in module_names
 
 
 def _extract_builtin_name(*, call: ast.Call) -> str | None:
@@ -133,12 +151,21 @@ class AttributeAccessCheck:
             default=self.flag_dynamic,
         )
 
-    def _call_warning(self, *, call: ast.Call, relative: str) -> Violation | None:
+    def _call_warning(
+        self,
+        *,
+        call: ast.Call,
+        relative: str,
+        module_names: frozenset[str],
+    ) -> Violation | None:
         builtin = _extract_builtin_name(call=call)
         if builtin is None or len(call.args) < 2:
             return None
         # Three-arg getattr(x, name, default) is the safe-access idiom.
         if builtin == "getattr" and len(call.args) >= 3:
+            return None
+        # Probing an imported module (hasattr(os, "fork")) is feature detection.
+        if _is_module_receiver(call=call, module_names=module_names):
             return None
 
         name = _extract_literal_name(node=call.args[1])
@@ -182,8 +209,13 @@ class AttributeAccessCheck:
         for module in iter_parsed_modules(Path(src_root)):
             if _is_exempt_file(relative=module.relative):
                 continue
+            module_names = _collect_imported_module_names(module=module)
             for node in module.index.collect(ast.Call):
-                warning = self._call_warning(call=node, relative=module.relative)
+                warning = self._call_warning(
+                    call=node,
+                    relative=module.relative,
+                    module_names=module_names,
+                )
                 if warning is not None:
                     warnings.append(warning)
 

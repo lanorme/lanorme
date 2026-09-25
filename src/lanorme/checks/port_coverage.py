@@ -6,7 +6,9 @@ directly import or instantiate infrastructure adapter classes.
 
 Rules:
     PORT-001  Every non-utility adapter file (under the adapter roots) must
-              import from the ports directory (structural subtyping link)
+              import from the ports directory (structural subtyping link).
+              A private module (``_retry.py``) is a utility by convention and
+              is not an adapter.
     PORT-002  Every Protocol in the ports directory (excluding the
               ``ports_without_impl`` files) must be referenced by at least one
               adapter file
@@ -64,7 +66,7 @@ DEFAULT_PORTS_DIR = "application/ports"
 # Default composition-root globs for PORT-003. fnmatch is a full-path match,
 # so the leading/trailing ``*`` match any DI-wiring or app-factory module; a
 # single module file (api/dependencies.py) can also be named explicitly.
-DEFAULT_COMPOSITION_ROOT = ("*dependencies/*", "*v1/main.py")
+DEFAULT_COMPOSITION_ROOT = ("*dependencies/*", "*dependencies.py", "*deps.py", "*v1/main.py")
 
 
 # ---- AST helpers -----------------------------------------------------------
@@ -285,6 +287,8 @@ def _check_port001(
     for relative_file, _parsed, import_modules in adapter_files:
         if _imports_from_ports(import_modules=import_modules, ports_dotted=ports_dotted):
             continue
+        if Path(relative_file).name.startswith("_"):
+            continue  # a private helper module, not an adapter
         violations.append(
             Violation(
                 file=relative_file,

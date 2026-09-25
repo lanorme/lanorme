@@ -255,3 +255,29 @@ def test_unparseable_file_warns_without_crashing(check: NamedArgsCheck, tmp_path
     assert result.status == Status.WARN
     assert not result.violations
     assert any("parse error" in w.rule for w in result.warnings)
+
+
+def test_override_decorated_methods_are_exempt(check: NamedArgsCheck, tmp_path: Path):
+    # Arrange: two overrides (bare and qualified decorator) whose signature the
+    # base class fixes, beside an ordinary two-parameter method.
+    body = (
+        "import typing\n"
+        "from typing import override\n\n\n"
+        "class Middleware:\n"
+        "    @override\n"
+        "    def process_request(self, request, spider):\n"
+        "        return request\n\n"
+        "    @typing.override\n"
+        "    def process_response(self, request, response):\n"
+        "        return response\n\n"
+        "    def process_local(self, request, response):\n"
+        "        return response\n"
+    )
+    _write(root=tmp_path, name="mw.py", body=body)
+
+    # Act.
+    result = check.run(src_root=str(tmp_path))
+
+    # Assert: only the method that owns its signature is flagged.
+    hits = _collect_kwarg_hits(result)
+    assert [(h.line, h.message.split("'")[1]) for h in hits] == [(14, "process_local")]

@@ -542,3 +542,53 @@ def test_thirdparty_submodule_named_like_layer_is_false_positive(tmp_path: Path)
     # (thirdparty) is neither a layer nor the project package, so it is ignored.
     assert result.status == Status.PASS
     assert not result.violations
+
+
+# --------------------------------------------------------------------------- #
+# Relative imports
+# --------------------------------------------------------------------------- #
+
+
+def test_relative_import_of_a_sibling_named_like_a_layer_stays_in_the_layer(tmp_path: Path):
+    # Arrange: a domain entity module called application.py and an api
+    # subpackage called infrastructure/, each imported relatively by a sibling.
+    _write(
+        tmp_path,
+        {
+            "domain/__init__.py": "",
+            "domain/application.py": "class Application:\n    pass\n",
+            "domain/model.py": "from .application import Application\n",
+            "api/__init__.py": "",
+            "api/infrastructure/__init__.py": "",
+            "api/infrastructure/cache.py": "X = 1\n",
+            "api/routes.py": "from .infrastructure import cache\n",
+        },
+    )
+
+    # Act.
+    result = LayerDepsCheck().run(src_root=str(tmp_path))
+
+    # Assert: resolved against the importing package, both stay in their layer.
+    assert result.status == Status.PASS
+    assert result.violations == []
+
+
+def test_relative_import_climbing_out_of_the_layer_is_flagged(tmp_path: Path):
+    # Arrange: `from ..infrastructure import db` reaches the real layer.
+    _write(
+        tmp_path,
+        {
+            "domain/__init__.py": "",
+            "domain/model.py": "from ..infrastructure import db\n",
+            "infrastructure/__init__.py": "",
+            "infrastructure/db.py": "X = 1\n",
+        },
+    )
+
+    # Act.
+    result = LayerDepsCheck().run(src_root=str(tmp_path))
+
+    # Assert.
+    assert [(v.rule.split(":", 1)[0], v.file, v.line) for v in result.violations] == [
+        ("LAYER-001", "domain/model.py", 1),
+    ]

@@ -317,3 +317,27 @@ def test_attribute_form_instantiation_in_api_should_trigger_port003(tmp_path: Pa
     # Assert (currently fails): direct construction in api/ must raise PORT-003.
     assert result.status == Status.FAIL
     assert any(c == "PORT-003" for c in _collect_codes(result))
+
+
+def test_private_helper_module_under_the_adapter_root_is_not_an_adapter(tmp_path: Path):
+    # Arrange: a `_retry.py` helper the adapter imports, and a public helper
+    # with no ports import, both under the adapter root.
+    _write(
+        tmp_path / "application/ports/registry.py",
+        "from typing import Protocol\n\nclass Registry(Protocol):\n    def get(self) -> int: ...\n",
+    )
+    _write(tmp_path / "infrastructure/services/_retry.py", "def retry(fn):\n    return fn\n")
+    _write(tmp_path / "infrastructure/services/helpers.py", "def now():\n    return 0\n")
+    _write(
+        tmp_path / "infrastructure/services/redis_registry.py",
+        "from application.ports.registry import Registry\nfrom ._retry import retry\n\n"
+        "class RedisRegistry:\n    def get(self) -> int:\n        return 1\n",
+    )
+
+    # Act.
+    result = PortCoverageCheck().run(src_root=str(tmp_path))
+
+    # Assert: only the public helper is asked to implement a port.
+    assert [(v.rule.split(":", 1)[0], v.file) for v in result.violations] == [
+        ("PORT-001", "infrastructure/services/helpers.py"),
+    ]

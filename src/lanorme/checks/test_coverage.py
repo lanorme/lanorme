@@ -172,7 +172,12 @@ def _import_covers_module(
     needle = f"{import_hint}.{module_name}"
     if import_paths is None:
         return needle in contents
-    return any(needle in path for path in import_paths)
+    # Whole dotted segments only: ``services.bill`` is not covered by an import
+    # of ``services.billing``.
+    return any(
+        path == needle or path.endswith(f".{needle}") or f".{needle}." in f".{path}."
+        for path in import_paths
+    )
 
 
 def _module_has_test(

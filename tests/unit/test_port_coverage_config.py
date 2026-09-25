@@ -20,28 +20,29 @@ def _write_ports_and_adapter(write) -> None:
     )
 
 
-def test_port003_module_file_comp_root_missed_by_default_but_caught_when_configured(
+def test_port003_module_file_comp_root_exempt_by_default_and_another_file_when_configured(
     tmp_path,
     tmp_py_file,
 ):
-    # Arrange
+    # Arrange: api/dependencies.py (the canonical composition-root FILE) and an
+    # app factory, both importing and instantiating the adapter.
     _write_ports_and_adapter(tmp_py_file)
-    # An api module-file composition root that imports + instantiates the adapter.
-    tmp_py_file(
-        name="api/dependencies.py",
-        body="from infrastructure.services.registry_impl import RegistryImpl\n\nregistry = RegistryImpl()\n",
-    )
+    wiring = "from infrastructure.services.registry_impl import RegistryImpl\n\nregistry = RegistryImpl()\n"
+    tmp_py_file(name="api/dependencies.py", body=wiring)
+    tmp_py_file(name="api/app.py", body=wiring)
 
     # Act
     default_result = PortCoverageCheck().run(src_root=str(tmp_path))
 
     configured = PortCoverageCheck()
-    configured.configure(settings={"composition_root": ["api/dependencies.py", "api/app.py"]})
+    configured.configure(settings={"composition_root": ["api/app.py"]})
     configured_result = configured.run(src_root=str(tmp_path))
 
-    # Assert: default substring globs miss the module file; the config exempts it.
-    assert "PORT-003" in _collect_codes(default_result.violations)
-    assert "PORT-003" not in _collect_codes(configured_result.violations)
+    # Assert: the defaults exempt the module file; the factory needs the config,
+    # which then names the only composition root.
+    assert [v.file for v in default_result.violations] == ["api/app.py"]
+    assert _collect_codes(default_result.violations) == {"PORT-003"}
+    assert [v.file for v in configured_result.violations] == ["api/dependencies.py"]
 
 
 def test_default_directory_comp_root_still_exempt(tmp_path, tmp_py_file):

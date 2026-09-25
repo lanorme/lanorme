@@ -67,3 +67,37 @@ def test_allow_glob_exempts_a_stray_image(tmp_path: Path):
     # Assert: the allow entry suppresses the JUNK-002 finding.
     assert result.status == Status.PASS
     assert not result.violations
+
+
+def test_core_module_is_not_a_core_dump(tmp_path: Path):
+    # Arrange: a module and a docs page named core, beside a real core dump.
+    (tmp_path / "pkg").mkdir()
+    (tmp_path / "pkg" / "core.py").write_text("X = 1\n", encoding="utf-8")
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "core.md").write_text("# core\n", encoding="utf-8")
+    (tmp_path / "core.1234").write_bytes(b"\x7fELF")
+    # Act
+    flagged = {file for rule, file in _collect_codes(tmp_path) if rule == "JUNK-001"}
+    # Assert
+    assert flagged == {"core.1234"}
+
+
+def test_parallel_mode_coverage_data_is_junk(tmp_path: Path):
+    # Arrange: coverage's parallel-mode data file, named .coverage.<host>.<pid>.<rand>.
+    (tmp_path / ".coverage.host.12.abc").write_bytes(b"SQLite")
+    # Act
+    flagged = {file for rule, file in _collect_codes(tmp_path) if rule == "JUNK-001"}
+    # Assert
+    assert flagged == {".coverage.host.12.abc"}
+
+
+def test_fixture_and_resource_images_are_assets(tmp_path: Path):
+    # Arrange: images a test suite and a package ship on purpose, and one stray.
+    for rel in ("tests/fixtures/sample.png", "pkg/resources/icon.png", "pkg/icon.png"):
+        path = tmp_path / rel
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(b"\x89PNG")
+    # Act
+    flagged = {file for rule, file in _collect_codes(tmp_path) if rule == "JUNK-002"}
+    # Assert
+    assert flagged == {"pkg/icon.png"}

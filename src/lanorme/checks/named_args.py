@@ -5,7 +5,8 @@ bare ``*`` separator so callers are forced to use keyword arguments. Opt-in
 (default-off); enable via ``[tool.lanorme.named_args] enabled = true``.
 
 Exceptions (skipped silently):
-    - Dunder methods (__init__ with ≤1 extra param, __str__, __eq__, etc.)
+    - Dunder methods (__init__, __str__, __eq__, etc.)
+    - Methods decorated ``@override`` (the base class fixes their signature)
     - Dependency-injection markers (``Depends()`` parameters)
     - Test files (filenames starting with ``test_``)
     - Lambda expressions
@@ -38,6 +39,21 @@ def _is_test_file(*, file_path: str) -> bool:
 def _is_dunder(*, name: str) -> bool:
     """Return True if *name* is a dunder (magic) method."""
     return name.startswith("__") and name.endswith("__")
+
+
+def _is_override(*, node: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
+    """True if the function is decorated ``@override`` / ``@typing.override``.
+
+    An override must keep the signature its base class declares, so the bare
+    ``*`` cannot be added here: the finding belongs on the base method.
+    """
+    for decorator in node.decorator_list:
+        target = decorator.func if isinstance(decorator, ast.Call) else decorator
+        if isinstance(target, ast.Name) and target.id == "override":
+            return True
+        if isinstance(target, ast.Attribute) and target.attr == "override":
+            return True
+    return False
 
 
 def _annotation_has_depends(*, annotation: ast.expr) -> bool:
@@ -136,8 +152,8 @@ def _check_function(
     relative_file: str,
 ) -> Violation | None:
     """Check a single function node for KWARG-001 compliance."""
-    # Skip dunder methods entirely.
-    if _is_dunder(name=node.name):
+    # Skip dunder methods and overrides: their signature is fixed elsewhere.
+    if _is_dunder(name=node.name) or _is_override(node=node):
         return None
 
     # Skip if suppressed.

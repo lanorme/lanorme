@@ -36,6 +36,31 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
 
 ### Changed
 
+- `DRY-001` keeps the name a call targets when it normalises a body, as it
+  already keeps attribute names: `min` against `max`, or `any` against `all`,
+  is a different operation, not a renamed variable. A leading docstring no
+  longer counts towards the five-statement floor, nor splits a clone.
+- `SIZE-002` leaves the docstring out of a function's effective lines, and
+  `PARAM-001` excludes `mcs` / `metacls` as it does `self` / `cls`.
+- `KWARG-001` exempts methods decorated `@override`, whose signature the base
+  class fixes.
+- `TYPE-001` / `TYPE-002` / `TYPE-003` see through `| None`, `Optional[...]`
+  and other generic wrappers to the weak container inside, and read a
+  qualified `typing.Any` as `Any`.
+- `ATTR-001` / `ATTR-002` exempt a receiver bound by a plain `import`
+  (`hasattr(os, "fork")`): feature detection on a module, not duck typing.
+- `SUPPRESS-001` no longer counts a `noqa` whose codes all belong to another
+  tool (`# noqa: E501`); it silences no LaNorme rule.
+- `JUNK-001` matches `core.[0-9]*` rather than `core.*`, so a `core.py`
+  module is not a core dump, and adds `.coverage.*` (parallel-mode data).
+  `JUNK-002` treats `fixtures/` and `resources/` as asset directories.
+- `LAYER-*` resolves a relative import against the importing package, so
+  `from .application import X` inside `domain/` is a sibling, not a layer.
+  `api/dependencies.py`, `api/deps.py` and their `v1/` forms join the default
+  composition root of `layer_deps` and `port_coverage`.
+- `PORT-001` skips private modules (`_retry.py`) under the adapter roots.
+- `TESTFILE-001` credits an import only on whole dotted segments, so
+  `services.billing` no longer covers `services/bill.py`.
 - Every source file is read and parsed once per run and shared by all checks
   (`lanorme.sources`), and the `meta` self-check audits the results the other
   checks already produced instead of running them all a second time. A full

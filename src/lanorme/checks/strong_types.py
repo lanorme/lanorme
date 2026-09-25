@@ -133,45 +133,72 @@ def _classify_annotation(annotation: ast.expr) -> tuple[str, str, str] | None:
 
     Returns a tuple ``(severity, rule_id, message)`` where ``severity`` is
     ``"fail"`` or ``"warn"``, or ``None`` if the annotation is clean. ``Any``
-    leaves are hard fails; ``object`` leaves are placeholder warnings.
+    leaves are hard fails; ``object`` leaves are placeholder warnings. A weak
+    container wrapped in a union or another generic (``dict[str, Any] | None``,
+    ``Optional[dict]``, ``Annotated[dict, ...]``) is the same weak type, so the
+    walk descends through those wrappers to the first container it finds.
     """
     # Bare container: `dict`, `list`, `Dict`, etc. (no subscript at all).
     if isinstance(annotation, ast.Name) and annotation.id in _BARE_CONTAINERS:
         return ("fail", "TYPE-002", _build_bare_container_message(name=annotation.id))
 
-    # Subscripted container with weak value type: `dict[str, Any]`, `list[Any]`,
-    # `list[object]`, etc.
     if isinstance(annotation, ast.Subscript):
-        outer = (
-            _resolve_decorator_name(annotation.value)
-            if isinstance(annotation.value, ast.Attribute)
-            else (annotation.value.id if isinstance(annotation.value, ast.Name) else None)
-        )
+        outer = _resolve_decorator_name(annotation.value)
         if outer in _BARE_CONTAINERS:
-            inner = annotation.slice
-            inner_names = _collect_value_names(inner)
-            rendered = _render_annotation_text(annotation)
-            if any(name in _HARD_WEAK_TYPES for name in inner_names):
-                return (
-                    "fail",
-                    "TYPE-001",
-                    f"Weakly-typed container '{rendered}' (Any leaf) — define a TypedDict, dataclass, or value object",
-                )
-            if any(name in _SOFT_WEAK_TYPES for name in inner_names):
-                return (
-                    "warn",
-                    "TYPE-001",
-                    f"Placeholder container '{rendered}' (object leaf) — replace with the concrete domain type when the entity lands",
-                )
+            return _classify_container(annotation=annotation)
+        return _classify_first(_list_slice_elements(annotation.slice))
+
+    # `X | None` style unions.
+    if isinstance(annotation, ast.BinOp):
+        return _classify_first([annotation.left, annotation.right])
 
     return None
 
 
+def _classify_first(parts: list[ast.expr]) -> tuple[str, str, str] | None:
+    """The classification of the first weak annotation among *parts*, if any."""
+    for part in parts:
+        classified = _classify_annotation(part)
+        if classified is not None:
+            return classified
+    return None
+
+
+def _list_slice_elements(node: ast.expr) -> list[ast.expr]:
+    """The type arguments of a subscript: the tuple's elements, or the lone slice."""
+    return list(node.elts) if isinstance(node, ast.Tuple) else [node]
+
+
+def _classify_container(*, annotation: ast.Subscript) -> tuple[str, str, str] | None:
+    """A subscripted container with a weak value type: ``dict[str, Any]``, ``list[object]``."""
+    inner_names = _collect_value_names(annotation.slice)
+    rendered = _render_annotation_text(annotation)
+    if any(name in _HARD_WEAK_TYPES for name in inner_names):
+        return (
+            "fail",
+            "TYPE-001",
+            f"Weakly-typed container '{rendered}' (Any leaf) — define a TypedDict, dataclass, or value object",
+        )
+    if any(name in _SOFT_WEAK_TYPES for name in inner_names):
+        return (
+            "warn",
+            "TYPE-001",
+            f"Placeholder container '{rendered}' (object leaf) — replace with the concrete domain type when the entity lands",
+        )
+    return None
+
+
 def _collect_value_names(node: ast.expr) -> list[str]:
-    """Pull the leaf Name identifiers out of an annotation subtree."""
+    """Pull the leaf identifiers out of an annotation subtree.
+
+    A qualified leaf (``typing.Any``, ``t.Any``) contributes its final
+    attribute, so it is read the same as the bare name.
+    """
     names: list[str] = []
     if isinstance(node, ast.Name):
         names.append(node.id)
+    elif isinstance(node, ast.Attribute):
+        names.append(node.attr)
     elif isinstance(node, ast.Tuple):
         for elt in node.elts:
             names.extend(_collect_value_names(elt))
@@ -286,19 +313,21 @@ def _collect_param_findings(*, func: ast.FunctionDef | ast.AsyncFunctionDef) -> 
     return findings
 
 
+def _is_weak_kwargs_annotation(annotation: ast.expr) -> bool:
+    """True for ``Any`` (bare or qualified), a bare ``dict`` or a ``dict[str, Any]``."""
+    if isinstance(annotation, ast.Name | ast.Attribute):
+        return _resolve_decorator_name(annotation) in _HARD_WEAK_TYPES | _MAPPING_CONTAINERS
+    classified = _classify_annotation(annotation)
+    return classified is not None and classified[0] == "fail"
+
+
 def _collect_kwarg_findings(*, func: ast.FunctionDef | ast.AsyncFunctionDef) -> list[_Finding]:
     """TYPE-003 finding for a weakly-typed ``**kwargs`` parameter."""
     kw = func.args.kwarg
     if kw is None:
         return []
     ann_text = _render_annotation_text(kw.annotation) if kw.annotation else "<missing>"
-    weak = kw.annotation is None or _render_annotation_text(kw.annotation) in {
-        "Any",
-        "dict",
-        "dict[str, Any]",
-        "Dict[str, Any]",
-    }
-    if not weak:
+    if kw.annotation is not None and not _is_weak_kwargs_annotation(kw.annotation):
         return []
     return [
         (

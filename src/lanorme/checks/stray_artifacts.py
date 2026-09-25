@@ -58,7 +58,20 @@ _VENDOR_DIRS = frozenset(
 )
 
 # Directories where images/binaries are expected and therefore not JUNK-002.
-_DEFAULT_ASSET_DIRS = ("assets", "static", "images", "img", "media", "public", "docs", ".github")
+# ``fixtures`` and ``resources`` hold the binaries tests and packages ship on
+# purpose (``tests/fixtures/sample.png``, ``pkg/resources/icon.png``).
+_DEFAULT_ASSET_DIRS = (
+    "assets",
+    "static",
+    "images",
+    "img",
+    "media",
+    "public",
+    "docs",
+    ".github",
+    "fixtures",
+    "resources",
+)
 
 # Name globs that are almost always clutter (JUNK-001), matched on the basename.
 _DEFAULT_NAME_GLOBS = (
@@ -86,12 +99,14 @@ _DEFAULT_NAME_GLOBS = (
     "*.pyc",
     "*.pyo",
     ".coverage",
+    ".coverage.*",
     "coverage.xml",
     ".DS_Store",
     "Thumbs.db",
     "desktop.ini",
     "nohup.out",
-    "core.*",
+    # A core dump is ``core`` plus a pid; ``core.py`` is a module.
+    "core.[0-9]*",
 )
 
 # Image/binary extensions flagged (JUNK-002) when outside an asset directory.

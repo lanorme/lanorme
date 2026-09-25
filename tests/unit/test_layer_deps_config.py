@@ -80,21 +80,28 @@ def test_default_directory_composition_root_is_allowed(tmp_path, tmp_py_file):
     assert "LAYER-005" not in _collect_codes(result.violations)
 
 
-def test_module_file_comp_root_missed_by_default_but_caught_when_configured(tmp_path, tmp_py_file):
-    # Arrange
+def test_module_file_comp_root_exempt_by_default_and_another_file_only_when_configured(
+    tmp_path,
+    tmp_py_file,
+):
+    # Arrange: api/dependencies.py, the canonical composition-root FILE, and an
+    # app factory the defaults do not name.
     _write_layout(tmp_py_file)
     tmp_py_file(name="api/dependencies.py", body="from infrastructure.db import Repo\n")
+    tmp_py_file(name="api/app.py", body="from infrastructure.db import Repo\n")
 
-    # Act: default config does NOT treat the module file as a composition root.
+    # Act: the defaults exempt the module file; the factory needs config.
     default_result = LayerDepsCheck().run(src_root=str(tmp_path))
 
     configured = LayerDepsCheck()
-    configured.configure(settings={"composition_root": ["api/dependencies.py", "api/app.py"]})
+    configured.configure(settings={"composition_root": ["api/app.py"]})
     configured_result = configured.run(src_root=str(tmp_path))
 
-    # Assert: the one-line config fix is exactly what unblocks the module-file root.
-    assert "LAYER-005" in _collect_codes(default_result.violations)
-    assert "LAYER-005" not in _collect_codes(configured_result.violations)
+    # Assert: the module file is a composition root out of the box; the
+    # one-line config fix is exactly what unblocks the factory.
+    assert [v.file for v in default_result.violations] == ["api/app.py"]
+    assert _collect_codes(default_result.violations) == {"LAYER-005"}
+    assert [v.file for v in configured_result.violations] == ["api/dependencies.py"]
 
 
 def test_domain_importing_infra_is_layer_001(tmp_path, tmp_py_file):

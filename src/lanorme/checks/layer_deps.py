@@ -35,6 +35,10 @@ are shown):
     # FILE such as api/dependencies.py is recognised, not only a directory.
     composition_root = ["api/dependencies.py", "api/app.py"]
 
+    A relative import is resolved against the importing file's package first,
+    so ``from .application import X`` inside ``domain/`` names a sibling module
+    in the domain layer, not the application layer.
+
     # For layouts whose hexagon differs. Defaults shown.
     layers  = ["domain", "application", "infrastructure", "api"]
 
@@ -87,7 +91,11 @@ ALLOWED_IMPORTS: dict[str, set[str]] = {
 # adapters. Glob-matched so both directories and single module files work.
 COMPOSITION_ROOT_GLOBS = (
     "api/dependencies/**",
+    "api/dependencies.py",
+    "api/deps.py",
     "api/v1/dependencies/**",
+    "api/v1/dependencies.py",
+    "api/v1/deps.py",
     "api/v1/main.py",
 )
 
@@ -124,11 +132,29 @@ def _classify_layer(*, relative: str, layers: tuple[str, ...]) -> str | None:
 _ImportNode = ast.Import | ast.ImportFrom
 
 
+def _resolve_relative_module(*, node: ast.ImportFrom, classify_rel: str) -> str | None:
+    """The layer-relative dotted module a relative import names, or ``None``.
+
+    ``from .application import X`` in ``domain/model.py`` is
+    ``domain.application``, a sibling inside the layer, not the application
+    layer; ``from ..infrastructure import db`` there climbs out to
+    ``infrastructure``. An import that climbs above the layer root has no
+    layer-relative name and is left to the caller as ``None``.
+    """
+    package_parts = classify_rel.replace("\\", "/").split("/")[:-1]
+    if node.level > len(package_parts):
+        return node.module
+    base = package_parts[: len(package_parts) - (node.level - 1)]
+    parts = [*base, *(node.module.split(".") if node.module else [])]
+    return ".".join(parts) if parts else None
+
+
 def _extract_src_imports(
     *,
     module: Module,
     layers: tuple[str, ...],
     package: str,
+    classify_rel: str,
 ) -> list[tuple[str, _ImportNode]]:
     """Extract imports that reference architectural layers, as (target_layer, import node)."""
     imports: list[tuple[str, _ImportNode]] = []
@@ -142,14 +168,20 @@ def _extract_src_imports(
                     layers=layers,
                     package=package,
                 )
-        elif isinstance(node, ast.ImportFrom) and node.module:
-            _record_layer_import(
-                module=node.module,
-                node=node,
-                imports=imports,
-                layers=layers,
-                package=package,
+        elif isinstance(node, ast.ImportFrom):
+            target = (
+                _resolve_relative_module(node=node, classify_rel=classify_rel)
+                if node.level
+                else node.module
             )
+            if target:
+                _record_layer_import(
+                    module=target,
+                    node=node,
+                    imports=imports,
+                    layers=layers,
+                    package=package,
+                )
     return imports
 
 
@@ -365,7 +397,12 @@ class LayerDepsCheck:
                 warnings.append(build_unparseable_notice(prefix="LAYER", failure=module))
                 continue
 
-            imports = _extract_src_imports(module=module, layers=self.layers, package=package)
+            imports = _extract_src_imports(
+                module=module,
+                layers=self.layers,
+                package=package,
+                classify_rel=classify_rel,
+            )
             allowed = self._resolve_allowed_for_file(relative=classify_rel, layer=layer)
             # A composition root only counts inside a transport layer, so a file
             # matching a glob in another layer is not silently treated as exempt.

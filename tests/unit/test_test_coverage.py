@@ -373,3 +373,23 @@ def test_source_dir_falls_back_to_the_root_then_one_level_down(tmp_path: Path):
     assert find_source_dir(run_root=tmp_path, source_root="") == tmp_path / "src"
     assert find_source_dir(run_root=tmp_path / "src", source_root="") == tmp_path / "src"
     assert find_source_dir(run_root=tmp_path / "empty", source_root="") == tmp_path / "empty"
+
+
+def test_import_of_a_longer_module_name_does_not_cover_a_prefix(tmp_path: Path):
+    # Arrange: bill.py and billing.py side by side; the only test imports
+    # billing, whose dotted path merely starts with `services.bill`.
+    src, integration = _build_layout(tmp_path)
+    (src / "application" / "services" / "bill.py").write_text("X = 1\n", encoding="utf-8")
+    (src / "application" / "services" / "billing.py").write_text("Y = 1\n", encoding="utf-8")
+    (integration / "test_billing.py").write_text(
+        "from app.application.services.billing import Y\n",
+        encoding="utf-8",
+    )
+
+    # Act.
+    result = CoverageCheck().run(src_root=str(src))
+
+    # Assert: whole segments only, so bill is the one uncovered module.
+    assert [(w.file, w.line) for w in result.warnings] == [
+        ("application/services/bill.py", 1),
+    ]

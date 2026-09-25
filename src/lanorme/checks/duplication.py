@@ -5,10 +5,14 @@ Checks:
              are flagged as duplication candidates.
 
 Normalization: variable names and string literals are replaced with placeholders
-so that functions differing only in naming are detected as duplicates. The match
-is exact modulo those placeholders: a single added statement, a reordering, a
-changed number, or a renamed attribute defeats it. For the fuzzier near-duplicate
-cases see the ``similarity`` check (SIMILAR-001).
+so that functions differing only in naming are detected as duplicates. The name
+a call targets is kept, like an attribute name: ``min`` against ``max`` or
+``any`` against ``all`` is a different operation, not a renamed variable. The
+match is exact modulo those placeholders: a single added statement, a
+reordering, a changed number, a renamed attribute or a renamed call defeats it.
+A leading docstring is documentation, not a statement: it is left out of the
+body before the five-statement floor and the comparison. For the fuzzier
+near-duplicate cases see the ``similarity`` check (SIMILAR-001).
 
 Excludes: __init__.py, conftest.py, alembic/, migrations/, test_* prefixed files.
 
@@ -94,6 +98,10 @@ class _NormalisedDump:
                     rendered = self._resolve_placeholder(str(child))
                 elif isinstance(value, ast.Constant) and isinstance(child, str):
                     rendered = "_STR_"
+                elif _is_called_name(parent=value, field_name=field_name, child=child):
+                    # The callee is what the statement does; keep it literal, as
+                    # a method's attribute name already is.
+                    rendered = f"Called({child.id!r})"
                 else:
                     rendered = self.render(child)
                 parts.append(f"{field_name}={rendered}")
@@ -103,9 +111,27 @@ class _NormalisedDump:
         return repr(value)
 
 
+def _is_called_name(*, parent: ast.AST, field_name: str, child: object) -> bool:
+    """True when *child* is the bare name a call targets (``max(...)``)."""
+    return isinstance(parent, ast.Call) and field_name == "func" and isinstance(child, ast.Name)
+
+
+def _list_body_statements(*, func_node: ast.FunctionDef | ast.AsyncFunctionDef) -> list[ast.stmt]:
+    """The function's statements without a leading docstring."""
+    body = func_node.body
+    if (
+        body
+        and isinstance(body[0], ast.Expr)
+        and isinstance(body[0].value, ast.Constant)
+        and isinstance(body[0].value.value, str)
+    ):
+        return body[1:]
+    return list(body)
+
+
 def _normalize_function_body(*, func_node: ast.FunctionDef | ast.AsyncFunctionDef) -> str:
     """Return a normalized dump of a function's body for comparison."""
-    return _NormalisedDump().render(func_node.body)
+    return _NormalisedDump().render(_list_body_statements(func_node=func_node))
 
 
 @dataclass(frozen=True)
@@ -125,11 +151,11 @@ def _collect_functions(*, module: Module) -> list[tuple[str, _FunctionLocation]]
     results: list[tuple[str, _FunctionLocation]] = []
 
     for node in module.index.functions:
-        # Skip functions with fewer statements than the threshold.
-        if len(node.body) < MIN_BODY_STATEMENTS:
+        # Skip functions with fewer statements than the threshold; the
+        # docstring is documentation and does not count towards it.
+        if len(_list_body_statements(func_node=node)) < MIN_BODY_STATEMENTS:
             continue
 
-        # Skip if the entire body is a single docstring + pass or similar trivial patterns.
         normalized = _normalize_function_body(func_node=node)
         location = _FunctionLocation(
             file=module.relative,

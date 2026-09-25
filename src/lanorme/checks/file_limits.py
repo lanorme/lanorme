@@ -5,7 +5,7 @@ Checks:
     SIZE-002  Functions/methods warn and error on effective line count
     SIZE-003  Classes past the method limit are a warning (decomposition candidate)
     COMPLEXITY-001  Cyclomatic complexity warn and error per function
-    PARAM-001  Parameter count warn and error (excluding self/cls)
+    PARAM-001  Parameter count warn and error (excluding the receiver: self/cls/mcs)
 
 Effective lines = non-blank, non-comment lines.
 
@@ -58,6 +58,9 @@ PARAM_ERROR = 8
 EXCLUDED_FILENAMES = {"__init__.py", "conftest.py"}
 EXCLUDED_DIR_PARTS = {"alembic", "migrations"}
 
+# The implicit receiver of a method: never a parameter the caller supplies.
+_RECEIVER_NAMES = frozenset({"self", "cls", "mcs", "mcls", "metacls"})
+
 
 @dataclass(frozen=True)
 class _Bounds:
@@ -92,14 +95,44 @@ def _should_exclude(*, relative: Path) -> bool:
 
 def _count_effective_lines(*, source: str) -> int:
     """Count non-blank, non-comment-only lines in source code."""
+    return sum(1 for line in source.splitlines() if _is_effective_line(line=line))
+
+
+def _is_effective_line(*, line: str) -> bool:
+    """True for a line that is neither blank nor a comment."""
+    stripped = line.strip()
+    return bool(stripped) and not stripped.startswith("#")
+
+
+def _find_docstring_span(*, node: ast.FunctionDef | ast.AsyncFunctionDef) -> tuple[int, int] | None:
+    """The 1-based first and last line of the function's docstring, if it has one."""
+    if not node.body:
+        return None
+    first = node.body[0]
+    if (
+        isinstance(first, ast.Expr)
+        and isinstance(first.value, ast.Constant)
+        and isinstance(first.value.value, str)
+        and first.end_lineno is not None
+    ):
+        return first.lineno, first.end_lineno
+    return None
+
+
+def _count_function_lines(*, node: ast.FunctionDef | ast.AsyncFunctionDef, lines: list[str]) -> int:
+    """SIZE-002's measure: the function's effective lines, its docstring left out.
+
+    A docstring documents the function rather than lengthening it, so its lines
+    do not count; a one-line docstring sharing the ``def`` line keeps that line.
+    """
+    end = node.end_lineno or node.lineno
+    docstring = _find_docstring_span(node=node)
     count = 0
-    for line in source.splitlines():
-        stripped = line.strip()
-        if not stripped:
+    for lineno in range(node.lineno, end + 1):
+        if docstring and docstring[0] <= lineno <= docstring[1] and lineno != node.lineno:
             continue
-        if stripped.startswith("#"):
-            continue
-        count += 1
+        if _is_effective_line(line=lines[lineno - 1]):
+            count += 1
     return count
 
 
@@ -147,7 +180,8 @@ def _check_function_lengths(
 
     Effective lines mirror SIZE-001: non-blank, non-comment-only lines within
     the function's span, so comments and blank lines never push a function
-    over a threshold.
+    over a threshold. The docstring is left out too: it documents the function
+    rather than lengthening it.
     """
     violations: list[Violation] = []
     warnings: list[Violation] = []
@@ -157,8 +191,7 @@ def _check_function_lengths(
         if node.end_lineno is None:
             continue
 
-        body = "\n".join(source_lines[node.lineno - 1 : node.end_lineno])
-        length = _count_effective_lines(source=body)
+        length = _count_function_lines(node=node, lines=source_lines)
 
         if length >= bounds.error:
             violations.append(
@@ -344,12 +377,12 @@ def _check_function_metric(
 
 
 def _count_parameters(*, func_node: ast.FunctionDef | ast.AsyncFunctionDef) -> int:
-    """Count function parameters, excluding self and cls."""
+    """Count function parameters, excluding the receiver (self, cls, mcs, metacls)."""
     params = func_node.args.posonlyargs + func_node.args.args + func_node.args.kwonlyargs
     count = len(params)
 
-    # Exclude self/cls (first positional arg in methods).
-    if params and params[0].arg in ("self", "cls"):
+    # Exclude the receiver (self / cls, or mcs / metacls in a metaclass).
+    if params and params[0].arg in _RECEIVER_NAMES:
         count -= 1
 
     # Count *args and **kwargs if present.

@@ -102,3 +102,25 @@ def test_disabled_by_default(tmp_path: Path):
     # Assert.
     assert result.status == Status.PASS
     assert result.warnings == []
+
+
+def test_probing_an_imported_module_is_feature_detection(tmp_path: Path):
+    # Arrange: hasattr / getattr on names a plain `import` binds to a module
+    # (platform feature detection), beside the same probes on an object and on
+    # a `from` import, which may bind anything.
+    result = _run(
+        tmp_path,
+        "import os\n"
+        "import sys as system\n"
+        "from os import path\n\n"
+        "HAS_FORK = hasattr(os, 'fork')\n"
+        "VERSION = getattr(system, 'getwindowsversion')\n\n"
+        "def probe(obj):\n"
+        "    return hasattr(obj, 'fork'), hasattr(path, 'fork')\n",
+    )
+
+    # Act + Assert: only the object and the from-import receivers warn.
+    assert [(w.rule.split(":", 1)[0], w.line) for w in result.warnings] == [
+        ("ATTR-001", 9),
+        ("ATTR-001", 9),
+    ]

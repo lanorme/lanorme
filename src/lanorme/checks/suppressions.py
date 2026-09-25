@@ -19,7 +19,10 @@ Used as a ratchet, set ``max_total`` to today's count and lower it as debt is
 paid; CI then fails on the next suppression added rather than on the backlog.
 
 Comments are read through ``tokenize``, so a directive named inside a string or
-a docstring (this module's own prose, for instance) is not counted.
+a docstring (this module's own prose, for instance) is not counted. A ``noqa``
+whose codes all belong to another tool (``# noqa: E501``, ``# noqa: S603``)
+silences no LaNorme rule and is not counted either: the budget prices LaNorme's
+own escape hatches.
 
 **These codes cannot be silenced inline.** A budget an offender can waive on
 the offending line is not a budget, so ``lanorme.filters`` refuses inline
@@ -40,6 +43,7 @@ Run:
 from __future__ import annotations
 
 import io
+import re
 import tokenize
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -53,6 +57,11 @@ from lanorme.sources import iter_parsed_modules
 # Code lists that name no rule in particular, so the directive covers whatever
 # exists now and whatever lands later.
 _BLANKET_CODES = frozenset({"ALL", "*"})
+
+# A code LaNorme answers to: a rule (``TYPE-001``) or a whole category
+# (``TYPE``). Another tool's code (ruff's ``E501``, bandit's ``S603``) has no
+# hyphen and mixes letters and digits, so it never matches.
+_LANORME_CODE_RE = re.compile(r"^[A-Z]+(?:-\d+)?$")
 
 
 @dataclass(frozen=True)
@@ -72,7 +81,9 @@ def _classify(*, comment: str) -> bool | None:
     Anchored at the start of the comment token, not searched within it. Prose
     that names a directive (``# they line up with --exclude / # noqa.``) is
     documentation, not an escape, and counting it would inflate the budget with
-    the very comments that explain the feature.
+    the very comments that explain the feature. A code list that names only
+    another tool's codes (``# noqa: E501``) silences nothing here and is not a
+    directive either.
     """
     for pattern in (_NOQA_RE, _IGNORE_RE):
         match = pattern.match(comment)
@@ -81,7 +92,11 @@ def _classify(*, comment: str) -> bool | None:
         if match.group(1) is None:
             return True
         codes = {c.strip().upper() for c in match.group(1).split(",") if c.strip()}
-        return bool(codes & _BLANKET_CODES)
+        if codes & _BLANKET_CODES:
+            return True
+        if any(_LANORME_CODE_RE.match(code) for code in codes):
+            return False
+        return None
     return None
 
 
