@@ -2,9 +2,9 @@
   "rules": ["PROSE-004"],
   "unit": "file",
   "description": "Ground truth for PROSE-004, labelled per document: flag true is a long document that carries an em dash through most of its sentences; false covers natural edited English that uses em dashes sparingly, boundary documents, a short em-heavy document below the eligibility floor and a document whose em dashes live only in fenced code.",
-  "split": "hashed",
   "files": {
     "dev/fire_launch_announcement.md": {
+      "split": "dev",
       "source": "hand-written",
       "labelled_by": "unknown",
       "labelled_before_rule": "unknown",
@@ -12,6 +12,7 @@
       "flag": true
     },
     "dev/ok_boundary_clustered.md": {
+      "split": "dev",
       "source": "hand-written",
       "labelled_by": "unknown",
       "labelled_before_rule": "unknown",
@@ -19,6 +20,7 @@
       "flag": false
     },
     "dev/ok_code_fenced.md": {
+      "split": "dev",
       "source": "hand-written",
       "labelled_by": "unknown",
       "labelled_before_rule": "unknown",
@@ -26,6 +28,7 @@
       "flag": false
     },
     "dev/ok_faq.md": {
+      "split": "dev",
       "source": "hand-written",
       "labelled_by": "unknown",
       "labelled_before_rule": "unknown",
@@ -33,6 +36,7 @@
       "flag": false
     },
     "dev/ok_long_history.md": {
+      "split": "dev",
       "source": "hand-written",
       "labelled_by": "unknown",
       "labelled_before_rule": "unknown",
@@ -40,6 +44,7 @@
       "flag": false
     },
     "dev/ok_near_low_fraction.md": {
+      "split": "dev",
       "source": "hand-written",
       "labelled_by": "unknown",
       "labelled_before_rule": "unknown",
@@ -47,6 +52,7 @@
       "flag": false
     },
     "dev/ok_short_emheavy.md": {
+      "split": "dev",
       "source": "hand-written",
       "labelled_by": "unknown",
       "labelled_before_rule": "unknown",
@@ -54,6 +60,7 @@
       "flag": false
     },
     "dev/ok_sparse_essay.md": {
+      "split": "dev",
       "source": "hand-written",
       "labelled_by": "unknown",
       "labelled_before_rule": "unknown",
@@ -61,6 +68,7 @@
       "flag": false
     },
     "dev/ok_tutorial.md": {
+      "split": "dev",
       "source": "hand-written",
       "labelled_by": "unknown",
       "labelled_before_rule": "unknown",
@@ -68,6 +76,7 @@
       "flag": false
     },
     "holdout/fire_api_overview.md": {
+      "split": "holdout",
       "source": "hand-written",
       "labelled_by": "unknown",
       "labelled_before_rule": "unknown",
@@ -75,6 +84,7 @@
       "flag": true
     },
     "holdout/fire_productivity_guide.md": {
+      "split": "holdout",
       "source": "hand-written",
       "labelled_by": "unknown",
       "labelled_before_rule": "unknown",
@@ -82,6 +92,7 @@
       "flag": true
     },
     "holdout/ok_boundary_fraction.md": {
+      "split": "holdout",
       "source": "hand-written",
       "labelled_by": "unknown",
       "labelled_before_rule": "unknown",
@@ -89,6 +100,7 @@
       "flag": false
     },
     "holdout/ok_long_gardening.md": {
+      "split": "holdout",
       "source": "hand-written",
       "labelled_by": "unknown",
       "labelled_before_rule": "unknown",
@@ -96,6 +108,7 @@
       "flag": false
     },
     "holdout/ok_short_punchy.md": {
+      "split": "holdout",
       "source": "hand-written",
       "labelled_by": "unknown",
       "labelled_before_rule": "unknown",

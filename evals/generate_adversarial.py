@@ -43,6 +43,7 @@ from labelled_corpus import (
     FileEntry,
     LabelsDocument,
     SiteLabel,
+    hash_line,
     read_labels,
     render_labels,
 )
@@ -123,6 +124,7 @@ def build_duplication_case(
     )
     text = header + "\n\n" + ast.unparse(seed) + "\n\n\n" + ast.unparse(variant) + "\n"
     entry: FileEntry = {
+        "split": "holdout",
         "source": f"generated:{transform}",
         "labelled_by": GENERATOR,
         "labelled_before_rule": True,
@@ -237,10 +239,18 @@ def build_comment_case(
     labels: list[SiteLabel] = []
     for text, origin in batch:
         lines.append(f"    # {text}")
-        labels.append({"line": len(lines), "flag": flag, "note": f"{transform} from {origin}"})
+        labels.append(
+            {
+                "line": len(lines),
+                "flag": flag,
+                "note": f"{transform} from {origin}",
+                "line_hash": hash_line(text=lines[-1]),
+            },
+        )
         lines.append("    step += 1")
     lines.append("    return step")
     entry: FileEntry = {
+        "split": "holdout",
         "source": f"generated:{transform}",
         "labelled_by": GENERATOR,
         "labelled_before_rule": True,

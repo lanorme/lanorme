@@ -2,44 +2,45 @@
   "rules": ["NAMING-008"],
   "unit": "definition",
   "description": "Ground truth for NAMING-008. Keys are file:line of a function definition; true means the name opens with a weak verb the author was free to change. Negatives cover a bare handle, a participle, subclass overrides, Django and Scrapy hooks, a registered handler and a closure.",
-  "split": "too_small",
   "files": {
     "dev/negatives/neg_named_actions_and_hooks.py": {
+      "split": "dev",
       "source": "hand-written",
       "labelled_by": "Antonio Badilla-Olivas",
       "labelled_before_rule": "unknown",
       "added_in": "ee99862",
       "labels": [
-        {"line": 4, "flag": false},
-        {"line": 9, "flag": false},
-        {"line": 14, "flag": false},
-        {"line": 19, "flag": false},
-        {"line": 27, "flag": false},
-        {"line": 30, "flag": false},
-        {"line": 37, "flag": false},
-        {"line": 40, "flag": false},
-        {"line": 47, "flag": false},
-        {"line": 52, "flag": false},
-        {"line": 57, "flag": false},
-        {"line": 60, "flag": false},
-        {"line": 69, "flag": false},
-        {"line": 72, "flag": false}
+        {"line": 4, "flag": false, "line_hash": "c93f1938"},
+        {"line": 9, "flag": false, "line_hash": "3b584a72"},
+        {"line": 14, "flag": false, "line_hash": "91055a0b"},
+        {"line": 19, "flag": false, "line_hash": "aa2d8cc1"},
+        {"line": 27, "flag": false, "line_hash": "453b9fb4"},
+        {"line": 30, "flag": false, "line_hash": "32d40a53"},
+        {"line": 37, "flag": false, "line_hash": "d5213346"},
+        {"line": 40, "flag": false, "line_hash": "b8490305"},
+        {"line": 47, "flag": false, "line_hash": "412cfd12"},
+        {"line": 52, "flag": false, "line_hash": "b72cb1f1"},
+        {"line": 57, "flag": false, "line_hash": "f56aa017"},
+        {"line": 60, "flag": false, "line_hash": "e6e0d99c"},
+        {"line": 69, "flag": false, "line_hash": "801dcdc4"},
+        {"line": 72, "flag": false, "line_hash": "f5e1b34c"}
       ]
     },
     "dev/positives/pos_weak_verbs.py": {
+      "split": "dev",
       "source": "hand-written",
       "labelled_by": "Antonio Badilla-Olivas",
       "labelled_before_rule": "unknown",
       "added_in": "ee99862",
       "labels": [
-        {"line": 4, "flag": true},
-        {"line": 10, "flag": true},
-        {"line": 17, "flag": true},
-        {"line": 23, "flag": true},
-        {"line": 28, "flag": true},
-        {"line": 35, "flag": true},
-        {"line": 44, "flag": true},
-        {"line": 53, "flag": true}
+        {"line": 4, "flag": true, "line_hash": "3a0eebba"},
+        {"line": 10, "flag": true, "line_hash": "2befd15d"},
+        {"line": 17, "flag": true, "line_hash": "a9895c45"},
+        {"line": 23, "flag": true, "line_hash": "c13e195d"},
+        {"line": 28, "flag": true, "line_hash": "530b6322"},
+        {"line": 35, "flag": true, "line_hash": "89e2cda4"},
+        {"line": 44, "flag": true, "line_hash": "8850ff5c"},
+        {"line": 53, "flag": true, "line_hash": "66ed4300"}
       ]
     }
   }

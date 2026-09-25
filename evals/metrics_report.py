@@ -21,7 +21,7 @@ def format_ratio(*, value: float | None) -> str:
 def format_metrics(*, label: str, metrics: Metrics | None) -> str:
     """Render one split's metrics on a line."""
     if metrics is None:
-        return f"  {label:<17} (no files: corpus too small to split)"
+        return f"  {label:<17} (no files in this split)"
     return (
         f"  {label:<17} P={format_ratio(value=metrics['precision'])} "
         f"R={format_ratio(value=metrics['recall'])} F1={format_ratio(value=metrics['f1'])}  "

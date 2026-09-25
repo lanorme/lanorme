@@ -2,392 +2,418 @@
   "rules": ["CMT-005"],
   "unit": "comment",
   "description": "Ground truth for CMT-005. Every comment in every file is labelled: flag true means the comment restates the adjacent code and adds nothing; false covers rationale, warnings, units, section headers, pragmas and short comments that share vocabulary with the code but still add meaning.",
-  "split": "hashed",
   "files": {
     "dev/negatives/neg_disambiguation.py": {
+      "split": "dev",
       "source": "hand-written",
       "labelled_by": "unknown",
       "labelled_before_rule": "unknown",
       "added_in": "9a8132f",
       "labels": [
-        {"line": 7, "flag": false, "note": "clarifies that slicing copies, not aliases"},
-        {"line": 12, "flag": false, "note": "clarifies the overflow-avoiding midpoint formula"},
-        {"line": 17, "flag": false, "note": "clarifies why next() has a default"},
-        {"line": 22, "flag": false, "note": "clarifies 'or' triggers on any falsy value"},
-        {"line": 27, "flag": false, "note": "clarifies the copy is intentionally shallow"},
-        {"line": 32, "flag": false, "note": "clarifies Python floor-division semantics"}
+        {"line": 7, "flag": false, "note": "clarifies that slicing copies, not aliases", "line_hash": "87430f37"},
+        {"line": 12, "flag": false, "note": "clarifies the overflow-avoiding midpoint formula", "line_hash": "b736b72f"},
+        {"line": 17, "flag": false, "note": "clarifies why next() has a default", "line_hash": "0a3c27c8"},
+        {"line": 22, "flag": false, "note": "clarifies 'or' triggers on any falsy value", "line_hash": "a0a61e57"},
+        {"line": 27, "flag": false, "note": "clarifies the copy is intentionally shallow", "line_hash": "e37efeb0"},
+        {"line": 32, "flag": false, "note": "clarifies Python floor-division semantics", "line_hash": "f9a1601b"}
       ]
     },
     "dev/negatives/neg_framed_headers.py": {
+      "split": "dev",
       "source": "hand-written",
       "labelled_by": "Claude",
       "labelled_before_rule": "unknown",
       "added_in": "b188144",
       "labels": [
-        {"line": 7, "flag": false, "note": "framed section header naming the call under it"},
-        {"line": 9, "flag": false, "note": "framed section header naming the call under it"},
-        {"line": 11, "flag": false, "note": "hash-led section header naming the variable under it"}
+        {"line": 7, "flag": false, "note": "framed section header naming the call under it", "line_hash": "36f9da51"},
+        {"line": 9, "flag": false, "note": "framed section header naming the call under it", "line_hash": "deb8da4e"},
+        {"line": 11, "flag": false, "note": "hash-led section header naming the variable under it", "line_hash": "442118db"}
       ]
     },
     "dev/negatives/neg_multiline_restatement.py": {
+      "split": "dev",
       "source": "hand-written",
       "labelled_by": "unknown",
       "labelled_before_rule": "unknown",
       "added_in": "9a8132f",
       "labels": [
-        {"line": 12, "flag": false, "note": "category=multiline; 'normalize/bucket/count' is emergent intent not named in the code"},
-        {"line": 22, "flag": false, "note": "category=multiline; cites the SEC-2024-014 homoglyph threat the block defends against"},
-        {"line": 30, "flag": false, "note": "category=multiline; names the LWW+soft-delete policy implemented by the block"},
-        {"line": 40, "flag": false, "note": "category=multiline; gives external context (finance CSV formats) not in the parsing code"},
-        {"line": 48, "flag": false, "note": "category=multiline; names the scheduling discipline (round-robin then FIFO) the block enacts"}
+        {"line": 12, "flag": false, "note": "category=multiline; 'normalize/bucket/count' is emergent intent not named in the code", "line_hash": "8d6ac2cd"},
+        {"line": 22, "flag": false, "note": "category=multiline; cites the SEC-2024-014 homoglyph threat the block defends against", "line_hash": "0d349868"},
+        {"line": 30, "flag": false, "note": "category=multiline; names the LWW+soft-delete policy implemented by the block", "line_hash": "39f68e17"},
+        {"line": 40, "flag": false, "note": "category=multiline; gives external context (finance CSV formats) not in the parsing code", "line_hash": "2dba0b5a"},
+        {"line": 48, "flag": false, "note": "category=multiline; names the scheduling discipline (round-robin then FIFO) the block enacts", "line_hash": "0a259582"}
       ]
     },
     "dev/negatives/neg_pragmas.py": {
+      "split": "dev",
       "source": "hand-written",
       "labelled_by": "unknown",
       "labelled_before_rule": "unknown",
       "added_in": "9a8132f",
       "labels": [
-        {"line": 1, "flag": false, "note": "shebang line"},
-        {"line": 2, "flag": false, "note": "encoding cookie"},
-        {"line": 7, "flag": false, "note": "noqa pragma suppressing F401"},
-        {"line": 12, "flag": false, "note": "type: ignore pragma"},
-        {"line": 16, "flag": false, "note": "noqa pragma for missing annotation"},
-        {"line": 21, "flag": false, "note": "fmt: off formatter directive"},
-        {"line": 26, "flag": false, "note": "fmt: on formatter directive"},
-        {"line": 31, "flag": false, "note": "type comment declaring list[int]"},
-        {"line": 35, "flag": false, "note": "pylint disable directive"}
+        {"line": 1, "flag": false, "note": "shebang line", "line_hash": "381f9bfc"},
+        {"line": 2, "flag": false, "note": "encoding cookie", "line_hash": "e45434b3"},
+        {"line": 7, "flag": false, "note": "noqa pragma suppressing F401", "line_hash": "6c629011"},
+        {"line": 12, "flag": false, "note": "type: ignore pragma", "line_hash": "74b3c9fd"},
+        {"line": 16, "flag": false, "note": "noqa pragma for missing annotation", "line_hash": "ab374e43"},
+        {"line": 21, "flag": false, "note": "fmt: off formatter directive", "line_hash": "5471800d"},
+        {"line": 26, "flag": false, "note": "fmt: on formatter directive", "line_hash": "bc17a3a9"},
+        {"line": 31, "flag": false, "note": "type comment declaring list[int]", "line_hash": "738ca7fb"},
+        {"line": 35, "flag": false, "note": "pylint disable directive", "line_hash": "7d8b983c"}
       ]
     },
     "dev/negatives/neg_public_api_docs.py": {
+      "split": "dev",
       "source": "hand-written",
       "labelled_by": "unknown",
       "labelled_before_rule": "unknown",
       "added_in": "9a8132f",
       "labels": [
-        {"line": 7, "flag": false, "note": "usage example for a public function"},
-        {"line": 12, "flag": false, "note": "documents accepted input formats and return unit"},
-        {"line": 18, "flag": false, "note": "documents call ordering and conflict behaviour"},
-        {"line": 23, "flag": false, "note": "documents the last-page-may-be-shorter contract"},
-        {"line": 29, "flag": false, "note": "deprecation notice with migration path"}
+        {"line": 7, "flag": false, "note": "usage example for a public function", "line_hash": "c329410e"},
+        {"line": 12, "flag": false, "note": "documents accepted input formats and return unit", "line_hash": "38768063"},
+        {"line": 18, "flag": false, "note": "documents call ordering and conflict behaviour", "line_hash": "338cd1be"},
+        {"line": 23, "flag": false, "note": "documents the last-page-may-be-shorter contract", "line_hash": "89fa7a9b"},
+        {"line": 29, "flag": false, "note": "deprecation notice with migration path", "line_hash": "d8239f0c"}
       ]
     },
     "dev/negatives/neg_shared_vocab_borderline.py": {
+      "split": "dev",
       "source": "hand-written",
       "labelled_by": "unknown",
       "labelled_before_rule": "unknown",
       "added_in": "9a8132f",
       "labels": [
-        {"line": 15, "flag": false, "note": "shares 'timeout' but adds the ms unit"},
-        {"line": 21, "flag": false, "note": "shares 'offset' but adds the zero base"},
-        {"line": 27, "flag": false, "note": "shares 'weight' but adds the kg unit"},
-        {"line": 33, "flag": false, "note": "shares 'angle' but adds the radians unit"},
-        {"line": 39, "flag": false, "note": "shares 'amount' but adds the cents unit"},
-        {"line": 45, "flag": false, "note": "shares 'retries' but adds the cap of 5"}
+        {"line": 15, "flag": false, "note": "shares 'timeout' but adds the ms unit", "line_hash": "75d25713"},
+        {"line": 21, "flag": false, "note": "shares 'offset' but adds the zero base", "line_hash": "778d4f76"},
+        {"line": 27, "flag": false, "note": "shares 'weight' but adds the kg unit", "line_hash": "388de9c7"},
+        {"line": 33, "flag": false, "note": "shares 'angle' but adds the radians unit", "line_hash": "a594846b"},
+        {"line": 39, "flag": false, "note": "shares 'amount' but adds the cents unit", "line_hash": "f473f975"},
+        {"line": 45, "flag": false, "note": "shares 'retries' but adds the cap of 5", "line_hash": "75d06c14"}
       ]
     },
     "dev/negatives/neg_shared_vocab_hard.py": {
+      "split": "dev",
       "source": "hand-written",
       "labelled_by": "unknown",
       "labelled_before_rule": "unknown",
       "added_in": "9a8132f",
       "labels": [
-        {"line": 14, "flag": false, "note": "shares 'id' but adds the UUIDv4 audit constraint"},
-        {"line": 20, "flag": false, "note": "shares 'timeout' but adds the millisecond unit"},
-        {"line": 26, "flag": false, "note": "shares 'offset' but adds zero- vs one-based caveat"},
-        {"line": 32, "flag": false, "note": "shares 'port' but explains the meaning of port 0"},
-        {"line": 38, "flag": false, "note": "shares 'count' but adds the soft-delete exclusion"},
-        {"line": 44, "flag": false, "note": "shares 'delay' but adds the doubling/seed semantics"},
-        {"line": 50, "flag": false, "note": "shares 'cache' but adds the lifetime caveat"},
-        {"line": 55, "flag": false, "note": "shares 'total' but adds the negative-during-reconciliation caveat"}
+        {"line": 14, "flag": false, "note": "shares 'id' but adds the UUIDv4 audit constraint", "line_hash": "e45de506"},
+        {"line": 20, "flag": false, "note": "shares 'timeout' but adds the millisecond unit", "line_hash": "08b9cd83"},
+        {"line": 26, "flag": false, "note": "shares 'offset' but adds zero- vs one-based caveat", "line_hash": "3fb7aa93"},
+        {"line": 32, "flag": false, "note": "shares 'port' but explains the meaning of port 0", "line_hash": "b01d42d8"},
+        {"line": 38, "flag": false, "note": "shares 'count' but adds the soft-delete exclusion", "line_hash": "25db6ad1"},
+        {"line": 44, "flag": false, "note": "shares 'delay' but adds the doubling/seed semantics", "line_hash": "0dd5a73a"},
+        {"line": 50, "flag": false, "note": "shares 'cache' but adds the lifetime caveat", "line_hash": "283b50c9"},
+        {"line": 55, "flag": false, "note": "shares 'total' but adds the negative-during-reconciliation caveat", "line_hash": "2f117f1e"}
       ]
     },
     "dev/negatives/neg_todo_fixme.py": {
+      "split": "dev",
       "source": "hand-written",
       "labelled_by": "unknown",
       "labelled_before_rule": "unknown",
       "added_in": "9a8132f",
       "labels": [
-        {"line": 7, "flag": false, "note": "TODO task marker with a concrete improvement"},
-        {"line": 13, "flag": false, "note": "FIXME with complexity and remediation note"},
-        {"line": 22, "flag": false, "note": "HACK explaining the exporter quirk being worked around"},
-        {"line": 27, "flag": false, "note": "NOTE documenting an ordering guarantee relied on elsewhere"},
-        {"line": 32, "flag": false, "note": "XXX explaining a magic constant's meaning"}
+        {"line": 7, "flag": false, "note": "TODO task marker with a concrete improvement", "line_hash": "e698f702"},
+        {"line": 13, "flag": false, "note": "FIXME with complexity and remediation note", "line_hash": "5f2674bd"},
+        {"line": 22, "flag": false, "note": "HACK explaining the exporter quirk being worked around", "line_hash": "079a92cc"},
+        {"line": 27, "flag": false, "note": "NOTE documenting an ordering guarantee relied on elsewhere", "line_hash": "da275623"},
+        {"line": 32, "flag": false, "note": "XXX explaining a magic constant's meaning", "line_hash": "7e625f8f"}
       ]
     },
     "dev/negatives/neg_type_in_prose.py": {
+      "split": "dev",
       "source": "hand-written",
       "labelled_by": "unknown",
       "labelled_before_rule": "unknown",
       "added_in": "9a8132f",
       "labels": [
-        {"line": 13, "flag": false, "note": "category=type_in_prose; adds sort order beyond list[str]"},
-        {"line": 18, "flag": false, "note": "category=type_in_prose; adds the 'years' unit and the meaning of None"},
-        {"line": 23, "flag": false, "note": "category=type_in_prose; adds key-lowercasing and first-value-only semantics"},
-        {"line": 28, "flag": false, "note": "category=type_in_prose; adds field meaning (lat/lon) and the WGS84 unit/datum"},
-        {"line": 33, "flag": false, "note": "category=type_in_prose; adds the fresh-copy ownership contract"},
-        {"line": 38, "flag": false, "note": "category=type_in_prose; adds interning + identity-comparison-safe runtime guarantee"}
+        {"line": 13, "flag": false, "note": "category=type_in_prose; adds sort order beyond list[str]", "line_hash": "8a6f88e2"},
+        {"line": 18, "flag": false, "note": "category=type_in_prose; adds the 'years' unit and the meaning of None", "line_hash": "73c126fd"},
+        {"line": 23, "flag": false, "note": "category=type_in_prose; adds key-lowercasing and first-value-only semantics", "line_hash": "e38405d1"},
+        {"line": 28, "flag": false, "note": "category=type_in_prose; adds field meaning (lat/lon) and the WGS84 unit/datum", "line_hash": "f5e1e764"},
+        {"line": 33, "flag": false, "note": "category=type_in_prose; adds the fresh-copy ownership contract", "line_hash": "46d329c6"},
+        {"line": 38, "flag": false, "note": "category=type_in_prose; adds interning + identity-comparison-safe runtime guarantee", "line_hash": "d624db0f"}
       ]
     },
     "dev/negatives/neg_urls_refs.py": {
+      "split": "dev",
       "source": "hand-written",
       "labelled_by": "unknown",
       "labelled_before_rule": "unknown",
       "added_in": "9a8132f",
       "labels": [
-        {"line": 7, "flag": false, "note": "reference: link to the algorithm definition"},
-        {"line": 16, "flag": false, "note": "reference: bug tracker URL for the workaround"},
-        {"line": 21, "flag": false, "note": "reference: RFC citation for the escaping rules"},
-        {"line": 26, "flag": false, "note": "reference: PR number and cross-language sync note"},
-        {"line": 31, "flag": false, "note": "reference: issue ticket explaining a special case"}
+        {"line": 7, "flag": false, "note": "reference: link to the algorithm definition", "line_hash": "f0a3f2f7"},
+        {"line": 16, "flag": false, "note": "reference: bug tracker URL for the workaround", "line_hash": "eb46c197"},
+        {"line": 21, "flag": false, "note": "reference: RFC citation for the escaping rules", "line_hash": "07369f2b"},
+        {"line": 26, "flag": false, "note": "reference: PR number and cross-language sync note", "line_hash": "dad08760"},
+        {"line": 31, "flag": false, "note": "reference: issue ticket explaining a special case", "line_hash": "990b4261"}
       ]
     },
     "dev/negatives/neg_warnings_invariants.py": {
+      "split": "dev",
       "source": "hand-written",
       "labelled_by": "unknown",
       "labelled_before_rule": "unknown",
       "added_in": "9a8132f",
       "labels": [
-        {"line": 11, "flag": false, "note": "invariant: input must be sorted (precondition)"},
-        {"line": 23, "flag": false, "note": "warning: not thread-safe, lock required"},
-        {"line": 28, "flag": false, "note": "warning: overflow caveat with bound"},
-        {"line": 33, "flag": false, "note": "invariant: non-zero divisor guaranteed upstream"},
-        {"line": 38, "flag": false, "note": "warning: security caveat about eval"},
-        {"line": 39, "flag": false, "note": "inline noqa pragma suppressing S307"}
+        {"line": 11, "flag": false, "note": "invariant: input must be sorted (precondition)", "line_hash": "ad110ad4"},
+        {"line": 23, "flag": false, "note": "warning: not thread-safe, lock required", "line_hash": "152e9a88"},
+        {"line": 28, "flag": false, "note": "warning: overflow caveat with bound", "line_hash": "c8bfa6ed"},
+        {"line": 33, "flag": false, "note": "invariant: non-zero divisor guaranteed upstream", "line_hash": "27ee9d4c"},
+        {"line": 38, "flag": false, "note": "warning: security caveat about eval", "line_hash": "f7e00efa"},
+        {"line": 39, "flag": false, "note": "inline noqa pragma suppressing S307", "line_hash": "ed738ebf"}
       ]
     },
     "dev/negatives/neg_why_rationale.py": {
+      "split": "dev",
       "source": "hand-written",
       "labelled_by": "unknown",
       "labelled_before_rule": "unknown",
       "added_in": "9a8132f",
       "labels": [
-        {"line": 12, "flag": false, "note": "why: explains the 503-under-load reason for retrying"},
-        {"line": 17, "flag": false, "note": "why: explains the exponential back-off rationale"},
-        {"line": 27, "flag": false, "note": "why: explains the locale thousands-separator quirk"},
-        {"line": 33, "flag": false, "note": "why: explains that dict.fromkeys preserves order"},
-        {"line": 38, "flag": false, "note": "why: explains casefold vs lower for German eszett"}
+        {"line": 12, "flag": false, "note": "why: explains the 503-under-load reason for retrying", "line_hash": "a538d83e"},
+        {"line": 17, "flag": false, "note": "why: explains the exponential back-off rationale", "line_hash": "c34fca50"},
+        {"line": 27, "flag": false, "note": "why: explains the locale thousands-separator quirk", "line_hash": "13e615f2"},
+        {"line": 33, "flag": false, "note": "why: explains that dict.fromkeys preserves order", "line_hash": "f3035327"},
+        {"line": 38, "flag": false, "note": "why: explains casefold vs lower for German eszett", "line_hash": "2375d7e2"}
       ]
     },
     "dev/positives/pos_catchable_control.py": {
+      "split": "dev",
       "source": "hand-written",
       "labelled_by": "unknown",
       "labelled_before_rule": "unknown",
       "added_in": "9a8132f",
       "labels": [
-        {"line": 11, "flag": true, "note": "restates 'while items'"},
-        {"line": 17, "flag": true, "note": "echoes the variable name count"},
-        {"line": 23, "flag": true, "note": "restates cache[key] access"},
-        {"line": 28, "flag": true, "note": "echoes the variable name total"},
-        {"line": 34, "flag": true, "note": "restates headers[name] access"}
+        {"line": 11, "flag": true, "note": "restates 'while items'", "line_hash": "78f10157"},
+        {"line": 17, "flag": true, "note": "echoes the variable name count", "line_hash": "d5e3dd0d"},
+        {"line": 23, "flag": true, "note": "restates cache[key] access", "line_hash": "6c3c5ea3"},
+        {"line": 28, "flag": true, "note": "echoes the variable name total", "line_hash": "6f764623"},
+        {"line": 34, "flag": true, "note": "restates headers[name] access", "line_hash": "63fe1f63"}
       ]
     },
     "dev/positives/pos_docstring_dup.py": {
+      "split": "dev",
       "source": "hand-written",
       "labelled_by": "unknown",
       "labelled_before_rule": "unknown",
       "added_in": "9a8132f",
       "labels": [
-        {"line": 13, "flag": true, "note": "category=docstring_dup; paraphrases the function's docstring"},
-        {"line": 22, "flag": true, "note": "category=docstring_dup; verbatim copy of the docstring's first sentence"},
-        {"line": 28, "flag": true, "note": "category=docstring_dup; paraphrases the function's docstring"},
-        {"line": 36, "flag": true, "note": "category=docstring_dup; restates the enclosing class docstring inside __init__"},
-        {"line": 42, "flag": true, "note": "category=docstring_dup; paraphrases the docstring including the raised-exception clause"}
+        {"line": 13, "flag": true, "note": "category=docstring_dup; paraphrases the function's docstring", "line_hash": "9e0e8c24"},
+        {"line": 22, "flag": true, "note": "category=docstring_dup; verbatim copy of the docstring's first sentence", "line_hash": "6fd34aa8"},
+        {"line": 28, "flag": true, "note": "category=docstring_dup; paraphrases the function's docstring", "line_hash": "7ad7bb18"},
+        {"line": 36, "flag": true, "note": "category=docstring_dup; restates the enclosing class docstring inside __init__", "line_hash": "3d4b2e45"},
+        {"line": 42, "flag": true, "note": "category=docstring_dup; paraphrases the docstring including the raised-exception clause", "line_hash": "2b75060f"}
       ]
     },
     "dev/positives/pos_stale_comment.py": {
+      "split": "dev",
       "source": "hand-written",
       "labelled_by": "unknown",
       "labelled_before_rule": "unknown",
       "added_in": "9a8132f",
       "labels": [
-        {"line": 13, "flag": true, "note": "category=stale; stale: true \u2014 comment claims increment, code only wraps in dict"},
-        {"line": 18, "flag": true, "note": "category=stale; stale: true \u2014 comment says multiply, code sums"},
-        {"line": 23, "flag": true, "note": "category=stale; stale: true \u2014 comment says uppercase, code lowercases"},
-        {"line": 28, "flag": true, "note": "category=stale; stale: true \u2014 comment says last item, code returns first"},
-        {"line": 33, "flag": true, "note": "category=stale; stale: true \u2014 comment says UDP, code formats tcp:// URL"},
-        {"line": 38, "flag": true, "note": "category=stale; stale: true \u2014 comment says hex, code parses base 10"}
+        {"line": 13, "flag": true, "note": "category=stale; stale: true \u2014 comment claims increment, code only wraps in dict", "line_hash": "0690ed73"},
+        {"line": 18, "flag": true, "note": "category=stale; stale: true \u2014 comment says multiply, code sums", "line_hash": "1551669b"},
+        {"line": 23, "flag": true, "note": "category=stale; stale: true \u2014 comment says uppercase, code lowercases", "line_hash": "ad39920a"},
+        {"line": 28, "flag": true, "note": "category=stale; stale: true \u2014 comment says last item, code returns first", "line_hash": "d263aa36"},
+        {"line": 33, "flag": true, "note": "category=stale; stale: true \u2014 comment says UDP, code formats tcp:// URL", "line_hash": "fc9b9249"},
+        {"line": 38, "flag": true, "note": "category=stale; stale: true \u2014 comment says hex, code parses base 10", "line_hash": "ae42f08f"}
       ]
     },
     "dev/positives/pos_synonym_more.py": {
+      "split": "dev",
       "source": "hand-written",
       "labelled_by": "unknown",
       "labelled_before_rule": "unknown",
       "added_in": "9a8132f",
       "labels": [
-        {"line": 10, "flag": true, "note": "synonym restatement of 'if not data'"},
-        {"line": 14, "flag": true, "note": "synonym restatement of [n * 2 for n in data]"},
-        {"line": 17, "flag": true, "note": "synonym restatement of the threshold filter"},
-        {"line": 20, "flag": true, "note": "synonym restatement of 'return big'"},
-        {"line": 25, "flag": true, "note": "synonym restatement of open(..., 'w')"},
-        {"line": 28, "flag": true, "note": "synonym restatement of handle.write(...)"},
-        {"line": 31, "flag": true, "note": "synonym restatement of handle.close()"},
-        {"line": 36, "flag": true, "note": "synonym restatement of 'if len(rows) == 0: return None'"},
-        {"line": 40, "flag": true, "note": "synonym restatement of 'return rows[0]'"}
+        {"line": 10, "flag": true, "note": "synonym restatement of 'if not data'", "line_hash": "a9203677"},
+        {"line": 14, "flag": true, "note": "synonym restatement of [n * 2 for n in data]", "line_hash": "749d740e"},
+        {"line": 17, "flag": true, "note": "synonym restatement of the threshold filter", "line_hash": "c2e891d5"},
+        {"line": 20, "flag": true, "note": "synonym restatement of 'return big'", "line_hash": "8b8a0487"},
+        {"line": 25, "flag": true, "note": "synonym restatement of open(..., 'w')", "line_hash": "c1049560"},
+        {"line": 28, "flag": true, "note": "synonym restatement of handle.write(...)", "line_hash": "deab7f4b"},
+        {"line": 31, "flag": true, "note": "synonym restatement of handle.close()", "line_hash": "8adde1c9"},
+        {"line": 36, "flag": true, "note": "synonym restatement of 'if len(rows) == 0: return None'", "line_hash": "b3e70ad0"},
+        {"line": 40, "flag": true, "note": "synonym restatement of 'return rows[0]'", "line_hash": "5f2e5458"}
       ]
     },
     "dev/positives/pos_synonym_restatements.py": {
+      "split": "dev",
       "source": "hand-written",
       "labelled_by": "unknown",
       "labelled_before_rule": "unknown",
       "added_in": "9a8132f",
       "labels": [
-        {"line": 12, "flag": true, "note": "synonym restatement of counter += 1"},
-        {"line": 15, "flag": true, "note": "synonym restatement of 'for item in items'"},
-        {"line": 19, "flag": true, "note": "synonym restatement of names.sort()"},
-        {"line": 26, "flag": true, "note": "synonym restatement of output = {}"},
-        {"line": 29, "flag": true, "note": "synonym restatement of the dict-building loop"},
-        {"line": 33, "flag": true, "note": "synonym restatement of 'return output'"},
-        {"line": 38, "flag": true, "note": "synonym restatement of 'flag = not flag'"},
-        {"line": 44, "flag": true, "note": "synonym restatement of amount * 2"}
+        {"line": 12, "flag": true, "note": "synonym restatement of counter += 1", "line_hash": "7f52eb30"},
+        {"line": 15, "flag": true, "note": "synonym restatement of 'for item in items'", "line_hash": "5befacf5"},
+        {"line": 19, "flag": true, "note": "synonym restatement of names.sort()", "line_hash": "a26e0377"},
+        {"line": 26, "flag": true, "note": "synonym restatement of output = {}", "line_hash": "0bbad754"},
+        {"line": 29, "flag": true, "note": "synonym restatement of the dict-building loop", "line_hash": "30361f08"},
+        {"line": 33, "flag": true, "note": "synonym restatement of 'return output'", "line_hash": "48998ba6"},
+        {"line": 38, "flag": true, "note": "synonym restatement of 'flag = not flag'", "line_hash": "e0aa045f"},
+        {"line": 44, "flag": true, "note": "synonym restatement of amount * 2", "line_hash": "10330744"}
       ]
     },
     "holdout/negatives/neg_half_useful_qualifier.py": {
+      "split": "holdout",
       "source": "hand-written",
       "labelled_by": "unknown",
       "labelled_before_rule": "unknown",
       "added_in": "9a8132f",
       "labels": [
-        {"line": 13, "flag": false, "note": "category=half_useful_qualifier; adds downstream-consumer contract not in code"},
-        {"line": 20, "flag": false, "note": "category=half_useful_qualifier; adds upstream-sentinel-padding contract not in code"},
-        {"line": 25, "flag": false, "note": "category=half_useful_qualifier; adds 'documented absent sentinel' API contract"},
-        {"line": 30, "flag": false, "note": "category=half_useful_qualifier; adds the kernel-MTU rationale for the literal 1024"},
-        {"line": 35, "flag": false, "note": "category=half_useful_qualifier; adds the unspecified-order public-contract guarantee"},
-        {"line": 40, "flag": false, "note": "category=half_useful_qualifier; adds the RFC 4518 reference for the normalization"}
+        {"line": 13, "flag": false, "note": "category=half_useful_qualifier; adds downstream-consumer contract not in code", "line_hash": "f0d75331"},
+        {"line": 20, "flag": false, "note": "category=half_useful_qualifier; adds upstream-sentinel-padding contract not in code", "line_hash": "315d925b"},
+        {"line": 25, "flag": false, "note": "category=half_useful_qualifier; adds 'documented absent sentinel' API contract", "line_hash": "4741a9ca"},
+        {"line": 30, "flag": false, "note": "category=half_useful_qualifier; adds the kernel-MTU rationale for the literal 1024", "line_hash": "ab332d1a"},
+        {"line": 35, "flag": false, "note": "category=half_useful_qualifier; adds the unspecified-order public-contract guarantee", "line_hash": "8a5b6d86"},
+        {"line": 40, "flag": false, "note": "category=half_useful_qualifier; adds the RFC 4518 reference for the normalization", "line_hash": "8f0f8e78"}
       ]
     },
     "holdout/negatives/neg_license_legal.py": {
+      "split": "holdout",
       "source": "hand-written",
       "labelled_by": "unknown",
       "labelled_before_rule": "unknown",
       "added_in": "9a8132f",
       "labels": [
-        {"line": 1, "flag": false, "note": "copyright header"},
-        {"line": 2, "flag": false, "note": "license header line"},
-        {"line": 3, "flag": false, "note": "license header line"},
-        {"line": 4, "flag": false, "note": "SPDX license identifier"},
-        {"line": 11, "flag": false, "note": "attribution notice"},
-        {"line": 16, "flag": false, "note": "patent notice"},
-        {"line": 21, "flag": false, "note": "export-control notice"}
+        {"line": 1, "flag": false, "note": "copyright header", "line_hash": "97d004f0"},
+        {"line": 2, "flag": false, "note": "license header line", "line_hash": "7ad8de55"},
+        {"line": 3, "flag": false, "note": "license header line", "line_hash": "6aecc2f3"},
+        {"line": 4, "flag": false, "note": "SPDX license identifier", "line_hash": "a5fbb892"},
+        {"line": 11, "flag": false, "note": "attribution notice", "line_hash": "d2a63fae"},
+        {"line": 16, "flag": false, "note": "patent notice", "line_hash": "8dd9489c"},
+        {"line": 21, "flag": false, "note": "export-control notice", "line_hash": "a46bb719"}
       ]
     },
     "holdout/negatives/neg_section_headers.py": {
+      "split": "holdout",
       "source": "hand-written",
       "labelled_by": "unknown",
       "labelled_before_rule": "unknown",
       "added_in": "9a8132f",
       "labels": [
-        {"line": 6, "flag": false, "note": "banner rule above a section header"},
-        {"line": 7, "flag": false, "note": "section header: navigation aid"},
-        {"line": 8, "flag": false, "note": "banner rule below a section header"},
-        {"line": 19, "flag": false, "note": "banner rule above a section header"},
-        {"line": 20, "flag": false, "note": "section header: navigation aid"},
-        {"line": 21, "flag": false, "note": "banner rule below a section header"},
-        {"line": 28, "flag": false, "note": "region fold marker"},
-        {"line": 35, "flag": false, "note": "endregion fold marker"},
-        {"line": 38, "flag": false, "note": "short section header for a constants block"}
+        {"line": 6, "flag": false, "note": "banner rule above a section header", "line_hash": "5c4688e3"},
+        {"line": 7, "flag": false, "note": "section header: navigation aid", "line_hash": "8c0e6160"},
+        {"line": 8, "flag": false, "note": "banner rule below a section header", "line_hash": "5c4688e3"},
+        {"line": 19, "flag": false, "note": "banner rule above a section header", "line_hash": "35a57e98"},
+        {"line": 20, "flag": false, "note": "section header: navigation aid", "line_hash": "c8cb3777"},
+        {"line": 21, "flag": false, "note": "banner rule below a section header", "line_hash": "35a57e98"},
+        {"line": 28, "flag": false, "note": "region fold marker", "line_hash": "768fa03e"},
+        {"line": 35, "flag": false, "note": "endregion fold marker", "line_hash": "56e1a937"},
+        {"line": 38, "flag": false, "note": "short section header for a constants block", "line_hash": "d6639295"}
       ]
     },
     "holdout/positives/pos_catchable_assignments.py": {
+      "split": "holdout",
       "source": "hand-written",
       "labelled_by": "unknown",
       "labelled_before_rule": "unknown",
       "added_in": "9a8132f",
       "labels": [
-        {"line": 11, "flag": true, "note": "names the variable user_id and nothing more"},
-        {"line": 14, "flag": true, "note": "echoes the variable name total"},
-        {"line": 17, "flag": true, "note": "echoes the variable name result"},
-        {"line": 24, "flag": true, "note": "echoes the variable name x"},
-        {"line": 27, "flag": true, "note": "echoes the variable name y"},
-        {"line": 34, "flag": true, "note": "echoes the variable name timeout"}
+        {"line": 11, "flag": true, "note": "names the variable user_id and nothing more", "line_hash": "227900e9"},
+        {"line": 14, "flag": true, "note": "echoes the variable name total", "line_hash": "6f764623"},
+        {"line": 17, "flag": true, "note": "echoes the variable name result", "line_hash": "50289658"},
+        {"line": 24, "flag": true, "note": "echoes the variable name x", "line_hash": "44647510"},
+        {"line": 27, "flag": true, "note": "echoes the variable name y", "line_hash": "cc6dfb78"},
+        {"line": 34, "flag": true, "note": "echoes the variable name timeout", "line_hash": "a06247c7"}
       ]
     },
     "holdout/positives/pos_catchable_calls.py": {
+      "split": "holdout",
       "source": "hand-written",
       "labelled_by": "unknown",
       "labelled_before_rule": "unknown",
       "added_in": "9a8132f",
       "labels": [
-        {"line": 13, "flag": true, "note": "restates 'return result'"},
-        {"line": 18, "flag": true, "note": "restates items.sort()"},
-        {"line": 23, "flag": true, "note": "restates json.dumps(payload)"},
-        {"line": 28, "flag": true, "note": "restates parser.parse(url)"},
-        {"line": 33, "flag": true, "note": "restates items.append(value)"},
-        {"line": 38, "flag": true, "note": "restates connection.close()"}
+        {"line": 13, "flag": true, "note": "restates 'return result'", "line_hash": "cee23fb3"},
+        {"line": 18, "flag": true, "note": "restates items.sort()", "line_hash": "da770cbb"},
+        {"line": 23, "flag": true, "note": "restates json.dumps(payload)", "line_hash": "f7366ef6"},
+        {"line": 28, "flag": true, "note": "restates parser.parse(url)", "line_hash": "3034ffe7"},
+        {"line": 33, "flag": true, "note": "restates items.append(value)", "line_hash": "842dec2d"},
+        {"line": 38, "flag": true, "note": "restates connection.close()", "line_hash": "03fd9854"}
       ]
     },
     "holdout/positives/pos_catchable_realistic.py": {
+      "split": "holdout",
       "source": "hand-written",
       "labelled_by": "unknown",
       "labelled_before_rule": "unknown",
       "added_in": "9a8132f",
       "labels": [
-        {"line": 11, "flag": true, "note": "echoes the variable name session"},
-        {"line": 14, "flag": true, "note": "echoes the variable name headers"},
-        {"line": 17, "flag": true, "note": "echoes the variable name response"},
-        {"line": 28, "flag": true, "note": "echoes the variable name balance"},
-        {"line": 34, "flag": true, "note": "echoes the variable name count"},
-        {"line": 37, "flag": true, "note": "echoes the variable name errors"},
-        {"line": 44, "flag": true, "note": "echoes the variable name first"},
-        {"line": 47, "flag": true, "note": "echoes the variable name last"}
+        {"line": 11, "flag": true, "note": "echoes the variable name session", "line_hash": "ae09fa4f"},
+        {"line": 14, "flag": true, "note": "echoes the variable name headers", "line_hash": "9de21211"},
+        {"line": 17, "flag": true, "note": "echoes the variable name response", "line_hash": "63cd6199"},
+        {"line": 28, "flag": true, "note": "echoes the variable name balance", "line_hash": "2abca3ef"},
+        {"line": 34, "flag": true, "note": "echoes the variable name count", "line_hash": "d5e3dd0d"},
+        {"line": 37, "flag": true, "note": "echoes the variable name errors", "line_hash": "90d14962"},
+        {"line": 44, "flag": true, "note": "echoes the variable name first", "line_hash": "ec75201f"},
+        {"line": 47, "flag": true, "note": "echoes the variable name last", "line_hash": "7dc8b106"}
       ]
     },
     "holdout/positives/pos_half_useful_qualifier.py": {
+      "split": "holdout",
       "source": "hand-written",
       "labelled_by": "unknown",
       "labelled_before_rule": "unknown",
       "added_in": "9a8132f",
       "labels": [
-        {"line": 15, "flag": true, "note": "category=half_useful_qualifier; qualifier 'to skip the header' is encoded as rows[1:]"},
-        {"line": 22, "flag": true, "note": "category=half_useful_qualifier; qualifier 'keep just the interior slice' is tautological with [1:-1]"},
-        {"line": 27, "flag": true, "note": "category=half_useful_qualifier; qualifier 'falling back to zero when missing' is exactly .get(key, 0)"},
-        {"line": 32, "flag": true, "note": "category=half_useful_qualifier; qualifier 'fit the first 1024 bytes' is exactly [:1024]"},
-        {"line": 37, "flag": true, "note": "category=half_useful_qualifier; qualifier 'removing duplicates via a set' is exactly set(...) | set(...)"},
-        {"line": 42, "flag": true, "note": "category=half_useful_qualifier; qualifier 'after stripping the surrounding whitespace' is exactly the chained .strip()"}
+        {"line": 15, "flag": true, "note": "category=half_useful_qualifier; qualifier 'to skip the header' is encoded as rows[1:]", "line_hash": "d66a3d05"},
+        {"line": 22, "flag": true, "note": "category=half_useful_qualifier; qualifier 'keep just the interior slice' is tautological with [1:-1]", "line_hash": "3e4cad94"},
+        {"line": 27, "flag": true, "note": "category=half_useful_qualifier; qualifier 'falling back to zero when missing' is exactly .get(key, 0)", "line_hash": "9dfb16a8"},
+        {"line": 32, "flag": true, "note": "category=half_useful_qualifier; qualifier 'fit the first 1024 bytes' is exactly [:1024]", "line_hash": "87be76b2"},
+        {"line": 37, "flag": true, "note": "category=half_useful_qualifier; qualifier 'removing duplicates via a set' is exactly set(...) | set(...)", "line_hash": "1c669542"},
+        {"line": 42, "flag": true, "note": "category=half_useful_qualifier; qualifier 'after stripping the surrounding whitespace' is exactly the chained .strip()", "line_hash": "9ca6f905"}
       ]
     },
     "holdout/positives/pos_inline_restatements.py": {
+      "split": "holdout",
       "source": "hand-written",
       "labelled_by": "unknown",
       "labelled_before_rule": "unknown",
       "added_in": "9a8132f",
       "labels": [
-        {"line": 11, "flag": true, "note": "inline; restates counter += 1 (detector ignores inline comments)"},
-        {"line": 12, "flag": true, "note": "inline; restates total = total + counter"},
-        {"line": 13, "flag": true, "note": "inline; restates name.strip()"},
-        {"line": 14, "flag": true, "note": "inline; restates items.sort()"},
-        {"line": 15, "flag": true, "note": "inline; restates items.reverse()"},
-        {"line": 16, "flag": true, "note": "inline; restates 'return total'"},
-        {"line": 20, "flag": true, "note": "inline; restates state.clear()"},
-        {"line": 21, "flag": true, "note": "inline; restates state['count'] = 0"},
-        {"line": 25, "flag": true, "note": "inline; restates 'return cache[key]'"}
+        {"line": 11, "flag": true, "note": "inline; restates counter += 1 (detector ignores inline comments)", "line_hash": "8764b8a0"},
+        {"line": 12, "flag": true, "note": "inline; restates total = total + counter", "line_hash": "fc7e4fe9"},
+        {"line": 13, "flag": true, "note": "inline; restates name.strip()", "line_hash": "02087128"},
+        {"line": 14, "flag": true, "note": "inline; restates items.sort()", "line_hash": "8b60f3ef"},
+        {"line": 15, "flag": true, "note": "inline; restates items.reverse()", "line_hash": "a76f16fe"},
+        {"line": 16, "flag": true, "note": "inline; restates 'return total'", "line_hash": "f70fa203"},
+        {"line": 20, "flag": true, "note": "inline; restates state.clear()", "line_hash": "1d090e5a"},
+        {"line": 21, "flag": true, "note": "inline; restates state['count'] = 0", "line_hash": "5c6cec09"},
+        {"line": 25, "flag": true, "note": "inline; restates 'return cache[key]'", "line_hash": "e79f78e4"}
       ]
     },
     "holdout/positives/pos_multiline_restatement.py": {
+      "split": "holdout",
       "source": "hand-written",
       "labelled_by": "unknown",
       "labelled_before_rule": "unknown",
       "added_in": "9a8132f",
       "labels": [
-        {"line": 12, "flag": true, "note": "category=multiline; comment narrates the 2-line square-then-sum block"},
-        {"line": 18, "flag": true, "note": "category=multiline; comment narrates the open/read/close block"},
-        {"line": 26, "flag": true, "note": "category=multiline; comment narrates the lower+strip loop"},
-        {"line": 34, "flag": true, "note": "category=multiline; comment narrates the double-then-filter pair of comprehensions"},
-        {"line": 40, "flag": true, "note": "category=multiline; comment narrates the dict-copy-then-update block"}
+        {"line": 12, "flag": true, "note": "category=multiline; comment narrates the 2-line square-then-sum block", "line_hash": "c65e76f1"},
+        {"line": 18, "flag": true, "note": "category=multiline; comment narrates the open/read/close block", "line_hash": "91929eb6"},
+        {"line": 26, "flag": true, "note": "category=multiline; comment narrates the lower+strip loop", "line_hash": "56245a14"},
+        {"line": 34, "flag": true, "note": "category=multiline; comment narrates the double-then-filter pair of comprehensions", "line_hash": "669bcfc3"},
+        {"line": 40, "flag": true, "note": "category=multiline; comment narrates the dict-copy-then-update block", "line_hash": "06818fd5"}
       ]
     },
     "holdout/positives/pos_type_in_prose.py": {
+      "split": "holdout",
       "source": "hand-written",
       "labelled_by": "unknown",
       "labelled_before_rule": "unknown",
       "added_in": "9a8132f",
       "labels": [
-        {"line": 12, "flag": true, "note": "category=type_in_prose; restates -> list[str]"},
-        {"line": 17, "flag": true, "note": "category=type_in_prose; restates -> int | None"},
-        {"line": 22, "flag": true, "note": "category=type_in_prose; restates -> dict[str, str]"},
-        {"line": 27, "flag": true, "note": "category=type_in_prose; restates -> tuple[float, float]"},
-        {"line": 32, "flag": true, "note": "category=type_in_prose; restates -> set[str]"},
-        {"line": 37, "flag": true, "note": "category=type_in_prose; restates -> str | None"}
+        {"line": 12, "flag": true, "note": "category=type_in_prose; restates -> list[str]", "line_hash": "a50cf05b"},
+        {"line": 17, "flag": true, "note": "category=type_in_prose; restates -> int | None", "line_hash": "b13d27b1"},
+        {"line": 22, "flag": true, "note": "category=type_in_prose; restates -> dict[str, str]", "line_hash": "27f67845"},
+        {"line": 27, "flag": true, "note": "category=type_in_prose; restates -> tuple[float, float]", "line_hash": "3e2d6561"},
+        {"line": 32, "flag": true, "note": "category=type_in_prose; restates -> set[str]", "line_hash": "4fb34ffd"},
+        {"line": 37, "flag": true, "note": "category=type_in_prose; restates -> str | None", "line_hash": "36477343"}
       ]
     }
   }

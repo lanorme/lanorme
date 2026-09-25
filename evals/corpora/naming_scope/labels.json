@@ -2,31 +2,32 @@
   "rules": ["NAMING-005"],
   "unit": "line",
   "description": "Ground truth for NAMING-005. Keys are file:line of the binding; true means the short name is carried past the span limit and should be flagged. The negatives cover the three ways a short name stays legitimate: a small span, a conventional counter, and an allowlisted idiom (lo/hi), so a threshold or allowlist regression surfaces as a false positive.",
-  "split": "too_small",
   "files": {
     "dev/negatives/neg_short_span.py": {
+      "split": "dev",
       "source": "hand-written",
       "labelled_by": "Claude",
       "labelled_before_rule": "unknown",
       "added_in": "9dfff9a",
       "labels": [
-        {"line": 6, "flag": false},
-        {"line": 14, "flag": false},
-        {"line": 40, "flag": false},
-        {"line": 41, "flag": false},
-        {"line": 69, "flag": false},
-        {"line": 96, "flag": false}
+        {"line": 6, "flag": false, "line_hash": "85e33257"},
+        {"line": 14, "flag": false, "line_hash": "ccf15e4f"},
+        {"line": 40, "flag": false, "line_hash": "463c4609"},
+        {"line": 41, "flag": false, "line_hash": "eb409385"},
+        {"line": 69, "flag": false, "line_hash": "56006def"},
+        {"line": 96, "flag": false, "line_hash": "10a38595"}
       ]
     },
     "dev/positives/pos_long_span.py": {
+      "split": "dev",
       "source": "hand-written",
       "labelled_by": "Claude",
       "labelled_before_rule": "unknown",
       "added_in": "9dfff9a",
       "labels": [
-        {"line": 6, "flag": true},
-        {"line": 33, "flag": true},
-        {"line": 61, "flag": true}
+        {"line": 6, "flag": true, "line_hash": "e1b5270e"},
+        {"line": 33, "flag": true, "line_hash": "85e33257"},
+        {"line": 61, "flag": true, "line_hash": "da7a11d1"}
       ]
     }
   }

@@ -238,6 +238,24 @@ is walked with no excludes, which is what a check run directly gets.
 `lanorme.scan.get_current_scan()` returns the scan in force, including its
 `root` and the project's `source_root`.
 
+The current scan lives in a `contextvars.ContextVar`, so it follows the
+context. Whether a new thread starts in its creator's context depends on the
+Python version and build (Python 3.14 adds the `thread_inherit_context` flag),
+and a worker outside it walks the whole tree with no excludes and another
+parse cache. A check that hands work to threads should run each task in a copy
+of its own context:
+
+```python
+import contextvars
+from concurrent.futures import ThreadPoolExecutor
+
+with ThreadPoolExecutor() as pool:
+    futures = [pool.submit(contextvars.copy_context().run, scan_part, part) for part in parts]
+```
+
+Take one `copy_context()` per task: a context can be entered by only one
+thread at a time.
+
 ## Conventions
 
 These conventions keep a custom check consistent with the built-ins. The same

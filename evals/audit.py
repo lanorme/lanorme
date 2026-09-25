@@ -10,9 +10,11 @@ and code, and, unless skipped, a best-effort PERFORMANCE sweep that reuses the
 pinned end-to-end corpora. The JSON is committed under ``evals/results/`` as
 the audit trail for a release.
 
-With ``--gate PREVIOUS.json`` the audit also fails when any rule's HOLDOUT
-precision or recall drops below the previous result minus the tolerance; dev
-numbers are informational and never gate (see ``regression_gate.py``).
+The audit also records a digest of every holdout file (its content and its
+labels). With ``--gate`` it fails when a holdout file a baseline recorded is
+gone or changed, or when any rule's HOLDOUT precision or recall drops below the
+best value a comparable baseline reached minus the tolerance; dev numbers are
+informational and never gate (see ``regression_gate.py``).
 
 Usage:
     uv run python evals/audit.py --version X.Y.Z [--no-perf] [--output PATH]
@@ -23,7 +25,7 @@ a concise one-line-per-rule summary goes to stdout.
 
 Exit codes:
     0   success: every corpus valid, every scorer produced metrics, no regression.
-    1   an invalid corpus, a scorer error, or a holdout regression.
+    1   an invalid corpus, a scorer error, a holdout regression or a holdout edit.
     2   usage error (missing or empty --version, unreadable --gate file).
 """
 
@@ -40,15 +42,18 @@ from pathlib import Path
 from types import ModuleType
 from typing import TypedDict
 
-from labelled_corpus import ScoreRecord
+from labelled_corpus import CORPORA_ROOT, ScoreRecord
 from metrics_report import format_summary_line
 from regression_gate import (
     DEFAULT_TOLERANCE,
     GateOutcome,
-    find_regressions,
+    HoldoutDigests,
+    build_holdout_digests,
     format_gate,
-    read_baseline,
-    resolve_baseline,
+    apply_history_gate,
+    is_failing,
+    read_revisions,
+    resolve_history,
 )
 from validate_corpora import find_problems
 
@@ -86,6 +91,7 @@ class Report(TypedDict):
     metadata: Metadata
     corpus_problems: list[str]
     accuracy: list[ScoreRecord]
+    holdout_digests: HoldoutDigests
     gate: GateOutcome | None
     performance: dict[str, CorpusTiming]
 
@@ -93,6 +99,7 @@ class Report(TypedDict):
 _HERE = Path(__file__).resolve().parent
 _REPO_ROOT = _HERE.parent
 _RESULTS_DIR = _HERE / "results"
+_HOLDOUT_REVISIONS = _HERE / "holdout_revisions.json"
 _PERF_RUNS = 3
 
 
@@ -284,8 +291,9 @@ def _parse_args(*, argv: list[str]) -> argparse.Namespace:
         dest="gate",
         default=None,
         help=(
-            "Fail when a holdout precision or recall drops against this previous audit JSON "
-            "('latest' picks the newest evals/results/v*.json)."
+            "Fail on a holdout edit or a holdout precision or recall drop against this "
+            "previous audit JSON ('latest' holds the numbers to the best of every "
+            "evals/results/v*.json and the files to the newest one that records them)."
         ),
     )
     parser.add_argument(
@@ -298,23 +306,6 @@ def _parse_args(*, argv: list[str]) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
-def _apply_gate(
-    *,
-    baseline: Path | None,
-    tolerance: float,
-    accuracy: list[ScoreRecord],
-) -> GateOutcome | None:
-    """Compare the run with the baseline audit; None when no gate was asked for."""
-    if baseline is None:
-        return None
-    return find_regressions(
-        baseline=read_baseline(path=baseline),
-        current=accuracy,
-        tolerance=tolerance,
-        baseline_name=baseline.name,
-    )
-
-
 def _run(*, args: argparse.Namespace) -> int:
     """Execute the audit and return the process exit code."""
     version = args.version.strip()
@@ -322,14 +313,22 @@ def _run(*, args: argparse.Namespace) -> int:
         print("error: --version X.Y.Z is required and must be non-empty.", file=sys.stderr)
         return 2
     try:
-        baseline = resolve_baseline(gate=args.gate, results_dir=_RESULTS_DIR)
+        history = resolve_history(gate=args.gate, results_dir=_RESULTS_DIR)
     except FileNotFoundError as exc:
         print(f"error: {exc}.", file=sys.stderr)
         return 2
 
     problems = find_problems()
     accuracy, failed = _collect_accuracy(scorers=_discover_scorers())
-    gate = _apply_gate(baseline=baseline, tolerance=args.tolerance, accuracy=accuracy)
+    digests = build_holdout_digests(corpora_root=CORPORA_ROOT)
+    gate = None
+    if history:
+        gate = apply_history_gate(
+            history=history,
+            current={"accuracy": accuracy, "holdout_digests": digests},
+            accepted=read_revisions(path=_HOLDOUT_REVISIONS),
+            tolerance=args.tolerance,
+        )
     perf_enabled = not args.no_perf
     performance = _collect_performance() if perf_enabled else {}
 
@@ -337,13 +336,14 @@ def _run(*, args: argparse.Namespace) -> int:
         "metadata": _build_metadata(audited_version=version),
         "corpus_problems": problems,
         "accuracy": accuracy,
+        "holdout_digests": digests,
         "gate": gate,
         "performance": performance,
     }
     output = Path(args.output) if args.output else _default_output(version=version)
     _write_report(report=report, output=output)
     _print_summary(report=report, output=output, perf_enabled=perf_enabled)
-    return 1 if failed or problems or (gate and gate["regressions"]) else 0
+    return 1 if failed or problems or is_failing(outcome=gate) else 0
 
 
 def main(*, argv: list[str]) -> int:

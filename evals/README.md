@@ -21,11 +21,13 @@ evals/
   score_<rule>.py          one scorer per rule, exposing score()
   labelled_corpus.py       the split, the labels file, per-split scoring
   metrics_report.py        the report a scorer prints, the audit summary line
-  validate_corpora.py      fails on an incomplete, misplaced or unattributed corpus
+  validate_corpora.py      fails on an incomplete, misplaced, drifted or unattributed
+                           corpus; --stamp fills a new file's split and line hashes
   generate_adversarial.py  writes the generated holdout cases
   code_transforms.py       the label-preserving and label-breaking edits
   regression_gate.py       the holdout gate audit.py --gate applies
   audit.py                 validates, scores, gates, writes a stamped result JSON
+  holdout_revisions.json   accepted holdout edits (absent until one is needed)
   corpora/<name>/
     labels.json            every label, with its provenance
     dev/                   tuning allowed: positives/, negatives/
@@ -39,15 +41,23 @@ SIMILAR-001 and DRY-001.
 
 ## The dev and holdout split
 
-A hand-labelled file's split is fixed by the SHA-256 of its path inside the
-split (`positives/pos_x.py`): the first 32 bits modulo 100, below 30, put it in
-`holdout/`, otherwise in `dev/`. The rule depends on the file name alone, so it
-is reproducible, roughly 70/30, and adding a file never moves another. A corpus
-whose hash split would leave fewer than three files on either side is too small
-to split: every file stays in `dev/` and `labels.json` records
-`"split": "too_small"`. Today that is the five naming corpora (`naming_command`,
-`naming_every_verb`, `naming_scope`, `naming_verb_class`, `naming_weak_verb`),
-two files each, so NAMING-005 to NAMING-011 have dev numbers only and no gate.
+Every file's split is recorded in its `labels.json` entry (`"split": "dev"` or
+`"holdout"`) when the file is added, and the file sits under that directory.
+The record is what counts, so a file never moves: not when the corpus grows,
+not when a file is renamed. For a new file, the SHA-256 of its path inside the
+split (`positives/pos_x.py`) proposes the split: the first 32 bits modulo 100,
+below 30, propose `holdout/`, otherwise `dev/`, so new files land roughly
+70/30. `validate_corpora.py --stamp` writes that proposal into an entry that
+has no `split` yet; place the file where it says, or record `dev` by hand for
+a file you have already tuned against.
+
+A corpus with no holdout file reports dev numbers only (`"split": "dev_only"`
+in the audit record) and nothing gates it. Today that is the five naming
+corpora (`naming_command`, `naming_every_verb`, `naming_scope`,
+`naming_verb_class`, `naming_weak_verb`), two files each, all tuned against, so
+NAMING-005 to NAMING-011 have dev numbers only. Some of their files' names
+propose holdout; their recorded `dev` keeps them out of it, since a tuned file
+in the holdout would grade the rule on data it was fitted to.
 
 `dev/` may be read, run and tuned against while a rule is designed. `holdout/`
 is sealed: a change to a rule's thresholds or source must not touch that rule's
@@ -66,15 +76,15 @@ One `labels.json` per corpus holds every label:
   "rules": ["CMT-001"],
   "unit": "comment",
   "description": "What a positive and a negative mean for this rule.",
-  "split": "hashed",
   "files": {
-    "dev/positives/pos_disabled_imports.py": {
+    "dev/positives/pos_disabled_calls.py": {
+      "split": "dev",
       "source": "hand-written",
       "labelled_by": "unknown",
       "labelled_before_rule": "unknown",
       "added_in": "9a8132f",
       "labels": [
-        {"line": 8, "flag": true, "note": "disabled import statement"}
+        {"line": 9, "flag": true, "note": "disabled logger call", "line_hash": "af765db0"}
       ]
     }
   }
@@ -85,7 +95,13 @@ One `labels.json` per corpus holds every label:
   `definition` (a `def` or `class` line), `line` (the line a finding sits on) or
   `file` (the whole file, with `flag` and `note` on the entry instead of
   `labels`).
-- `flag` is the ground truth: `true` when the rule should flag the site.
+- `split` is the split the file belongs to, recorded when it was added.
+- `flag` is the ground truth: `true` when the rule should flag the site. A
+  positive label never sits under `negatives/`, and every file under
+  `positives/` has at least one.
+- `line_hash` is the first eight hex digits of the SHA-256 of the labelled
+  line's text, stripped of indentation. A line inserted above, or the line
+  edited, no longer matches it, so a label cannot slide onto a neighbour.
 - `source` is `hand-written` (authored case by case, by a person or an agent),
   `mined:<repo@sha>` (taken from a named third-party revision) or
   `generated:<transform>` (written by `generate_adversarial.py`).
@@ -101,10 +117,23 @@ One `labels.json` per corpus holds every label:
 
 `validate_corpora.py` fails when a corpus file has no entry, an entry names a
 missing file, a comment in a `comment` corpus has no label, a label sits on a
-line that holds no comment (or no definition, or nothing), provenance is
-missing, or a file sits in the wrong split. `audit.py` runs it first and fails
-on any problem, so an unlabelled comment can no longer drop silently out of
-the true negatives.
+line that holds no comment (or no definition, or nothing), a label's
+`line_hash` no longer matches its line (the message names the line its text
+moved to, when that is unambiguous), a positive sits under `negatives/` or a
+`positives/` file has none, provenance is missing, or a file sits outside its
+recorded split. `audit.py` runs it first and fails on any problem, so an
+unlabelled comment can no longer drop silently out of the true negatives.
+
+`--stamp` fills what a new entry leaves out: its proposed `split` and each
+label's `line_hash`, read from the line the label names today. It never
+replaces a recorded value, so a label that drifted stays reported until it is
+moved to its line again, or its hash is removed and restamped after the label
+has been checked by hand.
+
+```console
+uv run python evals/validate_corpora.py           # report every problem
+uv run python evals/validate_corpora.py --stamp   # fill missing split and line_hash
+```
 
 ## Generated adversarial cases
 
@@ -171,23 +200,53 @@ takes a few seconds without the performance sweep:
 uv run python evals/audit.py --version X.Y.Z [--no-perf] [--gate PREVIOUS.json]
 ```
 
-With `--gate`, the audit also fails when any rule's **holdout** precision or
-recall falls below the previous result minus a tolerance (`--tolerance`,
-default 0.02), and lists the rules. A drop of exactly the tolerance passes. Dev
-numbers are informational and never gate, since tuning is allowed to move them.
-A rule the baseline has no holdout numbers for is skipped and named; a rule the
-baseline scored that this run did not is a regression. The release gate runs
-the audit with `--gate` against the latest committed result, and
-`scripts/check.sh` does too, so a pull request that erodes a holdout number
-fails before it lands. See [`results/README.md`](results/README.md) for the
-result schema.
+Every audit records `holdout_digests`: for each holdout file, the SHA-256 of
+its content together with its labels' lines and flags. With `--gate`, the audit
+also fails on:
+
+- **a holdout edit**: a holdout file the baseline recorded is gone, or its
+  digest changed (the file was edited, or a label flipped or dropped). Deleting
+  a holdout positive together with its label passes the validator but not this.
+- **a holdout regression**: a rule's **holdout** precision or recall falls more
+  than a tolerance (`--tolerance`, default 0.02) below the best value any
+  comparable baseline reached. A drop of exactly the tolerance passes. Holding
+  to the best, not the latest, stops drops that each pass the tolerance from
+  adding up release after release.
+
+`--gate latest` gates the numbers against every committed `results/v*.json`
+and the files against the newest one that records digests; `--gate PATH`
+gates against that one audit. A baseline is comparable for a rule when it
+recorded exactly the holdout files this run scores for the rule's corpus, so
+growing a holdout starts that rule's history afresh: until an audit records
+the grown holdout, the rule is skipped and named. Dev numbers are
+informational and never gate, since tuning is allowed to move them. A rule a
+comparable baseline scored that this run did not is a regression. When no
+rule is gated at all (every baseline predates the split, as `v0.20.0.json`
+does), the summary says so and why rather than passing silently.
+
+A deliberate holdout edit (a label proved wrong, regenerated cases) is its own
+reviewed change: add an entry to `evals/holdout_revisions.json` naming the
+file (`<corpus>/<path>`), its new digest (from the audit's `holdout_digests`,
+or `null` for a removal) and the reason. The gate accepts exactly that digest
+and nothing else, and the entry stays visible in review. Like a grown holdout,
+an accepted edit starts the rule's numeric history afresh.
+
+```json
+{"duplication_similar/holdout/positives/pos_x.py": {"digest": "<sha256 from holdout_digests>", "reason": "mislabelled: the two functions differ"}}
+```
+
+The release gate runs the audit with `--gate latest`, and `scripts/check.sh`
+does too, so a pull request that erodes a holdout number or edits a holdout
+file fails before it lands. See [`results/README.md`](results/README.md) for
+the result schema.
 
 ## Adding an eval
 
-1. Write the labels first. Add the corpus files and a `labels.json` with
-   provenance before the rule is tuned against them, and place each
-   hand-labelled file where its name hashes (`validate_corpora.py` names the
-   right split for a misplaced file).
+1. Write the labels first. Add the corpus files and their `labels.json`
+   entries with provenance before the rule is tuned against them, run
+   `validate_corpora.py --stamp` to record each new file's proposed split and
+   its labels' line hashes, and place each file under the split its entry
+   records.
 2. Add `score_<rule>.py` exposing `RULE`, `find_flagged(root)` and `score()`
    through `labelled_corpus.evaluate_corpus`.
 3. Run `uv run python evals/validate_corpora.py` and

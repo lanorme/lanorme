@@ -1,4 +1,4 @@
-"""Check that every labelled eval corpus is complete, placed and attributed.
+"""Check that every labelled eval corpus is complete, placed, attributed and in step.
 
 A scorer can only count what is labelled: an unlabelled file or comment drops
 out of the confusion matrix without a trace, and a label on a line that holds
@@ -10,20 +10,29 @@ nothing is a phantom true negative or false negative. This script fails on:
   label on a line that holds no comment;
 - a definition corpus with a label off a ``def`` / ``class`` line, and a line
   corpus with a label on a blank or out-of-range line;
+- a label whose ``line_hash`` no longer matches the text of its line (a line
+  inserted above shifted it, or the line was edited), or that has none;
+- a positive label under ``negatives/``, or a ``positives/`` file with none;
 - missing or malformed provenance (``source``, ``labelled_by``,
   ``labelled_before_rule``);
-- a file in the wrong split: a hand-labelled file must sit where the hash of
-  its name puts it, generated files only in ``holdout/generated/``, and a corpus
-  must be split exactly when it is large enough.
+- a file whose directory differs from the ``split`` its entry records, a
+  missing ``split``, or a generated file outside ``holdout/generated/``.
+
+``--stamp`` fills in what a new file's entry leaves out: its ``split`` (the
+split its name proposes, see ``labelled_corpus.compute_proposed_split``) and each
+label's ``line_hash`` (from the line the label names today). It never
+overwrites a recorded value, so a label that drifted stays caught.
 
 Usage:
-    uv run python evals/validate_corpora.py
+    uv run python evals/validate_corpora.py           # report every problem
+    uv run python evals/validate_corpora.py --stamp   # fill missing split and line_hash
 
 Exit codes: 0 every corpus is valid; 1 a problem was found (each is listed).
 """
 
 from __future__ import annotations
 
+import argparse
 import ast
 import io
 import re
@@ -34,18 +43,19 @@ from pathlib import Path
 from labelled_corpus import (
     CORPORA_ROOT,
     GENERATED_PREFIX,
-    MIN_FILES_PER_SIDE,
     SPLITS,
     UNITS,
     FileEntry,
     LabelsDocument,
-    assign_split,
+    SiteLabel,
     find_corpus_files,
+    hash_line,
+    compute_proposed_split,
     read_labels,
+    write_labels,
 )
 
 _SOURCE = re.compile(r"^(hand-written|mined:[^@\s]+@[0-9A-Za-z._-]+|generated:[a-z_]+)$")
-_SPLIT_STATES = frozenset({"hashed", "too_small"})
 
 
 def find_problems(*, corpora_root: Path = CORPORA_ROOT) -> list[str]:
@@ -70,11 +80,10 @@ def find_corpus_problems(*, corpus: Path) -> list[str]:
     problems.extend(f"{path}: label names a missing file" for path in sorted(labelled - files))
     for path in sorted(files & labelled):
         entry = document["files"][path]
-        problems.extend(find_entry_problems(path=path, entry=entry, split=document["split"]))
+        problems.extend(find_entry_problems(path=path, entry=entry))
         problems.extend(
             find_site_problems(path=path, entry=entry, unit=document["unit"], corpus=corpus),
         )
-    problems.extend(find_split_problems(document=document))
     return [f"{corpus.name}: {problem}" for problem in problems]
 
 
@@ -85,15 +94,13 @@ def find_header_problems(*, document: LabelsDocument) -> list[str]:
         problems.append('labels.json has no "files" map')
     if document.get("unit") not in UNITS:
         problems.append(f'"unit" must be one of {sorted(UNITS)}')
-    if document.get("split") not in _SPLIT_STATES:
-        problems.append(f'"split" must be one of {sorted(_SPLIT_STATES)}')
     if not document.get("rules"):
         problems.append('"rules" must name the rule codes scored on this corpus')
     return problems
 
 
-def find_entry_problems(*, path: str, entry: FileEntry, split: str) -> list[str]:
-    """Check one file's provenance fields and its placement in the split."""
+def find_entry_problems(*, path: str, entry: FileEntry) -> list[str]:
+    """Check one file's provenance fields and its placement in its recorded split."""
     problems: list[str] = []
     source = entry.get("source", "")
     if not _SOURCE.match(source):
@@ -105,40 +112,40 @@ def find_entry_problems(*, path: str, entry: FileEntry, split: str) -> list[str]
         problems.append(f"{path}: labelled_by is missing")
     if entry.get("labelled_before_rule") not in (True, False, "unknown"):
         problems.append(f'{path}: labelled_before_rule must be true, false or "unknown"')
-    generated = source.startswith("generated:")
-    if generated != path.startswith(GENERATED_PREFIX):
+    if source.startswith("generated:") != path.startswith(GENERATED_PREFIX):
         problems.append(f"{path}: generated files, and only they, belong in {GENERATED_PREFIX}")
-    elif not generated:
-        problems.extend(find_placement_problems(path=path, split=split))
+    problems.extend(find_placement_problems(path=path, entry=entry))
+    problems.extend(find_polarity_problems(path=path, entry=entry))
     return problems
 
 
-def find_placement_problems(*, path: str, split: str) -> list[str]:
-    """Check a hand-labelled file sits in the split its name hashes to."""
+def find_placement_problems(*, path: str, entry: FileEntry) -> list[str]:
+    """Check a file sits under the split its entry records."""
     side, _, inner = path.partition("/")
-    if side not in SPLITS:
-        return [f"{path}: must sit under dev/ or holdout/"]
-    want = "dev" if split == "too_small" else assign_split(name=inner)
-    if side != want:
-        return [f"{path}: sits in {side}/ but its name assigns it to {want}/"]
+    split = entry.get("split")
+    if split is None:
+        return [
+            f"{path}: no split recorded (its name proposes {compute_proposed_split(name=inner)}/); "
+            "run validate_corpora.py --stamp",
+        ]
+    if split not in SPLITS:
+        return [f"{path}: split {split!r} must be one of {list(SPLITS)}"]
+    if side != split:
+        return [f"{path}: sits in {side}/ but labels.json records it in {split}/"]
     return []
 
 
-def find_split_problems(*, document: LabelsDocument) -> list[str]:
-    """Check the corpus is split exactly when the hash split is large enough."""
-    inner_names = [
-        path.partition("/")[2]
-        for path, entry in document["files"].items()
-        if not entry.get("source", "").startswith("generated:")
-    ]
-    held = sum(1 for name in inner_names if assign_split(name=name) == "holdout")
-    too_small = min(held, len(inner_names) - held) < MIN_FILES_PER_SIDE
-    want = "too_small" if too_small else "hashed"
-    if document["split"] != want:
-        return [
-            f'"split" is {document["split"]!r} but the hash split gives '
-            f"{len(inner_names) - held} dev / {held} holdout files, so it must be {want!r}",
-        ]
+def find_polarity_problems(*, path: str, entry: FileEntry) -> list[str]:
+    """Check no positive label sits under negatives/ and every positives/ file has one."""
+    parts = path.split("/")
+    if "labels" in entry:
+        flags = [label.get("flag") is True for label in entry["labels"]]
+    else:
+        flags = [entry.get("flag") is True]
+    if "negatives" in parts and any(flags):
+        return [f"{path}: a file under negatives/ carries a positive label"]
+    if "positives" in parts and not any(flags):
+        return [f"{path}: a file under positives/ has no positive label"]
     return []
 
 
@@ -163,6 +170,31 @@ def find_site_problems(*, path: str, entry: FileEntry, unit: str, corpus: Path) 
     )
     text = (corpus / path).read_text(encoding="utf-8")
     problems.extend(find_line_problems(path=path, text=text, unit=unit, lines=set(lines)))
+    problems.extend(find_drift_problems(path=path, text=text, labels=labels))
+    return problems
+
+
+def find_drift_problems(*, path: str, text: str, labels: list[SiteLabel]) -> list[str]:
+    """Check each label's recorded ``line_hash`` still matches the text of its line."""
+    source_lines = text.splitlines()
+    problems: list[str] = []
+    for label in labels:
+        line, recorded = label.get("line"), label.get("line_hash")
+        if not isinstance(line, int) or not 1 <= line <= len(source_lines):
+            continue
+        if recorded is None:
+            problems.append(f"{path}:{line}: label has no line_hash; run --stamp")
+            continue
+        if hash_line(text=source_lines[line - 1]) != recorded:
+            moved = [
+                number
+                for number, source in enumerate(source_lines, start=1)
+                if hash_line(text=source) == recorded
+            ]
+            where = f"; its text is now on line {moved[0]}" if len(moved) == 1 else ""
+            problems.append(
+                f"{path}:{line}: the labelled line's text changed since it was labelled{where}",
+            )
     return problems
 
 
@@ -200,17 +232,67 @@ def collect_definition_lines(*, text: str) -> set[int]:
     return {node.lineno for node in ast.walk(ast.parse(text)) if isinstance(node, kinds)}
 
 
-def main() -> int:
-    """Print every problem and return 1 if there is any, else 0."""
+def stamp_corpus(*, corpus: Path) -> int:
+    """Fill each entry's missing ``split`` and each label's missing ``line_hash``.
+
+    Returns how many values were written. A recorded value is never replaced.
+    """
+    document = read_labels(corpus=corpus)
+    written = 0
+    for path, entry in document["files"].items():
+        if "split" not in entry:
+            inner = path.partition("/")[2]
+            proposed = (
+                "holdout"
+                if path.startswith(GENERATED_PREFIX)
+                else compute_proposed_split(name=inner)
+            )
+            document["files"][path] = {"split": proposed, **entry}
+            written += 1
+        if "labels" in entry and (corpus / path).is_file():
+            text = (corpus / path).read_text(encoding="utf-8")
+            written += stamp_line_hashes(text=text, labels=entry["labels"])
+    if written:
+        write_labels(corpus=corpus, document=document)
+    return written
+
+
+def stamp_line_hashes(*, text: str, labels: list[SiteLabel]) -> int:
+    """Give each label without a ``line_hash`` the hash of its line; return how many."""
+    source_lines = text.splitlines()
+    written = 0
+    for label in labels:
+        line = label.get("line")
+        if "line_hash" not in label and isinstance(line, int) and 1 <= line <= len(source_lines):
+            label["line_hash"] = hash_line(text=source_lines[line - 1])
+            written += 1
+    return written
+
+
+def main(*, argv: list[str]) -> int:
+    """Stamp when asked, then print every problem and return 1 if there is any, else 0."""
+    parser = argparse.ArgumentParser(prog="validate_corpora.py", description=__doc__)
+    parser.add_argument(
+        "--stamp",
+        action="store_true",
+        help="Fill each entry's missing split and each label's missing line_hash first.",
+    )
+    args = parser.parse_args(argv)
+    if args.stamp:
+        for corpus in sorted(path for path in CORPORA_ROOT.iterdir() if path.is_dir()):
+            if (corpus / "labels.json").is_file():
+                written = stamp_corpus(corpus=corpus)
+                if written:
+                    print(f"{corpus.name}: stamped {written} value(s)")
     problems = find_problems()
     for problem in problems:
         print(problem)
     if problems:
         print(f"{len(problems)} corpus problem(s) found.", file=sys.stderr)
         return 1
-    print("every corpus is complete, placed and attributed.")
+    print("every corpus is complete, placed, attributed and in step.")
     return 0
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(main(argv=sys.argv[1:]))

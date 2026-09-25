@@ -2,8 +2,9 @@
 
 The CLI contract of the baseline is pinned by ``test_baseline.py`` and
 ``test_baseline_drift.py``; these pin the object those commands are built on:
-entries merge on load, the key is memoised over a shared line cache, the file
-is read once per run, and suppression honours the severity gate and budget.
+entries merge on load, the key is memoised over a shared line cache, the
+report is a snapshot of what the run read, and suppression honours the
+severity gate and budget.
 """
 
 from __future__ import annotations
@@ -14,9 +15,7 @@ from pathlib import Path
 
 import pytest
 
-from lanorme import CheckResult, Violation
-from lanorme import baseline as bl
-from lanorme import source_lines
+from lanorme import CheckResult, Violation, reports
 from lanorme.baseline import Baseline, FindingKeys
 from lanorme.cli import main
 from lanorme.errors import UsageError
@@ -93,17 +92,22 @@ def test_key_is_memoised_over_the_first_read(tmp_path: Path, keys) -> None:
     assert fresh == ("a.py", "EVAL-001", _anchor_of("something else"))
 
 
-def test_fingerprint_hashes_the_key_and_is_empty_without_a_file(keys) -> None:
-    # Arrange
-    finding = _build_finding()
+def test_fingerprint_tells_findings_apart_and_is_empty_without_a_file(keys) -> None:
+    # Arrange: the same code on two lines of different text.
+    on_line_2 = _build_finding(line=2)
+    on_line_3 = _build_finding(line=3)
 
     # Act
-    fingerprint = keys.compute_fingerprint(finding)
+    first = keys.compute_fingerprint(on_line_2)
+    again = keys.compute_fingerprint(_build_finding(line=2))
+    other = keys.compute_fingerprint(on_line_3)
+    file_less = keys.compute_fingerprint(_build_finding(file=""))
 
     # Assert
-    expected = hashlib.sha256("|".join(keys.build_key(finding)).encode("utf-8")).hexdigest()[:16]
-    assert fingerprint == expected
-    assert keys.compute_fingerprint(_build_finding(file="")) == ""
+    assert first == again
+    assert first != other
+    assert first and other
+    assert file_less == ""
 
 
 def test_suppress_honours_the_budget_and_the_severity_gate(tmp_path: Path, keys) -> None:
@@ -140,32 +144,15 @@ def test_stale_and_drift(tmp_path: Path, keys) -> None:
     assert recorded.find_drift(same) == []
 
 
-def test_check_reads_the_baseline_file_once(tmp_path: Path, monkeypatch) -> None:
-    # Arrange
-    (tmp_path / "pyproject.toml").write_text(
-        '[tool.lanorme]\nbaseline = "lanorme-baseline.json"\n',
-        encoding="utf-8",
-    )
-    (tmp_path / "a.py").write_text("def f(x):\n    return eval(x)\n", encoding="utf-8")
-    main(["baseline", "write", str(tmp_path)])
-    reads: list[Path] = []
-    original = bl._read_entries
-
-    def counting(path: Path) -> list[object]:
-        reads.append(path)
-        return original(path)
-
-    monkeypatch.setattr(bl, "_read_entries", counting)
-
-    # Act
-    main(["check", str(tmp_path)])
-
-    # Assert
-    assert reads == [tmp_path / "lanorme-baseline.json"]
+def _run_ndjson(root: Path, capsys) -> str:
+    capsys.readouterr()
+    with pytest.raises(SystemExit):
+        main(["check", str(root), "--output-format=ndjson"])
+    return capsys.readouterr().out
 
 
-def test_fingerprints_reuse_the_lines_the_run_read(tmp_path: Path, monkeypatch, capsys) -> None:
-    # Arrange: a finding with a baseline that does not cover it, reported as ndjson.
+def test_report_is_a_snapshot_of_what_the_run_read(tmp_path: Path, monkeypatch, capsys) -> None:
+    # Arrange: a baseline that does not cover the finding, and an undisturbed run.
     (tmp_path / "pyproject.toml").write_text(
         '[tool.lanorme]\nbaseline = "lanorme-baseline.json"\n',
         encoding="utf-8",
@@ -173,21 +160,21 @@ def test_fingerprints_reuse_the_lines_the_run_read(tmp_path: Path, monkeypatch, 
     (tmp_path / "a.py").write_text("x = 1\n", encoding="utf-8")
     main(["baseline", "write", str(tmp_path)])
     (tmp_path / "a.py").write_text("def f(x):\n    return eval(x)\n", encoding="utf-8")
-    decoded: list[int] = []
-    original = source_lines.decode_source
+    undisturbed = _run_ndjson(tmp_path, capsys)
+    original = reports.emit
 
-    def counting(raw: bytes) -> str:
-        decoded.append(len(raw))
-        return original(raw)
+    def emit_after_edits(**kwargs: object) -> None:
+        # The source and the baseline both change once the findings exist.
+        (tmp_path / "a.py").write_text("def f(y):\n    return exec(y)\n", encoding="utf-8")
+        (tmp_path / "lanorme-baseline.json").write_text("not json", encoding="utf-8")
+        original(**kwargs)
 
-    monkeypatch.setattr(source_lines, "decode_source", counting)
-    capsys.readouterr()
+    monkeypatch.setattr(reports, "emit", emit_after_edits)
 
     # Act
-    with pytest.raises(SystemExit):
-        main(["check", str(tmp_path), "--output-format=ndjson"])
+    disturbed = _run_ndjson(tmp_path, capsys)
 
-    # Assert: a.py was decoded once for inline ignores, baseline and fingerprint.
-    records = [json.loads(line) for line in capsys.readouterr().out.splitlines()]
+    # Assert: the same findings and fingerprints, from the text the run read.
+    records = [json.loads(line) for line in disturbed.splitlines()]
     assert records and all(record["fingerprint"] for record in records)
-    assert len(decoded) == 1
+    assert disturbed == undisturbed

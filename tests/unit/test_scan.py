@@ -9,7 +9,6 @@ registered checks. These pin that nothing outlives its block or its pass.
 
 from __future__ import annotations
 
-import threading
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -77,7 +76,7 @@ def test_activate_restores_the_previous_scan_when_the_block_raises() -> None:
     assert get_current_scan() is before
 
 
-def test_restrict_adds_excludes_replaces_scope_and_shares_the_cache() -> None:
+def test_restrict_adds_excludes_and_replaces_scope() -> None:
     # Arrange
     base = Scan(root=Path("/p"), scope="a", excludes=("x/*",))
 
@@ -87,25 +86,30 @@ def test_restrict_adds_excludes_replaces_scope_and_shares_the_cache() -> None:
 
     # Assert
     assert (restricted.scope, restricted.excludes) == ("a/b", ("x/*", "y"))
-    assert restricted.cache is base.cache
     assert kept == base
 
 
-def test_passes_of_one_run_share_its_parse_cache(tmp_path: Path) -> None:
+def _parse_keep(root: Path) -> object:
+    """The tree every check of the current scan is handed for ``keep/a.py``."""
+    return next(m.tree for m in sources.iter_modules(root) if m.relative == "keep/a.py")
+
+
+def test_passes_of_one_run_hand_checks_one_tree(tmp_path: Path) -> None:
     # Arrange
     _write_tree(tmp_path)
     base = Scan(root=tmp_path)
 
-    # Act
+    # Act: a scoped pass, then a whole-tree pass of the same run, then a new run.
     with base.restrict(scope="keep").activate():
-        list(sources.iter_modules(tmp_path))
+        first_pass = _parse_keep(tmp_path)
     with base.activate():
-        cached = sources.count_cached()
-    fresh = sources.count_cached()
+        second_pass = _parse_keep(tmp_path)
+    with Scan(root=tmp_path).activate():
+        next_run = _parse_keep(tmp_path)
 
-    # Assert: the keep/ parse is in the run's cache and not in the default one.
-    assert cached == 1
-    assert fresh == 0
+    # Assert: one parse per run, shared by its passes; a new run parses afresh.
+    assert second_pass is first_pass
+    assert next_run is not first_pass
 
 
 def test_compatibility_setters_change_the_current_scan(tmp_path: Path) -> None:
@@ -127,23 +131,6 @@ def test_compatibility_setters_change_the_current_scan(tmp_path: Path) -> None:
         "keep",
     )
     assert (before_clear, sources.count_cached()) == (1, 0)
-
-
-def test_a_scan_is_not_seen_by_another_thread() -> None:
-    # Arrange
-    seen: list[str] = []
-
-    def record() -> None:
-        seen.append(get_current_scan().scope)
-
-    # Act
-    with Scan(scope="mine").activate():
-        worker = threading.Thread(target=record)
-        worker.start()
-        worker.join()
-
-    # Assert
-    assert seen == [""]
 
 
 def test_register_refuses_a_second_check_under_a_taken_name() -> None:

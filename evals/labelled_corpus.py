@@ -6,16 +6,16 @@ Every corpus under ``evals/corpora/<name>/`` keeps its files in two splits:
 - ``holdout/`` is sealed: a change that tunes a rule never edits that rule's
   holdout files, so the holdout numbers show how the rule generalises.
 
-A hand-labelled file's split is fixed by a hash of its path inside the split
-(``positives/pos_x.py``), so the split is reproducible and a file cannot drift
-from one side to the other. A corpus whose hash split would leave fewer than
-``MIN_FILES_PER_SIDE`` files on either side is too small to split and keeps
-every file in ``dev/``; its ``labels.json`` records ``"split": "too_small"``.
+Each file's split is recorded in its ``labels.json`` entry (``"split"``) when
+the file is added, and the file sits under that directory. A hash of the path
+inside the split (``positives/pos_x.py``) only proposes the split for a new
+file; once recorded, the split never moves, whatever the corpus grows to.
 Files the adversarial generator writes live in ``holdout/generated/``.
 
-One ``labels.json`` at the corpus root carries every label and its provenance;
-``evals/README.md`` documents the schema. The scorers call
-``evaluate_corpus`` and report dev, holdout and the gap between them.
+One ``labels.json`` at the corpus root carries every label, its provenance and
+a short hash of the labelled line's text (``line_hash``), so a label that
+drifts off its line is caught; ``evals/README.md`` documents the schema. The
+scorers call ``evaluate_corpus`` and report dev, holdout and the gap.
 """
 
 from __future__ import annotations
@@ -31,7 +31,7 @@ CORPORA_ROOT = Path(__file__).resolve().parent / "corpora"
 REPO_ROOT = CORPORA_ROOT.parent.parent
 SPLITS = ("dev", "holdout")
 HOLDOUT_PERCENT = 30
-MIN_FILES_PER_SIDE = 3
+LINE_HASH_LENGTH = 8
 GENERATED_PREFIX = "holdout/generated/"
 CORPUS_SUFFIXES = frozenset({".py", ".md"})
 UNITS = frozenset({"comment", "definition", "line", "file"})
@@ -47,11 +47,13 @@ class SiteLabel(TypedDict, total=False):
     line: int
     flag: bool
     note: str
+    line_hash: str
 
 
 class FileEntry(TypedDict, total=False):
-    """One corpus file: its provenance and its labels (per line or per file)."""
+    """One corpus file: its split, its provenance and its labels (per line or per file)."""
 
+    split: str
     source: str
     labelled_by: str
     labelled_before_rule: bool | str
@@ -68,7 +70,6 @@ class LabelsDocument(TypedDict):
     rules: list[str]
     unit: str
     description: str
-    split: str
     files: dict[str, FileEntry]
 
 
@@ -125,15 +126,20 @@ class Evaluation:
     notes: dict[Site, str]
 
 
-def assign_split(*, name: str) -> str:
-    """Return the split ``dev`` or ``holdout`` that a file's inner path hashes to.
+def compute_proposed_split(*, name: str) -> str:
+    """Return the split, ``dev`` or ``holdout``, proposed for a new file.
 
     *name* is the path inside the split (``positives/pos_x.py``). The first 32
-    bits of its SHA-256, modulo 100, below ``HOLDOUT_PERCENT`` means holdout.
-    The answer depends on the name alone, so adding a file never moves another.
+    bits of its SHA-256, modulo 100, below ``HOLDOUT_PERCENT`` proposes holdout.
+    It is only a proposal: the split recorded in ``labels.json`` is what counts.
     """
     digest = hashlib.sha256(name.encode("utf-8")).hexdigest()
     return "holdout" if int(digest[:8], 16) % 100 < HOLDOUT_PERCENT else "dev"
+
+
+def hash_line(*, text: str) -> str:
+    """Return the short hash a label records for its line, ignoring indentation."""
+    return hashlib.sha256(text.strip().encode("utf-8")).hexdigest()[:LINE_HASH_LENGTH]
 
 
 def read_labels(*, corpus: Path) -> LabelsDocument:
@@ -327,7 +333,7 @@ def build_record(
     record: ScoreRecord = {
         "rule": rule,
         "corpus": corpus.relative_to(REPO_ROOT).as_posix(),
-        "split": document["split"],
+        "split": "dev_and_holdout" if held else "dev_only",
         **measure(expected=expected, flagged=flagged),
         "dev": dev,
         "holdout": holdout,

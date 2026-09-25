@@ -336,9 +336,11 @@ tried in several wrapping strategies before being declared prose:
 - Bare `return` / `yield` / `raise` are tried inside `def _(): ...`.
 - Decorator lines (`@foo`) are tried followed by `def _(): pass`.
 
-Measured against the 187-comment corpus under
+Measured against the 227-comment corpus under
 `evals/corpora/comments_commented_code/` with `evals/score_cmt001.py`:
-**P = 1.000 / R = 1.000 / F1 = 1.000** (TP = 72, FP = 0, FN = 0, TN = 115).
+**P = 1.000 / R = 1.000 / F1 = 1.000** (TP = 96, FP = 0, FN = 0, TN = 131),
+the same on the dev split, the holdout split and the 40 generated holdout
+comments.
 The negatives cover TODO tags, URLs, type contracts, licence headers, shebang
 lines, banners, math and units, prose, labelled notes, foreign literals,
 adverb fragments, illustrations and pragmas.
@@ -600,10 +602,22 @@ scored by weighted Jaccard. A pair flags only when the structure is similar
 that shares a shape but differs in its string keys or source attributes (config
 builders, dispatch tables, field mappers, framework handlers) is rejected.
 Equality/dunder/`@property` boilerplate and drifted logging-message strings are
-handled specially. Measured on the bundled corpus
-(`evals/corpora/duplication_similar/`, scorer `evals/score_similar.py`):
-**precision 1.000 / recall 0.850 / F1 0.919**. Known recall gaps: fully renamed
-attribute sets and error-message-only drift.
+handled specially. Known recall gaps: fully renamed attribute sets and
+error-message-only drift.
+
+Measured against `evals/corpora/duplication_similar/` with
+`evals/score_similar.py`:
+
+| split | P | R | F1 | TP | FP | FN | TN |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| dev | 1.000 | 0.800 | 0.889 | 20 | 0 | 5 | 34 |
+| holdout | 0.519 | 0.692 | 0.593 | 27 | 25 | 12 | 19 |
+| holdout, generated only | 0.324 | 0.522 | 0.400 | 12 | 25 | 11 | 3 |
+
+The holdout number is the honest one: the dev files were visible while the
+thresholds were tuned, and the generated cases (label-breaking edits of
+CPython functions) find the false positives dev never showed, so a
+recalibration is pending.
 
 ```toml
 [tool.lanorme.similarity]

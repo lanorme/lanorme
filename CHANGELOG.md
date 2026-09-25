@@ -47,6 +47,20 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
 - `lanorme.Registry` (`get_registry()`), whose `build_configured(config)` gives
   configured deep copies of the registered checks.
 - `lanorme.reports.format_violation` and `format_result`, the human rendering.
+- The evals keep every heuristic score honest. Each labelled corpus has a
+  `dev/` split rules may be tuned against and a sealed `holdout/` split; a
+  file's split is recorded in `labels.json` when it is added and never moves.
+  Every label carries its provenance and a hash of the line it labels.
+  `evals/validate_corpora.py` fails on an unlabelled file or comment, a label
+  that drifted off its line, a positive under `negatives/`, a `positives/`
+  file with no positive, a misplaced file or missing provenance.
+  `evals/generate_adversarial.py` writes seeded holdout cases whose labels come
+  from the edit that made them, never from a rule. The audit reports dev,
+  holdout and the gap per rule, records a digest of every holdout file, and
+  with `--gate` fails on a holdout file removed or changed since the baseline,
+  or on a holdout precision or recall more than 0.02 below the best any
+  release reached on the same holdout files, and says so when it had nothing
+  to gate. `scripts/check.sh` and `scripts/release.sh` run that gate.
 
 ### Changed
 
@@ -102,9 +116,14 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
   scan (`lanorme check tests`, `lanorme check tests/helpers.py`) confines the
   walk to the subtree instead of making it the root, so a nested region's
   files keep their `tests/` and `migrations/` exemptions, `per-file-ignores`
-  globs match them, and the whole-tree checks (`duplication`, `layer_deps`,
-  `port_coverage`, `test_coverage`) see the whole project, with `source_root`
-  read from it. The report is narrowed to the requested path.
+  globs match them, and the whole-tree checks (`docs`, `duplication`,
+  `layer_deps`, `port_coverage`, `test_coverage`) see the whole project. The
+  run keys (`exclude`, `ignore`, `select`, `promote`, `per-file-ignores`,
+  `source_root`, `baseline`) and the whole-tree checks' settings come from the
+  project root's config whatever path is scanned, so `lanorme check tests`
+  holds the same standard as `lanorme check .`; a nested config tunes only
+  its region's checks, and an `exclude` in a nested config no longer applies
+  to a subtree run. The report is narrowed to the requested path.
 - `test_coverage` honours the top-level `source_root` and otherwise finds its
   production directories one level down (a `src/` layout), so `lanorme check .`
   at the project root reports `TESTFILE-001` for a `src/app/...` tree.
@@ -174,6 +193,10 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
 
 ### Fixed
 
+- `docs/RULES.md` no longer claims `SIMILAR-001` precision 1.000 and recall
+  0.850: those were measured on files the thresholds were tuned against. It
+  reports the dev, holdout and generated-case numbers side by side (holdout
+  P 0.519 / R 0.692), and the `CMT-001` corpus figures are current.
 - A baselined whole-file finding (one reported at line 1, such as `SIZE-001`)
   is anchored on its file and code rather than on the rule's wording, so a
   recorded error still covers the warning it improves into instead of
