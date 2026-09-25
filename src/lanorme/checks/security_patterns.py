@@ -27,6 +27,7 @@ from lanorme import CheckResult, Violation, register
 from lanorme.astnames import read_str_constant
 from lanorme.checkconfig import read_str
 from lanorme.lexical_scopes import Binding, ScopeTree
+from lanorme.paths import is_test_file
 from lanorme.sources import TOO_DEEP, Module, iter_parsed_modules, build_skip_notice, locate
 
 # HTTP methods that mutate data, these MUST have auth.
@@ -446,7 +447,7 @@ def _build_finding_span(
 def _check_raw_sql(*, module: Module) -> list[Violation]:
     """SQL-001: only flag raw SQL that actually reaches a DB execution sink."""
     relative_file = module.relative
-    if "alembic" in relative_file or Path(relative_file).name.startswith("test_"):
+    if "alembic" in relative_file or is_test_file(relative_file):
         return []
     constants = _collect_string_constants(module=module)
     violations: list[Violation] = []

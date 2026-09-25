@@ -43,6 +43,7 @@ from typing import ClassVar
 from lanorme import CheckResult, Violation, register
 from lanorme.checkconfig import read_int, is_flag_set
 from lanorme.checks.restating import _is_allowlisted, _split_identifier, _strip_suffix
+from lanorme.paths import is_test_file
 from lanorme.sources import Module, iter_parsed_modules, locate
 
 # Definitions shorter than this need no docstring: a three-line helper whose
@@ -53,9 +54,9 @@ DEFAULT_MIN_LINES = 5
 # abbreviation of it. Below this, prefix matching is noise.
 MIN_ABBREVIATION = 3
 
-# Files where a missing docstring is not a defect: package markers, fixtures
-# and generated code. Mirrors the file_limits skip list.
-_SKIP_FILES = frozenset({"__init__.py", "conftest.py", "setup.py"})
+# Files where a missing docstring is not a defect: package markers and
+# generated code. Test files are exempt through ``lanorme.paths``.
+_SKIP_FILES = frozenset({"__init__.py", "setup.py"})
 _SKIP_DIRS = frozenset({"alembic", "migrations"})
 
 # Words carrying no information about what a definition does, beyond the
@@ -347,13 +348,11 @@ class DocstringsCheck:
         for module in iter_parsed_modules(Path(src_root)):
             # Match skip directories inside the root only: the absolute path's
             # ancestors are the user's filesystem, not the project layout.
-            name = module.path.name
             if (
                 any(part in _SKIP_DIRS for part in module.relative.split("/"))
-                or name in _SKIP_FILES
+                or module.path.name in _SKIP_FILES
+                or is_test_file(module.relative)
             ):
-                continue
-            if name.startswith("test_"):
                 continue
             violations.extend(
                 _find_definition_violations(

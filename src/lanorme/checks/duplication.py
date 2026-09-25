@@ -17,7 +17,7 @@ documentation, not a statement: it is left out of the body before the
 five-statement floor and the comparison. For the fuzzier
 near-duplicate cases see the ``similarity`` check (SIMILAR-001).
 
-Excludes: __init__.py, conftest.py, alembic/, migrations/, test_* prefixed files.
+Excludes: __init__.py, alembic/, migrations/, and test files (see lanorme.paths).
 
 Run:
     lanorme check . --check=duplication
@@ -32,6 +32,7 @@ from pathlib import Path
 
 from lanorme import CheckResult, Violation, register
 from lanorme.function_body import collect_local_bindings, list_body_statements
+from lanorme.paths import is_test_file
 from lanorme.sources import (
     TOO_DEEP,
     Module,
@@ -45,8 +46,8 @@ from lanorme.sources import (
 # Minimum number of statements in a function body to consider for duplication.
 MIN_BODY_STATEMENTS = 5
 
-# Files and directories excluded from scanning.
-EXCLUDED_FILENAMES = {"__init__.py", "conftest.py"}
+# Files and directories excluded from scanning (test files: ``lanorme.paths``).
+EXCLUDED_FILENAMES = {"__init__.py"}
 EXCLUDED_DIR_PARTS = {"alembic", "migrations"}
 
 
@@ -57,9 +58,7 @@ def _should_exclude(*, relative: Path) -> bool:
     user's filesystem above the root out of it: a checkout that happens to
     live under a ``migrations/`` directory is scanned like any other.
     """
-    if relative.name in EXCLUDED_FILENAMES:
-        return True
-    if relative.name.startswith("test_"):
+    if relative.name in EXCLUDED_FILENAMES or is_test_file(relative):
         return True
     return any(part in EXCLUDED_DIR_PARTS for part in relative.parts)
 

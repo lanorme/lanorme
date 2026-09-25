@@ -42,6 +42,7 @@ from typing import ClassVar
 
 from lanorme import CheckResult, Violation, register
 from lanorme.checkconfig import read_int, is_flag_set, read_str_list
+from lanorme.paths import is_test_file
 from lanorme.sources import iter_parsed_modules, locate
 
 # Beyond this many lines between binding and last use, a short name stops
@@ -301,9 +302,8 @@ class NamingScopeCheck:
         for module in iter_parsed_modules(Path(src_root)):
             # Match skip directories inside the root only: the absolute path's
             # ancestors are the user's filesystem, not the project layout.
-            if any(
-                part in _SKIP_DIRS for part in module.relative.split("/")
-            ) or module.path.name.startswith("test_"):
+            in_skip_dir = any(part in _SKIP_DIRS for part in module.relative.split("/"))
+            if in_skip_dir or is_test_file(module.relative):
                 continue
             file = module.relative
             for node in module.index.functions:

@@ -15,8 +15,8 @@ priority for security rules: do not produce a false sense of security):
    Stripe ``sk_live_`` / ``sk_test_``, Django ``django-insecure-``). These
    betray themselves regardless of where they sit, including as the fallback
    default of an ``os.environ.get(...)`` call.
-3. **Implicit exclusions**: files matching ``conftest.py``, ``seed_dev.py``,
-   or starting with ``test_`` are skipped wholesale; names whose first segment
+3. **Implicit exclusions**: ``seed_dev.py`` and test files (see
+   ``lanorme.paths``) are skipped wholesale; names whose first segment
    is ``help_`` / ``hint_`` / ``msg_`` / etc. are documentation; names whose
    last segment is structural (``pattern``, ``endpoint``, ``header``,
    ``name``, ``len``, ``env``, ``id``, ``file``, ``algorithm``, ...) are not
@@ -40,6 +40,7 @@ from pathlib import Path
 
 from lanorme import CheckResult, Violation, register
 from lanorme.astnames import read_str_constant
+from lanorme.paths import is_test_file
 from lanorme.sources import Module, iter_parsed_modules, locate
 
 # A name suggests a credential when (i) it matches one of these multi-segment
@@ -190,7 +191,8 @@ _PLACEHOLDER_MARKERS = (
     "sample",
 )
 
-_SCAN_EXCLUDES = {"conftest.py", "seed_dev.py"}
+# Skipped wholesale; test files are skipped through ``lanorme.paths``.
+_SCAN_EXCLUDES = {"seed_dev.py"}
 
 _PEM_BLOCK_RE = re.compile(r"-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----")
 _JWT_RE = re.compile(r"\beyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b")
@@ -407,8 +409,7 @@ class SecretsCheck:
     def run(self, *, src_root: str) -> CheckResult:
         violations: list[Violation] = []
         for module in iter_parsed_modules(Path(src_root)):
-            file_name = module.path.name
-            if file_name in _SCAN_EXCLUDES or file_name.startswith("test_"):
+            if module.path.name in _SCAN_EXCLUDES or is_test_file(module.relative):
                 continue
             violations.extend(_scan_tree(module=module))
         return CheckResult.from_findings(check=self.name, violations=violations)

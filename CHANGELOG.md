@@ -70,6 +70,28 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
 
 ### Changed
 
+- Every check that treats test code differently now shares one definition
+  of a test file, `lanorme.paths`: a module pytest collects by name
+  (`test_*.py` or `*_test.py`, wherever it lives), test support
+  (`conftest.py` anywhere; a `fixtures` or `factories` module or package
+  inside a tests directory), or anything under a `tests/` or `test/`
+  directory. `KWARG-001`, `DRY-001`, `SIZE-*`, `COMPLEXITY-001`, `PARAM-001`,
+  `SIMILAR-001`, `SECRETPY-001`, `SQL-001`, `IMPORT-001`, `NAMING-005`,
+  `CMT-006`, `CMT-007` and the `TERM` rules used to exempt only a `test_`
+  filename prefix (some also `conftest.py`), so a `tests/helpers.py` or a
+  fixture under `tests/fixtures/` was judged as production code;
+  `TYPE-001..004` and `STALE-001` exempted only a `tests/` directory, so a
+  `test/` suite or a `test_*.py` beside code was judged; `ATTR-001` and
+  `ATTR-002` already combined the two. All of them now exempt the union.
+  On LaNorme's own tree the change adds and removes no finding; see "Test
+  files" in `docs/RULES.md`.
+- `AAA-001` and `AAA-002` judge exactly the modules the shared definition
+  calls collected tests; the behaviour is unchanged.
+- `TESTFILE-001` now finds partner tests recursively under each configured
+  test root and accepts the `*_test.py` shape, so a module whose test lives
+  in a nested package (`tests/integration/api/test_users.py`) is no longer
+  reported as untested. `conftest.py`, fixtures and helpers under the root
+  are not partners.
 - `SIMILAR-001` states what it reports: two functions that carry out the same
   operations in the same control-flow positions and agree on their string
   literals and called names, differing only in names, numbers and one or two

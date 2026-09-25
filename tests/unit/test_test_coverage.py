@@ -422,3 +422,27 @@ def test_test_file_with_a_coding_cookie_is_read(tmp_path: Path):
     # Assert
     assert result.warnings == []
     assert result.status == Status.PASS
+
+
+def test_cli_scoped_to_src_credits_a_nested_partner_under_the_test_root(tmp_path: Path, capsys):
+    # Arrange: billing's partner sits in a nested package under tests/integration;
+    # a second service has none. The run is scoped to src/, outside tests/.
+    src = _project_with_uncovered_module(tmp_path, config="[tool.lanorme]\n")
+    (src / "application" / "services" / "refunds.py").write_text(
+        "def refund(): ...\n",
+        encoding="utf-8",
+    )
+    nested = tmp_path / "tests" / "integration" / "services"
+    nested.mkdir(parents=True)
+    (nested / "test_billing.py").write_text("def test_charge(): ...\n", encoding="utf-8")
+
+    # Act: run the real CLI over the src dir only.
+    try:
+        main(["check", str(src), "--check=test_coverage", "--json"])
+    except SystemExit:
+        pass
+
+    # Assert: the partner walk is not confined to the src/ scope, so only the
+    # service without a partner is reported.
+    findings = _parse_testfile_findings(capsys)
+    assert [w["file"] for w in findings] == ["src/application/services/refunds.py"]

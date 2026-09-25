@@ -83,11 +83,13 @@ from typing import ClassVar
 from lanorme import CheckResult, Violation, register
 from lanorme.checkconfig import is_flag_set, read_int
 from lanorme.function_body import collect_local_bindings, list_body_statements
+from lanorme.paths import is_test_file
 from lanorme.sources import Module, iter_parsed_modules, locate
 
-# Files exempt from near-duplicate analysis (mirrors DRY-001): test functions
-# and migrations are legitimately parallel by nature.
-_EXCLUDED_FILENAMES = frozenset({"__init__.py", "conftest.py"})
+# Files exempt from near-duplicate analysis (mirrors DRY-001): package markers
+# and migrations are legitimately parallel by nature; test files are exempt
+# through ``lanorme.paths``.
+_EXCLUDED_FILENAMES = frozenset({"__init__.py"})
 _EXCLUDED_DIR_PARTS = frozenset({"alembic", "migrations"})
 
 
@@ -97,7 +99,7 @@ def _should_skip(*, relative: Path) -> bool:
     *relative* is the path inside the scan root. Matching its parts, not the
     absolute path's, keeps the user's filesystem above the root out of it.
     """
-    if relative.name in _EXCLUDED_FILENAMES or relative.name.startswith("test_"):
+    if relative.name in _EXCLUDED_FILENAMES or is_test_file(relative):
         return True
     return any(part in _EXCLUDED_DIR_PARTS for part in relative.parts)
 

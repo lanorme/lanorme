@@ -1,8 +1,10 @@
 """TESTFILE-001: every production module must have a corresponding test.
 
 A single advisory (WARNING) rule, surfaced when a file in one of the hardwired
-production directories lacks a matching ``test_*.py`` partner under one of the
-configured test roots (``tests/integration/`` by default). AAA-style test
+production directories lacks a matching test module partner (a ``test_*.py``
+or ``*_test.py`` module, ``lanorme.paths.is_test_module``, at any depth)
+under one of the configured test roots (``tests/integration/`` by default).
+``conftest.py``, fixtures and helpers under a root are not partners. AAA-style test
 checks live in the ``test_style`` check.
 
 Findings are reported relative to ``src_root`` (the same base every other
@@ -31,7 +33,8 @@ from typing import ClassVar
 
 from lanorme import CheckResult, Violation, register
 from lanorme.checkconfig import read_str, read_str_list
-from lanorme.discovery import DEFAULT_PRUNE_DIRS
+from lanorme.discovery import DEFAULT_PRUNE_DIRS, iter_py_files
+from lanorme.paths import is_test_module
 from lanorme.sources import UNREADABLE, Module, parse_module
 
 
@@ -123,13 +126,20 @@ def _find_production_modules(*, run_root: Path, source_dir: Path) -> list[tuple[
 
 
 def _find_test_files(*, backend_root: Path, test_roots: tuple[str, ...]) -> list[Path]:
-    """Return all test_*.py files under each configured test root."""
+    """Return every test module (``lanorme.paths.is_test_module``) under each test root.
+
+    The walk is recursive and honours the user's ``exclude`` globs, so a
+    partner test in a nested package (``tests/integration/api/test_users.py``)
+    counts. Support files (``conftest.py``, fixtures, helpers) are not partners.
+    """
     found: list[Path] = []
     for test_root in test_roots:
         tests_dir = backend_root / test_root
         if not tests_dir.is_dir():
             continue
-        found.extend(tests_dir.glob("test_*.py"))
+        found.extend(
+            path for path in iter_py_files(tests_dir) if is_test_module(path.relative_to(tests_dir))
+        )
     return sorted(found)
 
 
@@ -194,13 +204,13 @@ def _module_has_test(
     test_file_imports: dict[str, tuple[str, list[str] | None]],
 ) -> bool:
     """True if any test file targets the module by name or by import."""
-    if f"test_{module_name}" in test_stems:
+    if f"test_{module_name}" in test_stems or f"{module_name}_test" in test_stems:
         return True
 
     parts = module_name.split("_")
     if len(parts) > 1:
         shortened = "_".join(parts[:-1])
-        if f"test_{shortened}" in test_stems:
+        if f"test_{shortened}" in test_stems or f"{shortened}_test" in test_stems:
             return True
 
     for contents, import_paths in test_file_imports.values():
@@ -283,8 +293,8 @@ class TestCoverageCheck:
         """Apply ``[tool.lanorme.test_coverage]`` configuration.
 
         ``test_roots`` is a list of directories (relative to the backend root,
-        the parent of the source directory) scanned for partner ``test_*.py``
-        files. An empty list (or one holding only empty strings) keeps the
+        the parent of the source directory) scanned recursively for partner
+        test modules. An empty list (or one holding only empty strings) keeps the
         current roots; a value that is not a list of strings is a config
         error. ``source_root`` is the top-level key the CLI injects, the
         directory the production layout lives under.

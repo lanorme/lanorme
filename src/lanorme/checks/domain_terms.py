@@ -30,6 +30,7 @@ from pathlib import Path
 from typing import ClassVar
 
 from lanorme import CheckResult, Violation, register
+from lanorme.paths import is_test_file
 from lanorme.sources import Module, UnparseableFile, iter_modules, locate, build_unparseable_notice
 
 # Each rule maps forbidden terms to a canonical replacement. Empty by default →
@@ -55,10 +56,10 @@ _SKIP_DIRS = ("migrations",)
 
 
 def _is_exempt_path(*, relative_path: str) -> bool:
-    normalized = relative_path.replace("\\", "/")
-    name = Path(normalized).name
-    if name.startswith("test_"):
+    """True for test files (see ``lanorme.paths``) and migration scaffolding."""
+    if is_test_file(relative_path):
         return True
+    normalized = relative_path.replace("\\", "/")
     return any(normalized.startswith(f"{d}/") or f"/{d}/" in normalized for d in _SKIP_DIRS)
 
 

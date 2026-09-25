@@ -1,8 +1,9 @@
 """AAA-001 and AAA-002: test-style enforcement for pytest-style suites.
 
-The check applies only to test functions in test files. A test function is a
-function whose name starts with ``test_`` defined inside a file whose stem
-starts with ``test_`` or ends with ``_test``.
+The check applies only to test functions in test modules. A test function is a
+function whose name starts with ``test_`` defined inside a module pytest
+collects by name (``lanorme.paths.is_test_module``: a ``test_*.py`` or
+``*_test.py`` stem); ``conftest.py``, fixtures and helpers are never judged.
 
     AAA-001  Each non-trivial test function must have inline AAA section
              comments (Arrange/Act/Assert, or Given/When/Then). The default
@@ -36,6 +37,7 @@ from typing import ClassVar
 
 from lanorme import CheckResult, Violation, register
 from lanorme.checkconfig import read_int, is_flag_set, read_str_list
+from lanorme.paths import is_test_module
 from lanorme.sources import Module, iter_parsed_modules, locate
 
 # Default marker vocabulary. AAA + BDD + a few common aliases.
@@ -48,17 +50,6 @@ _SECTION_ALIASES: dict[str, frozenset[str]] = {
     "act": frozenset({"act", "when", "exercise", "call"}),
     "assert": frozenset({"assert", "then", "expect", "verify"}),
 }
-
-# Directories that look like tests but are not (fixtures, factories, conftest).
-_TEST_NON_TEST_STEMS = frozenset({"conftest", "__init__", "fixtures", "factories"})
-
-
-def _is_test_file(*, path: Path) -> bool:
-    """True if *path* looks like a pytest test module."""
-    stem = path.stem
-    if stem in _TEST_NON_TEST_STEMS:
-        return False
-    return stem.startswith("test_") or stem.endswith("_test")
 
 
 def _is_test_function(*, node: ast.AST) -> bool:
@@ -275,7 +266,7 @@ class TestStyleCheck:
         marker_re, alias_to_section = self._build_alias_map()
         violations: list[Violation] = []
         for module in iter_parsed_modules(Path(src_root)):
-            if not _is_test_file(path=module.path):
+            if not is_test_module(module.relative):
                 continue
             violations.extend(
                 self._find_aaa_violations(

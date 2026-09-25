@@ -14,6 +14,34 @@ rule but a notice that a check skipped a file it could not parse, and
 `RUN-000` reports a check that raised; both stay warnings whatever `promote`
 says.
 
+## Test files
+
+Every rule that treats test code differently uses one definition, in
+`lanorme.paths`, so a file is a test for all of them or for none. Three
+predicates, each on the path relative to the scan root:
+
+- `is_test_module`: a module pytest collects by name, a `test_*.py` or
+  `*_test.py` stem, wherever it lives. pytest collects such a module beside
+  production code as readily as under `tests/`.
+- `is_test_support`: `conftest.py` anywhere, and a `fixtures` or `factories`
+  module or package inside a tests directory. A production `factories/`
+  package (the factory pattern) is not test code.
+- `is_under_tests_dir`: any directory on the path named `tests` or `test`
+  (the standard library and SQLAlchemy use the singular).
+
+A production rule exempts the union of the three: `KWARG-001`, `DRY-001`,
+`SIMILAR-001`, `SIZE-*`, `COMPLEXITY-001`, `PARAM-001`, `SECRETPY-001`,
+`SQL-001`, `IMPORT-001`, `NAMING-005`, `CMT-006`, `CMT-007`, the `TERM` rules,
+`TYPE-001..004`, `STALE-001`, `ATTR-001` and `ATTR-002`. `AAA-001` and
+`AAA-002` judge collected test modules only. `TESTFILE-001` counts collected
+test modules under each configured root as partners.
+
+A name that only contains the word (`tests_utils.py`, `contest.py`,
+`integration_tests/`) matches none of the three. The union errs towards
+exempting: a `test_*.py` module that ships inside a package (a dialect
+compliance suite, a self-test) is exempt from the production rules although
+it is not under a tests directory, because pytest would collect it.
+
 ---
 
 ## Attribute access: `ATTR-001` / `ATTR-002`
@@ -37,7 +65,8 @@ names that are not valid identifiers (cannot be written as `x.name`);
 `hasattr(socket, "AF_UNIX")`) and `getattr` on one with a literal name
 (`getattr(sys, "getwindowsversion")`), which is platform feature detection
 on a module rather than duck typing of an object (a `setattr` or `delattr`
-on a module is still reported); and files under `tests/` or `test/`. Dynamic names (`getattr(x, name)`) are reflection and exempt unless
+on a module is still reported); and test files (see "Test files" above).
+Dynamic names (`getattr(x, name)`) are reflection and exempt unless
 `flag_dynamic` is set.
 
 Config:
@@ -171,8 +200,8 @@ nothing. These two point the other way.
 
 - `CMT-006`: a public function or class whose span reaches `min_lines`
   (default 5) carries a docstring. Dunders, private names, members of a
-  private class, functions nested inside a function, `test_*` files,
-  `__init__.py`, `conftest.py`, `setup.py`, `alembic/` and `migrations/` are
+  private class, functions nested inside a function, test files (see "Test
+  files"), `__init__.py`, `setup.py`, `alembic/` and `migrations/` are
   out of scope. A definition under a module-level `if` or `try` is in scope.
 - `CMT-007`: that docstring says more than the signature. A docstring is
   vacuous when every content word in it is already carried by the
@@ -294,7 +323,8 @@ where each page sits.
 ## Domain terminology: `TERM-NNN`
 
 ConfigurableCheck ubiquitous-language enforcement. Inert by default. Each
-rule the user configures gets a code from the `TERM-` family.
+rule the user configures gets a code from the `TERM-` family. Test files
+(see "Test files") and `migrations/` are skipped.
 
 Config:
 ```toml
@@ -325,7 +355,8 @@ is a call through a variable, so that name is abstracted with the variable;
 builtins and imported names stay literal. It is precise but strict: a single
 added statement, a reordering, a changed number, a renamed attribute or a
 renamed call defeats the match. For the fuzzier "these should share a helper"
-cases, see `SIMILAR-001` below. Measured on the holdout split of the shared
+cases, see `SIMILAR-001` below. Skips `__init__.py`, `alembic/`,
+`migrations/`, and test files (see "Test files"). Measured on the holdout split of the shared
 corpus (`evals/corpora/duplication_similar/`, scorer `evals/score_dry001.py`),
 whose labels are near-duplicates rather than exact clones: **precision 1.000 /
 recall 0.538**; on the generated cases alone, precision 1.000 / recall 0.870
@@ -342,7 +373,8 @@ adapters across bounded contexts are a known limit; suppress them with
 
 Opt-in (default-off), advisory **warning** (never fails the build). The fuzzy
 companion to `DRY-001`: it catches the near-duplicates the exact check misses
-so a reviewer can decide whether to extract a shared helper.
+so a reviewer can decide whether to extract a shared helper. Skips the same
+files as `DRY-001`, test files (see "Test files") among them.
 
 Two functions in a file are near-duplicates when they carry out the same
 operations in the same control-flow positions and differ only in data and in
@@ -428,8 +460,8 @@ All default-on.
   (`self` / `cls`, or `mcs` / `metacls` in a metaclass). Warn at 5; error
   at 8.
 
-Skips `__init__.py`, `conftest.py`, `alembic/`, `migrations/`, and
-`test_*` files.
+Skips `__init__.py`, `alembic/`, `migrations/`, and test files (see "Test
+files").
 
 Every threshold above is a default, not a fixed number. A project sets its
 own without giving up the rule:
@@ -560,7 +592,8 @@ it conforms.
 ## Keyword arguments: `KWARG-001`
 
 Opt-in. With `enabled = true`, every multi-argument function definition
-must contain a bare `*` separator to force keyword-only call sites. Dunder
+must contain a bare `*` separator to force keyword-only call sites. Test
+files (see "Test files") are skipped. Dunder
 methods and methods decorated `@override`, `@typing.override` or
 `@typing_extensions.override` are exempt: their signature is fixed by the
 protocol or the base class, so the finding belongs there. A called decorator
@@ -880,7 +913,8 @@ service_crud = true   # enable NAMING-002
 
 ## Naming scope: `NAMING-005`
 
-Default-off. **Opinionated.** Lives in its own `naming_scope` check.
+Default-off. **Opinionated.** Lives in its own `naming_scope` check. Test
+files (see "Test files") and `migrations/` are skipped.
 
 `NAMING-005` does not ban short names. `i` in a three-line loop is
 perfectly readable; the same `i` bound at the top of a sixty-line function
@@ -942,7 +976,7 @@ an unbiased estimate; the calibration evidence is the table above.
   function or method body). Equivalent to ruff `PLC0415` with a different
   default. Imports inside an `if TYPE_CHECKING:` guard are exempt, as are
   files under `infrastructure/observability/` and `api/v1/main.py`
-  (conditional startup wiring); `test_*` files are skipped.
+  (conditional startup wiring); test files (see "Test files") are skipped.
 - `ENDPOINT-001`: default-on warning. Functions defined in files under
   `api/v1/endpoints/` must not exceed nesting depth 4. Deep endpoints
   correlate with missed branches in auth and validation paths.
@@ -1118,7 +1152,8 @@ Each rule has a positive + negative unit test under
   constants only is static. Static SQL passed alongside a `params=` /
   `parameters=` kwarg (or a second positional on `.execute`) with
   placeholder marks (`:name`, `%s`, `?`) is treated as safely
-  parameterised and not flagged. Excludes `alembic/` and `test_*` files.
+  parameterised and not flagged. Excludes `alembic/` and test files (see
+  "Test files").
   Measured against `evals/corpora/security_raw_sql/` (125 labels):
   **P = 1.000 / R = 1.000 / F1 = 1.000**. Known limitations not in the corpus: SQL
   built across multiple statements with helper functions; lazy-loaded
@@ -1140,8 +1175,8 @@ Each rule has a positive + negative unit test under
   phrase (`aws_access_key_id`). Placeholder markers (`<your-...>`, `REPLACE_ME`,
   `example`, ...) skip a value unless it is high-entropy enough (32+
   chars, mixed case, digits) to defeat the marker (AWS docs-style
-  example secret keys). Excludes `conftest.py`, `seed_dev.py`, and
-  files starting with `test_`. Measured against
+  example secret keys). Excludes `seed_dev.py` and test files (see "Test
+  files"). Measured against
   `evals/corpora/security_hardcoded_secrets/` (169 labels):
   **P = 1.000 / R = 1.000 / F1 = 1.000**. **Scope warning**:
   Python-source only; `.env`, `*.yaml`, `*.ipynb`, `*.tf`, `Dockerfile`,
@@ -1188,7 +1223,8 @@ check_links = true   # default; set false to skip SKILL-005
 ## Stale paths: `STALE-001`
 
 Inert until configured. Flags references to old path tokens in
-docstrings and comments after a refactor.
+docstrings and comments after a refactor. Test files (see "Test files")
+are skipped: a fixture may quote an old path on purpose.
 
 Config:
 ```toml
@@ -1229,7 +1265,7 @@ exclude    = ["sandbox"]           # extra directories to skip entirely
 
 ## Strong types: `TYPE-001..004`
 
-Default-on. Skips files under `tests/` and `migrations/`. `TYPE-001..003` are
+Default-on. Skips test files (see "Test files") and `migrations/`. `TYPE-001..003` are
 build-failing; `TYPE-004` is an advisory warning.
 
 - `TYPE-001`: `dict[str, Any]` (and other weakly-typed dict containers)
@@ -1315,9 +1351,9 @@ a regression that the `SUPPRESS` codes survive a `# noqa` naming them.
 ## Test coverage: `TESTFILE-001`
 
 Default-on warning. For each Python file under one of the hardwired
-production directories, verify that a matching `test_*.py` partner (by name
-or by import reference) exists under one of the configured test roots
-(`tests/integration/` by default). Note this is **file presence**, not
+production directories, verify that a matching test module (`test_*.py` or
+`*_test.py`, by name or by import reference, at any depth) exists under one
+of the configured test roots (`tests/integration/` by default). Note this is **file presence**, not
 coverage; it cannot tell you whether the test actually exercises the module.
 
 Findings are reported on the same path base as every other rule (relative to
@@ -1335,8 +1371,9 @@ The production directories are looked up under the top-level
 `[tool.lanorme] source_root` when one is set (`source_root = "src/myapp"`),
 else under the project root and then one level down (a `src/` layout).
 `test_roots` lists the directories (relative to the backend root, the parent
-of that source directory) scanned for partner test files; it defaults to
-`["tests/integration"]`. The scanned production directories
+of that source directory) scanned recursively for partner test modules; it
+defaults to `["tests/integration"]`. `conftest.py`, fixtures and helpers
+under a root are not partners (see "Test files"). The scanned production directories
 (`api/v1/endpoints`, `application/services`, `application/commands`,
 `application/queries`, `infrastructure/repositories`,
 `infrastructure/signing`, `infrastructure/secrets`) and the exempt modules
@@ -1346,7 +1383,9 @@ of that source directory) scanned for partner test files; it defaults to
 
 ## Test style: `AAA-001` / `AAA-002`
 
-Off until enabled.
+Off until enabled. Judges the `test_` functions (not fixtures) of collected
+test modules only, `test_*.py` or `*_test.py` (see "Test files");
+`conftest.py`, fixtures and helpers are never judged, even under `tests/`.
 
 - `AAA-001`: test functions with more than `min_statements` (default 3)
   body statements must carry at least `required_markers` (default 2) of

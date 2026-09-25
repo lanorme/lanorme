@@ -28,8 +28,8 @@ Rules:
               are exempt; their annotation shape is an Iterator or Generator,
               which is a separate rule's concern.
 
-Boundary exemptions: this check skips files under ``tests/`` and
-``migrations/``. JSON deserialisation entrypoints (functions decorated
+Boundary exemptions: this check skips test files (see ``lanorme.paths``)
+and ``migrations/``. JSON deserialisation entrypoints (functions decorated
 with the ``@boundary_dict`` marker, if introduced) should also be added
 to ``_EXEMPT_DECORATORS`` below as the codebase grows.
 
@@ -45,6 +45,7 @@ from pathlib import Path
 
 from lanorme import CheckResult, Violation, register
 from lanorme.astnames import find_decorator_leaf, list_decorator_leaves
+from lanorme.paths import is_test_file
 from lanorme.sources import (
     TOO_DEEP,
     Module,
@@ -71,10 +72,13 @@ _EXEMPT_DECORATORS = frozenset(
         # e.g. "boundary_dict", "raw_json", "external_payload"
     },
 )
-_EXEMPT_PATH_FRAGMENTS = ("tests/", "migrations/")
+_EXEMPT_PATH_FRAGMENTS = ("migrations/",)
 
 
 def _is_exempt_path(*, relative_path: str) -> bool:
+    """True for test files (see ``lanorme.paths``) and migration scaffolding."""
+    if is_test_file(relative_path):
+        return True
     normalised = relative_path.replace("\\", "/")
     return any(normalised.startswith(p) or f"/{p}" in normalised for p in _EXEMPT_PATH_FRAGMENTS)
 
