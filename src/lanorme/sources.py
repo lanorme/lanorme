@@ -15,9 +15,10 @@ number of checks; this module does it once and hands every check the same
 
 Trees are shared, so a check must never mutate one; copy first.
 
-The cache belongs to the current :class:`~lanorme.scan.Scan`, because the
-``Check.run(*, src_root)`` protocol carries no run context. The runner starts
-each run with a fresh scan, so a run never sees a tree from an earlier one;
+The cache belongs to the current :class:`~lanorme.scan.Scan`, the one the
+runner hands each check and activates around the call, so a helper reading a
+file never carries it. The runner starts each run with a fresh scan, so a run
+never sees a tree from an earlier one;
 outside a run the default scan's cache is shared by the process. An entry is
 also checked against the file's size, inode and timestamps, which catches an
 edit between two API calls except a same-size rewrite inside one timestamp

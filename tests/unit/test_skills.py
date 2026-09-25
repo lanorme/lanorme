@@ -11,6 +11,7 @@ from pathlib import Path
 
 from lanorme import Status
 from lanorme.checks.skills import SkillsCheck
+from lanorme.scan import Scan
 
 _CORPUS = Path(__file__).resolve().parents[1] / "fixtures" / "skills"
 
@@ -24,7 +25,7 @@ def _run(tmp_path: Path, *, dirname: str, content: str, files: dict[str, str] | 
         target = skill_dir / rel
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(body, encoding="utf-8")
-    result = SkillsCheck().run(src_root=str(tmp_path))
+    result = SkillsCheck().check(Scan(root=tmp_path))
     return result
 
 
@@ -48,7 +49,7 @@ def _build_frontmatter(
 def test_valid_fixtures_are_clean():
     # Arrange + Act: scan each valid skill fixture in isolation.
     for case in ("valid-minimal", "valid-folded", "valid-links"):
-        result = SkillsCheck().run(src_root=str(_CORPUS / case))
+        result = SkillsCheck().check(Scan(root=_CORPUS / case))
         # Assert: no findings at all.
         assert result.status == Status.PASS
         assert not result.violations and not result.warnings
@@ -66,7 +67,7 @@ def test_invalid_fixtures_fire_expected_rule():
     }
     for case, code in expected.items():
         # Act
-        result = SkillsCheck().run(src_root=str(_CORPUS / case))
+        result = SkillsCheck().check(Scan(root=_CORPUS / case))
         # Assert: the expected rule is present.
         assert code in _collect_codes(result), (
             f"{case} should fire {code}, got {_collect_codes(result)}"
@@ -278,7 +279,7 @@ def test_only_skill_md_is_scanned(tmp_path: Path):
     # Arrange: a non-SKILL.md markdown file with broken frontmatter must be ignored.
     (tmp_path / "README.md").write_text("---\nnot: a skill\n", encoding="utf-8")
     # Act
-    result = SkillsCheck().run(src_root=str(tmp_path))
+    result = SkillsCheck().check(Scan(root=tmp_path))
     # Assert
     assert result.status == Status.PASS
 
@@ -290,7 +291,7 @@ def test_disabled_check_is_silent(tmp_path: Path):
     (tmp_path / "bad").mkdir()
     (tmp_path / "bad" / "SKILL.md").write_text("no frontmatter", encoding="utf-8")
     # Act
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
     # Assert
     assert result.status == Status.PASS and not result.violations
 

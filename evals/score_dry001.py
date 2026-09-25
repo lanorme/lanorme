@@ -22,6 +22,7 @@ import tempfile
 from pathlib import Path
 
 from lanorme.checks.duplication import DuplicationCheck
+from lanorme.scan import Scan
 from labelled_corpus import ScoreRecord, Site, evaluate_corpus
 from metrics_report import run_scorer
 
@@ -35,7 +36,7 @@ def find_flagged(root: Path) -> set[Site]:
     for path in sorted(root.rglob("*.py")):
         with tempfile.TemporaryDirectory() as scratch:
             shutil.copy(path, Path(scratch) / path.name)
-            result = DuplicationCheck().run(src_root=scratch)
+            result = DuplicationCheck().check(Scan(root=Path(scratch)))
         if any(finding.code == RULE for finding in result.violations):
             flagged.add((path.relative_to(root).as_posix(), 0))
     return flagged

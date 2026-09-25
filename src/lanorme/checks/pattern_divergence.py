@@ -12,9 +12,9 @@ from __future__ import annotations
 
 import ast
 from dataclasses import dataclass, field
-from pathlib import Path
 
 from lanorme import CheckResult, Violation, register
+from lanorme.scan import Scan
 from lanorme.sources import (
     TOO_DEEP,
     Module,
@@ -236,12 +236,12 @@ class PatternDivergenceCheck:
         ],
     )
 
-    def run(self, *, src_root: str) -> CheckResult:
+    def check(self, scan: Scan) -> CheckResult:
         """Scan Python files under src/ for pattern divergence."""
         violations: list[Violation] = []
         warnings: list[Violation] = []
 
-        for module in iter_modules(Path(src_root)):
+        for module in iter_modules(scan.root):
             relative_file = module.relative
 
             # Skip test files.

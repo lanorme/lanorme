@@ -19,7 +19,6 @@ from __future__ import annotations
 
 import ast
 from dataclasses import dataclass, field
-from pathlib import Path
 from typing import ClassVar
 
 from lanorme import CheckResult, Violation, register
@@ -27,6 +26,7 @@ from lanorme.astnames import list_decorator_leaves
 from lanorme.checkconfig import is_flag_set
 from lanorme.checks.naming_shapes import Definition, is_framework_named, map_module_classes
 from lanorme.checks.naming_words import is_predicate, split_name
+from lanorme.scan import Scan
 from lanorme.sources import Module, iter_parsed_modules, locate
 
 # Allowed public method prefixes for repositories and services.
@@ -362,12 +362,12 @@ class NamingConsistencyCheck:
             default=self.service_crud,
         )
 
-    def run(self, *, src_root: str) -> CheckResult:
+    def check(self, scan: Scan) -> CheckResult:
         """Scan source files and validate naming conventions."""
         violations: list[Violation] = []
         warnings: list[Violation] = []
 
-        for module in iter_parsed_modules(Path(src_root)):
+        for module in iter_parsed_modules(scan.root):
             relative_file = module.relative
 
             # NAMING-001: Repository method naming (opt-in; conflicts with DDD ubiquitous-language).

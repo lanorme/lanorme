@@ -30,6 +30,7 @@ from typing import ClassVar
 
 from lanorme import CheckResult, Violation, register
 from lanorme.checkconfig import read_int
+from lanorme.scan import Scan
 from lanorme.sources import Module, UnparseableFile, iter_modules, locate, build_unparseable_notice
 
 # Default thresholds. Each is the default of the matching ``FileLimitsCheck``
@@ -506,12 +507,12 @@ class FileLimitsCheck:
 
         return violations, warnings
 
-    def run(self, *, src_root: str) -> CheckResult:
+    def check(self, scan: Scan) -> CheckResult:
         """Scan all Python files under src/ and enforce size limits."""
         violations: list[Violation] = []
         warnings: list[Violation] = []
 
-        for module in iter_modules(Path(src_root)):
+        for module in iter_modules(scan.root):
             if _should_exclude(relative=Path(module.relative)):
                 continue
             if isinstance(module, UnparseableFile):

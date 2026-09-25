@@ -24,11 +24,11 @@ from __future__ import annotations
 import ast
 import re
 from dataclasses import dataclass, field
-from pathlib import Path
 from typing import ClassVar
 
 from lanorme import CheckResult, Violation, register
 from lanorme.checkconfig import read_str_list
+from lanorme.scan import Scan
 from lanorme.sources import Module, iter_parsed_modules, locate
 
 # Default is empty → the check is inert until configured.
@@ -128,13 +128,13 @@ class StalePathsCheck:
         """Apply ``[tool.lanorme.stale_paths]`` configuration."""
         self.tokens = read_str_list(settings=settings, key="tokens")
 
-    def run(self, *, src_root: str) -> CheckResult:
+    def check(self, scan: Scan) -> CheckResult:
         violations: list[Violation] = []
         patterns = _compile_patterns(self.tokens)
         if not patterns:
             return CheckResult.from_findings(check=self.name)
 
-        for module in iter_parsed_modules(Path(src_root)):
+        for module in iter_parsed_modules(scan.root):
             if _is_exempt(relative_path=module.relative):
                 continue
             violations.extend(_scan_file(module=module, patterns=patterns))

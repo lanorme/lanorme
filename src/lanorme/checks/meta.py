@@ -20,6 +20,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from lanorme import CheckResult, Violation, get_all_checks, register, run_check
+from lanorme.scan import Scan
 
 
 def _validate_name(*, check_name: str) -> Violation | None:
@@ -76,7 +77,7 @@ def _validate_result_check_name(
                 f"Check '{check_name}' returned a CheckResult with "
                 f"check='{result.check}' (expected '{check_name}')"
             ),
-            fix="Return CheckResult(check=self.name, ...) from the run() method",
+            fix="Return CheckResult(check=self.name, ...) from the check() method",
         )
     return None
 
@@ -126,10 +127,10 @@ class MetaCheck:
         ],
     )
 
-    def run(self, *, src_root: str) -> CheckResult:
-        """Standalone entry: run every other check, then audit what they returned."""
+    def check(self, scan: Scan) -> CheckResult:
+        """Standalone entry: run every other check over *scan*, then audit what they returned."""
         results = {
-            check_name: run_check(check, src_root=src_root)
+            check_name: run_check(check, scan=scan)
             for check_name, check in get_all_checks().items()
             if check_name != self.name
         }

@@ -25,6 +25,7 @@ from typing import ClassVar
 
 from lanorme import CheckResult, Violation, register
 from lanorme.checkconfig import is_flag_set
+from lanorme.scan import Scan
 from lanorme.sources import UnparseableFile, iter_modules, locate, build_unparseable_notice
 
 # Parameters that are implicit receiver, never counted.
@@ -212,14 +213,14 @@ class NamedArgsCheck:
         """Apply ``[tool.lanorme.named_args]`` configuration."""
         self.enabled = is_flag_set(settings=settings, key="enabled", default=self.enabled)
 
-    def run(self, *, src_root: str) -> CheckResult:
+    def check(self, scan: Scan) -> CheckResult:
         """Scan all Python files under src/ and flag functions missing bare ``*``."""
         if not self.enabled:
             return CheckResult.from_findings(check=self.name)
         violations: list[Violation] = []
         warnings: list[Violation] = []
 
-        for module in iter_modules(Path(src_root)):
+        for module in iter_modules(scan.root):
             relative_file = module.relative
 
             # Skip test files entirely.

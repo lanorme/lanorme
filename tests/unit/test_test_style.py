@@ -7,6 +7,7 @@ green under its own enforcement when LaNorme runs against tests/.
 from __future__ import annotations
 
 from lanorme.checks.test_style import TestStyleCheck
+from lanorme.scan import Scan
 
 
 def _collect_rule_codes(violations) -> set[str]:
@@ -19,7 +20,7 @@ def test_short_test_function_is_exempt_from_aaa_markers(tmp_path, tmp_py_file):
     check = TestStyleCheck(enabled=True, min_statements=3)
 
     # Act
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert
     assert "AAA-001" not in _collect_rule_codes(result.violations)
@@ -36,7 +37,7 @@ def test_long_test_without_markers_triggers_aaa_001(tmp_path, tmp_py_file):
     check = TestStyleCheck(enabled=True, min_statements=3, required_markers=2)
 
     # Act
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert
     assert "AAA-001" in _collect_rule_codes(result.violations)
@@ -57,7 +58,7 @@ def test_test_with_arrange_and_assert_markers_passes(tmp_path, tmp_py_file):
     check = TestStyleCheck(enabled=True, min_statements=3, required_markers=2)
 
     # Act
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert
     assert "AAA-001" not in _collect_rule_codes(result.violations)
@@ -82,7 +83,7 @@ def test_duplicate_arrange_prefix_triggers_aaa_002(tmp_path, tmp_py_file):
     check = TestStyleCheck(enabled=True, dry_prefix_statements=3, required_markers=1)
 
     # Act
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert
     assert "AAA-002" in _collect_rule_codes(result.violations)
@@ -105,7 +106,7 @@ def test_fixture_function_is_not_treated_as_a_test(tmp_path, tmp_py_file):
     check = TestStyleCheck(enabled=True, min_statements=3, required_markers=2)
 
     # Act
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert
     assert "AAA-001" not in _collect_rule_codes(result.violations)
@@ -122,7 +123,7 @@ def test_root_under_a_skip_named_ancestor_is_still_scanned(tmp_path, tmp_py_file
     check = TestStyleCheck(enabled=True, min_statements=3, required_markers=2)
 
     # Act
-    result = check.run(src_root=str(tmp_path / "build" / "project"))
+    result = check.check(Scan(root=tmp_path / "build" / "project"))
 
     # Assert
     assert "AAA-001" in _collect_rule_codes(result.violations)

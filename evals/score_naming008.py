@@ -16,6 +16,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from lanorme.checks.naming_canon import NamingCanonCheck
+from lanorme.scan import Scan
 from labelled_corpus import ScoreRecord, Site, evaluate_corpus
 from metrics_report import run_scorer
 
@@ -25,7 +26,7 @@ CORPUS = "naming_weak_verb"
 
 def find_flagged(root: Path) -> set[Site]:
     """Run the check on one split and return its NAMING-008 sites."""
-    result = NamingCanonCheck().run(src_root=str(root))
+    result = NamingCanonCheck().check(Scan(root=root))
     return {
         (finding.file.replace("\\", "/"), finding.line)
         for finding in [*result.violations, *result.warnings]

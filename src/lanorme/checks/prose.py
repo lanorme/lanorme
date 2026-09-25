@@ -53,6 +53,7 @@ from lanorme import CheckResult, Violation, register
 from lanorme.checkconfig import is_flag_set, read_str_list
 from lanorme.discovery import iter_files
 from lanorme.markdown import EMOJI_RE, URL_RE, iter_prose_lines, strip_inline_code
+from lanorme.scan import Scan
 
 _EM_DASH = "—"
 
@@ -385,14 +386,14 @@ class ProseCheck:
         # ancestors are the user's filesystem, not the project layout.
         return not any(part in _SKIP_PARTS for part in relative.parts)
 
-    def run(self, *, src_root: str) -> CheckResult:
+    def check(self, scan: Scan) -> CheckResult:
         if not self.enabled:
             return CheckResult.from_findings(check=self.name)
 
         violations: list[Violation] = []
         warnings: list[Violation] = []
         spell_re = _compile_spellings(self.spellings)
-        root = Path(src_root)
+        root = scan.root
 
         for path in iter_files(root):
             relative = path.relative_to(root)

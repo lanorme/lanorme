@@ -36,6 +36,7 @@ from typing import ClassVar
 from lanorme import CheckResult, Violation, register
 from lanorme.checkconfig import read_str_list
 from lanorme.discovery import iter_files
+from lanorme.scan import Scan
 
 # Directories never scanned (vendored / generated / VCS).
 _VENDOR_DIRS = frozenset(
@@ -172,9 +173,9 @@ class StrayArtifactsCheck:
 
         return None
 
-    def run(self, *, src_root: str) -> CheckResult:
+    def check(self, scan: Scan) -> CheckResult:
         violations: list[Violation] = []
-        root = Path(src_root)
+        root = scan.root
         skip = _VENDOR_DIRS | frozenset(self.extra_excludes)
 
         for path in iter_files(root, prune=skip):

@@ -11,6 +11,7 @@ import lanorme
 from lanorme import CheckResult, Status, Violation, run_all
 from lanorme.checks.meta import MetaCheck
 from lanorme.cli import _load_builtin_checks, main
+from lanorme.scan import Scan
 
 
 @dataclass
@@ -22,7 +23,7 @@ class _Counting:
     rules: list[str] = field(default_factory=lambda: ["CNT-001: counted"])
     runs: int = 0
 
-    def run(self, *, src_root: str) -> CheckResult:
+    def check(self, scan: Scan) -> CheckResult:
         self.runs += 1
         return CheckResult.from_findings(check=self.name)
 
@@ -88,8 +89,8 @@ def test_check_meta_under_nested_regions_still_audits_every_check(
 
     @dataclass
     class _Impostor(_Counting):
-        def run(self, *, src_root: str) -> CheckResult:
-            ran.append(src_root)
+        def check(self, scan: Scan) -> CheckResult:
+            ran.append(str(scan.root))
             return CheckResult.from_findings(check="someone_else")
 
     impostor = _Impostor(name="honest")
@@ -384,7 +385,7 @@ def test_bare_rule_code_is_expanded_to_the_declared_string(tmp_path: Path):
     class _Terse(_Counting):
         rules: list[str] = field(default_factory=lambda: ["TERSE-001: Say it once", "TERSE-002"])
 
-        def run(self, *, src_root: str) -> CheckResult:
+        def check(self, scan: Scan) -> CheckResult:
             finding = Violation(file="f.py", line=3, rule="TERSE-001", message="m", fix="x")
             undeclared = Violation(file="f.py", line=4, rule="TERSE-002", message="m", fix="x")
             return CheckResult.from_findings(check=self.name, violations=[finding, undeclared])
@@ -726,7 +727,7 @@ def test_plugin_check_table_counts_as_a_known_key(tmp_path: Path, capsys, monkey
         "@dataclass\nclass House:\n"
         "    name: str = 'house'\n    description: str = 'house rules'\n"
         "    rules: list[str] = field(default_factory=lambda: ['HOUSE-001: rule'])\n"
-        "    def run(self, *, src_root):\n"
+        "    def check(self, scan):\n"
         "        return CheckResult.from_findings(check=self.name)\n\n"
         "register(House())\n",
         encoding="utf-8",

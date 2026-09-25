@@ -15,6 +15,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from lanorme.checks.comments import CommentsCheck
+from lanorme.scan import Scan
 from labelled_corpus import ScoreRecord, Site, evaluate_corpus
 from metrics_report import run_scorer
 
@@ -24,7 +25,7 @@ CORPUS = "comments_commented_code"
 
 def find_flagged(root: Path) -> set[Site]:
     """Run the comments check on one split and return its CMT-001 sites."""
-    result = CommentsCheck().run(src_root=str(root))
+    result = CommentsCheck().check(Scan(root=root))
     return {
         (finding.file.replace("\\", "/"), finding.line)
         for finding in result.violations

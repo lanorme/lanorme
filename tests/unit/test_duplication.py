@@ -11,6 +11,7 @@ from pathlib import Path
 
 from lanorme import Status
 from lanorme.checks.duplication import DuplicationCheck
+from lanorme.scan import Scan
 
 _DUP_BODY = (
     "def {name}(a, b):\n"
@@ -34,7 +35,7 @@ def test_deeply_nested_file_is_skipped_not_crashed(tmp_path: Path):
     (tmp_path / "b.py").write_text(_DUP_BODY.format(name="beta"), encoding="utf-8")
 
     # Act: the run must complete rather than raise RecursionError.
-    result = DuplicationCheck().run(src_root=str(tmp_path))
+    result = DuplicationCheck().check(Scan(root=tmp_path))
 
     # Assert: the deep file is skipped with a DRY-000 warning, and the genuine
     # duplicate is still detected.
@@ -52,7 +53,7 @@ def test_clean_tree_has_no_findings(tmp_path: Path):
     )
 
     # Act.
-    result = DuplicationCheck().run(src_root=str(tmp_path))
+    result = DuplicationCheck().check(Scan(root=tmp_path))
 
     # Assert.
     assert result.status == Status.PASS
@@ -73,7 +74,7 @@ def test_short_identical_bodies_below_threshold_are_not_flagged(tmp_path: Path):
     (tmp_path / "b.py").write_text(short_body.format(name="beta"), encoding="utf-8")
 
     # Act.
-    result = DuplicationCheck().run(src_root=str(tmp_path))
+    result = DuplicationCheck().check(Scan(root=tmp_path))
 
     # Assert: identical but too short, so no DRY-001 duplicate is raised.
     assert result.status == Status.PASS
@@ -87,7 +88,7 @@ def test_test_prefixed_files_are_excluded_from_duplication(tmp_path: Path):
     (tmp_path / "test_b.py").write_text(_DUP_BODY.format(name="beta"), encoding="utf-8")
 
     # Act.
-    result = DuplicationCheck().run(src_root=str(tmp_path))
+    result = DuplicationCheck().check(Scan(root=tmp_path))
 
     # Assert: excluded files never pair up, so the tree stays clean.
     assert result.status == Status.PASS
@@ -103,7 +104,7 @@ def test_root_under_a_skip_named_ancestor_is_still_scanned(tmp_path: Path):
     (root / "b.py").write_text(_DUP_BODY.format(name="beta"), encoding="utf-8")
 
     # Act: scan the project, not its ancestor.
-    result = DuplicationCheck().run(src_root=str(root))
+    result = DuplicationCheck().check(Scan(root=root))
 
     # Assert: the ancestor is the user's filesystem, not the project layout.
     assert result.status == Status.FAIL
@@ -136,7 +137,7 @@ def test_opposite_builtin_callees_are_not_clones(tmp_path: Path):
     )
 
     # Act.
-    result = DuplicationCheck().run(src_root=str(tmp_path))
+    result = DuplicationCheck().check(Scan(root=tmp_path))
 
     # Assert: the called name is kept, so the pair is distinct.
     assert result.status == Status.PASS
@@ -152,7 +153,7 @@ def test_renamed_variables_around_the_same_callee_still_clone(tmp_path: Path):
     )
 
     # Act.
-    result = DuplicationCheck().run(src_root=str(tmp_path))
+    result = DuplicationCheck().check(Scan(root=tmp_path))
 
     # Assert: flagged on both sides, at the def lines.
     assert [(v.file, v.line) for v in result.violations] == [("a.py", 1), ("b.py", 1)]
@@ -178,7 +179,7 @@ def test_renamed_local_callee_still_clones(tmp_path: Path):
     )
 
     # Act.
-    result = DuplicationCheck().run(src_root=str(tmp_path))
+    result = DuplicationCheck().check(Scan(root=tmp_path))
 
     # Assert: a call through a parameter is data, so the pair is a clone.
     assert [(v.file, v.line) for v in result.violations] == [("a.py", 1), ("b.py", 1)]
@@ -195,7 +196,7 @@ def test_imported_callees_stay_literal(tmp_path: Path):
     )
 
     # Act.
-    result = DuplicationCheck().run(src_root=str(tmp_path))
+    result = DuplicationCheck().check(Scan(root=tmp_path))
 
     # Assert: an imported name is a fixed operation, kept literal.
     assert result.status == Status.PASS
@@ -227,7 +228,7 @@ def test_lambda_parameter_does_not_make_a_builtin_callee_local(tmp_path: Path):
     )
 
     # Act.
-    result = DuplicationCheck().run(src_root=str(tmp_path))
+    result = DuplicationCheck().check(Scan(root=tmp_path))
 
     # Assert: the lambda's scope is its own, so ``len`` stays the builtin.
     assert result.status == Status.PASS
@@ -254,7 +255,7 @@ def test_docstring_does_not_count_towards_the_statement_floor(tmp_path: Path):
     )
 
     # Act.
-    result = DuplicationCheck().run(src_root=str(tmp_path))
+    result = DuplicationCheck().check(Scan(root=tmp_path))
 
     # Assert: below the floor, so not a clone.
     assert result.status == Status.PASS
@@ -270,7 +271,7 @@ def test_docstring_does_not_hide_a_clone(tmp_path: Path):
     _write_pair(tmp_path, first=documented, second=_DUP_BODY.format(name="beta"))
 
     # Act.
-    result = DuplicationCheck().run(src_root=str(tmp_path))
+    result = DuplicationCheck().check(Scan(root=tmp_path))
 
     # Assert: the docstring is left out of the comparison, so both sides match.
     assert [(v.file, v.line) for v in result.violations] == [("a.py", 1), ("b.py", 1)]

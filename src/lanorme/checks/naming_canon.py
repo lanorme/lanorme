@@ -28,7 +28,6 @@ from __future__ import annotations
 
 import ast
 from dataclasses import dataclass, field
-from pathlib import Path
 from typing import ClassVar
 
 from lanorme import CheckResult, Violation, register
@@ -55,6 +54,7 @@ from lanorme.checks.naming_words import (
     split_name,
     move_verb_first,
 )
+from lanorme.scan import Scan
 from lanorme.sources import locate
 
 RULE_006 = "NAMING-006: A class is named as a thing, not as an action"
@@ -264,7 +264,7 @@ class NamingCanonCheck:
         if exempt is not None:
             self.exempt = frozenset(exempt)
 
-    def run(self, *, src_root: str) -> CheckResult:
+    def check(self, scan: Scan) -> CheckResult:
         """Walk every module and collect NAMING-006..008 warnings, in source order."""
         settings = _Settings(
             verbs=self.verbs | self.weak_verbs,
@@ -273,7 +273,7 @@ class NamingCanonCheck:
             exempt=self.exempt,
         )
         warnings: list[Violation] = []
-        for relative, tree in iter_modules(root=Path(src_root)):
+        for relative, tree in iter_modules(root=scan.root):
             for definition in iter_definitions(tree=tree):
                 warnings.extend(
                     _collect_findings(definition=definition, file=relative, settings=settings),

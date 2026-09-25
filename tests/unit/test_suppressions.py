@@ -19,6 +19,7 @@ import pytest
 from lanorme import Status
 from lanorme.checks.suppressions import SuppressionsCheck
 from lanorme.directives import is_silenced_inline
+from lanorme.scan import Scan
 
 
 @pytest.fixture
@@ -49,7 +50,7 @@ def test_disabled_by_default(tmp_path: Path) -> None:
     _write(root=tmp_path, body="value = 1  # noqa\n")
 
     # Act
-    result = SuppressionsCheck().run(src_root=str(tmp_path))
+    result = SuppressionsCheck().check(Scan(root=tmp_path))
 
     # Assert
     assert result.status is Status.PASS
@@ -64,7 +65,7 @@ def test_disabled_by_default(tmp_path: Path) -> None:
 def test_over_budget_is_flagged_once(tmp_path: Path, check: SuppressionsCheck) -> None:
     _write(root=tmp_path, body="a = 1  # noqa: TYPE-001\nb = 2  # noqa: TYPE-001\n")
 
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert
     assert _collect_codes(result=result) == ["SUPPRESS-001"]
@@ -77,7 +78,7 @@ def test_within_budget_passes(tmp_path: Path) -> None:
     _write(root=tmp_path, body="a = 1  # noqa: TYPE-001\nb = 2  # noqa: TYPE-001\n")
 
     # Act
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert
     assert result.violations == []
@@ -86,7 +87,7 @@ def test_within_budget_passes(tmp_path: Path) -> None:
 def test_lanorme_directive_counts_too(tmp_path: Path, check: SuppressionsCheck) -> None:
     _write(root=tmp_path, body="a = 1  # lanorme: ignore[TYPE-001]\n")
 
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert
     assert _collect_codes(result=result) == ["SUPPRESS-001"]
@@ -95,7 +96,7 @@ def test_lanorme_directive_counts_too(tmp_path: Path, check: SuppressionsCheck) 
 def test_clean_file_passes(tmp_path: Path, check: SuppressionsCheck) -> None:
     _write(root=tmp_path, body='"""A module with nothing suppressed."""\n\nvalue = 1\n')
 
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert
     assert result.violations == []
@@ -109,7 +110,7 @@ def test_clean_file_passes(tmp_path: Path, check: SuppressionsCheck) -> None:
 def test_bare_noqa_is_blanket(tmp_path: Path, check: SuppressionsCheck) -> None:
     _write(root=tmp_path, body="a = 1  # noqa\n")
 
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert
     assert "SUPPRESS-002" in _collect_codes(result=result)
@@ -118,7 +119,7 @@ def test_bare_noqa_is_blanket(tmp_path: Path, check: SuppressionsCheck) -> None:
 def test_all_code_is_blanket(tmp_path: Path, check: SuppressionsCheck) -> None:
     _write(root=tmp_path, body="a = 1  # lanorme: ignore[ALL]\n")
 
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert
     assert "SUPPRESS-002" in _collect_codes(result=result)
@@ -131,7 +132,7 @@ def test_targeted_directive_is_not_blanket(tmp_path: Path) -> None:
     _write(root=tmp_path, body="a = 1  # noqa: TYPE-001\n")
 
     # Act
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert
     assert result.violations == []
@@ -144,7 +145,7 @@ def test_blanket_can_be_allowed(tmp_path: Path) -> None:
     _write(root=tmp_path, body="a = 1  # noqa\n")
 
     # Act
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert
     assert result.violations == []
@@ -161,7 +162,7 @@ def test_prose_naming_noqa_is_not_counted(tmp_path: Path, check: SuppressionsChe
     _write(root=tmp_path, body=body)
 
     # Act
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert
     assert result.violations == []
@@ -173,7 +174,7 @@ def test_directive_inside_a_string_is_not_counted(tmp_path: Path, check: Suppres
     _write(root=tmp_path, body=body)
 
     # Act
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert
     assert result.violations == []
@@ -226,7 +227,7 @@ def test_root_under_a_skip_named_ancestor_is_still_scanned(
     _write(root=root, body="a = 1  # noqa: TYPE-001\n")
 
     # Act
-    result = check.run(src_root=str(root))
+    result = check.check(Scan(root=root))
 
     # Assert
     assert _collect_codes(result=result) == ["SUPPRESS-001"]
@@ -255,7 +256,7 @@ def test_directives_naming_only_another_tools_codes_do_not_count(
     )
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert: nothing to price.
     assert result.status == Status.PASS
@@ -271,7 +272,7 @@ def test_a_lanorme_code_in_a_mixed_list_counts(
     _write(root=tmp_path, body="x = 1  # noqa: E501,DRY-001\ny = 2  # noqa: TYPE\n")
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert: two suppressions against a zero budget, neither blanket.
     assert _collect_codes(result=result) == ["SUPPRESS-001"]

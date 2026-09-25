@@ -33,6 +33,8 @@ from typing import Protocol, runtime_checkable
 from lanorme.checkconfig import ConfigurableCheck as ConfigurableCheck
 from lanorme.checkconfig import configure_checks
 from lanorme.errors import UsageError
+from lanorme.invocation import invoke_check, resolve_scan
+from lanorme.scan import Scan
 
 __version__ = "0.20.0"
 
@@ -124,19 +126,34 @@ def extract_code(rule: str) -> str:
     return head[0] if head else ""
 
 
-@dataclass
+@dataclass(init=False)
 class CheckResult:
     """Result of running a single check.
 
-    Build one with :meth:`from_findings` so the status always agrees with the
-    finding lists: any violation is ``FAIL``, otherwise any warning is ``WARN``,
-    otherwise ``PASS``.
+    ``status`` is derived from the finding lists, never stored: any violation
+    is ``FAIL``, otherwise any warning is ``WARN``, otherwise ``PASS``, so a
+    result cannot disagree with its own findings. Build one with
+    :meth:`from_findings` or the constructor. The constructor's ``status=``
+    argument is deprecated: it is accepted for this release and ignored, with
+    a ``DeprecationWarning`` that names the derived status when the two differ.
     """
 
     check: str
-    status: Status
     violations: list[Violation] = field(default_factory=list)
     warnings: list[Violation] = field(default_factory=list)
+
+    def __init__(
+        self,
+        check: str,
+        status: Status | None = None,
+        violations: list[Violation] | None = None,
+        warnings: list[Violation] | None = None,
+    ) -> None:
+        self.check = check
+        self.violations = [] if violations is None else violations
+        self.warnings = [] if warnings is None else warnings
+        if status is not None:
+            _warn_stored_status(given=status, derived=self.status)
 
     @classmethod
     def from_findings(
@@ -146,11 +163,17 @@ class CheckResult:
         violations: Iterable[Violation] = (),
         warnings: Iterable[Violation] = (),
     ) -> CheckResult:
-        """A result whose status is derived from its findings."""
-        hard = list(violations)
-        soft = list(warnings)
-        status = Status.FAIL if hard else (Status.WARN if soft else Status.PASS)
-        return cls(check=check, status=status, violations=hard, warnings=soft)
+        """A result holding copies of the given findings, from any iterables."""
+        return cls(check=check, violations=list(violations), warnings=list(warnings))
+
+    @property
+    def status(self) -> Status:
+        """``FAIL`` on any violation, else ``WARN`` on any warning, else ``PASS``."""
+        if self.violations:
+            return Status.FAIL
+        if self.warnings:
+            return Status.WARN
+        return Status.PASS
 
     def filter_findings(self, keep: Callable[[Violation], bool]) -> CheckResult:
         """A copy holding only the findings *keep* accepts, status recomputed."""
@@ -177,8 +200,30 @@ class CheckResult:
         return format_result(self)
 
 
+def _warn_stored_status(*, given: Status, derived: Status) -> None:
+    """The deprecation notice for ``CheckResult(status=...)``, louder when it disagrees."""
+    if given is derived:
+        detail = "it is derived from the findings and the argument is ignored"
+    else:
+        detail = f"it is derived from the findings ({derived.value}); {given.value} was ignored"
+    warnings.warn(
+        f"CheckResult(status=...) is deprecated: {detail}. Drop the argument or build "
+        "the result with CheckResult.from_findings()",
+        DeprecationWarning,
+        stacklevel=3,
+    )
+
+
 class Check(Protocol):
     """Protocol that all checks must implement.
+
+    The entry point is ``check(self, scan)``: it receives the
+    :class:`~lanorme.scan.Scan` for the pass (the root to walk, the subtree
+    scope, the exclude globs, the project's ``source_root`` and the run's
+    parse cache), which the runner activates around the call. The previous
+    entry point, ``run(self, *, src_root: str)``, is deprecated: a check that
+    defines it and no ``check`` still runs, with a ``DeprecationWarning`` once
+    per check class, until it is removed.
 
     A check may declare ``scope = "tree"`` (default ``"file"``) to mark that it
     compares or aggregates across files. Under cascading per-directory config a
@@ -190,8 +235,8 @@ class Check(Protocol):
     description: str
     rules: list[str]
 
-    def run(self, *, src_root: str) -> CheckResult:
-        """Run the check against the given source root and return results."""
+    def check(self, scan: Scan) -> CheckResult:
+        """Run the check over *scan* and return its findings."""
         ...
 
 
@@ -200,7 +245,7 @@ class ResultAuditor(Protocol):
     """A check that judges the other checks' results rather than the tree.
 
     The runner hands it every other check's result, keyed by registry name,
-    once they are all in; ``run()`` stays the standalone path (``--check``),
+    once they are all in; ``check()`` stays the standalone path (``--check``),
     where the check gathers those results itself.
     """
 
@@ -326,23 +371,30 @@ def expand_rules(*, check: Check, result: CheckResult) -> CheckResult:
 
     return CheckResult(
         check=result.check,
-        status=result.status,
         violations=[expand(v) for v in result.violations],
         warnings=[expand(w) for w in result.warnings],
     )
 
 
-def run_check(check: Check, *, src_root: str) -> CheckResult:
+def run_check(
+    check: Check,
+    *,
+    scan: Scan | None = None,
+    src_root: str | None = None,
+) -> CheckResult:
     """Run one check, isolating any exception so it cannot abort the whole run.
 
-    A bug in one check (a `RecursionError` on a pathological file, say) must not
-    discard the results of every other check. The failure is reported as a
-    warning on that check and the run continues. A :class:`UsageError` is the
-    exception: it is the user's mistake, not the check's, so it propagates to
-    the caller (exit 2 at the CLI) rather than hiding in a crash notice.
+    The check runs over *scan*, which is active for the call; *src_root* alone
+    runs it over that path under the confinement in force. A bug in one check
+    (a `RecursionError` on a pathological file, say) must not discard the
+    results of every other check. The failure is reported as a warning on that
+    check and the run continues. A :class:`UsageError` is the exception: it is
+    the user's mistake, not the check's, so it propagates to the caller (exit 2
+    at the CLI) rather than hiding in a crash notice.
     """
+    resolved = resolve_scan(scan=scan, src_root=src_root)
     try:
-        return expand_rules(check=check, result=check.run(src_root=src_root))
+        return expand_rules(check=check, result=invoke_check(check, scan=resolved))
     except UsageError:
         raise
     except Exception as exc:  # one check must not sink the run
@@ -359,16 +411,18 @@ def run_audit(check: ResultAuditor, *, results: dict[str, CheckResult]) -> Check
         return _crash_notice(check=check, exc=exc)
 
 
-def run_all(*, src_root: str) -> list[CheckResult]:
-    """Run all registered checks and return their results, in registry order.
+def run_all(*, scan: Scan | None = None, src_root: str | None = None) -> list[CheckResult]:
+    """Run all registered checks over one scan and return their results, in registry order.
 
+    *src_root* alone runs them over that path, as for :func:`run_check`.
     Result auditors run last, over the results the other checks produced, so
     the tree is walked once per check rather than once more for the audit.
     """
+    resolved = resolve_scan(scan=scan, src_root=src_root)
     by_name: dict[str, CheckResult] = {}
     for name, check in _registry.items():
         if not isinstance(check, ResultAuditor):
-            by_name[name] = run_check(check, src_root=src_root)
+            by_name[name] = run_check(check, scan=resolved)
     for name, check in _registry.items():
         if isinstance(check, ResultAuditor):
             by_name[name] = run_audit(check, results=by_name)

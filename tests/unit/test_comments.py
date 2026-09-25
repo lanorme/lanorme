@@ -18,6 +18,7 @@ from lanorme import Status
 from lanorme import comment_code as comments_module
 from lanorme.comment_code import _comment_parses_as_code
 from lanorme.checks.comments import CommentsCheck
+from lanorme.scan import Scan
 
 # A single-line expression nested far enough to overflow a recursion-bounded
 # parser, yet syntactically valid where it does parse.
@@ -58,7 +59,7 @@ def test_deep_comment_in_file_completes_without_flagging(check: CommentsCheck, t
     _write(root=tmp_path, name="deep.py", body=f"# {_DEEP_EXPRESSION}\nx = 1\n")
 
     # Act: the run must complete rather than raise RecursionError.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert: the deep comment is not mistaken for commented-out code (it may
     # still trip the unrelated over-long-line rule, which is fine here).
@@ -71,7 +72,7 @@ def test_cmt001_flags_commented_out_code(check: CommentsCheck, tmp_path: Path):
     _write(root=tmp_path, name="dead.py", body="x = 1\n# y = x + 2\n")
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert.
     assert result.status == Status.FAIL
@@ -83,7 +84,7 @@ def test_cmt001_ignores_prose(check: CommentsCheck, tmp_path: Path):
     _write(root=tmp_path, name="prose.py", body="# this is a real explanation.\nx = 1\n")
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert.
     assert result.status == Status.PASS
@@ -101,7 +102,7 @@ def test_cmt001_skips_pep723_inline_metadata(check: CommentsCheck, tmp_path: Pat
     _write(root=tmp_path, name="script.py", body=f"{_PEP723_BLOCK}import sys\n\nprint(sys.argv)\n")
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert: the metadata block is tooling, not commented-out code.
     assert not any(v.rule == "CMT-001" for v in result.violations)
@@ -117,7 +118,7 @@ def test_cmt001_still_flags_dead_code_outside_pep723_block(check: CommentsCheck,
     )
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert: the block is exempt, the trailing dead-code line is not.
     flagged = [v for v in result.violations if v.rule == "CMT-001"]
@@ -142,7 +143,7 @@ def test_cmt002_flags_overlong_block(check: CommentsCheck, tmp_path: Path):
     _write(root=tmp_path, name="block.py", body=block + "x = 1\n")
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert.
     assert result.status == Status.FAIL
@@ -157,7 +158,7 @@ def test_cmt002_block_at_limit_is_allowed(check: CommentsCheck, tmp_path: Path):
     _write(root=tmp_path, name="edge.py", body=block + "x = 1\n")
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert.
     assert result.status == Status.PASS
@@ -170,7 +171,7 @@ def test_cmt002_flags_overlong_line(check: CommentsCheck, tmp_path: Path):
     _write(root=tmp_path, name="long.py", body=f"# {long_text}\nvalue = 1\n")
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert.
     assert result.status == Status.FAIL
@@ -196,7 +197,7 @@ def test_cmt002_long_block_allowed_in_front_of_complex_code(check: CommentsCheck
     _write(root=tmp_path, name="hard.py", body=body)
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert: hard code earns the room to say why it is hard.
     assert not any(v.rule == "CMT-002" for v in result.violations)
@@ -212,7 +213,7 @@ def test_cmt002_same_block_still_flagged_in_front_of_trivial_code(
     _write(root=tmp_path, name="easy.py", body=body)
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert.
     assert result.status == Status.FAIL
@@ -228,7 +229,7 @@ def test_cmt002_block_inside_a_complex_function_is_allowed(check: CommentsCheck,
     _write(root=tmp_path, name="inside.py", body=body)
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert.
     assert not any(v.rule == "CMT-002" for v in result.violations)
@@ -241,7 +242,7 @@ def test_cmt002_module_banner_keeps_the_base_allowance(check: CommentsCheck, tmp
     _write(root=tmp_path, name="banner.py", body=body)
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert.
     assert result.status == Status.FAIL
@@ -260,7 +261,7 @@ def test_cmt002_scaling_is_configurable(tmp_path: Path):
     )
 
     # Act.
-    result = instance.run(src_root=str(tmp_path))
+    result = instance.check(Scan(root=tmp_path))
 
     # Assert.
     assert result.status == Status.FAIL
@@ -274,7 +275,7 @@ def test_root_under_a_skip_named_ancestor_is_still_scanned(check: CommentsCheck,
     _write(root=root, name="dead.py", body="x = 1\n# y = x + 2\n")
 
     # Act: scan the project, not its ancestor.
-    result = check.run(src_root=str(root))
+    result = check.check(Scan(root=root))
 
     # Assert: the ancestor is the user's filesystem, not the project layout.
     assert result.status == Status.FAIL
@@ -308,7 +309,7 @@ def test_cmt001_ignores_notes_that_happen_to_parse(
     _write(root=tmp_path, name="note.py", body=f"# {text}\nx = 1\n")
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert: none of these is disabled code.
     assert not any(v.rule == "CMT-001" for v in result.violations)
@@ -334,7 +335,7 @@ def test_cmt001_still_flags_typed_assignments_and_real_operands(
     _write(root=tmp_path, name="dead.py", body=f"# {text}\nx = 1\n")
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert.
     assert [v.line for v in result.violations if v.rule == "CMT-001"] == [1]
@@ -353,7 +354,7 @@ def test_cmt001_ignores_code_under_an_example_header(check: CommentsCheck, tmp_p
     _write(root=tmp_path, name="usage.py", body=body)
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert: only the block without an illustration header is dead code.
     assert [v.line for v in result.violations if v.rule == "CMT-001"] == [6]
@@ -371,7 +372,7 @@ def test_cmt002_licence_header_is_not_a_verbose_block(check: CommentsCheck, tmp_
     _write(root=tmp_path, name="licensed.py", body=f"{header}x = 1\n")
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert.
     assert not any(v.rule == "CMT-002" for v in result.violations)
@@ -385,7 +386,7 @@ def test_cmt002_pep723_block_is_neither_verbose_nor_code(check: CommentsCheck, t
     _write(root=tmp_path, name="script.py", body=f"{block}x = 1\n")
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert.
     assert result.violations == []
@@ -399,7 +400,7 @@ def test_cmt002_url_and_pragma_lines_are_not_measured(check: CommentsCheck, tmp_
     _write(root=tmp_path, name="long.py", body=f"{url}\n{pragma}\n{prose}\nx = 1\n")
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert: only the prose is something the author can tighten.
     assert [v.line for v in result.violations if v.rule == "CMT-002"] == [3]
@@ -415,7 +416,7 @@ def test_cmt002_preamble_above_decorators_earns_the_function_allowance(
     _write(root=tmp_path, name="decorated.py", body=body)
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert: the decorators do not push the preamble out of reach.
     assert not any(v.rule == "CMT-002" for v in result.violations)
@@ -440,7 +441,7 @@ def test_prose003_on_comments_spares_typographic_symbols(tmp_path: Path):
     _write(root=tmp_path, name="symbols.py", body=body)
 
     # Act.
-    result = instance.run(src_root=str(tmp_path))
+    result = instance.check(Scan(root=tmp_path))
 
     # Assert: the rocket and the heavy check mark are emoji; the rest is not.
     assert [v.line for v in result.violations if v.rule == "PROSE-003"] == [3, 4]
@@ -467,7 +468,7 @@ def test_cmt001_reads_a_module_name_as_code_not_as_a_note(
     _write(root=tmp_path, name="dead.py", body=body)
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert.
     assert [(v.code, v.file, v.line) for v in result.violations if v.code == "CMT-001"] == [
@@ -491,7 +492,7 @@ def test_cmt001_keeps_the_note_reading_when_the_word_is_not_the_modules(
     _write(root=tmp_path, name="note.py", body=body)
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert.
     assert not any(v.code == "CMT-001" for v in result.violations)

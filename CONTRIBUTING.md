@@ -65,11 +65,13 @@ warnings down: refactor rather than suppress where you reasonably can.
 
 ## Adding or changing a check
 
-A check is any object with `name`, `description`, `rules`, and a `run` method.
-An optional `configure` method receives its `[tool.lanorme.<name>]` table.
+A check is any object with `name`, `description`, `rules`, and a `check`
+method that receives the `lanorme.scan.Scan` for the pass. An optional
+`configure` method receives its `[tool.lanorme.<name>]` table.
 
 ```python
 from lanorme import CheckResult, Violation, register
+from lanorme.scan import Scan
 from lanorme.sources import iter_parsed_modules
 
 
@@ -78,15 +80,21 @@ class MyCheck:
     description = "What it enforces, in one line"
     rules = ["MYCODE-001: the rule, in one line"]
 
-    def run(self, *, src_root: str) -> CheckResult:
+    def check(self, scan: Scan) -> CheckResult:
         violations: list[Violation] = []
-        for module in iter_parsed_modules(src_root):
+        for module in iter_parsed_modules(scan.root):
             ...  # inspect module.index, module.source, module.lines
         return CheckResult.from_findings(check=self.name, violations=violations)
 
 
 register(MyCheck())
 ```
+
+The result's status is derived from its findings; a check never sets one. The
+previous entry point, `run(self, *, src_root)`, is deprecated: a plugin that
+still defines it runs with a `DeprecationWarning`, and no built-in check
+carries one, so do not add it to a new check. See
+[Write a custom check](docs/how-to/write-a-check.md) for the scan.
 
 Drop the module in `src/lanorme/checks/`; it is discovered and registered
 automatically. Third-party checks can instead ship under the `lanorme.checks`

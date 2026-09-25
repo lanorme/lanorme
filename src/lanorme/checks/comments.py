@@ -29,7 +29,6 @@ Run:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from pathlib import Path
 from typing import ClassVar
 
 from lanorme import CheckResult, Violation, register
@@ -45,6 +44,7 @@ from lanorme.comment_code import (
 from lanorme.checks.file_limits import _measure_cyclomatic_complexity
 from lanorme.lexical_scopes import ModuleBindings
 from lanorme.markdown import EMOJI_RE
+from lanorme.scan import Scan
 from lanorme.sources import Module, iter_parsed_modules
 
 _EM_DASH = "—"
@@ -345,9 +345,9 @@ class CommentsCheck:
                 )
         return found
 
-    def run(self, *, src_root: str) -> CheckResult:
+    def check(self, scan: Scan) -> CheckResult:
         violations: list[Violation] = []
-        for module in iter_parsed_modules(Path(src_root)):
+        for module in iter_parsed_modules(scan.root):
             violations.extend(
                 self._scan_file(
                     module=module,

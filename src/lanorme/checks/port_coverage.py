@@ -44,6 +44,7 @@ from typing import ClassVar
 from lanorme import CheckResult, Violation, register
 from lanorme.checkconfig import read_str_list, read_str
 from lanorme.discovery import iter_py_files
+from lanorme.scan import Scan
 from lanorme.sources import Module, parse_module, locate
 
 # Adapter files that are pure utilities or re-exports, not port implementations.
@@ -520,10 +521,10 @@ class PortCoverageCheck:
                 frozenset(read_str_list(settings=settings, key=key, default=current)),
             )
 
-    def run(self, *, src_root: str) -> CheckResult:
+    def check(self, scan: Scan) -> CheckResult:
         """Scan ports and adapters and validate coverage."""
         violations: list[Violation] = []
-        src_path = Path(src_root)
+        src_path = scan.root
         # Ports/adapters/api are located under the architectural root; reported
         # paths stay anchored at the scan target (so --exclude / # noqa line up).
         base = src_path / self.source_root if self.source_root else src_path

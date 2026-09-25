@@ -24,12 +24,12 @@ from __future__ import annotations
 
 import fnmatch
 from dataclasses import dataclass, field
-from pathlib import Path
 from typing import ClassVar
 
 from lanorme import CheckResult, Violation, register
 from lanorme.checkconfig import read_str_list
 from lanorme.discovery import iter_dirs
+from lanorme.scan import Scan
 
 # Default is empty → the check is inert until configured.
 _FORBIDDEN_DIRS: tuple[str, ...] = ()
@@ -74,9 +74,9 @@ class ForbiddenPathsCheck:
         """Apply ``[tool.lanorme.forbidden_paths]`` configuration."""
         self.forbidden_dirs = read_str_list(settings=settings, key="dirs")
 
-    def run(self, *, src_root: str) -> CheckResult:
+    def check(self, scan: Scan) -> CheckResult:
         violations: list[Violation] = []
-        root = Path(src_root)
+        root = scan.root
         if not self.forbidden_dirs:
             return CheckResult.from_findings(check=self.name)
 

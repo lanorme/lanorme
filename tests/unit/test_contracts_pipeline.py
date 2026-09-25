@@ -15,6 +15,7 @@ from pathlib import Path
 import lanorme
 from lanorme import CheckResult, Violation
 from lanorme.cli import main
+from lanorme.scan import Scan
 
 
 def _run(argv: list[str]) -> int:
@@ -43,7 +44,7 @@ def test_bare_code_on_a_warning_is_expanded(tmp_path: Path):
         description: str = "d"
         rules: list[str] = field(default_factory=lambda: ["TERSE-001: Say it once"])
 
-        def run(self, *, src_root: str) -> CheckResult:
+        def check(self, scan: Scan) -> CheckResult:
             w = Violation(file="f.py", line=3, rule="TERSE-001", message="m", fix="x")
             return CheckResult.from_findings(check=self.name, warnings=[w])
 

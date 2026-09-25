@@ -12,9 +12,10 @@ from pathlib import Path
 
 import pytest
 
-from lanorme import CheckResult, Registry, Status, Violation, discovery, get_registry
+from lanorme import CheckResult, Registry, Violation, discovery, get_registry
 from lanorme.cli import _load_builtin_checks, main
 from lanorme.reports import _emit_github
+from lanorme.scan import Scan
 
 
 class _Spy:
@@ -95,15 +96,15 @@ def test_authn_fires_on_a_src_layout_project_through_the_cli(tmp_path: Path, cap
 
 
 class _ExcludeSpy:
-    """A check that records the exclude globs discovery honours while it runs."""
+    """A check that records the exclude globs of the scan it is handed."""
 
     name = "exclude_spy"
-    description = "records the active excludes"
+    description = "records the scan's excludes"
     rules: list[str] = []
     seen: list[tuple[str, ...]] = []
 
-    def run(self, *, src_root: str) -> CheckResult:
-        _ExcludeSpy.seen.append(discovery.get_active_excludes())
+    def check(self, scan: Scan) -> CheckResult:
+        _ExcludeSpy.seen.append(scan.excludes)
         return CheckResult.from_findings(check=self.name)
 
 
@@ -124,8 +125,8 @@ def test_main_publishes_configured_excludes_to_discovery(tmp_path: Path, capsys,
     except SystemExit:
         pass
 
-    # Assert: the glob reached the discovery layer during the run, and did not
-    # outlive it.
+    # Assert: the glob reached the scan the check was handed, and did not
+    # outlive the run.
     assert _ExcludeSpy.seen and all("vendor/*" in seen for seen in _ExcludeSpy.seen)
     assert "vendor/*" not in discovery.get_active_excludes()
 
@@ -150,13 +151,7 @@ def test_show_config_reports_source_and_opt_in_state(tmp_path: Path, capsys):
 
 
 def _make_result(*, violations=(), warnings=()):
-    status = Status.FAIL if violations else (Status.WARN if warnings else Status.PASS)
-    return CheckResult(
-        check="test_check",
-        status=status,
-        violations=list(violations),
-        warnings=list(warnings),
-    )
+    return CheckResult(check="test_check", violations=list(violations), warnings=list(warnings))
 
 
 def test_github_format_violations(capsys):

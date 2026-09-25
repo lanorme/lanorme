@@ -339,7 +339,7 @@ def combine_results(*, existing: CheckResult | None, addition: CheckResult) -> C
     """Fold one region's result for a check into the running total for that check.
 
     A file-level check runs once per region, so its findings arrive in pieces;
-    this concatenates them and recomputes the status from the combined set.
+    this concatenates them; the status follows from the combined set.
     """
     if existing is None:
         return addition
@@ -382,7 +382,6 @@ def reanchor_results(
         rebuilt.append(
             CheckResult(
                 check=result.check,
-                status=result.status,
                 violations=[relocate(v) for v in result.violations],
                 warnings=[relocate(w) for w in result.warnings],
             ),

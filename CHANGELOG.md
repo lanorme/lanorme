@@ -38,7 +38,11 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
   the typed readers raise `lanorme.checkconfig.SettingError` (a `TypeError`).
 - `lanorme.scan.Scan`, the run context (root, subtree scope, exclude globs and
   the run's parse cache) that discovery and `lanorme.sources` read from a
-  context variable; `with scan.activate():` runs a check by hand under it.
+  context variable; `run_check(check, scan=scan)` runs a check by hand under it.
+- `check(self, scan: Scan) -> CheckResult` is the entry point of the `Check`
+  protocol: a check receives the scan for its pass, active for the call.
+  `lanorme.run_check` and `lanorme.run_all` take `scan=`; `src_root=` still
+  works and runs over that path under the scan in force.
 - Shared views on `Module`: `comments`, `docstrings` (with `find_docstring`),
   `imports` and `has_complete_comments`, computed once per file per run; an
   `UnparseableFile` keeps its decoded `source`.
@@ -70,6 +74,12 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
 
 ### Changed
 
+- `CheckResult.status` is derived from the findings: any violation is `FAIL`,
+  else any warning is `WARN`, else `PASS`. A result can no longer disagree
+  with its own findings, and every filter, merge and re-anchor step that used
+  to recompute the status now carries the findings alone.
+- Every built-in check implements `check(scan)` and no longer has a
+  `run(*, src_root)` method. Findings are unchanged.
 - `SIMILAR-001` states what it reports: two functions that carry out the same
   operations in the same control-flow positions and agree on their string
   literals and called names, differing only in names, numbers and one or two
@@ -241,6 +251,14 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
 - `Violation.format_human` and `CheckResult.format_human` warn and delegate to
   `lanorme.reports.format_violation` / `format_result`; they go in the next
   release.
+- `CheckResult(status=...)`. The argument is accepted for this release and
+  ignored, with a `DeprecationWarning` that names the derived status when the
+  two disagree. Drop the argument or build the result with
+  `CheckResult.from_findings`. Removed in the next minor release.
+- The `run(self, *, src_root: str)` entry point of a check. A plugin that
+  defines `run` and no `check` still runs: the runner calls `run` with the
+  scan active and emits a `DeprecationWarning` once per check class. Removed
+  two minor releases from now; implement `check(scan)`.
 
 ### Removed
 

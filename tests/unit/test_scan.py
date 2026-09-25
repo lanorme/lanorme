@@ -45,7 +45,7 @@ class _Threshold:
         if "limit" in settings:
             self.limit = int(settings["limit"])
 
-    def run(self, *, src_root: str) -> CheckResult:
+    def check(self, scan: Scan) -> CheckResult:
         return CheckResult.from_findings(check=self.name)
 
 

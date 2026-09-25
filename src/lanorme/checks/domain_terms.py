@@ -30,6 +30,7 @@ from pathlib import Path
 from typing import ClassVar
 
 from lanorme import CheckResult, Violation, register
+from lanorme.scan import Scan
 from lanorme.sources import Module, UnparseableFile, iter_modules, locate, build_unparseable_notice
 
 # Each rule maps forbidden terms to a canonical replacement. Empty by default →
@@ -189,14 +190,14 @@ class DomainTermsCheck:
                 )
         self.term_rules = list(rules)
 
-    def run(self, *, src_root: str) -> CheckResult:
+    def check(self, scan: Scan) -> CheckResult:
         violations: list[Violation] = []
         warnings: list[Violation] = []
         compiled = _compile_rules(self.term_rules)
         if not compiled:
             return CheckResult.from_findings(check=self.name)
 
-        for module in iter_modules(Path(src_root)):
+        for module in iter_modules(scan.root):
             relative_file = module.relative
             if _is_exempt_path(relative_path=relative_file):
                 continue

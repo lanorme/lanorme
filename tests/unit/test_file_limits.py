@@ -16,6 +16,7 @@ import pytest
 
 from lanorme import Status
 from lanorme.checks.file_limits import FileLimitsCheck
+from lanorme.scan import Scan
 
 
 @pytest.fixture
@@ -28,7 +29,7 @@ def run_on(tmp_path: Path):
 
     def _run(source: str):
         (tmp_path / "sample.py").write_text(source, encoding="utf-8")
-        return FileLimitsCheck().run(src_root=str(tmp_path))
+        return FileLimitsCheck().check(Scan(root=tmp_path))
 
     return _run
 

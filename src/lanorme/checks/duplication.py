@@ -32,6 +32,7 @@ from pathlib import Path
 
 from lanorme import CheckResult, Violation, register
 from lanorme.function_body import collect_local_bindings, list_body_statements
+from lanorme.scan import Scan
 from lanorme.sources import (
     TOO_DEEP,
     Module,
@@ -219,14 +220,14 @@ class DuplicationCheck:
         ],
     )
 
-    def run(self, *, src_root: str) -> CheckResult:
+    def check(self, scan: Scan) -> CheckResult:
         """Scan all Python files under src/ and detect near-duplicate functions."""
         warnings: list[Violation] = []
 
         # Map normalized body hash -> list of locations.
         body_groups: dict[str, list[_FunctionLocation]] = defaultdict(list)
 
-        for module in iter_modules(Path(src_root)):
+        for module in iter_modules(scan.root):
             if _should_exclude(relative=Path(module.relative)):
                 continue
             if isinstance(module, UnparseableFile):

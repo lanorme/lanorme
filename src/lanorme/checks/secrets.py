@@ -36,10 +36,10 @@ from __future__ import annotations
 import ast
 import re
 from dataclasses import dataclass, field
-from pathlib import Path
 
 from lanorme import CheckResult, Violation, register
 from lanorme.astnames import read_str_constant
+from lanorme.scan import Scan
 from lanorme.sources import Module, iter_parsed_modules, locate
 
 # A name suggests a credential when (i) it matches one of these multi-segment
@@ -404,9 +404,9 @@ class SecretsCheck:
         ],
     )
 
-    def run(self, *, src_root: str) -> CheckResult:
+    def check(self, scan: Scan) -> CheckResult:
         violations: list[Violation] = []
-        for module in iter_parsed_modules(Path(src_root)):
+        for module in iter_parsed_modules(scan.root):
             file_name = module.path.name
             if file_name in _SCAN_EXCLUDES or file_name.startswith("test_"):
                 continue

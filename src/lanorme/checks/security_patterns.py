@@ -27,6 +27,7 @@ from lanorme import CheckResult, Violation, register
 from lanorme.astnames import read_str_constant
 from lanorme.checkconfig import read_str
 from lanorme.lexical_scopes import Binding, ScopeTree
+from lanorme.scan import Scan
 from lanorme.sources import TOO_DEEP, Module, iter_parsed_modules, build_skip_notice, locate
 
 # HTTP methods that mutate data, these MUST have auth.
@@ -520,7 +521,7 @@ class SecurityPatternsCheck:
         ``source_root`` is written relative to the project root ("src/myapp"),
         so under a src layout the ``api/`` layer is reached only after that
         prefix. This check is file-scoped, though, so a per-directory region can
-        hand it a ``src_root`` that already sits inside the package; stripping
+        hand it a scan root that already sits inside the package; stripping
         the prefix when it is present, rather than demanding every file live
         under it, keeps the ``api/`` gate working from either anchor.
         """
@@ -529,12 +530,12 @@ class SecurityPatternsCheck:
             return relative_file[len(prefix) :]
         return relative_file
 
-    def run(self, *, src_root: str) -> CheckResult:
+    def check(self, scan: Scan) -> CheckResult:
         """Scan all Python files under src/ for security violations."""
         violations: list[Violation] = []
         warnings: list[Violation] = []
 
-        for module in iter_parsed_modules(Path(src_root)):
+        for module in iter_parsed_modules(scan.root):
             relative_file = module.relative
 
             try:

@@ -52,6 +52,7 @@ from lanorme.checks.naming_words import (
     find_leading_verb_index,
     split_name,
 )
+from lanorme.scan import Scan
 from lanorme.sources import locate
 
 RULE_009 = (
@@ -207,13 +208,13 @@ class NamingCleanCodeCheck:
         if exempt is not None:
             self.exempt = frozenset(exempt)
 
-    def run(self, *, src_root: str) -> CheckResult:
+    def check(self, scan: Scan) -> CheckResult:
         """Walk every module and collect NAMING-009..011 warnings, in source order."""
         if not self.enabled:
             return CheckResult.from_findings(check=self.name)
         settings = _Settings(verbs=self.verbs, exempt=self.exempt)
         warnings: list[Violation] = []
-        for relative, tree in iter_modules(root=Path(src_root)):
+        for relative, tree in iter_modules(root=scan.root):
             warnings.extend(_collect_junk_module_findings(file=relative, settings=settings))
             for definition in iter_definitions(tree=tree):
                 warnings.extend(

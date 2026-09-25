@@ -20,6 +20,7 @@ import pytest
 
 from lanorme import Status
 from lanorme.checks.restating import RestatingCheck
+from lanorme.scan import Scan
 
 
 @pytest.fixture
@@ -50,7 +51,7 @@ def test_disabled_by_default_passes_silently(tmp_path: Path):
     _write(root=tmp_path, name="x.py", body="counter = 0\n# increment counter\ncounter += 1\n")
 
     # Act: run the unconfigured (default-off) check.
-    result = RestatingCheck().run(src_root=str(tmp_path))
+    result = RestatingCheck().check(Scan(root=tmp_path))
 
     # Assert: experimental check stays silent until opted in.
     assert result.status == Status.PASS
@@ -67,7 +68,7 @@ def test_verb_echo_increment_fires(check: RestatingCheck, tmp_path: Path):
     _write(root=tmp_path, name="v.py", body="counter = 0\n# increment counter\ncounter += 1\n")
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert: verb table maps "increment" -> AugAssign(Add), "counter" covered.
     assert result.status == Status.FAIL
@@ -83,7 +84,7 @@ def test_return_echo_fires(check: RestatingCheck, tmp_path: Path):
     )
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert.
     assert result.status == Status.FAIL
@@ -95,7 +96,7 @@ def test_call_echo_fires(check: RestatingCheck, tmp_path: Path):
     _write(root=tmp_path, name="c.py", body='url = "x"\n# normalize url\nurl = normalize(url)\n')
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert.
     assert result.status == Status.FAIL
@@ -112,7 +113,7 @@ def test_control_echo_without_stray_words_fires(check: RestatingCheck, tmp_path:
     )
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert.
     assert result.status == Status.FAIL
@@ -125,7 +126,7 @@ def test_blank_line_between_comment_and_code_still_fires(check: RestatingCheck, 
     _write(root=tmp_path, name="b.py", body="counter = 0\n# increment counter\n\ncounter += 1\n")
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert.
     assert result.status == Status.FAIL
@@ -137,7 +138,7 @@ def test_trailing_comment_fires(check: RestatingCheck, tmp_path: Path):
     _write(root=tmp_path, name="t.py", body="counter = 0\ncounter += 1  # increment counter\n")
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert.
     assert result.status == Status.FAIL
@@ -158,7 +159,7 @@ def test_why_explanation_is_not_flagged(check: RestatingCheck, tmp_path: Path):
     )
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert: a valuable explanatory comment must never fire.
     assert result.status == Status.PASS
@@ -174,7 +175,7 @@ def test_caveat_over_call_is_not_flagged(check: RestatingCheck, tmp_path: Path):
     )
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert.
     assert result.status == Status.PASS
@@ -186,7 +187,7 @@ def test_section_header_is_not_flagged(check: RestatingCheck, tmp_path: Path):
     _write(root=tmp_path, name="s.py", body="# --- request parsing ---\nx = 1\n")
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert.
     assert result.status == Status.PASS
@@ -201,7 +202,7 @@ def test_allowlist_tag_exempts_an_otherwise_firing_comment(check: RestatingCheck
     _write(root=tmp_path, name="tag.py", body="counter = 0\n# NOTE counter\ncounter += 1\n")
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert: the control fires, the NOTE-tagged twin does not.
     flagged = {v.file for v in result.violations if v.rule == "CMT-005"}
@@ -218,7 +219,7 @@ def test_allowlist_word_always_exempts(check: RestatingCheck, tmp_path: Path):
     )
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert.
     assert result.status == Status.PASS
@@ -230,7 +231,7 @@ def test_string_literal_hash_is_not_a_comment(check: RestatingCheck, tmp_path: P
     _write(root=tmp_path, name="str.py", body='x = 0\ny = "# increment x"\nx += 1\n')
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert: tokenize never yields a COMMENT here; the cardinal FP trap holds.
     assert result.status == Status.PASS
@@ -242,7 +243,7 @@ def test_stem_asymmetry_id_does_not_match_identifier(check: RestatingCheck, tmp_
     _write(root=tmp_path, name="id.py", body="# id\nidentifier = 1\n")
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert: stem-equality, not substring, so this must not fire.
     assert result.status == Status.PASS
@@ -258,7 +259,7 @@ def test_comment_over_def_is_not_flagged(check: RestatingCheck, tmp_path: Path):
     )
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert: the statement-shape gate excludes def/class nodes.
     assert result.status == Status.PASS
@@ -274,7 +275,7 @@ def test_comment_block_is_suppressed(check: RestatingCheck, tmp_path: Path):
     )
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert: a comment with an adjacent standalone comment is skipped.
     assert result.status == Status.PASS
@@ -296,7 +297,7 @@ def test_content_word_cap_silences_long_comments(check: RestatingCheck, tmp_path
     )
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert: only the within-cap comment fires.
     flagged = {v.file for v in result.violations if v.rule == "CMT-005"}
@@ -315,7 +316,7 @@ def test_syntax_error_file_skipped_others_still_checked(check: RestatingCheck, t
     _write(root=tmp_path, name="good.py", body="counter = 0\n# increment counter\ncounter += 1\n")
 
     # Act: the run must complete, skipping the bad file.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert: the sibling violation is still reported.
     assert result.status == Status.FAIL
@@ -335,7 +336,7 @@ def test_root_under_a_skip_named_ancestor_is_still_scanned(check: RestatingCheck
     _write(root=root, name="x.py", body="counter = 0\n# increment counter\ncounter += 1\n")
 
     # Act: scan the project, not its ancestor.
-    result = check.run(src_root=str(root))
+    result = check.check(Scan(root=root))
 
     # Assert: the ancestor is the user's filesystem, not the project layout.
     assert _collect_codes(result) == ["CMT-005"]
@@ -356,7 +357,7 @@ def test_framed_section_header_is_not_restating(
     _write(root=tmp_path, name="x.py", body=f"def run(setup):\n    # {header}\n    setup()\n")
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert: a navigation aid is not a restatement.
     assert _collect_codes(result) == []

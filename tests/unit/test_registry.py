@@ -10,12 +10,12 @@ from dataclasses import dataclass, field
 
 from lanorme import (
     CheckResult,
-    Status,
     Violation,
     get_all_checks,
     get_check,
     register,
 )
+from lanorme.scan import Scan
 
 
 @dataclass
@@ -24,8 +24,8 @@ class _StubCheck:
     description: str = "a stub for registry tests"
     rules: list[str] = field(default_factory=lambda: ["STUB-001: nothing"])
 
-    def run(self, *, src_root: str) -> CheckResult:
-        return CheckResult(check=self.name, status=Status.PASS, violations=[])
+    def check(self, scan: Scan) -> CheckResult:
+        return CheckResult(check=self.name)
 
 
 def test_register_then_get_check_returns_same_instance():
@@ -70,7 +70,7 @@ def test_violation_to_dict_round_trips_through_check_result():
         message="m",
         fix="f",
     )
-    result = CheckResult(check="stub", status=Status.FAIL, violations=[violation])
+    result = CheckResult(check="stub", violations=[violation])
 
     # Act
     payload = result.to_dict()

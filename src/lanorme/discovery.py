@@ -12,8 +12,8 @@ Every check that scans a tree should iterate via :func:`iter_py_files` (or
    excluded subtree fast rather than merely silent.
 
 The exclude globs and the subtree scope come from the current
-:class:`~lanorme.scan.Scan`, which the runner activates around each pass
-because the ``Check.run(*, src_root)`` protocol carries no run context.
+:class:`~lanorme.scan.Scan`, the one the runner hands each check and
+activates around the call, so a helper walking a tree never carries it.
 :func:`set_excludes` and :func:`set_scope` remain for callers that drive a
 walk by hand; they replace the current scan's fields until it is replaced.
 """

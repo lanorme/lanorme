@@ -44,12 +44,12 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from pathlib import Path
 from typing import ClassVar
 
 from lanorme import CheckResult, Violation, register
 from lanorme.checkconfig import read_int, is_flag_set
 from lanorme.directives import IGNORE_RE, NOQA_RE
+from lanorme.scan import Scan
 from lanorme.sources import Module, iter_parsed_modules
 
 # Code lists that name no rule in particular, so the directive covers whatever
@@ -192,12 +192,12 @@ class SuppressionsCheck:
             default=self.allow_blanket,
         )
 
-    def run(self, *, src_root: str) -> CheckResult:
+    def check(self, scan: Scan) -> CheckResult:
         """Collect every suppression directive, then price it."""
         if not self.enabled:
             return CheckResult.from_findings(check=self.name)
         directives: list[_Directive] = []
-        for module in iter_parsed_modules(Path(src_root)):
+        for module in iter_parsed_modules(scan.root):
             directives.extend(_collect_directives(module))
         directives.sort(key=lambda d: (d.file, d.line))
 

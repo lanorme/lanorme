@@ -50,6 +50,7 @@ from typing import ClassVar
 
 from lanorme import CheckResult, Violation, register
 from lanorme.checkconfig import is_flag_set
+from lanorme.scan import Scan
 from lanorme.sources import Module, iter_parsed_modules, locate
 
 _ATTR_BUILTINS = frozenset({"getattr", "hasattr", "setattr", "delattr"})
@@ -214,12 +215,12 @@ class AttributeAccessCheck:
             **locate(call),
         )
 
-    def run(self, *, src_root: str) -> CheckResult:
+    def check(self, scan: Scan) -> CheckResult:
         if not self.enabled:
             return CheckResult.from_findings(check=self.name)
 
         warnings: list[Violation] = []
-        for module in iter_parsed_modules(Path(src_root)):
+        for module in iter_parsed_modules(scan.root):
             if _is_exempt_file(relative=module.relative):
                 continue
             module_names = _collect_imported_module_names(module=module)

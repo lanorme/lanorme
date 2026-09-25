@@ -14,6 +14,7 @@ from pathlib import Path
 from lanorme import Status, sources
 from lanorme.checks.file_limits import FileLimitsCheck
 from lanorme.cli import main
+from lanorme.scan import Scan
 from lanorme.sources import Module, UnparseableFile, iter_modules, parse_module
 
 
@@ -82,7 +83,7 @@ def test_parser_overflow_reports_a_skip_notice_not_a_check_crash(tmp_path: Path,
     monkeypatch.setattr(sources.ast, "parse", overflow)
 
     # Act.
-    result = FileLimitsCheck().run(src_root=str(tmp_path))
+    result = FileLimitsCheck().check(Scan(root=tmp_path))
 
     # Assert: the PARAM-001 error survives, the skipped file is a -000 notice.
     assert result.status == Status.FAIL

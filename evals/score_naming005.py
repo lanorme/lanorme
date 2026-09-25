@@ -15,6 +15,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from lanorme.checks.naming_scope import NamingScopeCheck
+from lanorme.scan import Scan
 from labelled_corpus import ScoreRecord, Site, evaluate_corpus
 from metrics_report import run_scorer
 
@@ -26,7 +27,7 @@ def find_flagged(root: Path) -> set[Site]:
     """Run the check on one split and return its NAMING-005 sites."""
     check = NamingScopeCheck()
     check.configure(settings={"enabled": True})
-    result = check.run(src_root=str(root))
+    result = check.check(Scan(root=root))
     return {
         (finding.file.replace("\\", "/"), finding.line)
         for finding in [*result.violations, *result.warnings]

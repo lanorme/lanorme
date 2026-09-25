@@ -37,12 +37,12 @@ from __future__ import annotations
 import ast
 from collections.abc import Iterator
 from dataclasses import dataclass, field
-from pathlib import Path
 from typing import ClassVar
 
 from lanorme import CheckResult, Violation, register
 from lanorme.checkconfig import read_int, is_flag_set
 from lanorme.checks.restating import _is_allowlisted, _split_identifier, _strip_suffix
+from lanorme.scan import Scan
 from lanorme.sources import Module, iter_parsed_modules, locate
 
 # Definitions shorter than this need no docstring: a three-line helper whose
@@ -339,12 +339,12 @@ class DocstringsCheck:
             default=self.require_private,
         )
 
-    def run(self, *, src_root: str) -> CheckResult:
+    def check(self, scan: Scan) -> CheckResult:
         """Walk every Python file and collect CMT-006 / CMT-007 violations."""
         if not self.enabled:
             return CheckResult.from_findings(check=self.name)
         violations: list[Violation] = []
-        for module in iter_parsed_modules(Path(src_root)):
+        for module in iter_parsed_modules(scan.root):
             # Match skip directories inside the root only: the absolute path's
             # ancestors are the user's filesystem, not the project layout.
             name = module.path.name

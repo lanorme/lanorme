@@ -27,12 +27,12 @@ import ast
 import re
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from pathlib import Path
 from typing import ClassVar
 
 from lanorme import CheckResult, Violation, register
 from lanorme.checkconfig import is_flag_set
 from lanorme.comment_code import _PRAGMA_PREFIXES, Comment
+from lanorme.scan import Scan
 from lanorme.sources import iter_parsed_modules
 
 MAX_CONTENT_WORDS = 4
@@ -396,11 +396,11 @@ class RestatingCheck:
         """Apply ``[tool.lanorme.restating]`` configuration."""
         self.enabled = is_flag_set(settings=settings, key="enabled", default=self.enabled)
 
-    def run(self, *, src_root: str) -> CheckResult:
+    def check(self, scan: Scan) -> CheckResult:
         if not self.enabled:
             return CheckResult.from_findings(check=self.name)
         violations: list[Violation] = []
-        for module in iter_parsed_modules(Path(src_root)):
+        for module in iter_parsed_modules(scan.root):
             comments = list(module.comments)
             violations.extend(
                 _find_restating_violations(

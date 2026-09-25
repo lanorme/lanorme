@@ -20,6 +20,7 @@ import pytest
 
 from lanorme import Status
 from lanorme.checks.docs import DocsCheck
+from lanorme.scan import Scan
 
 
 @pytest.fixture
@@ -61,7 +62,7 @@ def test_disabled_by_default_never_fires(tmp_path: Path):
     _write(root=tmp_path, name="docs/how-to/bad.md", body="## no h1\n\n#### skip\n")
 
     # Act: run without enabling.
-    result = DocsCheck().run(src_root=str(tmp_path))
+    result = DocsCheck().check(Scan(root=tmp_path))
 
     # Assert: opt-in means silence until configured on.
     assert result.status == Status.PASS
@@ -75,7 +76,7 @@ def test_markdown_outside_docs_root_is_ignored(tmp_path: Path, check: DocsCheck)
     _write(root=tmp_path, name="notes/scratch.md", body="no heading at all\n")
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert: nothing under docs/, so nothing is reported.
     assert result.status == Status.PASS
@@ -89,7 +90,7 @@ def test_clean_docs_tree_is_silent(tmp_path: Path, check: DocsCheck):
     _write(root=tmp_path, name="docs/how-to/configure.md", body=_GOOD_PAGE)
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert.
     assert result.status == Status.PASS
@@ -107,7 +108,7 @@ def test_docs001_fires_on_two_h1(tmp_path: Path, check: DocsCheck):
     _write(root=tmp_path, name="docs/index.md", body=body)
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert.
     assert "DOCS-001" in [v.code for v in result.violations]
@@ -118,7 +119,7 @@ def test_docs001_fires_on_zero_h1(tmp_path: Path, check: DocsCheck):
     _write(root=tmp_path, name="docs/index.md", body="## Section\n\nProse.\n")
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert.
     assert "DOCS-001" in [v.code for v in result.violations]
@@ -130,7 +131,7 @@ def test_docs001_clean_single_h1(tmp_path: Path, check: DocsCheck):
     _write(root=tmp_path, name="docs/index.md", body=body)
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert.
     assert "DOCS-001" not in _collect_codes(result=result)
@@ -147,7 +148,7 @@ def test_docs002_fires_on_skipped_level(tmp_path: Path, check: DocsCheck):
     _write(root=tmp_path, name="docs/index.md", body=body)
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert.
     assert "DOCS-002" in [v.code for v in result.violations]
@@ -159,7 +160,7 @@ def test_docs002_clean_one_step_descent(tmp_path: Path, check: DocsCheck):
     _write(root=tmp_path, name="docs/index.md", body=body)
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert.
     assert "DOCS-002" not in _collect_codes(result=result)
@@ -176,7 +177,7 @@ def test_docs003_fires_on_missing_opener(tmp_path: Path, check: DocsCheck):
     _write(root=tmp_path, name="docs/how-to/configure.md", body=body)
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert.
     assert "DOCS-003" in [v.code for v in result.violations]
@@ -187,7 +188,7 @@ def test_docs003_index_page_is_exempt(tmp_path: Path, check: DocsCheck):
     _write(root=tmp_path, name="docs/index.md", body="# Docs\n\nWelcome to the docs.\n")
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert.
     assert "DOCS-003" not in _collect_codes(result=result)
@@ -198,7 +199,7 @@ def test_docs003_clean_canonical_opener(tmp_path: Path, check: DocsCheck):
     _write(root=tmp_path, name="docs/how-to/configure.md", body=_GOOD_PAGE)
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert.
     assert "DOCS-003" not in _collect_codes(result=result)
@@ -215,7 +216,7 @@ def test_docs004_fires_on_empty_markdown_alt(tmp_path: Path, check: DocsCheck):
     _write(root=tmp_path, name="docs/index.md", body=body)
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert: both the empty-alt image and the alt-less tag fire.
     assert [v.code for v in result.violations].count("DOCS-004") == 2
@@ -231,7 +232,7 @@ def test_docs004_clean_with_alt_text(tmp_path: Path, check: DocsCheck):
     _write(root=tmp_path, name="docs/index.md", body=body)
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert.
     assert "DOCS-004" not in _collect_codes(result=result)
@@ -253,7 +254,7 @@ def test_docs005_warns_on_local_raster(tmp_path: Path, check: DocsCheck):
     _write(root=tmp_path, name="docs/index.md", body=body)
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert: only the local raster warns.
     assert [w.code for w in result.warnings].count("DOCS-005") == 1
@@ -266,7 +267,7 @@ def test_docs005_allow_list_exempts_raster(tmp_path: Path):
     _write(root=tmp_path, name="docs/index.md", body=body)
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert.
     assert "DOCS-005" not in _collect_codes(result=result)
@@ -283,7 +284,7 @@ def test_docs006_warns_on_section_without_index(tmp_path: Path, check: DocsCheck
     _write(root=tmp_path, name="docs/tutorials/first.md", body=_build_tutorial())
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert.
     assert "DOCS-006" in [w.code for w in result.warnings]
@@ -296,7 +297,7 @@ def test_docs006_clean_section_with_index(tmp_path: Path, check: DocsCheck):
     _write(root=tmp_path, name="docs/tutorials/first.md", body=_build_tutorial())
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert.
     assert "DOCS-006" not in _collect_codes(result=result)
@@ -312,7 +313,7 @@ def test_docs007_warns_on_homeless_page(tmp_path: Path, check: DocsCheck):
     _write(root=tmp_path, name="docs/random.md", body="# Random\n\nThis page wanders.\n")
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert.
     assert "DOCS-007" in [w.code for w in result.warnings]
@@ -325,7 +326,7 @@ def test_docs007_clean_known_top_level_and_section(tmp_path: Path, check: DocsCh
     _write(root=tmp_path, name="docs/reference/index.md", body="# Reference\n\nIndex.\n")
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert.
     assert "DOCS-007" not in _collect_codes(result=result)
@@ -342,7 +343,7 @@ def test_docs008_warns_on_numbered_heading(tmp_path: Path, check: DocsCheck):
     _write(root=tmp_path, name="docs/index.md", body=body)
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert.
     assert "DOCS-008" in [w.code for w in result.warnings]
@@ -354,7 +355,7 @@ def test_docs008_clean_unnumbered_heading(tmp_path: Path, check: DocsCheck):
     _write(root=tmp_path, name="docs/index.md", body=body)
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert.
     assert "DOCS-008" not in _collect_codes(result=result)
@@ -400,7 +401,7 @@ def test_root_under_a_skip_named_ancestor_is_still_scanned(tmp_path: Path, check
     _write(root=root, name="docs/how-to/bad.md", body="## no h1\n")
 
     # Act: scan the project, not its ancestor.
-    result = check.run(src_root=str(root))
+    result = check.check(Scan(root=root))
 
     # Assert: the ancestor is the user's filesystem, not the project layout.
     assert "DOCS-001" in _collect_codes(result=result)
@@ -417,7 +418,7 @@ def test_headings_inside_a_longer_fence_are_not_counted(tmp_path: Path, check: D
     _write(root=tmp_path, name="docs/how-to/fences.md", body=body)
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert.
     assert "DOCS-001" not in _collect_codes(result=result)
@@ -429,7 +430,7 @@ def test_front_matter_and_list_rules_are_not_setext_headings(tmp_path: Path, che
     _write(root=tmp_path, name="docs/how-to/rules.md", body=body)
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert: no phantom heading, so the jump is seen and the H1 stays single.
     codes = _collect_codes(result=result)
@@ -443,7 +444,7 @@ def test_docs004_ignores_images_inside_inline_code(tmp_path: Path, check: DocsCh
     _write(root=tmp_path, name="docs/how-to/images.md", body=body)
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert.
     codes = _collect_codes(result=result)

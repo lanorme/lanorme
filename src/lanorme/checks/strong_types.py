@@ -41,10 +41,10 @@ from __future__ import annotations
 
 import ast
 from dataclasses import dataclass, field
-from pathlib import Path
 
 from lanorme import CheckResult, Violation, register
 from lanorme.astnames import find_decorator_leaf, list_decorator_leaves
+from lanorme.scan import Scan
 from lanorme.sources import (
     TOO_DEEP,
     Module,
@@ -420,11 +420,11 @@ class StrongTypesCheck:
         ],
     )
 
-    def run(self, *, src_root: str) -> CheckResult:
+    def check(self, scan: Scan) -> CheckResult:
         violations: list[Violation] = []
         warnings: list[Violation] = []
 
-        for module in iter_modules(Path(src_root)):
+        for module in iter_modules(scan.root):
             if _is_exempt_path(relative_path=module.relative):
                 continue
             if isinstance(module, UnparseableFile):

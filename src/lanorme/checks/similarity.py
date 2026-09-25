@@ -83,6 +83,7 @@ from typing import ClassVar
 from lanorme import CheckResult, Violation, register
 from lanorme.checkconfig import is_flag_set, read_int
 from lanorme.function_body import collect_local_bindings, list_body_statements
+from lanorme.scan import Scan
 from lanorme.sources import Module, iter_parsed_modules, locate
 
 # Files exempt from near-duplicate analysis (mirrors DRY-001): test functions
@@ -518,13 +519,13 @@ class SimilarityCheck:
             attr_jaccard=self.attr_jaccard,
         )
 
-    def run(self, *, src_root: str) -> CheckResult:
-        """Scan files under *src_root*; emit SIMILAR-001 warnings, never failing."""
+    def check(self, scan: Scan) -> CheckResult:
+        """Scan the files under the scan root; emit SIMILAR-001 warnings, never failing."""
         if not self.enabled:
             return CheckResult.from_findings(check=self.name)
         warnings: list[Violation] = []
         thresholds = self._build_thresholds()
-        for module in iter_parsed_modules(Path(src_root)):
+        for module in iter_parsed_modules(scan.root):
             if _should_skip(relative=Path(module.relative)):
                 continue
             # Per-file isolation: a single pathological file (a deeply nested

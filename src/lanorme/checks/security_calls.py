@@ -41,6 +41,7 @@ from pathlib import Path
 from lanorme import CheckResult, Violation, register
 from lanorme.astnames import build_attr_chain, read_str_constant
 from lanorme.lexical_scopes import Binding, ScopeTree
+from lanorme.scan import Scan
 from lanorme.sources import Module, iter_parsed_modules, locate
 
 # (rule, message, fix) for one finding.
@@ -403,9 +404,9 @@ class SecurityCallsCheck:
                 found.extend(_find_settings_assign_violations(node=node, file=file))
         return found
 
-    def run(self, *, src_root: str) -> CheckResult:
+    def check(self, scan: Scan) -> CheckResult:
         violations: list[Violation] = []
-        for module in iter_parsed_modules(Path(src_root)):
+        for module in iter_parsed_modules(scan.root):
             violations.extend(self._scan_module(module=module))
         return CheckResult.from_findings(check=self.name, violations=violations)
 

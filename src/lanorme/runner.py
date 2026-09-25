@@ -13,9 +13,9 @@ the standard is the project's. Cascading per-directory config is handled here
 too: each region's file-level pass is confined to the region's own files by
 the same scope, under that region's merged settings.
 
-The confinement is a :class:`~lanorme.scan.Scan` activated around each pass,
-and each pass runs its own configured copies of the registered checks, so no
-pass leaves state behind for the next.
+The confinement is a :class:`~lanorme.scan.Scan` handed to each check of a
+pass (and active around the call), and each pass runs its own configured
+copies of the registered checks, so no pass leaves state behind for the next.
 """
 
 from __future__ import annotations
@@ -122,12 +122,11 @@ def run_regions(
 
 def _run_tree_pass(*, checks: dict[str, Check], bounds: RunBounds) -> dict[str, CheckResult]:
     """The whole-tree checks, once from the run root over the whole project."""
-    with bounds.scan.activate():
-        return {
-            name: run_check(check, src_root=str(bounds.run_root))
-            for name, check in checks.items()
-            if is_tree_scoped(check) and not isinstance(check, ResultAuditor)
-        }
+    return {
+        name: run_check(check, scan=bounds.scan)
+        for name, check in checks.items()
+        if is_tree_scoped(check) and not isinstance(check, ResultAuditor)
+    }
 
 
 def _run_region_pass(
@@ -148,12 +147,12 @@ def _run_region_pass(
         return {}
     nested = build_child_exclude_globs(region=region, regions=regions, scan_root=bounds.run_root)
     checks = get_registry().build_configured(region.merged)
-    with bounds.scan.restrict(scope=scope, excludes=nested).activate():
-        return {
-            name: run_check(checks[name], src_root=str(bounds.run_root))
-            for name in names
-            if not is_tree_scoped(checks[name])
-        }
+    region_scan = bounds.scan.restrict(scope=scope, excludes=nested)
+    return {
+        name: run_check(checks[name], scan=region_scan)
+        for name in names
+        if not is_tree_scoped(checks[name])
+    }
 
 
 def _select_checks(*, only: list[Check] | None) -> tuple[list[str], list[str]]:

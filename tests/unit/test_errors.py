@@ -25,11 +25,12 @@ from lanorme.cli import _load_builtin_checks, main
 from lanorme.errors import ConfigError, UsageError
 from lanorme.presets import _resolve_extends
 from lanorme.regions import read_toml
+from lanorme.scan import Scan
 
 
 @dataclass
 class _RaisingCheck:
-    """A plugin check whose ``configure()`` and ``run()`` raise what they are told.
+    """A plugin check whose ``configure()``, ``check()`` and ``audit()`` raise what they are told.
 
     The error is a class attribute so the throwaway instance the config
     plumbing builds to isolate the offending key raises the same.
@@ -43,7 +44,7 @@ class _RaisingCheck:
     def configure(self, *, settings: dict[str, object]) -> None:
         raise self.error("boom")
 
-    def run(self, *, src_root: str) -> CheckResult:
+    def check(self, scan: Scan) -> CheckResult:
         raise self.error("boom")
 
     def audit(self, *, results: dict[str, CheckResult]) -> CheckResult:
@@ -197,7 +198,7 @@ def test_annotation_too_deep_to_unparse_is_named_not_crashed(
     monkeypatch.setattr(ast, "unparse", overflow)
 
     # Act
-    result = StrongTypesCheck().run(src_root=str(tmp_path))
+    result = StrongTypesCheck().check(Scan(root=tmp_path))
 
     # Assert
     messages = [v.message for v in result.violations]
@@ -229,7 +230,7 @@ class _LockedCheck:
     rules: list[str] = field(default_factory=lambda: ["LOCK-001: holds a lock"])
     guard: object = field(default_factory=threading.Lock)
 
-    def run(self, *, src_root: str) -> CheckResult:
+    def check(self, scan: Scan) -> CheckResult:
         return CheckResult.from_findings(check=self.name)
 
 

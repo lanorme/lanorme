@@ -37,11 +37,11 @@ from __future__ import annotations
 import ast
 from collections.abc import Iterator
 from dataclasses import dataclass, field
-from pathlib import Path
 from typing import ClassVar
 
 from lanorme import CheckResult, Violation, register
 from lanorme.checkconfig import read_int, is_flag_set, read_str_list
+from lanorme.scan import Scan
 from lanorme.sources import iter_parsed_modules, locate
 
 # Beyond this many lines between binding and last use, a short name stops
@@ -288,7 +288,7 @@ class NamingScopeCheck:
             extra = read_str_list(settings=settings, key="allow")
             self.allow = DEFAULT_ALLOW | frozenset(extra)
 
-    def run(self, *, src_root: str) -> CheckResult:
+    def check(self, scan: Scan) -> CheckResult:
         """Walk every Python file and collect NAMING-005 violations."""
         if not self.enabled:
             return CheckResult.from_findings(check=self.name)
@@ -298,7 +298,7 @@ class NamingScopeCheck:
             allow=frozenset(self.allow),
         )
         violations: list[Violation] = []
-        for module in iter_parsed_modules(Path(src_root)):
+        for module in iter_parsed_modules(scan.root):
             # Match skip directories inside the root only: the absolute path's
             # ancestors are the user's filesystem, not the project layout.
             if any(

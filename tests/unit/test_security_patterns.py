@@ -19,6 +19,7 @@ import pytest
 
 from lanorme import Status
 from lanorme.checks.security_patterns import SecurityPatternsCheck
+from lanorme.scan import Scan
 
 # A mutation endpoint guarded by an auth dependency, so AUTHN-001 must stay quiet.
 _AUTHED_ENDPOINT = (
@@ -69,7 +70,7 @@ def test_deep_binop_file_is_skipped_not_crashed(
     (tmp_path / "dao.py").write_text(_RAW_SQL_DAO, encoding="utf-8")
 
     # Act: the run must complete rather than raise RecursionError.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert: the deep file is skipped with a SQL-000 warning, and the genuine
     # raw SQL elsewhere is still detected.
@@ -88,7 +89,7 @@ def test_raw_sql_at_db_sink_is_flagged(
     (tmp_path / "dao.py").write_text(_RAW_SQL_DAO, encoding="utf-8")
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert: exactly one SQL-001 violation, at the DAO file.
     sql_violations = [v for v in result.violations if v.rule.startswith("SQL-001")]
@@ -106,7 +107,7 @@ def test_parameterised_sql_is_not_flagged(
     (tmp_path / "dao.py").write_text(_SAFE_SQL_DAO, encoding="utf-8")
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert: no SQL-001 violation is raised.
     assert not [v for v in result.violations if v.rule.startswith("SQL-001")]
@@ -128,7 +129,7 @@ def test_mutation_endpoint_without_auth_is_flagged(
     _write_api_endpoint(tmp_path, source=_UNAUTHED_ENDPOINT)
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert: exactly one AUTHN-001 violation, naming the endpoint file.
     authn_violations = [v for v in result.violations if v.rule.startswith("AUTHN-001")]
@@ -145,7 +146,7 @@ def test_mutation_endpoint_with_auth_is_not_flagged(
     _write_api_endpoint(tmp_path, source=_AUTHED_ENDPOINT)
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert: no AUTHN-001 violation is raised.
     assert not [v for v in result.violations if v.rule.startswith("AUTHN-001")]
@@ -170,7 +171,7 @@ def test_src_layout_endpoint_is_flagged_when_source_root_is_set(
     check.configure(settings={"source_root": "src/mypkg"})
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert: the endpoint is flagged, reported at its scan-root-relative path.
     authn_violations = [v for v in result.violations if v.rule.startswith("AUTHN-001")]
@@ -189,7 +190,7 @@ def test_src_layout_endpoint_with_auth_is_not_flagged(
     check.configure(settings={"source_root": "src/mypkg"})
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert.
     assert not [v for v in result.violations if v.rule.startswith("AUTHN-001")]
@@ -208,7 +209,7 @@ def test_source_root_does_not_widen_the_api_gate(
     check.configure(settings={"source_root": "src/mypkg"})
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert.
     assert not [v for v in result.violations if v.rule.startswith("AUTHN-001")]
@@ -226,7 +227,7 @@ def test_source_root_still_matches_when_scanned_from_inside_the_package(
     check.configure(settings={"source_root": "src/mypkg"})
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert: the endpoint is still inspected from this anchor.
     authn_violations = [v for v in result.violations if v.rule.startswith("AUTHN-001")]
@@ -244,7 +245,7 @@ def test_windows_style_source_root_is_normalised(
     check.configure(settings={"source_root": "/src\\mypkg/"})
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert.
     assert [v for v in result.violations if v.rule.startswith("AUTHN-001")]
@@ -272,7 +273,7 @@ def test_auth_dependency_as_a_parameter_default_is_accepted(
     )
 
     # Act
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert
     assert not _collect_authn(result)
@@ -293,7 +294,7 @@ def test_keyword_only_auth_default_is_accepted(
     )
 
     # Act
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert
     assert not _collect_authn(result)
@@ -314,7 +315,7 @@ def test_auth_dependency_on_the_decorator_is_accepted(
     )
 
     # Act
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert
     assert not _collect_authn(result)
@@ -341,7 +342,7 @@ def test_static_literal_concat_with_params_is_not_flagged(
     )
 
     # Act
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert
     assert not _collect_sql(result)
@@ -358,7 +359,7 @@ def test_static_literal_concat_without_params_is_raw_sql(
     )
 
     # Act
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert
     findings = _collect_sql(result)
@@ -377,7 +378,7 @@ def test_literal_joined_to_a_variable_is_interpolation(
     )
 
     # Act
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert
     findings = _collect_sql(result)
@@ -405,7 +406,7 @@ def test_parameter_named_like_a_constant_elsewhere_is_not_static(
     )
 
     # Act
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert
     assert _collect_located(result) == [("SQL-001", "dao.py", 7)]
@@ -425,7 +426,7 @@ def test_module_constant_shadowed_by_a_parameter_is_not_static(
     )
 
     # Act
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert
     assert _collect_located(result) == [("SQL-001", "dao.py", 5)]
@@ -444,7 +445,7 @@ def test_same_function_constant_still_resolves_as_static(
     )
 
     # Act
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert
     assert _collect_located(result) == []
@@ -465,7 +466,7 @@ def test_optional_user_dependency_is_not_auth(
     )
 
     # Act
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert
     assert _collect_located(result) == [("AUTHN-001", "api/items.py", 2)]
@@ -486,7 +487,7 @@ def test_auth_named_operand_of_a_non_dependency_default_is_not_auth(
     )
 
     # Act
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert
     assert _collect_located(result) == [("AUTHN-001", "api/items.py", 2)]
@@ -507,7 +508,7 @@ def test_auth_named_extra_operand_of_depends_is_not_auth(
     )
 
     # Act
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert
     assert _collect_located(result) == [("AUTHN-001", "api/items.py", 2)]
@@ -528,7 +529,7 @@ def test_security_marker_with_keyword_dependency_is_auth(
     )
 
     # Act
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert
     assert _collect_located(result) == []

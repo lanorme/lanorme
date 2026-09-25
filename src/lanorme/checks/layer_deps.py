@@ -61,11 +61,11 @@ from __future__ import annotations
 import ast
 import fnmatch
 from dataclasses import dataclass, field
-from pathlib import Path
 from typing import ClassVar
 
 from lanorme import CheckResult, Violation, register
 from lanorme.checkconfig import read_str_list, read_str
+from lanorme.scan import Scan
 from lanorme.sources import Module, UnparseableFile, iter_modules, locate, build_unparseable_notice
 
 # The architectural layers in a hexagonal backend (default).
@@ -362,11 +362,11 @@ class LayerDepsCheck:
             if layer not in self.layers
         ]
 
-    def run(self, *, src_root: str) -> CheckResult:
+    def check(self, scan: Scan) -> CheckResult:
         """Scan all Python files under the source root and validate import directions."""
         violations: list[Violation] = []
         warnings: list[Violation] = self._collect_config_warnings()
-        src_path = Path(src_root)
+        src_path = scan.root
         # The architectural root. Layer classification and composition-root
         # globs are anchored here; Violation paths stay anchored at src_path so
         # they line up with --exclude / per-file-ignores / inline noqa comments.

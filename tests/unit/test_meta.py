@@ -15,10 +15,12 @@ the real check sees the registry without depending on the bundled checks.
 from __future__ import annotations
 
 import pytest
+from pathlib import Path
 
 from lanorme import CheckResult, Status, Violation
 from lanorme.checks import meta as meta_module
 from lanorme.checks.meta import MetaCheck
+from lanorme.scan import Scan
 
 
 class _FakeCheck:
@@ -41,10 +43,9 @@ class _FakeCheck:
         self._violations = violations or []
         self._warnings = warnings or []
 
-    def run(self, *, src_root: str) -> CheckResult:
+    def check(self, scan: Scan) -> CheckResult:
         return CheckResult(
             check=self._result_check,
-            status=Status.PASS,
             violations=list(self._violations),
             warnings=list(self._warnings),
         )
@@ -80,7 +81,7 @@ def test_run_reports_each_malformed_check(monkeypatch, fake, code: str, fragment
     _install_registry(monkeypatch, {"k": fake})
 
     # Act
-    result = MetaCheck().run(src_root="/tmp")
+    result = MetaCheck().check(Scan(root=Path("/tmp")))
 
     # Assert: exactly that code, at the check it names, saying what is missing.
     [hit] = result.violations
@@ -94,7 +95,7 @@ def test_run_reports_each_missing_violation_field(monkeypatch):
     _install_registry(monkeypatch, {"k": _FakeCheck(name="k", violations=[bad])})
 
     # Act
-    result = MetaCheck().run(src_root="/tmp")
+    result = MetaCheck().check(Scan(root=Path("/tmp")))
 
     # Assert: one META-005 finding per missing field; line never counts.
     assert {v.code for v in result.violations} == {"META-005"}
@@ -116,7 +117,7 @@ def test_run_passes_when_all_checks_well_formed(monkeypatch):
     )
 
     # Act
-    result = MetaCheck().run(src_root="/tmp")
+    result = MetaCheck().check(Scan(root=Path("/tmp")))
 
     # Assert
     assert result.check == "meta"
@@ -129,7 +130,7 @@ def test_run_flags_empty_name(monkeypatch):
     _install_registry(monkeypatch, {"k": _FakeCheck(name="")})
 
     # Act
-    result = MetaCheck().run(src_root="/tmp")
+    result = MetaCheck().check(Scan(root=Path("/tmp")))
 
     # Assert
     assert result.status is Status.FAIL
@@ -144,7 +145,7 @@ def test_run_flags_empty_description_and_rules_together(monkeypatch):
     )
 
     # Act
-    result = MetaCheck().run(src_root="/tmp")
+    result = MetaCheck().check(Scan(root=Path("/tmp")))
 
     # Assert: both META-002 and META-003 fire.
     assert result.status is Status.FAIL
@@ -159,7 +160,7 @@ def test_run_flags_result_check_name_mismatch(monkeypatch):
     )
 
     # Act
-    result = MetaCheck().run(src_root="/tmp")
+    result = MetaCheck().check(Scan(root=Path("/tmp")))
 
     # Assert
     assert result.status is Status.FAIL
@@ -172,7 +173,7 @@ def test_run_flags_violation_with_empty_field(monkeypatch):
     _install_registry(monkeypatch, {"k": _FakeCheck(name="k", violations=[bad])})
 
     # Act
-    result = MetaCheck().run(src_root="/tmp")
+    result = MetaCheck().check(Scan(root=Path("/tmp")))
 
     # Assert
     assert result.status is Status.FAIL
@@ -185,7 +186,7 @@ def test_run_validates_warnings_too(monkeypatch):
     _install_registry(monkeypatch, {"k": _FakeCheck(name="k", warnings=[bad])})
 
     # Act
-    result = MetaCheck().run(src_root="/tmp")
+    result = MetaCheck().check(Scan(root=Path("/tmp")))
 
     # Assert: META-005 still fires and the message identifies it as a warning.
     assert result.status is Status.FAIL
@@ -199,7 +200,7 @@ def test_run_skips_self(monkeypatch):
     _install_registry(monkeypatch, {})
 
     # Act: meta must not introspect itself (no infinite recursion, no findings).
-    result = MetaCheck().run(src_root="/tmp")
+    result = MetaCheck().check(Scan(root=Path("/tmp")))
 
     # Assert
     assert result.status is Status.PASS
@@ -216,7 +217,7 @@ def test_run_self_skip_keys_on_registry_name_not_attribute(monkeypatch):
     )
 
     # Act
-    result = MetaCheck().run(src_root="/tmp")
+    result = MetaCheck().check(Scan(root=Path("/tmp")))
 
     # Assert
     assert result.status is Status.PASS

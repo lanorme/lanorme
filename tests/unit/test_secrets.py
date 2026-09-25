@@ -16,6 +16,7 @@ import pytest
 
 from lanorme import Status
 from lanorme.checks.secrets import SecretsCheck
+from lanorme.scan import Scan
 
 
 @pytest.fixture
@@ -24,7 +25,7 @@ def write(tmp_path: Path):
 
     def _write(name: str, source: str):
         (tmp_path / name).write_text(source, encoding="utf-8")
-        return SecretsCheck().run(src_root=str(tmp_path))
+        return SecretsCheck().check(Scan(root=tmp_path))
 
     return _write
 
@@ -149,7 +150,7 @@ def test_root_under_a_skip_named_ancestor_is_still_scanned(tmp_path: Path):
     (root / "config.py").write_text('password = "s3cr3t-prod-value"\n', encoding="utf-8")
 
     # Act: scan the project, not its ancestor.
-    result = SecretsCheck().run(src_root=str(root))
+    result = SecretsCheck().check(Scan(root=root))
 
     # Assert: the ancestor is the user's filesystem, not the project layout.
     assert result.status == Status.FAIL

@@ -36,6 +36,7 @@ from typing import ClassVar
 
 from lanorme import CheckResult, Violation, register
 from lanorme.checkconfig import read_int, is_flag_set, read_str_list
+from lanorme.scan import Scan
 from lanorme.sources import Module, iter_parsed_modules, locate
 
 # Default marker vocabulary. AAA + BDD + a few common aliases.
@@ -269,12 +270,12 @@ class TestStyleCheck:
                 )
         return found
 
-    def run(self, *, src_root: str) -> CheckResult:
+    def check(self, scan: Scan) -> CheckResult:
         if not self.enabled:
             return CheckResult.from_findings(check=self.name)
         marker_re, alias_to_section = self._build_alias_map()
         violations: list[Violation] = []
-        for module in iter_parsed_modules(Path(src_root)):
+        for module in iter_parsed_modules(scan.root):
             if not _is_test_file(path=module.path):
                 continue
             violations.extend(

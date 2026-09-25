@@ -20,6 +20,7 @@ from pathlib import Path
 
 from lanorme import Status
 from lanorme.checks.layer_deps import LayerDepsCheck
+from lanorme.scan import Scan
 
 
 def _write(root: Path, files: dict[str, str]) -> None:
@@ -48,7 +49,7 @@ def test_api_importing_infrastructure_is_layer005(tmp_path: Path):
     )
 
     # Act.
-    result = LayerDepsCheck().run(src_root=str(tmp_path))
+    result = LayerDepsCheck().check(Scan(root=tmp_path))
 
     # Assert: a single LAYER-005 failure on the offending line.
     assert result.status == Status.FAIL
@@ -70,7 +71,7 @@ def test_clean_layering_is_silent(tmp_path: Path):
     )
 
     # Act.
-    result = LayerDepsCheck().run(src_root=str(tmp_path))
+    result = LayerDepsCheck().check(Scan(root=tmp_path))
 
     # Assert.
     assert result.status == Status.PASS
@@ -94,7 +95,7 @@ def test_domain_importing_application_is_layer001(tmp_path: Path):
     )
 
     # Act.
-    result = LayerDepsCheck().run(src_root=str(tmp_path))
+    result = LayerDepsCheck().check(Scan(root=tmp_path))
 
     # Assert.
     assert result.status == Status.FAIL
@@ -113,7 +114,7 @@ def test_application_importing_infrastructure_is_layer002(tmp_path: Path):
     )
 
     # Act.
-    result = LayerDepsCheck().run(src_root=str(tmp_path))
+    result = LayerDepsCheck().check(Scan(root=tmp_path))
 
     # Assert.
     assert result.status == Status.FAIL
@@ -132,7 +133,7 @@ def test_infrastructure_importing_api_is_layer003(tmp_path: Path):
     )
 
     # Act.
-    result = LayerDepsCheck().run(src_root=str(tmp_path))
+    result = LayerDepsCheck().check(Scan(root=tmp_path))
 
     # Assert: LAYER-003, proving the comp-root glob is honoured only inside a
     # transport layer.
@@ -157,7 +158,7 @@ def test_default_composition_root_directory_may_import_infrastructure(tmp_path: 
     )
 
     # Act.
-    result = LayerDepsCheck().run(src_root=str(tmp_path))
+    result = LayerDepsCheck().check(Scan(root=tmp_path))
 
     # Assert: exempt -> silent.
     assert result.status == Status.PASS
@@ -176,7 +177,7 @@ def test_composition_root_init_package_form_is_exempt(tmp_path: Path):
     )
 
     # Act.
-    result = LayerDepsCheck().run(src_root=str(tmp_path))
+    result = LayerDepsCheck().check(Scan(root=tmp_path))
 
     # Assert: the package form is exempt exactly like a regular module.
     assert result.status == Status.PASS
@@ -194,7 +195,7 @@ def test_default_api_v1_main_is_a_composition_root(tmp_path: Path):
     )
 
     # Act.
-    result = LayerDepsCheck().run(src_root=str(tmp_path))
+    result = LayerDepsCheck().check(Scan(root=tmp_path))
 
     # Assert.
     assert result.status == Status.PASS
@@ -213,7 +214,7 @@ def test_nested_api_file_outside_comp_root_still_fails(tmp_path: Path):
     )
 
     # Act.
-    result = LayerDepsCheck().run(src_root=str(tmp_path))
+    result = LayerDepsCheck().check(Scan(root=tmp_path))
 
     # Assert.
     assert result.status == Status.FAIL
@@ -237,7 +238,7 @@ def test_module_file_composition_root_via_config(tmp_path: Path):
     check.configure(settings={"composition_root": ["api/dependencies.py", "api/app.py"]})
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert.
     assert result.status == Status.PASS
@@ -262,7 +263,7 @@ def test_composition_root_may_import_multiple_inner_layers(tmp_path: Path):
     )
 
     # Act.
-    result = LayerDepsCheck().run(src_root=str(tmp_path))
+    result = LayerDepsCheck().check(Scan(root=tmp_path))
 
     # Assert.
     assert result.status == Status.PASS
@@ -304,7 +305,7 @@ def test_transport_peer_composition_root_is_exempt(tmp_path: Path):
     )
 
     # Act.
-    result = _build_transport_check().run(src_root=str(tmp_path))
+    result = _build_transport_check().check(Scan(root=tmp_path))
 
     # Assert: the peer's wiring file is exempt, just like api/dependencies/.
     assert result.status == Status.PASS
@@ -323,7 +324,7 @@ def test_transport_peer_outside_comp_root_still_fails_layer005(tmp_path: Path):
     )
 
     # Act.
-    result = _build_transport_check().run(src_root=str(tmp_path))
+    result = _build_transport_check().check(Scan(root=tmp_path))
 
     # Assert: a single LAYER-005 on the peer, proving the peer is not silently
     # exempted wholesale.
@@ -341,7 +342,7 @@ def test_layer006_warns_when_transport_layer_not_in_layers(tmp_path: Path):
     check.configure(settings={"transport_layers": ["api", "grpc"]})
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert.
     assert result.status == Status.WARN
@@ -357,7 +358,7 @@ def test_default_transport_layer_does_not_warn(tmp_path: Path):
     _write(tmp_path, {"domain/m.py": "x = 1\n"})
 
     # Act.
-    result = LayerDepsCheck().run(src_root=str(tmp_path))
+    result = LayerDepsCheck().check(Scan(root=tmp_path))
 
     # Assert.
     assert result.status == Status.PASS
@@ -380,7 +381,7 @@ def test_api_importing_application_is_allowed_by_default(tmp_path: Path):
     )
 
     # Act.
-    result = LayerDepsCheck().run(src_root=str(tmp_path))
+    result = LayerDepsCheck().check(Scan(root=tmp_path))
 
     # Assert: no LAYER-004 surfaces under defaults.
     assert result.status == Status.PASS
@@ -409,7 +410,7 @@ def test_layer004_fires_when_application_stripped_from_api_allowed(tmp_path: Pat
     )
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert.
     assert result.status == Status.FAIL
@@ -437,7 +438,7 @@ def test_stdlib_imports_in_domain_are_silent(tmp_path: Path):
     )
 
     # Act.
-    result = LayerDepsCheck().run(src_root=str(tmp_path))
+    result = LayerDepsCheck().check(Scan(root=tmp_path))
 
     # Assert.
     assert result.status == Status.PASS
@@ -456,7 +457,7 @@ def test_substring_layer_names_do_not_fire(tmp_path: Path):
     )
 
     # Act.
-    result = LayerDepsCheck().run(src_root=str(tmp_path))
+    result = LayerDepsCheck().check(Scan(root=tmp_path))
 
     # Assert: no false positive from substring matches.
     assert result.status == Status.PASS
@@ -475,7 +476,7 @@ def test_importing_own_layer_is_allowed(tmp_path: Path):
     )
 
     # Act.
-    result = LayerDepsCheck().run(src_root=str(tmp_path))
+    result = LayerDepsCheck().check(Scan(root=tmp_path))
 
     # Assert.
     assert result.status == Status.PASS
@@ -493,7 +494,7 @@ def test_non_layered_project_is_inert(tmp_path: Path):
     )
 
     # Act.
-    result = LayerDepsCheck().run(src_root=str(tmp_path))
+    result = LayerDepsCheck().check(Scan(root=tmp_path))
 
     # Assert: the check produces nothing outside a layered layout.
     assert result.status == Status.PASS
@@ -517,7 +518,7 @@ def test_source_root_exempts_files_outside_it(tmp_path: Path):
     check.configure(settings={"source_root": "src/myapp"})
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert: exactly one violation, on the in-tree domain file, path anchored at
     # the scan root.
@@ -536,7 +537,7 @@ def test_thirdparty_submodule_named_like_layer_is_false_positive(tmp_path: Path)
     )
 
     # Act.
-    result = LayerDepsCheck().run(src_root=str(tmp_path))
+    result = LayerDepsCheck().check(Scan(root=tmp_path))
 
     # Assert: correct third-party code must not fire. The first segment
     # (thirdparty) is neither a layer nor the project package, so it is ignored.
@@ -566,7 +567,7 @@ def test_relative_import_of_a_sibling_named_like_a_layer_stays_in_the_layer(tmp_
     )
 
     # Act.
-    result = LayerDepsCheck().run(src_root=str(tmp_path))
+    result = LayerDepsCheck().check(Scan(root=tmp_path))
 
     # Assert: resolved against the importing package, both stay in their layer.
     assert result.status == Status.PASS
@@ -586,7 +587,7 @@ def test_relative_import_climbing_out_of_the_layer_is_flagged(tmp_path: Path):
     )
 
     # Act.
-    result = LayerDepsCheck().run(src_root=str(tmp_path))
+    result = LayerDepsCheck().check(Scan(root=tmp_path))
 
     # Assert.
     assert [(v.rule.split(":", 1)[0], v.file, v.line) for v in result.violations] == [

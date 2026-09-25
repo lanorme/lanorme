@@ -28,6 +28,7 @@ from lanorme.checks.file_limits import (
     PARAM_WARN,
     FileLimitsCheck,
 )
+from lanorme.scan import Scan
 
 _DEFAULTS = {
     "file_warn_lines": FILE_WARN_LINES,
@@ -51,7 +52,7 @@ def run_with(tmp_path: Path):
         check = FileLimitsCheck()
         if settings:
             check.configure(settings=dict(settings))
-        return check.run(src_root=str(tmp_path))
+        return check.check(Scan(root=tmp_path))
 
     return _run
 

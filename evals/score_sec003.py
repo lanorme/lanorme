@@ -16,6 +16,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from lanorme.checks.secrets import SecretsCheck
+from lanorme.scan import Scan
 from labelled_corpus import ScoreRecord, Site, evaluate_corpus
 from metrics_report import run_scorer
 
@@ -25,7 +26,7 @@ CORPUS = "security_hardcoded_secrets"
 
 def find_flagged(root: Path) -> set[Site]:
     """Run the secrets check on one split and return its SECRETPY-001 sites."""
-    result = SecretsCheck().run(src_root=str(root))
+    result = SecretsCheck().check(Scan(root=root))
     return {
         (finding.file.replace("\\", "/"), finding.line)
         for finding in result.violations

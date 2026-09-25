@@ -14,6 +14,7 @@ from lanorme.reference import (
     describe_rule,
     print_rule_detail,
 )
+from lanorme.scan import Scan
 
 
 def _run(argv: list[str]) -> int:
@@ -160,7 +161,7 @@ def test_opt_in_rule_without_a_declared_setting_is_just_opt_in(monkeypatch, caps
             default_factory=lambda: ["GATE-001: always", "GATE-002: sometimes"],
         )
 
-        def run(self, *, src_root: str):
+        def check(self, scan: Scan):
             return lanorme.CheckResult.from_findings(check=self.name)
 
     monkeypatch.setattr(lanorme, "_registry", lanorme.Registry({"gated": _Gated()}))

@@ -15,6 +15,7 @@ from lanorme.checks.layer_deps import LayerDepsCheck
 from lanorme.checks.named_args import NamedArgsCheck
 from lanorme.checks.similarity import SimilarityCheck
 from lanorme.checks.strong_types import StrongTypesCheck
+from lanorme.scan import Scan
 
 # Two structurally identical six-statement functions, the SIMILAR-001 shape.
 _CLONE_PAIR = (
@@ -36,7 +37,7 @@ def test_size_rules_skip_test_prefixed_files_but_not_their_twin(tmp_path: Path):
     (tmp_path / "big.py").write_text(body, encoding="utf-8")
 
     # Act
-    result = FileLimitsCheck().run(src_root=str(tmp_path))
+    result = FileLimitsCheck().check(Scan(root=tmp_path))
 
     # Assert: only the plain file is over the limit; the test file is exempt.
     assert [(v.code, v.file, v.line) for v in result.violations] == [("SIZE-001", "big.py", 1)]
@@ -50,7 +51,7 @@ def test_struct_ratio_threshold_is_inclusive(tmp_path: Path):
     check = _build_similarity_check(struct_ratio=1.0)
 
     # Act
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert: a pair at the threshold is reported.
     assert [(w.code, w.file, w.line) for w in result.warnings] == [("SIMILAR-001", "m.py", 1)]
@@ -64,7 +65,7 @@ def test_similarity_skips_test_prefixed_files(tmp_path: Path):
     check = _build_similarity_check()
 
     # Act
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert
     assert {w.file for w in result.warnings} == {"m.py"}
@@ -79,7 +80,7 @@ def test_findings_follow_source_order_across_def_and_async_def(tmp_path: Path):
     )
 
     # Act
-    result = FileLimitsCheck().run(src_root=str(tmp_path))
+    result = FileLimitsCheck().check(Scan(root=tmp_path))
 
     # Assert: reported in source order, not grouped by node type.
     assert [(v.code, v.line) for v in result.violations] == [("PARAM-001", 1), ("PARAM-001", 5)]
@@ -93,7 +94,7 @@ def test_type001_is_reported_at_the_def_line(tmp_path: Path):
     )
 
     # Act
-    result = StrongTypesCheck().run(src_root=str(tmp_path))
+    result = StrongTypesCheck().check(Scan(root=tmp_path))
 
     # Assert
     [hit] = [v for v in result.violations if v.code == "TYPE-001"]
@@ -112,7 +113,7 @@ def test_layer005_is_reported_at_the_import_line(tmp_path: Path):
         (tmp_path / rel).write_text(body, encoding="utf-8")
 
     # Act
-    result = LayerDepsCheck().run(src_root=str(tmp_path))
+    result = LayerDepsCheck().check(Scan(root=tmp_path))
 
     # Assert
     assert [(v.code, v.file, v.line) for v in result.violations] == [
@@ -130,7 +131,7 @@ def test_kwarg001_is_reported_at_the_def_line(tmp_path: Path):
     check.enabled = True
 
     # Act
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert
     assert [(v.code, v.file, v.line) for v in result.violations] == [("KWARG-001", "tp.py", 3)]

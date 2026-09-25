@@ -16,6 +16,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from lanorme.checks.prose import ProseCheck
+from lanorme.scan import Scan
 from labelled_corpus import ScoreRecord, Site, evaluate_corpus
 from metrics_report import run_scorer
 
@@ -26,7 +27,7 @@ CORPUS = "prose_em_dash"
 def find_flagged(root: Path) -> set[Site]:
     """Run the em-dash-density advisory on one split and return the documents it fires on."""
     check = ProseCheck(enabled=True, flag_em_dash=False, flag_em_dash_density=True)
-    result = check.run(src_root=str(root))
+    result = check.check(Scan(root=root))
     return {
         (finding.file.replace("\\", "/"), finding.line)
         for finding in result.warnings

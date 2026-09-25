@@ -5,7 +5,7 @@ production directories lacks a matching ``test_*.py`` partner under one of the
 configured test roots (``tests/integration/`` by default). AAA-style test
 checks live in the ``test_style`` check.
 
-Findings are reported relative to ``src_root`` (the same base every other
+Findings are reported relative to the scan root (the same base every other
 check uses), so the CLI's re-anchoring and the ``[per-file-ignores]`` globs
 both line up with the path other rules report for the same file.
 
@@ -32,6 +32,7 @@ from typing import ClassVar
 from lanorme import CheckResult, Violation, register
 from lanorme.checkconfig import read_str, read_str_list
 from lanorme.discovery import DEFAULT_PRUNE_DIRS
+from lanorme.scan import Scan
 from lanorme.sources import UNREADABLE, Module, parse_module
 
 
@@ -66,7 +67,7 @@ _EXEMPT_MODULES: set[str] = {
 }
 
 # Test roots scanned for partner test files, relative to the backend root
-# (``src_root.parent``). Overridable via ``[tool.lanorme.test_coverage]``.
+# (the scan root's parent). Overridable via ``[tool.lanorme.test_coverage]``.
 _DEFAULT_TEST_ROOTS: tuple[str, ...] = ("tests/integration",)
 
 
@@ -295,9 +296,9 @@ class TestCoverageCheck:
             self.test_roots = cleaned
         self.source_root = read_str(settings=settings, key="source_root", default=self.source_root)
 
-    def run(self, *, src_root: str) -> CheckResult:
+    def check(self, scan: Scan) -> CheckResult:
         """Run the coverage check and return advisory warnings."""
-        run_root = Path(src_root)
+        run_root = scan.root
         coverage_warnings = _check_module_coverage(
             run_root=run_root,
             source_dir=find_source_dir(run_root=run_root, source_root=self.source_root),

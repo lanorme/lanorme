@@ -61,6 +61,11 @@ one-line fix, a doc edit. Anything larger gets the phases above.
 
 ## When you touch a check
 
+- The entry point is `check(self, scan: Scan) -> CheckResult`; the
+  `lanorme.scan.Scan` carries the root (`scan.root`), the subtree scope, the
+  exclude globs, the `source_root` and the run's parse cache, and the runner
+  activates it around the call. `run(*, src_root)` is the deprecated entry
+  point a plugin may still define; never add one to a built-in check.
 - Read Python sources through `lanorme.sources.iter_modules` (or
   `iter_parsed_modules`), which parses each file once per run and shares the
   tree with every check; never read or `ast.parse` a file yourself, and never
@@ -79,8 +84,9 @@ one-line fix, a doc edit. Anything larger gets the phases above.
   `Registry.build_configured(config)`, so never configure a registered check
   in place, and keep checks deep-copyable. `register` refuses a second check
   under a taken name.
-- Build the result with `CheckResult.from_findings(check=self.name, ...)` so
-  the status always agrees with the finding lists; give a finding its span with
+- Build the result with `CheckResult.from_findings(check=self.name, ...)`;
+  the status is derived from the finding lists, so never pass `status=`.
+  Give a finding its span with
   `**locate(node)`; emit the bare code (`rule="SIZE-001"`) and let the runner
   expand it. Report a file you skip with `build_unparseable_notice` /
   `build_skip_notice` (a `<PREFIX>-000` warning) or skip it silently; never let

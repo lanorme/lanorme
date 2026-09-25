@@ -42,6 +42,7 @@ from lanorme import CheckResult, Violation, register
 from lanorme.checkconfig import is_flag_set, read_str_list, read_str
 from lanorme.discovery import iter_files
 from lanorme.markdown import iter_prose_lines, strip_inline_code
+from lanorme.scan import Scan
 
 # Vendored or generated directories that are never part of a docs tree.
 _SKIP_PARTS = frozenset(
@@ -435,11 +436,11 @@ class DocsCheck:
                 )
         return found
 
-    def run(self, *, src_root: str) -> CheckResult:
+    def check(self, scan: Scan) -> CheckResult:
         if not self.enabled:
             return CheckResult.from_findings(check=self.name)
 
-        root = Path(src_root)
+        root = scan.root
         docs_dir = root / self.docs_root
         violations: list[Violation] = []
         warnings: list[Violation] = []

@@ -15,6 +15,7 @@ import pytest
 
 from lanorme import Status
 from lanorme.checks.strong_types import StrongTypesCheck
+from lanorme.scan import Scan
 
 
 @pytest.fixture
@@ -37,7 +38,7 @@ def test_deeply_nested_annotation_is_skipped_not_crashed(
     )
 
     # Act: the run must complete rather than raise RecursionError.
-    result = StrongTypesCheck().run(src_root=str(tmp_path))
+    result = StrongTypesCheck().check(Scan(root=tmp_path))
 
     # Assert: the deep file is skipped with a TYPE-000 warning, and the genuine
     # weakly-typed dict elsewhere is still detected.
@@ -54,7 +55,7 @@ def test_type001_any_leaf_is_violation(tmp_path: Path):
     )
 
     # Act.
-    result = StrongTypesCheck().run(src_root=str(tmp_path))
+    result = StrongTypesCheck().check(Scan(root=tmp_path))
 
     # Assert: a hard TYPE-001 failure naming the parameter.
     assert result.status == Status.FAIL
@@ -71,7 +72,7 @@ def test_type001_object_leaf_is_placeholder_warning(tmp_path: Path):
     )
 
     # Act.
-    result = StrongTypesCheck().run(src_root=str(tmp_path))
+    result = StrongTypesCheck().check(Scan(root=tmp_path))
 
     # Assert: warned, not failed.
     assert result.status == Status.WARN
@@ -87,7 +88,7 @@ def test_type001_concrete_dict_is_clean(tmp_path: Path):
     )
 
     # Act.
-    result = StrongTypesCheck().run(src_root=str(tmp_path))
+    result = StrongTypesCheck().check(Scan(root=tmp_path))
 
     # Assert.
     assert result.status == Status.PASS
@@ -103,7 +104,7 @@ def test_type002_bare_container_is_violation(tmp_path: Path):
     )
 
     # Act.
-    result = StrongTypesCheck().run(src_root=str(tmp_path))
+    result = StrongTypesCheck().check(Scan(root=tmp_path))
 
     # Assert: a TYPE-002 failure.
     assert result.status == Status.FAIL
@@ -120,7 +121,7 @@ def test_type002_parametrised_container_is_clean(tmp_path: Path):
     )
 
     # Act.
-    result = StrongTypesCheck().run(src_root=str(tmp_path))
+    result = StrongTypesCheck().check(Scan(root=tmp_path))
 
     # Assert.
     assert result.status == Status.PASS
@@ -135,7 +136,7 @@ def test_type003_untyped_kwargs_is_violation(tmp_path: Path):
     )
 
     # Act.
-    result = StrongTypesCheck().run(src_root=str(tmp_path))
+    result = StrongTypesCheck().check(Scan(root=tmp_path))
 
     # Assert: a TYPE-003 failure naming the kwargs parameter.
     assert result.status == Status.FAIL
@@ -152,7 +153,7 @@ def test_type003_any_kwargs_is_violation(tmp_path: Path):
     )
 
     # Act.
-    result = StrongTypesCheck().run(src_root=str(tmp_path))
+    result = StrongTypesCheck().check(Scan(root=tmp_path))
 
     # Assert.
     assert result.status == Status.FAIL
@@ -167,7 +168,7 @@ def test_type003_concrete_kwargs_is_clean(tmp_path: Path):
     )
 
     # Act.
-    result = StrongTypesCheck().run(src_root=str(tmp_path))
+    result = StrongTypesCheck().check(Scan(root=tmp_path))
 
     # Assert.
     assert result.status == Status.PASS
@@ -188,7 +189,7 @@ def test_type004_annotated_param_value_return_is_flagged(tmp_path: Path):
     )
 
     # Act.
-    result = StrongTypesCheck().run(src_root=str(tmp_path))
+    result = StrongTypesCheck().check(Scan(root=tmp_path))
 
     # Assert: advisory warning, so the status is WARN and the build still passes.
     assert result.status == Status.WARN
@@ -207,7 +208,7 @@ def test_type004_async_awaited_return_is_flagged(tmp_path: Path):
     )
 
     # Act.
-    result = StrongTypesCheck().run(src_root=str(tmp_path))
+    result = StrongTypesCheck().check(Scan(root=tmp_path))
 
     # Assert.
     assert _type004(result)
@@ -221,7 +222,7 @@ def test_type004_annotated_vararg_satisfies_param_gate(tmp_path: Path):
     )
 
     # Act.
-    result = StrongTypesCheck().run(src_root=str(tmp_path))
+    result = StrongTypesCheck().check(Scan(root=tmp_path))
 
     # Assert.
     assert _type004(result)
@@ -235,7 +236,7 @@ def test_type004_annotated_kwarg_satisfies_param_gate(tmp_path: Path):
     )
 
     # Act.
-    result = StrongTypesCheck().run(src_root=str(tmp_path))
+    result = StrongTypesCheck().check(Scan(root=tmp_path))
 
     # Assert.
     assert _type004(result)
@@ -250,7 +251,7 @@ def test_type004_generator_is_exempt(tmp_path: Path):
     )
 
     # Act.
-    result = StrongTypesCheck().run(src_root=str(tmp_path))
+    result = StrongTypesCheck().check(Scan(root=tmp_path))
 
     # Assert.
     assert not _type004(result)
@@ -265,7 +266,7 @@ def test_type004_nested_yield_does_not_exempt_outer(tmp_path: Path):
     )
 
     # Act.
-    result = StrongTypesCheck().run(src_root=str(tmp_path))
+    result = StrongTypesCheck().check(Scan(root=tmp_path))
 
     # Assert: the outer flags; the nested 'inner' has no annotated param so it
     # does not contribute a TYPE-004 of its own.
@@ -283,7 +284,7 @@ def test_type004_nested_only_value_return_does_not_flag_outer(tmp_path: Path):
     )
 
     # Act.
-    result = StrongTypesCheck().run(src_root=str(tmp_path))
+    result = StrongTypesCheck().check(Scan(root=tmp_path))
 
     # Assert.
     assert not _type004(result)
@@ -298,7 +299,7 @@ def test_type004_lambda_body_is_not_an_own_scope_return(tmp_path: Path):
     )
 
     # Act.
-    result = StrongTypesCheck().run(src_root=str(tmp_path))
+    result = StrongTypesCheck().check(Scan(root=tmp_path))
 
     # Assert.
     assert not _type004(result)
@@ -312,7 +313,7 @@ def test_type004_self_only_method_does_not_flag(tmp_path: Path):
     )
 
     # Act.
-    result = StrongTypesCheck().run(src_root=str(tmp_path))
+    result = StrongTypesCheck().check(Scan(root=tmp_path))
 
     # Assert.
     assert not _type004(result)
@@ -327,7 +328,7 @@ def test_type004_sibling_annotated_param_qualifies_method(tmp_path: Path):
     )
 
     # Act.
-    result = StrongTypesCheck().run(src_root=str(tmp_path))
+    result = StrongTypesCheck().check(Scan(root=tmp_path))
 
     # Assert.
     assert _type004(result)
@@ -341,7 +342,7 @@ def test_type004_return_none_literal_does_not_flag(tmp_path: Path):
     )
 
     # Act.
-    result = StrongTypesCheck().run(src_root=str(tmp_path))
+    result = StrongTypesCheck().check(Scan(root=tmp_path))
 
     # Assert.
     assert not _type004(result)
@@ -355,7 +356,7 @@ def test_type004_bare_return_does_not_flag(tmp_path: Path):
     )
 
     # Act.
-    result = StrongTypesCheck().run(src_root=str(tmp_path))
+    result = StrongTypesCheck().check(Scan(root=tmp_path))
 
     # Assert.
     assert not _type004(result)
@@ -371,7 +372,7 @@ def test_type004_false_and_notimplemented_are_real_values(tmp_path: Path):
     )
 
     # Act.
-    result = StrongTypesCheck().run(src_root=str(tmp_path))
+    result = StrongTypesCheck().check(Scan(root=tmp_path))
 
     # Assert.
     assert _type004(result)
@@ -386,7 +387,7 @@ def test_type004_overload_stub_does_not_flag(tmp_path: Path):
     )
 
     # Act.
-    result = StrongTypesCheck().run(src_root=str(tmp_path))
+    result = StrongTypesCheck().check(Scan(root=tmp_path))
 
     # Assert.
     assert not _type004(result)
@@ -401,7 +402,7 @@ def test_type004_abstractmethod_raise_only_does_not_flag(tmp_path: Path):
     )
 
     # Act.
-    result = StrongTypesCheck().run(src_root=str(tmp_path))
+    result = StrongTypesCheck().check(Scan(root=tmp_path))
 
     # Assert.
     assert not _type004(result)
@@ -415,7 +416,7 @@ def test_type004_existing_return_annotation_is_out_of_scope(tmp_path: Path):
     )
 
     # Act.
-    result = StrongTypesCheck().run(src_root=str(tmp_path))
+    result = StrongTypesCheck().check(Scan(root=tmp_path))
 
     # Assert.
     assert not _type004(result)
@@ -429,7 +430,7 @@ def test_type004_unannotated_params_do_not_flag(tmp_path: Path):
     )
 
     # Act.
-    result = StrongTypesCheck().run(src_root=str(tmp_path))
+    result = StrongTypesCheck().check(Scan(root=tmp_path))
 
     # Assert.
     assert not _type004(result)
@@ -444,7 +445,7 @@ def test_type004_generator_expression_return_flags(tmp_path: Path):
     )
 
     # Act.
-    result = StrongTypesCheck().run(src_root=str(tmp_path))
+    result = StrongTypesCheck().check(Scan(root=tmp_path))
 
     # Assert.
     assert _type004(result)
@@ -468,7 +469,7 @@ def test_type001_weak_container_inside_a_wrapper_is_the_same_weak_type(tmp_path:
     )
 
     # Act.
-    result = StrongTypesCheck().run(src_root=str(tmp_path))
+    result = StrongTypesCheck().check(Scan(root=tmp_path))
 
     # Assert: one TYPE-001 per signature, at the parameter or the def line.
     assert result.status == Status.FAIL
@@ -483,7 +484,7 @@ def test_type002_bare_container_inside_a_union_is_flagged(tmp_path: Path):
     )
 
     # Act.
-    result = StrongTypesCheck().run(src_root=str(tmp_path))
+    result = StrongTypesCheck().check(Scan(root=tmp_path))
 
     # Assert.
     assert _collect_rule_lines(result.violations, "TYPE-002") == [1]
@@ -498,7 +499,7 @@ def test_qualified_any_leaf_is_read_as_any(tmp_path: Path):
     )
 
     # Act.
-    result = StrongTypesCheck().run(src_root=str(tmp_path))
+    result = StrongTypesCheck().check(Scan(root=tmp_path))
 
     # Assert: the qualified spelling is the same weak type.
     assert _collect_rule_lines(result.violations, "TYPE-001") == [4]
@@ -519,7 +520,7 @@ def test_concrete_container_inside_a_wrapper_is_clean(tmp_path: Path):
     )
 
     # Act.
-    result = StrongTypesCheck().run(src_root=str(tmp_path))
+    result = StrongTypesCheck().check(Scan(root=tmp_path))
 
     # Assert.
     assert result.status == Status.PASS

@@ -1,15 +1,15 @@
 """The scan a run is making: where from, what it is confined to, and its parse cache.
 
-The ``Check.run(*, src_root)`` protocol carries no run context, yet every walk
-must honour the run's exclude globs and subtree scope, and every check should
-share one parse of each file. A :class:`Scan` holds that context and
-:meth:`Scan.activate` makes it current for a block, through a
-:class:`~contextvars.ContextVar`, so ``lanorme.discovery`` and
-``lanorme.sources`` read it without a single check changing its signature::
+A check receives the :class:`Scan` for its pass (``check(self, scan)``), yet
+every walk must honour the run's exclude globs and subtree scope, and every
+check should share one parse of each file, without a helper passing the scan
+around. So :meth:`Scan.activate` makes a scan current for a block, through a
+:class:`~contextvars.ContextVar`, and ``lanorme.discovery`` and
+``lanorme.sources`` read the current one. The runner activates the scan it
+hands each check; by hand::
 
     base = Scan(root=project_root, excludes=("vendor/*",))
-    with base.restrict(scope="tests").activate():
-        result = check.run(src_root=str(project_root))
+    result = run_check(check, scan=base.restrict(scope="tests"))
 
 A restricted scan shares its base's :class:`SourceCache`, so a file parsed in
 one pass of a run is not parsed again in the next. With no scan active the

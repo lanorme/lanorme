@@ -15,7 +15,7 @@ import json
 from pathlib import Path
 
 
-from lanorme import CheckResult, Status, Violation
+from lanorme import CheckResult, Violation
 from lanorme import baseline as bl
 from lanorme.cli import main
 
@@ -232,7 +232,7 @@ def test_no_source_text_or_secret_reaches_the_committed_file(tmp_path: Path):
         message="Raw SQL passed to a database sink: SELECT * FROM users WHERE token='sk-LEAK-9999'",
         fix="",
     )
-    result = CheckResult(check="security_patterns", status=Status.FAIL, violations=[leaky])
+    result = CheckResult(check="security_patterns", violations=[leaky])
     baseline_path = tmp_path / "lanorme-baseline.json"
 
     # Act.
@@ -248,7 +248,7 @@ def test_run000_crash_notices_are_never_recorded(tmp_path: Path):
     # Arrange: a RUN-000 crash notice (no file) alongside a real finding.
     crash = Violation(file="", line=0, rule="RUN-000: check raised", message="boom", fix="")
     real = Violation(file="a.py", line=2, rule="EVAL-001: eval", message="m", fix="")
-    result = CheckResult(check="x", status=Status.WARN, warnings=[crash, real])
+    result = CheckResult(check="x", warnings=[crash, real])
     baseline_path = tmp_path / "lanorme-baseline.json"
 
     # Act.
