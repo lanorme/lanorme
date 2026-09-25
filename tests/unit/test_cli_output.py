@@ -146,13 +146,17 @@ def test_ndjson_emits_one_record_per_finding_with_all_fields(tmp_py_file, capsys
         "promoted",
         "fingerprint",
     }
-    codes: set[str] = set()
-    for line in lines:
-        record = json.loads(line)
+    records = [json.loads(line) for line in lines]
+    for record in records:
         assert set(record) == expected
         assert record["severity"] in {"error", "warning"}
-        codes.add(record["code"])
-    assert {"DRY-001", "EVAL-001"} <= codes
+    assert {"DRY-001", "EVAL-001"} <= {record["code"] for record in records}
+    # The eval() call on line 18: a span at its node, not promoted, with the
+    # fingerprint of (m.py, EVAL-001, that line's text), which the docs pin.
+    [eval_record] = [record for record in records if record["code"] == "EVAL-001"]
+    assert (eval_record["file"], eval_record["line"], eval_record["scope"]) == ("m.py", 18, "span")
+    assert eval_record["promoted"] is False
+    assert eval_record["fingerprint"] == "0e6339f390552950"
 
 
 def test_ndjson_is_empty_when_clean(tmp_py_file, capsys):

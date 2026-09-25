@@ -12,6 +12,7 @@ import fnmatch
 import logging
 import re
 from dataclasses import replace
+from importlib.util import decode_source
 from pathlib import Path
 
 from lanorme import CheckResult, Violation, extract_code
@@ -230,8 +231,13 @@ def _read_line(*, project_root: Path, file: str, line: int, cache: dict[str, lis
     if lines is None:
         path = project_root / file
         try:
-            lines = path.read_text(encoding="utf-8").splitlines()
-        except (OSError, UnicodeDecodeError):
+            # Decoded the way the interpreter decodes a module (a BOM or a
+            # ``coding:`` cookie is honoured), like ``lanorme.sources``, so a
+            # directive in a latin-1 file is read rather than the whole file
+            # dropped. ``decode_source`` raises SyntaxError on an unknown
+            # cookie and UnicodeDecodeError (a ValueError) on bad bytes.
+            lines = decode_source(path.read_bytes()).splitlines()
+        except (OSError, SyntaxError, ValueError):
             lines = []
         cache[key] = lines
     if not lines or line <= 0 or line > len(lines):

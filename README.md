@@ -174,12 +174,13 @@ codebase (every pre-1.0 breaking change lands here), and a **major** is the
 stability commitment. Every change is listed in [`CHANGELOG.md`](CHANGELOG.md).
 
 A rule's human-readable description is not part of that surface and may be
-reworded in a minor release. A file-level finding anchors on its description,
-so rewording one detaches the matching entries in a committed baseline and
-those findings report again until you run `lanorme baseline write` once. The
-run tells you when this has happened, naming the file and rule rather than
-letting old debt look new, and the changelog entry says so for the release that
-causes it.
+reworded in a minor release. A baseline entry is keyed by file, rule code and
+the text of the finding's own line (a whole-file finding by file and code
+alone), never by the description, so rewording one leaves a committed baseline
+intact. When a release does change how entries are keyed, the matching entries
+detach and those findings report again until you run `lanorme baseline write`
+once; the run tells you when this has happened, naming the file and rule rather
+than letting old debt look new, and the changelog entry says so.
 
 ## Licence
 

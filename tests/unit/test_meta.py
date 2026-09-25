@@ -14,16 +14,11 @@ the real check sees the registry without depending on the bundled checks.
 
 from __future__ import annotations
 
+import pytest
+
 from lanorme import CheckResult, Status, Violation
 from lanorme.checks import meta as meta_module
-from lanorme.checks.meta import (
-    MetaCheck,
-    _validate_description,
-    _validate_name,
-    _validate_result_check_name,
-    _validate_rules,
-    _validate_violation_fields,
-)
+from lanorme.checks.meta import MetaCheck
 
 
 class _FakeCheck:
@@ -66,85 +61,45 @@ def _build_good_violation() -> Violation:
     return Violation(file="a.py", line=0, rule="X-001: r", message="m", fix="f")
 
 
-# --- Helper-level unit tests (META-001..005 in isolation) ---
+# --- Each malformed shape, reported through run() at the check it names ---
 
 
-def test_validate_name_flags_empty_and_whitespace():
-    # Arrange / Act
-    empty = _validate_name(check_name="")
-    blank = _validate_name(check_name="   ")
-    ok = _validate_name(check_name="layer_deps")
-
-    # Assert
-    assert empty is not None and empty.code == "META-001"
-    assert blank is not None and blank.code == "META-001"
-    assert ok is None
-
-
-def test_validate_description_flags_only_empty():
-    # Arrange / Act
-    flagged = _validate_description(check_name="c", description="  ")
-    ok = _validate_description(check_name="c", description="real description")
-
-    # Assert
-    assert flagged is not None and flagged.code == "META-002"
-    assert ok is None
-
-
-def test_validate_rules_flags_empty_list():
-    # Arrange / Act
-    flagged = _validate_rules(check_name="c", rules=[])
-    ok = _validate_rules(check_name="c", rules=["R-001"])
-
-    # Assert
-    assert flagged is not None and flagged.code == "META-003"
-    assert ok is None
-
-
-def test_validate_result_check_name_requires_exact_match():
-    # Arrange: a result whose check field has trailing whitespace is NOT a match.
-    matching = CheckResult(check="c", status=Status.PASS)
-    trailing = CheckResult(check="c ", status=Status.PASS)
+@pytest.mark.parametrize(
+    ("fake", "code", "fragment"),
+    [
+        (_FakeCheck(name="   "), "META-001", "empty or missing name"),
+        (_FakeCheck(name="k", description="  "), "META-002", "description"),
+        (_FakeCheck(name="k", rules=[]), "META-003", "rules list"),
+        (_FakeCheck(name="k", result_check="k "), "META-004", "check='k '"),
+    ],
+)
+def test_run_reports_each_malformed_check(monkeypatch, fake, code: str, fragment: str):
+    # Arrange: one check with a single defect (a blank name, a blank
+    # description, no rules, or a result whose check name does not match
+    # exactly, trailing whitespace included).
+    _install_registry(monkeypatch, {"k": fake})
 
     # Act
-    ok = _validate_result_check_name(check_name="c", result=matching)
-    flagged = _validate_result_check_name(check_name="c", result=trailing)
+    result = MetaCheck().run(src_root="/tmp")
 
-    # Assert
-    assert ok is None
-    assert flagged is not None and flagged.code == "META-004"
+    # Assert: exactly that code, at the check it names, saying what is missing.
+    [hit] = result.violations
+    assert (hit.code, hit.file) == (code, "checks/" if code == "META-001" else "checks/ (k)")
+    assert fragment in hit.message
 
 
-def test_validate_violation_fields_reports_each_missing_string_field():
-    # Arrange: file, rule and fix are empty/blank; message is present.
+def test_run_reports_each_missing_violation_field(monkeypatch):
+    # Arrange: file, rule and fix are empty or blank; message is present.
     bad = Violation(file="", line=0, rule="  ", message="m", fix="")
+    _install_registry(monkeypatch, {"k": _FakeCheck(name="k", violations=[bad])})
 
     # Act
-    problems = _validate_violation_fields(
-        check_name="c",
-        violation=bad,
-        source="violation",
-    )
+    result = MetaCheck().run(src_root="/tmp")
 
-    # Assert: one META-005 finding per missing field, line never counts.
-    assert {p.code for p in problems} == {"META-005"}
-    missing = sorted(p.message.split("empty '")[1].split("'")[0] for p in problems)
+    # Assert: one META-005 finding per missing field; line never counts.
+    assert {v.code for v in result.violations} == {"META-005"}
+    missing = sorted(v.message.split("empty '")[1].split("'")[0] for v in result.violations)
     assert missing == ["file", "fix", "rule"]
-
-
-def test_validate_violation_fields_accepts_zero_line():
-    # Arrange: line is the integer 0 but every required string field is present.
-    good = _build_good_violation()
-
-    # Act
-    problems = _validate_violation_fields(
-        check_name="c",
-        violation=good,
-        source="violation",
-    )
-
-    # Assert: line is not a required field, so a zero line is fine.
-    assert problems == []
 
 
 # --- Full run() tests against an injected registry ---

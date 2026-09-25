@@ -2,23 +2,58 @@
 
 ``[tool.lanorme] extends = ["strict"]`` adopts a bundled profile (or a local
 ``.toml`` path); profiles merge left to right and the local config always wins.
+
+Every test goes through the CLI: a profile is only as real as the findings it
+changes, and ``--show-config`` shows the merged settings it produced.
 """
 
 from __future__ import annotations
 
-import tomllib
+import json
+from importlib.resources import files as resource_files
 from pathlib import Path
 
 import pytest
 
 from lanorme import get_all_checks
 from lanorme.cli import _load_builtin_checks, main
-from lanorme.errors import UsageError
-from lanorme.presets import _list_bundled_profiles, _load_profile, _resolve_extends
 
 # Default-off checks the strict profile leaves off on purpose. Empty today: a
 # name goes here only with its reason, so an omission is a decision, not drift.
 _STRICT_LEAVES_OFF: frozenset[str] = frozenset()
+
+_STRICT = '[tool.lanorme]\nextends = ["strict"]\n'
+# KWARG-001 (named_args, default-off) and a PARAM-001 warning (5 params), both on line 3.
+_OPT_IN_AND_WARNING = "\n\ndef transfer(amount, currency, a, b, c):\n    return amount\n"
+# An EVAL-001 error on line 2.
+_EVAL = "def f(x):\n    return eval(x)\n"
+
+
+def _run(argv: list[str]) -> int:
+    try:
+        main(argv)
+    except SystemExit as exit_signal:
+        return int(exit_signal.code or 0)
+    return 0
+
+
+def _read_findings(capsys) -> set[tuple[str, str, int, str]]:
+    records = [json.loads(line) for line in capsys.readouterr().out.splitlines() if line.strip()]
+    return {(r["code"], r["file"], r["line"], r["severity"]) for r in records}
+
+
+def _write_project(root: Path, *, config: str = "[tool.lanorme]\n", **files: str) -> None:
+    (root / "pyproject.toml").write_text(config, encoding="utf-8")
+    for name, body in files.items():
+        (root / f"{name}.py").write_text(body, encoding="utf-8")
+
+
+def _list_bundled_profiles() -> list[str]:
+    """Names of the profiles shipped as package data under ``lanorme/profiles``."""
+    directory = resource_files("lanorme") / "profiles"
+    return sorted(
+        entry.name[: -len(".toml")] for entry in directory.iterdir() if entry.name.endswith(".toml")
+    )
 
 
 def _default_off_checks() -> set[str]:
@@ -35,14 +70,15 @@ def _default_off_checks() -> set[str]:
     }
 
 
-def _collect_switched_on_by_strict() -> set[str]:
-    """Names of the tables the strict profile sets ``enabled = true`` on."""
-    profile = _load_profile(name="strict", project_root=Path("/nonexistent"))
-    return {
-        name
-        for name, table in profile.items()
-        if isinstance(table, dict) and table.get("enabled") is True
-    }
+def _read_enabled_switches(out: str) -> dict[str, bool]:
+    """The ``enabled`` switch of every check in a ``--show-config`` dump."""
+    listing = out.split("checks (effective settings):", 1)[1]
+    switches: dict[str, bool] = {}
+    for line in listing.splitlines():
+        name, _sep, settings = line.strip().partition(" ")
+        if "enabled=" in settings:
+            switches[name] = "enabled=True" in settings
+    return switches
 
 
 def test_strict_is_a_bundled_profile():
@@ -51,153 +87,165 @@ def test_strict_is_a_bundled_profile():
 
 
 @pytest.mark.parametrize("name", _list_bundled_profiles())
-def test_every_bundled_profile_is_valid_toml(name: str):
-    # Act: each bundled profile loads without raising.
-    profile = _load_profile(name=name, project_root=Path("/nonexistent"))
+def test_every_bundled_profile_loads_through_extends(tmp_path: Path, name: str):
+    # Arrange
+    _write_project(tmp_path, config=f'[tool.lanorme]\nextends = ["{name}"]\n', m="x = 1\n")
 
-    # Assert.
-    assert isinstance(profile, dict)
+    # Act
+    code = _run(["check", str(tmp_path)])
 
-
-def test_strict_enables_opt_ins_and_promotes_all():
-    # Act.
-    merged = _resolve_extends(config={"extends": ["strict"]}, project_root=Path("."))
-
-    # Assert: opt-in checks switched on and every warning promoted.
-    assert merged["promote"] == ["ALL"]
-    assert merged["named_args"]["enabled"] is True
-    assert merged["prose"]["enabled"] is True
+    # Assert: invalid TOML or a table naming no check would be a config error.
+    assert code != 2
 
 
-def test_strict_enables_every_default_off_check():
-    # Arrange.
+def test_extends_strict_turns_on_default_off_checks_and_promotes(tmp_path: Path, capsys):
+    # Arrange: KWARG-001 is default-off; PARAM-001 at 5 params is a warning.
+    _write_project(tmp_path, config=_STRICT, m=_OPT_IN_AND_WARNING)
+
+    # Act
+    code = _run(["check", str(tmp_path), "--output-format", "ndjson"])
+    found = _read_findings(capsys)
+
+    # Assert: the opt-in check fires and the warning is promoted.
+    assert {("KWARG-001", "m.py", 3, "error"), ("PARAM-001", "m.py", 3, "error")} <= found
+    assert code == 1
+
+
+def test_strict_enables_every_default_off_check(tmp_path: Path, capsys):
+    # Arrange
     default_off = _default_off_checks()
+    _write_project(tmp_path, config=_STRICT, m="x = 1\n")
+
+    # Act
+    _run(["check", str(tmp_path), "--show-config"])
+    switches = _read_enabled_switches(capsys.readouterr().out)
 
     # Assert: a listed exclusion must still name a real default-off check, and
     # strict enables exactly the rest, so a new default-off check that is not
     # added to the profile (or to the exclusion list) fails here.
     assert _STRICT_LEAVES_OFF <= default_off
-    assert _collect_switched_on_by_strict() == default_off - _STRICT_LEAVES_OFF
-
-
-def test_every_strict_table_names_a_registered_check():
-    # Arrange: a misspelt table would merge silently and configure nothing.
-    _load_builtin_checks()
-    profile = _load_profile(name="strict", project_root=Path("/nonexistent"))
-    tables = {name for name, value in profile.items() if isinstance(value, dict)}
-
-    # Assert.
-    assert tables <= set(get_all_checks())
+    assert {name for name in default_off if switches[name]} == default_off - _STRICT_LEAVES_OFF
 
 
 def test_strict_prices_a_blanket_suppression(tmp_path: Path, capsys):
     # Arrange: a project on strict with one bare ``noqa`` comment, which the
     # suppressions check (default-off, on under strict) flags as SUPPRESS-002.
-    (tmp_path / "pyproject.toml").write_text(
-        '[tool.lanorme]\nextends = ["strict"]\n',
-        encoding="utf-8",
-    )
-    (tmp_path / "m.py").write_text("x = 1  # noqa\n", encoding="utf-8")
+    _write_project(tmp_path, config=_STRICT, m="x = 1  # noqa\n")
 
-    # Act.
-    try:
-        main(["check", str(tmp_path), "--check", "suppressions", "--json"])
-    except SystemExit:
-        pass
+    # Act
+    _run(["check", str(tmp_path), "--check", "suppressions", "--output-format", "ndjson"])
 
-    # Assert.
-    assert "SUPPRESS-002" in capsys.readouterr().out
+    # Assert: the directive on the line cannot silence its own pricing.
+    assert ("SUPPRESS-002", "m.py", 1, "error") in _read_findings(capsys)
 
 
-def test_local_table_switches_one_strict_check_back_off():
+def test_local_table_switches_one_strict_check_back_off(tmp_path: Path, capsys):
     # Arrange: the project keeps strict but opts out of one check it enables.
-    config = {"extends": ["strict"], "docstrings": {"enabled": False}}
+    _write_project(
+        tmp_path,
+        config=_STRICT + "\n[tool.lanorme.named_args]\nenabled = false\n",
+        m=_OPT_IN_AND_WARNING,
+    )
 
-    # Act.
-    merged = _resolve_extends(config=config, project_root=Path("."))
+    # Act
+    _run(["check", str(tmp_path), "--output-format", "ndjson"])
+    found = _read_findings(capsys)
 
     # Assert: only the named check is off; tables merge key by key, so the
-    # rest of what strict enables comes through untouched.
-    assert merged["docstrings"]["enabled"] is False
-    assert merged["suppressions"]["enabled"] is True
+    # rest of what strict sets (the promotion) comes through untouched.
+    assert not [f for f in found if f[0] == "KWARG-001"]
+    assert ("PARAM-001", "m.py", 3, "error") in found
 
 
-def test_local_config_overrides_the_profile():
+def test_local_promote_overrides_the_profile(tmp_path: Path, capsys):
     # Arrange: the project keeps strict's opt-ins but opts out of promotion.
-    config = {"extends": ["strict"], "promote": []}
+    _write_project(tmp_path, config=_STRICT + "promote = []\n", m=_OPT_IN_AND_WARNING)
 
-    # Act.
-    merged = _resolve_extends(config=config, project_root=Path("."))
+    # Act
+    _run(["check", str(tmp_path), "--output-format", "ndjson"])
+    found = _read_findings(capsys)
 
-    # Assert: the local promote wins; the enabled opt-ins still come through.
-    assert merged["promote"] == []
-    assert merged["named_args"]["enabled"] is True
-    assert "extends" not in merged
-
-
-def test_extends_accepts_a_local_toml_path(tmp_path: Path):
-    # Arrange.
-    (tmp_path / "house.toml").write_text('ignore = ["NAMING-003"]\n', encoding="utf-8")
-
-    # Act.
-    merged = _resolve_extends(config={"extends": ["house.toml"]}, project_root=tmp_path)
-
-    # Assert.
-    assert merged["ignore"] == ["NAMING-003"]
+    # Assert: the local promote wins; the enabled opt-in still fires.
+    assert ("KWARG-001", "m.py", 3, "error") in found
+    assert ("PARAM-001", "m.py", 3, "warning") in found
 
 
-def test_later_profile_wins_when_composing(tmp_path: Path):
-    # Arrange: two local profiles set the same key; the second must win.
-    (tmp_path / "a.toml").write_text('select = ["TYPE"]\n', encoding="utf-8")
-    (tmp_path / "b.toml").write_text('select = ["DRY"]\n', encoding="utf-8")
+def test_extends_accepts_a_local_toml_path(tmp_path: Path, capsys):
+    # Arrange: a house profile that ignores the one rule the file breaks.
+    (tmp_path / "house.toml").write_text('ignore = ["EVAL-001"]\n', encoding="utf-8")
+    _write_project(tmp_path, config='[tool.lanorme]\nextends = ["house.toml"]\n', m=_EVAL)
 
-    # Act.
-    merged = _resolve_extends(config={"extends": ["a.toml", "b.toml"]}, project_root=tmp_path)
+    # Act
+    code = _run(["check", str(tmp_path), "--check", "EVAL-001", "--output-format", "ndjson"])
 
-    # Assert.
-    assert merged["select"] == ["DRY"]
-
-
-def test_no_extends_is_returned_unchanged():
-    # Arrange / Act.
-    config = {"ignore": ["NAMING-003"]}
-    merged = _resolve_extends(config=config, project_root=Path("."))
-
-    # Assert.
-    assert merged is config
+    # Assert
+    assert _read_findings(capsys) == set()
+    assert code == 0
 
 
-def test_unknown_profile_is_a_usage_error():
-    # Act / Assert: the library raises; the CLI turns it into exit 2.
-    with pytest.raises(UsageError, match="unknown profile 'does-not-exist'"):
-        _load_profile(name="does-not-exist", project_root=Path("."))
+def test_later_profile_wins_when_composing(tmp_path: Path, capsys):
+    # Arrange: two local profiles set ``select``; the second must win.
+    (tmp_path / "a.toml").write_text('select = ["SIZE"]\n', encoding="utf-8")
+    (tmp_path / "b.toml").write_text('select = ["EVAL-001"]\n', encoding="utf-8")
+    _write_project(tmp_path, config='[tool.lanorme]\nextends = ["a.toml", "b.toml"]\n', m=_EVAL)
+
+    # Act
+    _run(["check", str(tmp_path), "--output-format", "ndjson"])
+
+    # Assert: EVAL-001 is selected, which only b.toml does.
+    assert _read_findings(capsys) == {("EVAL-001", "m.py", 2, "error")}
+
+
+def test_unknown_profile_is_a_usage_error(tmp_path: Path, capsys):
+    # Arrange
+    _write_project(tmp_path, config='[tool.lanorme]\nextends = ["does-not-exist"]\n', m="x = 1\n")
+
+    # Act
+    code = _run(["check", str(tmp_path)])
+
+    # Assert
+    assert code == 2
+    assert "unknown profile 'does-not-exist'" in capsys.readouterr().err
 
 
 # --- red-team regressions: malformed `extends`, malformed profiles, region cascade ---
 
 
-def test_extends_as_a_table_is_rejected():
+def test_extends_as_a_table_is_rejected(tmp_path: Path, capsys):
     # Arrange: a TOML `[extends]` table parses to a dict, which is malformed.
-    config = {"extends": {"strict": True}}
+    _write_project(tmp_path, config="[tool.lanorme.extends]\nstrict = true\n", m="x = 1\n")
 
-    # Act / Assert: rejected, not silently iterated into ['strict'].
-    with pytest.raises(UsageError, match="'extends' must be"):
-        _resolve_extends(config=config, project_root=Path("."))
+    # Act
+    code = _run(["check", str(tmp_path)])
 
-
-def test_extends_as_a_scalar_is_rejected():
-    # Act / Assert: a bare scalar is a usage error, not a TypeError.
-    with pytest.raises(UsageError, match="got int"):
-        _resolve_extends(config={"extends": 5}, project_root=Path("."))
+    # Assert: rejected, not silently iterated into ['strict'].
+    assert code == 2
+    assert "'extends' must be" in capsys.readouterr().err
 
 
-def test_malformed_profile_toml_exits_cleanly(tmp_path: Path):
-    # Arrange.
+def test_extends_as_a_scalar_is_rejected(tmp_path: Path, capsys):
+    # Arrange
+    _write_project(tmp_path, config="[tool.lanorme]\nextends = 5\n", m="x = 1\n")
+
+    # Act
+    code = _run(["check", str(tmp_path)])
+
+    # Assert: a usage error naming the type, not a TypeError.
+    assert code == 2
+    assert "got int" in capsys.readouterr().err
+
+
+def test_malformed_profile_toml_exits_cleanly(tmp_path: Path, capsys):
+    # Arrange
     (tmp_path / "bad.toml").write_text("this is = = not toml\n", encoding="utf-8")
+    _write_project(tmp_path, config='[tool.lanorme]\nextends = ["bad.toml"]\n', m="x = 1\n")
 
-    # Act / Assert: a usage error naming the file, not a raw TOMLDecodeError.
-    with pytest.raises(UsageError, match="bad.toml' is not valid TOML"):
-        _load_profile(name="bad.toml", project_root=tmp_path)
+    # Act
+    code = _run(["check", str(tmp_path)])
+
+    # Assert: a usage error naming the file, not a raw TOMLDecodeError.
+    assert code == 2
+    assert "bad.toml' is not valid TOML" in capsys.readouterr().err
 
 
 def test_hexagonal_exempts_a_package_form_composition_root(tmp_path: Path, capsys):
@@ -227,11 +275,8 @@ def test_nested_region_extends_enables_a_file_level_check(tmp_path: Path, capsys
         encoding="utf-8",
     )
 
-    # Act.
-    try:
-        main(["check", str(tmp_path), "--json"])
-    except SystemExit:
-        pass
+    # Act
+    _run(["check", str(tmp_path), "--output-format", "ndjson"])
 
     # Assert: ATTR-001 fired for the subtree, so the nested extends was resolved.
-    assert "ATTR-001" in capsys.readouterr().out
+    assert ("ATTR-001", "sub/m.py", 2) in {(c, f, ln) for c, f, ln, _ in _read_findings(capsys)}

@@ -11,8 +11,8 @@ The matching is content-anchored, never line-number-anchored, so an entry
 survives unrelated edits above it. A finding is keyed by
 ``(file, rule code, anchor)`` where the anchor is a hash of the stripped source
 line at the finding, or (for a file-level finding reported at a line-1 sentinel)
-a hash of the static rule description. Hashing every form keeps source text and
-any secret out of the committed file.
+the fixed marker ``file``, since the file and code already identify it. Hashing
+the source form keeps source text and any secret out of the committed file.
 
 A baselined *warning* never suppresses a current *error*-tier finding, so a
 baselined file that grows past a hard threshold re-reports and fails the build.
@@ -34,6 +34,8 @@ BASELINE_VERSION = 1
 
 _ERROR = "error"
 _WARNING = "warning"
+# The anchor of a finding that is about the whole file rather than a line.
+_FILE_ANCHOR = "file"
 
 
 # --------------------------------------------------------------------------- #
@@ -52,7 +54,6 @@ def _anchor(
     project_root: Path,
     file: str,
     line: int,
-    rule: str,
     cache: dict[str, list[str]],
 ) -> str:
     """A stable, content-derived key for a finding.
@@ -63,15 +64,17 @@ def _anchor(
     and friends) and is about the whole file, not line 1; anchoring it to the
     text on line 1, or to its count-bearing message, would resurrect it on an
     unrelated top-of-file edit or a minor metric change. So file-level findings
-    (line <= 1) and findings whose source line is blank/unreadable anchor on the
-    static rule description instead, which carries no source text and no per-run
-    count. Every form is hashed, so no source text or secret reaches the file.
+    (line <= 1) and findings whose source line is blank/unreadable take the
+    fixed :data:`_FILE_ANCHOR`: the key's file and code already identify them,
+    and unlike the rule description the marker does not change with the tier
+    (``exceeds`` against ``approaching``), so a recorded error still covers the
+    warning it improves into. The hashed form carries no source text or secret.
     """
     if line >= 2:
         source = _read_line(project_root=project_root, file=file, line=line, cache=cache).strip()
         if source:
             return "sha:" + hashlib.sha256(source.encode("utf-8")).hexdigest()
-    return "desc:" + hashlib.sha256(_describe(rule).encode("utf-8")).hexdigest()
+    return _FILE_ANCHOR
 
 
 def _describe(rule: str) -> str:
@@ -100,7 +103,6 @@ def _build_finding_key(
             project_root=project_root,
             file=finding.file,
             line=finding.line,
-            rule=finding.rule,
             cache=cache,
         ),
     )
