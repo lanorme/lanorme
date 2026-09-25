@@ -1,0 +1,605 @@
+{
+  "metadata": {
+    "audited_version": "0.21.0",
+    "lanorme_version": "0.21.0",
+    "git_commit": "51ee0fc",
+    "git_dirty": false,
+    "python_version": "3.13.12",
+    "platform": "Linux-6.18.44-fc-v37-x86_64-with-glibc2.39",
+    "processor": "x86_64",
+    "timestamp_utc": "2026-09-25T16:35:00.928677+00:00"
+  },
+  "corpus_problems": [],
+  "accuracy": [
+    {
+      "rule": "CMT-001",
+      "corpus": "evals/corpora/comments_commented_code",
+      "split": "dev_and_holdout",
+      "tp": 96,
+      "fp": 0,
+      "fn": 0,
+      "tn": 131,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "dev": {
+        "tp": 58,
+        "fp": 0,
+        "fn": 0,
+        "tn": 102,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      },
+      "holdout": {
+        "tp": 38,
+        "fp": 0,
+        "fn": 0,
+        "tn": 29,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      },
+      "holdout_generated": {
+        "tp": 24,
+        "fp": 0,
+        "fn": 0,
+        "tn": 16,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      },
+      "gap": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0
+      }
+    },
+    {
+      "rule": "CMT-005",
+      "corpus": "evals/corpora/comments_restating",
+      "split": "dev_and_holdout",
+      "tp": 33,
+      "fp": 0,
+      "fn": 46,
+      "tn": 91,
+      "precision": 1.0,
+      "recall": 0.4177215189873418,
+      "f1": 0.5892857142857143,
+      "dev": {
+        "tp": 7,
+        "fp": 0,
+        "fn": 26,
+        "tn": 69,
+        "precision": 1.0,
+        "recall": 0.21212121212121213,
+        "f1": 0.35
+      },
+      "holdout": {
+        "tp": 26,
+        "fp": 0,
+        "fn": 20,
+        "tn": 22,
+        "precision": 1.0,
+        "recall": 0.5652173913043478,
+        "f1": 0.7222222222222222
+      },
+      "gap": {
+        "precision": 0.0,
+        "recall": -0.35309617918313563,
+        "f1": -0.37222222222222223
+      }
+    },
+    {
+      "rule": "CMT-007",
+      "corpus": "evals/corpora/docstrings_vacuous",
+      "split": "dev_and_holdout",
+      "tp": 11,
+      "fp": 0,
+      "fn": 0,
+      "tn": 18,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "dev": {
+        "tp": 6,
+        "fp": 0,
+        "fn": 0,
+        "tn": 10,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      },
+      "holdout": {
+        "tp": 5,
+        "fp": 0,
+        "fn": 0,
+        "tn": 8,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      },
+      "gap": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0
+      }
+    },
+    {
+      "rule": "DRY-001",
+      "corpus": "evals/corpora/duplication_similar",
+      "split": "dev_and_holdout",
+      "tp": 22,
+      "fp": 0,
+      "fn": 42,
+      "tn": 78,
+      "precision": 1.0,
+      "recall": 0.34375,
+      "f1": 0.5116279069767442,
+      "dev": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 24,
+        "tn": 34,
+        "precision": 1.0,
+        "recall": 0.04,
+        "f1": 0.07692307692307693
+      },
+      "holdout": {
+        "tp": 21,
+        "fp": 0,
+        "fn": 18,
+        "tn": 44,
+        "precision": 1.0,
+        "recall": 0.5384615384615384,
+        "f1": 0.7000000000000001
+      },
+      "holdout_generated": {
+        "tp": 20,
+        "fp": 0,
+        "fn": 3,
+        "tn": 28,
+        "precision": 1.0,
+        "recall": 0.8695652173913043,
+        "f1": 0.9302325581395349
+      },
+      "gap": {
+        "precision": 0.0,
+        "recall": -0.49846153846153846,
+        "f1": -0.6230769230769231
+      }
+    },
+    {
+      "rule": "NAMING-005",
+      "corpus": "evals/corpora/naming_scope",
+      "split": "dev_only",
+      "tp": 3,
+      "fp": 0,
+      "fn": 0,
+      "tn": 6,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "dev": {
+        "tp": 3,
+        "fp": 0,
+        "fn": 0,
+        "tn": 6,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      },
+      "holdout": null,
+      "gap": null
+    },
+    {
+      "rule": "NAMING-006",
+      "corpus": "evals/corpora/naming_verb_class",
+      "split": "dev_only",
+      "tp": 8,
+      "fp": 0,
+      "fn": 0,
+      "tn": 18,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "dev": {
+        "tp": 8,
+        "fp": 0,
+        "fn": 0,
+        "tn": 18,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      },
+      "holdout": null,
+      "gap": null
+    },
+    {
+      "rule": "NAMING-007",
+      "corpus": "evals/corpora/naming_command",
+      "split": "dev_only",
+      "tp": 11,
+      "fp": 0,
+      "fn": 0,
+      "tn": 39,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "dev": {
+        "tp": 11,
+        "fp": 0,
+        "fn": 0,
+        "tn": 39,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      },
+      "holdout": null,
+      "gap": null
+    },
+    {
+      "rule": "NAMING-008",
+      "corpus": "evals/corpora/naming_weak_verb",
+      "split": "dev_only",
+      "tp": 8,
+      "fp": 0,
+      "fn": 0,
+      "tn": 14,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "dev": {
+        "tp": 8,
+        "fp": 0,
+        "fn": 0,
+        "tn": 14,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      },
+      "holdout": null,
+      "gap": null
+    },
+    {
+      "rule": "NAMING-011",
+      "corpus": "evals/corpora/naming_every_verb",
+      "split": "dev_only",
+      "tp": 10,
+      "fp": 0,
+      "fn": 0,
+      "tn": 23,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "dev": {
+        "tp": 10,
+        "fp": 0,
+        "fn": 0,
+        "tn": 23,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      },
+      "holdout": null,
+      "gap": null
+    },
+    {
+      "rule": "PROSE-004",
+      "corpus": "evals/corpora/prose_em_dash",
+      "split": "dev_and_holdout",
+      "tp": 3,
+      "fp": 0,
+      "fn": 0,
+      "tn": 11,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "dev": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "tn": 8,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      },
+      "holdout": {
+        "tp": 2,
+        "fp": 0,
+        "fn": 0,
+        "tn": 3,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      },
+      "gap": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0
+      }
+    },
+    {
+      "rule": "SQL-001",
+      "corpus": "evals/corpora/security_raw_sql",
+      "split": "dev_and_holdout",
+      "tp": 43,
+      "fp": 0,
+      "fn": 0,
+      "tn": 82,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "dev": {
+        "tp": 30,
+        "fp": 0,
+        "fn": 0,
+        "tn": 64,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      },
+      "holdout": {
+        "tp": 13,
+        "fp": 0,
+        "fn": 0,
+        "tn": 18,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      },
+      "gap": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0
+      }
+    },
+    {
+      "rule": "SECRETPY-001",
+      "corpus": "evals/corpora/security_hardcoded_secrets",
+      "split": "dev_and_holdout",
+      "tp": 47,
+      "fp": 0,
+      "fn": 0,
+      "tn": 122,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "dev": {
+        "tp": 40,
+        "fp": 0,
+        "fn": 0,
+        "tn": 88,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      },
+      "holdout": {
+        "tp": 7,
+        "fp": 0,
+        "fn": 0,
+        "tn": 34,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      },
+      "gap": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0
+      }
+    },
+    {
+      "rule": "SIMILAR-001",
+      "corpus": "evals/corpora/duplication_similar",
+      "split": "dev_and_holdout",
+      "tp": 48,
+      "fp": 0,
+      "fn": 6,
+      "tn": 88,
+      "precision": 1.0,
+      "recall": 0.8888888888888888,
+      "f1": 0.9411764705882353,
+      "dev": {
+        "tp": 20,
+        "fp": 0,
+        "fn": 5,
+        "tn": 34,
+        "precision": 1.0,
+        "recall": 0.8,
+        "f1": 0.888888888888889
+      },
+      "holdout": {
+        "tp": 28,
+        "fp": 0,
+        "fn": 1,
+        "tn": 54,
+        "precision": 1.0,
+        "recall": 0.9655172413793104,
+        "f1": 0.9824561403508771
+      },
+      "holdout_generated": {
+        "tp": 13,
+        "fp": 0,
+        "fn": 0,
+        "tn": 38,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      },
+      "gap": {
+        "precision": 0.0,
+        "recall": -0.16551724137931034,
+        "f1": -0.09356725146198819
+      }
+    }
+  ],
+  "holdout_digests": {
+    "comments_commented_code": {
+      "holdout/generated/gen_comment_statement_01.py": "b5127988f4be7247a025c17e0106ee24aae1fdec7345fd806e238fabfd44b98a",
+      "holdout/generated/gen_comment_statement_02.py": "e3431225ee11d5daf6d1263ee38bd0c81f7d4007d705048ef13632c26c464b28",
+      "holdout/generated/gen_docstring_sentence_01.py": "6472f24d93b91b7ca30046992b8a043fb5ddbbfee9b3f3ebec2a105ed912897c",
+      "holdout/generated/gen_docstring_sentence_02.py": "83b2b483e79f295cb380322c57e39d06382d03b26284ecd4afa4ce02d22fc87d",
+      "holdout/negatives/neg_math_units.py": "0471bf39838e6fe5d5af305bc366a9dae1cefa205d39de5dde94942d3a00d2d1",
+      "holdout/negatives/neg_shebang_encoding.py": "2f9a7ebe5db35977f814f6760515ff7c59307f0e59047d7d3b80b4f3ba1bb46c",
+      "holdout/positives/pos_disabled_block.py": "5dd31669021358ee7ee74012cc3cabcf6e0a1ecb53483ca66d161c92af8ec35b",
+      "holdout/positives/pos_disabled_imports.py": "3563f290e40780f857cb6d48f15761affe54a8313927b5d3d2946d987e9f8476"
+    },
+    "comments_restating": {
+      "holdout/negatives/neg_half_useful_qualifier.py": "1429dfe05bb770e4c18425ec7a84116e63f39341d6b56bf866e702114a0293fd",
+      "holdout/negatives/neg_license_legal.py": "a4c810f03ddf188ca2e7fcf7f137a041a1415d37e49f8e86a60ac321cd612365",
+      "holdout/negatives/neg_section_headers.py": "48b914081640c6e8478e801b77edafac34e513ccef8fbf530bddbaf696ef7d80",
+      "holdout/positives/pos_catchable_assignments.py": "f48eab09efd82cc6876b659f837b72b4f44ca0e43d637995d5b55bf27627a3ee",
+      "holdout/positives/pos_catchable_calls.py": "0e7f9ee3ddd8c3065a33d6c555574215a56187eccdd335dbb572b5deb0115d83",
+      "holdout/positives/pos_catchable_realistic.py": "122b3da5f4f726daf791f687fca07a61b6bd8fc8adec4cb44f7d47f98a04e003",
+      "holdout/positives/pos_half_useful_qualifier.py": "5de779327247bbb4788defae40f3b2f52fbae44367bfb4cbc601ce3d8fd09f71",
+      "holdout/positives/pos_inline_restatements.py": "dcee069b0c69d9d7318c47c630a111d67102d0166057de849a0c0a21526c1bd2",
+      "holdout/positives/pos_multiline_restatement.py": "8ff0b7e5ac8f0b4d3369bf497e21eed827b702ad4476005992459c317b0ccf90",
+      "holdout/positives/pos_type_in_prose.py": "8dbcb7576f11995739ff68149d7eb1c11deb5079e778e53424c18b056d7f4694"
+    },
+    "docstrings_vacuous": {
+      "holdout/negatives/neg_out_of_scope.py": "f5f53bddbbe0181b7cfa6feb0d7371dce2b237d40a831c7eddb556c953da5bab",
+      "holdout/negatives/neg_short_and_private.py": "b163e353c77ce643254eb44982e786a684166a8cf135b9ba2232e03670ecbd5b",
+      "holdout/positives/pos_empty_and_noise.py": "bf528203a454376f0035dde9e414dec2b36f0f94a600ac6d27a65b8901a6b3d8"
+    },
+    "duplication_similar": {
+      "holdout/generated/gen_add_branch_check_date_fields.py": "f103f7814b13e4d8d7de118c577911d9fa7b16d582870f6826c3a8df0afe2d37",
+      "holdout/generated/gen_add_branch_checknetloc.py": "e782b789d88e758188b28a3af1408795d37a3dabc54a3ec92a1fc43598a077f3",
+      "holdout/generated/gen_add_branch_cleandoc.py": "f0a82e390b9487945c0f17a342ca7efd8787b18b40acc72d4478a2027c09e355",
+      "holdout/generated/gen_add_branch_copyfileobj.py": "c8105ba573aa2ef73f7e84e4d9af1d6cc8f62b0e3419c31c7495aa639783b9e6",
+      "holdout/generated/gen_add_branch_covariance.py": "0954e68c3df69961947530180bc8ac3938b0c8de5fac43a01449590f27c550c0",
+      "holdout/generated/gen_add_branch_long_has_args.py": "2ddfe32d4aacbb4312e93b792b26a81181b2c8c075f20ab8bc7e59cc6c367bac",
+      "holdout/generated/gen_add_branch_make_msgid.py": "74d7a82ed61677db527fdb155762c31d42de9f9f8eddf0710bb05fb1b47b6cac",
+      "holdout/generated/gen_add_branch_parse257.py": "c0e9368eaaada0a8b409c713180a0389ff4a7afe72b4e15b59aa42befaa75216",
+      "holdout/generated/gen_change_called_name_check_date_fields.py": "405478e9ff6a22ef3470af35d2b6b8a3926610e3d051d20647509c967049eff8",
+      "holdout/generated/gen_change_called_name_checknetloc.py": "af01a6a78b1095904007b3c5748e86efe9f4411b8e51dd197287106ee7e7c0f9",
+      "holdout/generated/gen_change_called_name_cleandoc.py": "f7a9f3287cf12ca4412ae55898de31041685cc44b82988f52a838610b8653704",
+      "holdout/generated/gen_change_called_name_copyfileobj.py": "23de78f40396e06c2b7608b2ace8dd7746517f899c6e34fdf6869f96ff39e2ad",
+      "holdout/generated/gen_change_called_name_covariance.py": "57cd3e051002ecdfa1ba69305de476d16e10d96be8d1a815c8f71381f954972a",
+      "holdout/generated/gen_change_called_name_long_has_args.py": "5341ff663657d4ee0ed8ffc4e17321e59ab720937f7e4fc4a12b6cfc32eb2497",
+      "holdout/generated/gen_change_called_name_mac_ver_xml.py": "e32c03d5e9ab12c88ad6833f9c52636a9836455c81d53d7ad9e50f9ea60f8bf2",
+      "holdout/generated/gen_change_called_name_make_msgid.py": "1bd83983e46336f4517f3b728dad83e19624fe6aa51117f64329f265f70c65c1",
+      "holdout/generated/gen_change_called_name_parse257.py": "80ea98b5389683277716db7a4dc172f454bd2f32c833d5c515d8a24db0a5e76f",
+      "holdout/generated/gen_change_called_name_urlunsplit.py": "905c2d3dc9f9493e22194ae4888172a306e960ae0d9170cc1294e2dcbc1d16b1",
+      "holdout/generated/gen_change_string_literals_check_date_fields.py": "436d6b6cadadcb34adc781a26035073ea83a77ac2d7085b677308d131dd7571a",
+      "holdout/generated/gen_change_string_literals_checknetloc.py": "2fa24cbe015b0e4311e72a33ab4284326a899c9836268494d833c7ac3e5b3014",
+      "holdout/generated/gen_change_string_literals_cleandoc.py": "7f119707c1c51a9b3c3f020e5a71a121ccb80ce70d2c6983e8649800d9a6d816",
+      "holdout/generated/gen_change_string_literals_copyfileobj.py": "e56bf7506b3cb2900a4574dace472da70cc3e9b1a81e1f93f4dc70a8700d4bd1",
+      "holdout/generated/gen_change_string_literals_covariance.py": "88ed2f521ebc7f15112a8c495bf0107fea0c553f90feeac8da49b5df3e832f23",
+      "holdout/generated/gen_change_string_literals_long_has_args.py": "24cf611a848c6898923151a3e22b5e526fbbb47b2574b00a97a781352477a10c",
+      "holdout/generated/gen_change_string_literals_mac_ver_xml.py": "4f1b266bd4c132ee63421251a4543c937923d547c330d8bdf3901d70d0ebd744",
+      "holdout/generated/gen_change_string_literals_make_msgid.py": "9210fe68850bf129da1a44bca519aebeea1d1d40958b11e111a981209faa52d0",
+      "holdout/generated/gen_change_string_literals_parse257.py": "b1cabe8ccd6ccc48bd987b3e9efdd4012d12f3c8831208dd4b1ce78818f08c4a",
+      "holdout/generated/gen_change_string_literals_urlunsplit.py": "b36fa69cf4678da09a95c655022fe143368083d4358e358f6a6399b0dbcb2df2",
+      "holdout/generated/gen_flip_operator_check_date_fields.py": "6cbeb4bdfb549b6782ed625f33ca781affc3f8b549ce1c1d631d827fc3ab8b8a",
+      "holdout/generated/gen_flip_operator_checknetloc.py": "8d041b9b545806f14d59062e90c641cfa52ca87e79c3e2cd732830eeffa75686",
+      "holdout/generated/gen_flip_operator_cleandoc.py": "3eb197e09badfb747a6b8c1ae98f6d5b5aa6d914cbb414dc483861ecfb63d4af",
+      "holdout/generated/gen_flip_operator_copyfileobj.py": "ebc96c06fd6f0f235c8305349cd2e7a8ca512819163f5656aca6747f9af31c9d",
+      "holdout/generated/gen_flip_operator_covariance.py": "e1f84ad9ac034a06e297dcb7797c476292a88ebed7bfd4174f481520670ae2f0",
+      "holdout/generated/gen_flip_operator_long_has_args.py": "58c9aa6056eb8f9d83b3bf2b6c8f2cdfa1bb81d3469a93df0209aed6cb78b61d",
+      "holdout/generated/gen_flip_operator_mac_ver_xml.py": "9a158fcdc9c20f9572beb91bdac1ebbcdc2081fbfb4409b49224d5c29b5f8744",
+      "holdout/generated/gen_flip_operator_make_msgid.py": "7f92dda7453019a8a409e7af77d070f7e0ac1002f0ea785e08ec1c5832d8253e",
+      "holdout/generated/gen_flip_operator_parse257.py": "ef11accd74fdc58837a1525e6c0061813a99c709bca34b3510279655065f1487",
+      "holdout/generated/gen_flip_operator_urlunsplit.py": "4e41c0626bd8f502742c9a4ef91263f02b27a5d280439e588bab41a44f650ee9",
+      "holdout/generated/gen_rename_identifiers_check_date_fields.py": "bbc7c00b9ef7f689b14998c65447157e26eb6b14945c9a310cf0bac81dd15dea",
+      "holdout/generated/gen_rename_identifiers_checknetloc.py": "b4dc0b89c4a415b4967ceef97ba43a0ab951aef10fb09719469b822f4de7ed4a",
+      "holdout/generated/gen_rename_identifiers_cleandoc.py": "5a29c9e3ebedc22ea9edb839201a1096c0474ec692db1ea491a5307ef398905e",
+      "holdout/generated/gen_rename_identifiers_copyfileobj.py": "49af7b61bbaecb041f9cca328aadedfaaaf5745b17934bdc75c8f90ef65c6c86",
+      "holdout/generated/gen_rename_identifiers_covariance.py": "b55bd8605e2998b2c1eb232eaad2590af007161c1030184f3773e20dc4ad3379",
+      "holdout/generated/gen_rename_identifiers_long_has_args.py": "295e9d89daee8d91499f5a3fbebe2cb96978ed07c295cf9e6be74c1b5006d094",
+      "holdout/generated/gen_rename_identifiers_mac_ver_xml.py": "f630262a4e95dc3572a7a355eb93b55c362699e33eae2f739c35559f72f9a861",
+      "holdout/generated/gen_rename_identifiers_make_msgid.py": "b22b185bc1021d2b67855a96bbd24d4f72f8071b2cbff9efb07eef8cec98e273",
+      "holdout/generated/gen_rename_identifiers_parse257.py": "37343e01cb7fcad12e3baff2842acf5fdaba64b9596055eca85bd40eeb4dc913",
+      "holdout/generated/gen_rename_identifiers_urlunsplit.py": "b7397cd80a5cd3598f716207651f7840a4c66f523313e34a9c4a3b9debe9dc05",
+      "holdout/generated/gen_reorder_statements_cleandoc.py": "69da2c0b2307ec2a6327ad08de48ccd45a6e3e29be15a345f6a67e45f419b9b6",
+      "holdout/generated/gen_reorder_statements_mac_ver_xml.py": "08fbf2890df8848867f47eae1892c1da5029eb4233c1dabc41ed5686d619b256",
+      "holdout/generated/gen_reorder_statements_parse257.py": "7ec1f2279b30e659a2c4aec6a000ab7323963793e8d16294ffea01c2fa4b423e",
+      "holdout/negatives/boilerplate-neg_04_two_constructors.py": "2eff246ef2ec4d241bdef00f9734319fce737b235b39a453c9b74cc4e0205010",
+      "holdout/negatives/boilerplate-neg_06_pydantic_validators.py": "29fe4bae3fb870d7ebc94db523932f010e540dc02e3ba756460291f31e0b54d0",
+      "holdout/negatives/boilerplate-neg_10_argparse_subcommands.py": "112a6b361ed69d04342dbe1900f16c382f8fa7e94fb62e0a25dc27c775ce122a",
+      "holdout/negatives/boilerplate-neg_11_state_machine_transitions.py": "ef7f62dded7ed8433c4cd73e3e55886c44d2b86f12e98c87f5b14dc79b140a6b",
+      "holdout/negatives/boilerplate-neg_12_metric_emitters.py": "b0421b8ffe9194c169edcd767d83d57cf576e3ed1f7b2259e098fcd8c16d762f",
+      "holdout/negatives/boundary-mixed_01_clamp_opposite_operator.py": "9799ba79c32d67189cc6c729da6f041af0ffbbde8a90befd53da980ddb161735",
+      "holdout/negatives/boundary-mixed_02_sum_vs_product.py": "84c700f74ca1f99421864d06aab8816583d8e78de4a0d650ee1111ae7349a1d9",
+      "holdout/negatives/copypaste-edits_15_mutate_vs_copy.py": "ef6627cbc7feeb4af56289fe5339023b84661b0475be15ba62db402db882cc1c",
+      "holdout/negatives/fp-hunt_03_same_key_event_payload.py": "773064063d2e1182e6bca635614530c9053cd7e8ca81aaed709528cf8befa22b",
+      "holdout/negatives/fp-hunt_04_same_key_coerced_mapper.py": "7d2b48013a72870ed54217f9cf6cce479d15d9af40565488746575faa44ad351",
+      "holdout/negatives/framework-neg_03_settings_loaders.py": "5ec24027e18bbc2b554f00686cabf27c424fe1f61e3fa9079e8b81efc8a0bb7a",
+      "holdout/negatives/framework-neg_10_dunder_init_eq.py": "d90fab687ed98bb201592cd9f0796e3e96d53189d3df610cc4ddf8061ca84660",
+      "holdout/negatives/framework-neg_14_dunder_repr_str.py": "8eec14791da11b4976d5da2299246863cd61cb6cf802acde07a335d5fcf501b5",
+      "holdout/negatives/recall-gaps_02_config_builders.py": "57cf84ee75977ed34d83baf6afe80896ec5520a67ca3274331091543c91aba65",
+      "holdout/negatives/recall-gaps_04_dunder_boilerplate.py": "802067f80428bfe8c6b9d36f9c7a3c9fa7418292ce5bb24a670627e12c17ac05",
+      "holdout/negatives/redteam_01_validators_different_bounds.py": "fcd4fe622b79df7ddcba199e256a03def85b80b55c03d7eb6d77f0c5612ca3a1",
+      "holdout/positives/boundary-mixed_01_retry_drifted_count.py": "9e207d9b38130eb53083d0d6fdadeba9fe54b85dbbbf80227c5e94062a4f320c",
+      "holdout/positives/boundary-mixed_04_parse_extra_statement.py": "1d7945ca99eb706efdf83249d9c12886ea18daffffe371c15c83b91503e3286d",
+      "holdout/positives/boundary-mixed_06_reordered_independent.py": "f715c5ade93f2e323450bc711d31613f1d6dc9e0f09dab961f3feb309b5d076f",
+      "holdout/positives/boundary-mixed_07_pipeline_removed_statement.py": "ee9891fba67266dea95f0bb0e1ebd5882b73fe93b1f185e5034f70a9b01306cb",
+      "holdout/positives/boundary-mixed_08_dispatch_numeric_drift.py": "65534a31b44fb193045bf3d960b981f4e143a3646d1f5de16cd03364a76b2cb5",
+      "holdout/positives/copypaste-edits_02_attr_rename.py": "b45ccfce03187b123ae86ed24899cd97068306722d4c6182da4a9430b607c43d",
+      "holdout/positives/copypaste-edits_05_reordered_stmts.py": "ec8ff56c8265ecca9c0fd9fba2661982f8959f6c99ae356404421f11b4b6cfd9",
+      "holdout/positives/copypaste-edits_07_added_guard.py": "ab5467a6c29c2cf5a20aa4cabb6c8ffb7e9d95fa7a0901d3c3dee3454a5f30ad",
+      "holdout/positives/copypaste-edits_09_const_and_attr.py": "dcab029496e2f6270021fdfb213a1b8c78233aa0dafbe3c77ab923bd324b2ea1",
+      "holdout/positives/copypaste-edits_11_literal_set_change.py": "719b13c872f6b7f7650b6b4e916bb914f047822fbbbfd7b1a85d3ca7583ffe01",
+      "holdout/positives/copypaste-edits_12_attr_chain_swap.py": "76461956476922acc8263353f21e4f4d67bdbc954a812882fdb0cfd5681576e0",
+      "holdout/positives/fn-hunt_02_error_text_and_attr.py": "5c49c42d68bcba6a2116b5e0a8c485ce92bcbc69015c763c78f8df30b1b97442",
+      "holdout/positives/fn-hunt_03_reorder_and_log_drift.py": "375c7d736dc97bf52ef68d0df72dcbcf52e4bdc2547bc0d6b836c414f3c5736a",
+      "holdout/positives/fn-hunt_04_nested_loop_log_drift.py": "b03d118be1c7aa5c68f9f8d02256dec40760b53b18ccb28e60865756a8ffb005",
+      "holdout/positives/recall-gaps_03_number_pagination.py": "8bbd8dd75ae07007d12f85b7268875ca72eef0bb4bc765de1f460b9686b77083",
+      "holdout/positives/recall-gaps_05_attr_name_serialise.py": "e8ad6df89d4bc8f778b977f15234a5703dcffeb96d1128d97c81434c6644927c"
+    },
+    "naming_command": {},
+    "naming_every_verb": {},
+    "naming_scope": {},
+    "naming_verb_class": {},
+    "naming_weak_verb": {},
+    "prose_em_dash": {
+      "holdout/fire_api_overview.md": "070436c5ee28f86f517cd3a691dca08df300177f1b328f99659edf81262863c2",
+      "holdout/fire_productivity_guide.md": "ce3b1fa3919a3d095afe202418994d82632ed0a74220936ad02d23f546a30e51",
+      "holdout/ok_boundary_fraction.md": "047acbd909ba56032d9a9534449374682b0edfab6c4d1619a1edf9187a23a178",
+      "holdout/ok_long_gardening.md": "bbd6454d3e667aee36d986cfe14428ca260f4007ef75ecf52714fdd93f0acbe9",
+      "holdout/ok_short_punchy.md": "c75eed21a1a71a9a3556179eb795f5f521245acccdbb7b7d11e4a61d8bf223f0"
+    },
+    "security_hardcoded_secrets": {
+      "holdout/negatives/neg_annotations_and_defaults.py": "d26e35c65b734b4b9c2318453fafba3210143d79353529a23e371a7e604c709f",
+      "holdout/negatives/neg_help_and_docstrings.py": "ebef95f002a9a8028206df21aee26d3d9c9fa0eb3042fa609e993faa71492298",
+      "holdout/negatives/neg_placeholders.py": "ead5e16e7547d9fb753d180882e3f32fdccdf0e195000ad80cb25b285a264ade",
+      "holdout/positives/pos_jwt_and_entropy.py": "3a00e57dc3c93616e878b0ae8956b483c19b16d3cabdec9dc179a4590418eabd"
+    },
+    "security_raw_sql": {
+      "holdout/negatives/alembic/versions/0001_initial.py": "a20b10ae53781c34620bebe603edf399b3f8583455d1c115b8257e726e5bde8a",
+      "holdout/negatives/alembic/versions/0002_add_locale.py": "8f47bf919ea131756e446af0d15b1bdd853fb4b0fd56242e4d6e841bea50b38a",
+      "holdout/negatives/neg_changelog_strings.py": "1c72cdca6123a616a2b667e470de20314f5cd414d83c12f4cda42a9baa7941d5",
+      "holdout/positives/pos_conn_execute_literal.py": "427104dfffee7f28c1657250ab7dda767f006fe56a244eb348a3112220853449",
+      "holdout/positives/pos_pandas_read_sql.py": "28b887e4515b47307c4e75b890e9aa1c88b2aff23b9315479f0eca5116592ede",
+      "holdout/positives/pos_static_concat_no_params.py": "8996bf5a0189a3af0c0a07b8a676d547fa7758a45f5db8fd694dfaff97ab7e94"
+    }
+  },
+  "gate": null,
+  "performance": {
+    "requests": {
+      "files": 33,
+      "lines": 10279,
+      "seconds": 0.5871
+    },
+    "flask": {
+      "files": 82,
+      "lines": 17384,
+      "seconds": 0.6241
+    },
+    "rich": {
+      "files": 78,
+      "lines": 26424,
+      "seconds": 0.6154
+    },
+    "sqlalchemy": {
+      "files": 687,
+      "lines": 570669,
+      "seconds": 0.6854
+    },
+    "stdlib": {
+      "files": 589,
+      "lines": 291527,
+      "seconds": 13.5771
+    }
+  }
+}
