@@ -55,3 +55,15 @@ def password_reset(user):
 def user_count_update(stats):
     """Refresh the cached user count: the verb trails two nouns."""
     stats.users = stats.query.count()
+
+
+class Listener:
+    """camelCase on a plain class matches no base API: the name is the author's."""
+
+    def userSync(self):
+        self.users.refresh()
+
+
+def ready():
+    """A module-level ``ready`` is not the AppConfig hook."""
+    store.clear()

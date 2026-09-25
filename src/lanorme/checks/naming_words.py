@@ -104,6 +104,10 @@ splitext splitlines squash ssh startswith stat stimulate stipulate submit sunset
 symlink tabulate tail tee tick tolerate transcode transmit triage tunnel unpickle
 unplug unseal untar version violate vote wget writelines zero zoom
 checkin checkout del expunge reap roundtrip
+ban bill book bucket cap charge coalesce collate credit debit debounce decline deflate
+denoise deposit dismiss downsize email enrich enrol enroll greet indent interleave
+invite kick mint mute onboard outdent pay pivot poke redact redeem refund remind
+reserve salt scaffold scrub smooth snooze splice stitch void warmup wire withdraw
 """.split(),
 )
 
@@ -183,6 +187,16 @@ notifier observer parser populator processor producer publisher reader receiver
 registrar renderer resolver runner scheduler sender serialiser serializer subscriber
 tokeniser tokenizer tracker transformer translator validator verifier visitor watcher
 writer
+abc behavior behaviour direction dummy impl modal reason timing wizard
+""".split(),
+)
+
+# A class whose last word is the state an action reached names an outcome, not
+# the action: ``SendFailed`` is what happened, as is ``FetchAborted``.
+STATE_WORDS: frozenset[str] = frozenset(
+    """
+aborted cancelled canceled complete completed denied done expired failed finished
+interrupted pending refused rejected started succeeded
 """.split(),
 )
 
@@ -252,17 +266,24 @@ FUSED_VERB_HEADS: frozenset[str] = frozenset(
     },
 )
 
-# Hooks are named for the moment they run, not for what they do.
-HOOK_PREFIXES: tuple[str, ...] = ("on_", "pre_", "post_", "before_", "after_", "pytest_")
-HOOK_SUFFIXES: tuple[str, ...] = ("_hook", "_handler", "_callback", "_listener", "_receiver")
+# Hooks are named for the moment they run (``on_click``, ``onMessage``,
+# ``pytest_configure``) or for their role (``error_handler``, a bare
+# ``callback`` or ``handler`` handed to ``signal.signal`` or ``apply_async``),
+# not for what they do. Matched by word, so camelCase counts.
+HOOK_PREFIX_WORDS: frozenset[str] = frozenset({"on", "pre", "post", "before", "after", "pytest"})
+HOOK_SUFFIX_WORDS: frozenset[str] = frozenset(
+    {"hook", "handler", "callback", "listener", "receiver"},
+)
 
 # Conversions and alternate constructors are named for their product
 # (Rust C-CONV; Clean Code's ``Complex.FromRealNumber``).
 CONVERSION_PREFIXES: tuple[str, ...] = ("from_", "to_", "as_", "into_", "with_")
 CONVERSION_INFIXES: tuple[str, ...] = ("_to_", "_from_", "_as_")
 
-# Names a script or package reserves for its entry point.
-ENTRY_POINTS: frozenset[str] = frozenset({"main", "async_main", "cli"})
+# Names a script, a package or a server reserves for its entry point: PEP 3333
+# calls the WSGI callable ``application`` and the ASGI specification's examples
+# call theirs ``app``.
+ENTRY_POINTS: frozenset[str] = frozenset({"main", "async_main", "cli", "application", "app"})
 
 # Method names fixed by a standard-library protocol: a class that implements
 # one keeps the protocol's name, verb or not.
@@ -275,6 +296,27 @@ items join keys nextset notify pop popitem read readable readline readlines rele
 rollback run seek seekable send setdefault setinputsizes setoutputsize start stop
 symmetric_difference_update tell throw truncate tzname update utcoffset values wait
 warning writable write writelines
+buffer_updated connection_lost connection_made data_received datagram_received
+eof_received error_received get_buffer pause_writing pipe_connection_lost
+pipe_data_received process_exited resume_writing
+server_activate server_bind server_close service_actions verify_request
+generic_visit
+characters endDocument endElement endElementNS endPrefixMapping fatalError
+ignorableWhitespace notationDecl processingInstruction resolveEntity
+setDocumentLocator skippedEntity startDocument startElement startElementNS
+startPrefixMapping unparsedEntityDecl
+completedefault completenames emptyline postcmd postloop precmd preloop
+detach readall readinto readinto1 read1
+formatException formatStack formatTime usesTime
+countTestCases shortDescription
+unknown_decl
+persistent_id persistent_load
+optionxform
+task_done
+difference intersection isdisjoint issubset issuperset union symmetric_difference
+user_call user_exception user_line user_return
+data_open default_open file_open ftp_open http_open http_request http_response
+https_open https_request https_response redirect_request unknown_open
 """.split(),
 )
 
@@ -285,6 +327,24 @@ FRAMEWORK_HOOKS: frozenset[str] = frozenset(
 handle_error handle_noargs process_exception process_item process_request
 process_response process_spider_input process_spider_output process_start_requests
 process_template_response process_view
+""".split(),
+)
+
+# Method names a framework fixes on the classes it hands out, kept apart from
+# the hooks above because they are only reserved on a method: a module-level
+# ``ready()`` is the author's. Django (``AppConfig.ready``, routers, fields,
+# views, commands), Django REST framework mixins, Scrapy spiders and signal
+# handlers, pydantic models and SQLAlchemy type decorators.
+FRAMEWORK_METHODS: frozenset[str] = frozenset(
+    """
+allow_migrate allow_relation db_for_read db_for_write db_parameters db_type
+form_invalid form_valid formfield handle_app_config handle_label natural_key
+ready rel_db_type test_func
+perform_authentication perform_content_negotiation perform_create perform_destroy
+perform_update
+closed item_dropped item_scraped spider_closed spider_idle spider_opened
+model_post_init
+bind_expression column_expression
 """.split(),
 )
 
@@ -370,6 +430,14 @@ def _has_fused_prefix(*, word: str, verbs: frozenset[str]) -> bool:
     return False
 
 
+# Nouns that end like a verb: ``enterprise`` and ``premise`` are not ``-ise``
+# verbs, and a ``-size`` compound (``chunksize``, ``bufsize``, ``keysize``) is a
+# measurement. A verb that ends in ``size`` (``resize``, ``downsize``) is listed.
+SUFFIX_NOUNS: frozenset[str] = frozenset(
+    {"enterprise", "expertise", "franchise", "paradise", "premise", "premises"},
+)
+
+
 def is_verb_capable(*, word: str, extra: frozenset[str] = frozenset()) -> bool:
     """True if *word* can be read as a verb: listed, inflected, suffixed or fused."""
     verbs = VERB_CAPABLE | extra
@@ -377,6 +445,8 @@ def is_verb_capable(*, word: str, extra: frozenset[str] = frozenset()) -> bool:
         return True
     if word.endswith("ify") and len(word) > 4:
         return True
+    if word in SUFFIX_NOUNS or word.endswith("size"):
+        return False
     if word.endswith(("ise", "ize")) and len(word) >= 6:
         return True
     return _has_fused_prefix(word=word, verbs=verbs)
@@ -432,13 +502,34 @@ def move_verb_first(*, name: str, tokens: list[str], index: int) -> str:
     return prefix + joined
 
 
+def _is_third_person(*, word: str) -> bool:
+    """A listed verb in its third-person form: ``matches``, ``exists``, ``applies``."""
+    return word not in VERB_CAPABLE and _is_listed_verb(word=word, verbs=VERB_CAPABLE)
+
+
 def is_predicate(*, tokens: list[str]) -> bool:
-    """True if the name reads as an assertion: ``is_empty``, ``line_has_noqa``."""
-    return any(token in PREDICATE_WORDS for token in tokens)
+    """True if the name reads as an assertion about its subject.
+
+    Three shapes: an auxiliary anywhere (``is_empty``, ``line_has_noqa``), a
+    third-person verb in front (``matches_pattern``, ``exists``, ``contains``:
+    the Swift guideline's "reads as an assertion about the receiver"), or
+    ``is``/``has`` fused onto the next word the way ``os.path`` and ``str``
+    spell them (``isdir``, ``hasattr``, ``isEnabled``).
+    """
+    if any(token in PREDICATE_WORDS for token in tokens):
+        return True
+    if not tokens:
+        return False
+    head = tokens[0]
+    if _is_third_person(word=head):
+        return True
+    return any(head.startswith(fused) and len(head) > len(fused) + 2 for fused in ("is", "has"))
 
 
 def is_noun_phrase(*, tokens: list[str]) -> bool:
-    """True if the last word of a class name is an action's artefact, so the name is a thing."""
+    """True if the last word of a class name is an action's artefact or outcome, so the name is a thing."""
     words = [token for token in tokens if not token.isdigit()] or list(tokens)
     head = words[-1]
-    return head in THING_WORDS or (head.endswith("s") and head[:-1] in THING_WORDS)
+    if head in THING_WORDS or head in STATE_WORDS:
+        return True
+    return head.endswith("s") and head[:-1] in THING_WORDS

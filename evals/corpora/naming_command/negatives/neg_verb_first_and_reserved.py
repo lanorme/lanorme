@@ -160,3 +160,49 @@ class Base(abc.ABC):
     @abc.abstractmethod
     def flush_all(self):
         self.buffer.clear()
+
+
+class Echo(asyncio.Protocol):
+    """asyncio protocol hooks keep the standard library's names."""
+
+    def connection_made(self, transport):
+        self.transport = transport
+
+    def data_received(self, data):
+        self.transport.write(data)
+
+
+class Server(socketserver.TCPServer):
+    """socketserver hook."""
+
+    def server_bind(self):
+        self.socket.setsockopt(1, 2, 1)
+
+
+class Canvas(QWidget):
+    """A camelCase method on a subclass is the base API's name (PEP 8's compatibility clause)."""
+
+    def mousePressEvent(self, event):
+        self.pressed = True
+
+
+class Config(AppConfig):
+    """A framework method hook, reserved on a method only."""
+
+    def ready(self):
+        import signals
+
+
+def callback(result):
+    """A bare role name handed to apply_async; the caller fixed it."""
+    results.append(result)
+
+
+async def app(scope, receive, send):
+    """The ASGI callable, named by the specification's examples."""
+    await send({"type": "http.response.start", "status": 200})
+
+
+def refund_order(order):
+    """A business verb is a verb."""
+    order.refunded = True

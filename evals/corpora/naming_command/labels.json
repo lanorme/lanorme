@@ -39,5 +39,15 @@
   "negatives/neg_verb_first_and_reserved.py:154": false,
   "negatives/neg_verb_first_and_reserved.py:161": false,
   "negatives/neg_verb_first_and_reserved.py:42": false,
-  "negatives/neg_verb_first_and_reserved.py:46": false
+  "negatives/neg_verb_first_and_reserved.py:46": false,
+  "negatives/neg_verb_first_and_reserved.py:168": false,
+  "negatives/neg_verb_first_and_reserved.py:171": false,
+  "negatives/neg_verb_first_and_reserved.py:178": false,
+  "negatives/neg_verb_first_and_reserved.py:185": false,
+  "negatives/neg_verb_first_and_reserved.py:192": false,
+  "negatives/neg_verb_first_and_reserved.py:196": false,
+  "negatives/neg_verb_first_and_reserved.py:201": false,
+  "negatives/neg_verb_first_and_reserved.py:206": false,
+  "positives/pos_noun_named_commands.py:63": true,
+  "positives/pos_noun_named_commands.py:67": true
 }

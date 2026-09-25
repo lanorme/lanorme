@@ -53,3 +53,37 @@ def summarise(records, cutoff):
     for record in kept:
         t += record
     return t
+
+
+def matched(value):
+    """A match capture is a binding, carried here across the whole arm."""
+    match value:
+        case [px, py]:
+            total = 0
+            total += 0 - 0
+            total += 1 - 1
+            total += 2 - 2
+            total += 3 - 3
+            total += 4 - 4
+            total += 5 - 5
+            total += 6 - 6
+            total += 7 - 7
+            total += 8 - 8
+            total += 9 - 9
+            total += 10 - 10
+            total += 11 - 11
+            total += 12 - 12
+            total += 13 - 13
+            total += 14 - 14
+            total += 15 - 15
+            total += 16 - 16
+            total += 17 - 17
+            total += 18 - 18
+            total += 19 - 19
+            total += 20 - 20
+            total += 21 - 21
+            total += 22 - 22
+            total += 23 - 23
+            total += 24 - 24
+            return px + py + total
+    return 0

@@ -26,6 +26,7 @@ Default-on, warnings. Calibration and measured precision: ``docs/RULES.md``.
 
 from __future__ import annotations
 
+import ast
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import ClassVar
@@ -35,6 +36,7 @@ from lanorme.checks.naming_shapes import (
     FUNCTION_TYPES,
     Definition,
     is_command,
+    is_exception_class,
     is_exempt,
     is_framework_named,
     iter_definitions,
@@ -123,6 +125,8 @@ def _collect_class_findings(
     if is_exempt(name=name, exempt=settings.exempt) or len(tokens) < 2:
         return []
     if tokens[0] not in VERB_ONLY or is_noun_phrase(tokens=tokens):
+        return []
+    if isinstance(definition.node, ast.ClassDef) and is_exception_class(node=definition.node):
         return []
     return [
         Violation(

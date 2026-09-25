@@ -5,5 +5,8 @@
   "negatives/neg_short_span.py:6": false,
   "negatives/neg_short_span.py:14": false,
   "negatives/neg_short_span.py:40": false,
-  "negatives/neg_short_span.py:41": false
+  "negatives/neg_short_span.py:41": false,
+  "negatives/neg_short_span.py:69": false,
+  "negatives/neg_short_span.py:96": false,
+  "positives/pos_long_span.py:61": true
 }

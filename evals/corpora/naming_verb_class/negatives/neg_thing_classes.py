@@ -83,3 +83,17 @@ class Configurable:
 
 class CONSOLE_SCREEN_BUFFER_INFO:
     """A ctypes structure keeps the C name; not PascalCase, not judged."""
+
+
+class SendFailed(RuntimeError):
+    """An exception is a thing whatever it is called; its head is the outcome."""
+
+
+class DecodeFailed(AppBase):
+    """A participle head names an outcome even on a custom base."""
+
+
+class DeleteBehaviour(Enum):
+    """An attribute of the action: how a delete behaves."""
+
+    CASCADE = 1

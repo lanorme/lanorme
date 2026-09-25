@@ -35,6 +35,7 @@ Run:
 from __future__ import annotations
 
 import ast
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import ClassVar
@@ -111,26 +112,92 @@ def _is_short(*, name: str, max_short_length: int, allow: frozenset[str]) -> boo
     return len(name.lstrip("_")) <= max_short_length
 
 
+_SCOPES = (
+    ast.FunctionDef,
+    ast.AsyncFunctionDef,
+    ast.Lambda,
+    ast.ListComp,
+    ast.SetComp,
+    ast.DictComp,
+    ast.GeneratorExp,
+)
+
+
+def _collect_own_bindings(*, scope: ast.AST) -> set[str]:
+    """Names *scope* binds itself: parameters, comprehension targets, stores, captures.
+
+    Bindings inside a nested scope are that scope's own and are not included.
+    """
+    bound: set[str] = set()
+    pending: list[ast.AST] = list(ast.iter_child_nodes(scope))
+    while pending:
+        node = pending.pop()
+        if isinstance(node, ast.arg):
+            bound.add(node.arg)
+        elif isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store):
+            bound.add(node.id)
+        elif isinstance(node, (ast.MatchAs, ast.MatchStar)) and node.name is not None:
+            bound.add(node.name)
+        if isinstance(node, _SCOPES):
+            # A comprehension's iterable and a lambda's defaults are evaluated
+            # outside it; its arguments and targets are its own.
+            pending.extend(_list_outer_parts(scope=node))
+            continue
+        pending.extend(ast.iter_child_nodes(node))
+    return bound
+
+
+def _list_outer_parts(*, scope: ast.AST) -> list[ast.AST]:
+    """The children of a nested scope that belong to the enclosing one."""
+    if isinstance(scope, (ast.FunctionDef, ast.AsyncFunctionDef)):
+        return [*scope.decorator_list, *scope.args.defaults, *scope.args.kw_defaults]
+    if isinstance(scope, ast.Lambda):
+        return [*scope.args.defaults, *scope.args.kw_defaults]
+    return [scope.generators[0].iter] if scope.generators else []
+
+
+def _iter_name_uses(*, scope: ast.AST, shadowed: frozenset[str]) -> Iterator[tuple[str, ast.AST]]:
+    """Every name mention in *scope* that refers to the enclosing function's binding.
+
+    A nested function, lambda or comprehension is walked too, but a name it
+    binds itself (*shadowed*) is its own and is skipped, so an inner ``s`` does
+    not stretch the outer ``s``.
+    """
+    pending: list[tuple[ast.AST, frozenset[str]]] = [
+        (child, shadowed) for child in ast.iter_child_nodes(scope)
+    ]
+    while pending:
+        node, hidden = pending.pop()
+        if isinstance(node, ast.arg):
+            if node.arg not in hidden:
+                yield node.arg, node
+        elif isinstance(node, ast.Name):
+            if node.id not in hidden:
+                yield node.id, node
+        elif (
+            isinstance(node, (ast.MatchAs, ast.MatchStar)) and node.name and node.name not in hidden
+        ):
+            yield node.name, node
+        if isinstance(node, _SCOPES):
+            inner = hidden | _collect_own_bindings(scope=node)
+            pending.extend((child, inner) for child in ast.iter_child_nodes(node))
+            continue
+        pending.extend((child, hidden) for child in ast.iter_child_nodes(node))
+
+
 def _collect_local_extents(*, func: ast.AST) -> dict[str, _Extent]:
     """Line extent of every name *func* binds, keyed by name.
 
-    Only names the function itself binds are tracked: parameters and assignment
-    targets. A referenced-but-not-bound name is a module import or a global
-    (``np``, ``re``), where the short name is the library's choice and not this
-    function's to make.
+    Only names the function itself binds are tracked: parameters, assignment
+    targets and ``match`` captures. A referenced-but-not-bound name is a module
+    import or a global (``np``, ``re``), where the short name is the library's
+    choice and not this function's to make. A name a nested function, lambda
+    or comprehension binds is that scope's own and does not count.
     """
-    bound: set[str] = set()
+    bound = _collect_own_bindings(scope=func)
     extents: dict[str, _Extent] = {}
-    for node in ast.walk(func):
-        name = None
-        if isinstance(node, ast.arg):
-            name = node.arg
-            bound.add(name)
-        elif isinstance(node, ast.Name):
-            name = node.id
-            if isinstance(node.ctx, ast.Store):
-                bound.add(name)
-        if name is None:
+    for name, node in _iter_name_uses(scope=func, shadowed=frozenset()):
+        if name not in bound:
             continue
         line = getattr(node, "lineno", None)
         if line is None:
@@ -140,7 +207,7 @@ def _collect_local_extents(*, func: ast.AST) -> dict[str, _Extent]:
             extents[name] = _Extent(first=line, last=line, node=node)
         else:
             seen.extend(line=line, node=node)
-    return {name: extent for name, extent in extents.items() if name in bound}
+    return extents
 
 
 def _collect_function_violations(

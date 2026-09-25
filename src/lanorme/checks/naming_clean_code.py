@@ -22,6 +22,7 @@ Default-off. Opt in via::
 
 from __future__ import annotations
 
+import ast
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import ClassVar
@@ -39,7 +40,9 @@ from lanorme.checks.naming_shapes import (
     is_raiser,
     iter_definitions,
     iter_modules,
+    list_base_leaves,
     name_setting,
+    returns_nested_function,
 )
 from lanorme.checks.naming_words import (
     JUNK_MODULES,
@@ -66,6 +69,11 @@ class _Settings:
     exempt: frozenset[str]
 
 
+def _inherits_noise_word(*, node: ast.ClassDef, word: str) -> bool:
+    """True if a base already ends in *word*: ``UserManager(models.Manager)`` inherits the term."""
+    return any(split_name(name=leaf)[-1:] == [word] for leaf in list_base_leaves(node=node))
+
+
 def _collect_noise_findings(
     *,
     definition: Definition,
@@ -80,6 +88,11 @@ def _collect_noise_findings(
     if len(tokens) < 2 or tokens[-1] not in NOISE_WORDS:
         return []
     if tokens[-2:] == ["meta", "data"] or name.endswith("ContextManager"):
+        return []
+    if isinstance(definition.node, ast.ClassDef) and _inherits_noise_word(
+        node=definition.node,
+        word=tokens[-1],
+    ):
         return []
     return [
         Violation(
@@ -121,8 +134,8 @@ def _collect_verb_findings(
 
     Commands are NAMING-007's and a raiser exists to raise, so this rule takes
     the rest: functions that answer with a value, and stubs. Constructors under
-    ``@classmethod`` are named for what they build, and a predicate reads as
-    an assertion.
+    ``@classmethod`` are named for what they build, a decorator is named for
+    what it confers, and a predicate reads as an assertion.
     """
     name = definition.name
     if is_exempt(name=name, exempt=settings.exempt) or is_framework_named(definition=definition):
@@ -132,6 +145,7 @@ def _collect_verb_findings(
         "classmethod" in resolve_decorator_leaves(node=node)
         or is_command(node=node)
         or is_raiser(node=node)
+        or returns_nested_function(node=node)
     ):
         return []
     tokens = split_name(name=name)

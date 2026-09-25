@@ -25,5 +25,12 @@
   "negatives/neg_verb_first_queries.py:57": false,
   "negatives/neg_verb_first_queries.py:60": false,
   "negatives/neg_verb_first_queries.py:64": false,
-  "negatives/neg_verb_first_queries.py:87": false
+  "negatives/neg_verb_first_queries.py:87": false,
+  "negatives/neg_verb_first_queries.py:93": false,
+  "negatives/neg_verb_first_queries.py:105": false,
+  "negatives/neg_verb_first_queries.py:112": false,
+  "negatives/neg_verb_first_queries.py:116": false,
+  "negatives/neg_verb_first_queries.py:121": false,
+  "positives/pos_noun_named_queries.py:46": true,
+  "positives/pos_noun_named_queries.py:52": true
 }

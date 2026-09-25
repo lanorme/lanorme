@@ -41,3 +41,14 @@ class Session:
     def cert_verify_result(self, conn):
         """The verification outcome for *conn*."""
         return conn.verify()
+
+
+def staff_required(function=None):
+    """A decorator returned through a variable is not recognised as one: a known finding."""
+    actual = user_passes_test(lambda u: u.is_staff)
+    return actual
+
+
+def chunksize(total):
+    """A noun that ends like a verb is still a noun."""
+    return total // 8

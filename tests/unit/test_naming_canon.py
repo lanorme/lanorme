@@ -331,3 +331,123 @@ def test_malformed_config_is_rejected() -> None:
         NamingCanonCheck().configure(settings={"verbs": "frobnicate"})
     with pytest.raises(ValueError):
         NamingCanonCheck().configure(settings={"exempt": ["two words"]})
+
+
+# --------------------------------------------------------------------------- #
+# Red-team additions
+# --------------------------------------------------------------------------- #
+
+
+def test_exception_and_outcome_classes_are_things(tmp_path: Path) -> None:
+    # Arrange: a verb-first exception, a participle head on a custom base, and an attribute head.
+    body = (
+        "class SendFailed(RuntimeError):\n    pass\n"
+        "class DecodeFailed(AppBase):\n    pass\n"
+        "class DeleteBehaviour(Enum):\n    CASCADE = 1\n"
+        "class EmitMetrics:\n    pass\n"
+    )
+
+    # Act.
+    result = _run(root=tmp_path, body=body)
+
+    # Assert: only the class that acts on its object is reported.
+    assert [(w.line, w.code) for w in result.warnings] == [(7, "NAMING-006")]
+
+
+def test_stdlib_protocol_hooks_and_framework_methods_are_not_commands(tmp_path: Path) -> None:
+    # Arrange: asyncio, socketserver, ast, sax, cmd, Django, DRF, Scrapy and pydantic names.
+    body = (
+        "class P(asyncio.Protocol):\n"
+        "    def connection_made(self, transport):\n        self.t = transport\n"
+        "    def data_received(self, data):\n        self.buf += data\n"
+        "class S(socketserver.TCPServer):\n"
+        "    def server_bind(self):\n        self.socket.bind(())\n"
+        "class V(ast.NodeVisitor):\n"
+        "    def generic_visit(self, node):\n        self.depth += 1\n"
+        "class H(xml.sax.ContentHandler):\n"
+        "    def characters(self, content):\n        self.text += content\n"
+        "class C(cmd.Cmd):\n"
+        "    def emptyline(self):\n        self.count += 1\n"
+        "class A(AppConfig):\n"
+        "    def ready(self):\n        import signals\n"
+        "class M(BaseModel):\n"
+        "    def model_post_init(self, ctx):\n        self.ready = True\n"
+        "class Sp(scrapy.Spider):\n"
+        "    def closed(self, reason):\n        self.log(reason)\n"
+        "    def spider_opened(self, spider):\n        self.started = True\n"
+        "def ready():\n    store.clear()\n"
+    )
+
+    # Act.
+    result = _run(root=tmp_path, body=body)
+
+    # Assert: every method passes; the module-level ``ready()`` is the author's and is reported.
+    assert [(w.line, w.code) for w in result.warnings] == [(29, "NAMING-007")]
+
+
+def test_camel_case_methods_on_a_subclass_are_the_base_apis(tmp_path: Path) -> None:
+    # Arrange: Qt and Twisted handlers on subclasses, and the same shape on a plain class and at module level.
+    body = (
+        "class W(QWidget):\n"
+        "    def mousePressEvent(self, event):\n        self.pressed = True\n"
+        "    def dataReceived(self, data):\n        self.buf += data\n"
+        "class L:\n"
+        "    def onMessage(self, msg):\n        self.inbox.append(msg)\n"
+        "    def userSync(self):\n        self.users.refresh()\n"
+        "def userSync(session):\n    session.refresh()\n"
+    )
+
+    # Act.
+    result = _run(root=tmp_path, body=body)
+
+    # Assert: the subclass methods and the hook-prefixed name pass; the rest are reported.
+    assert [(w.line, w.code) for w in result.warnings] == [(9, "NAMING-007"), (11, "NAMING-007")]
+
+
+def test_bare_callback_and_server_entry_points_pass(tmp_path: Path) -> None:
+    # Arrange: a callback handed to apply_async, a signal handler, a WSGI and an ASGI callable.
+    body = (
+        "def callback(result):\n    results.append(result)\n"
+        "def handler(signum, frame):\n    flags.stop = True\n"
+        "async def app(scope, receive, send):\n    await send({})\n"
+        "def application(environ, start_response):\n    start_response('200', [])\n"
+    )
+
+    # Act.
+    result = _run(root=tmp_path, body=body)
+
+    # Assert.
+    assert result.status == Status.PASS
+
+
+def test_domain_verbs_are_verbs(tmp_path: Path) -> None:
+    # Arrange: business, moderation and security verbs the list once lacked.
+    body = (
+        "def refund_order(order):\n    order.refunded = True\n"
+        "def invite_member(team, user):\n    team.invites.append(user)\n"
+        "def unban_user(user):\n    user.banned = False\n"
+        "def redact_secrets(text):\n    text.value = '***'\n"
+        "def rehydrate_cache(cache):\n    cache.load()\n"
+    )
+
+    # Act.
+    result = _run(root=tmp_path, body=body)
+
+    # Assert.
+    assert result.status == Status.PASS
+
+
+def test_drf_and_django_command_hooks_are_not_weak_verbs_on_a_plain_class(tmp_path: Path) -> None:
+    # Arrange: DRF's perform_* on a mixin without bases, Django's handle_label, and an author-chosen name.
+    body = (
+        "class OwnerMixin:\n"
+        "    def perform_create(self, serializer):\n        serializer.save()\n"
+        "    def handle_label(self, label, **options):\n        run(label)\n"
+        "    def handle_event(self, event):\n        self.events.append(event)\n"
+    )
+
+    # Act.
+    result = _run(root=tmp_path, body=body)
+
+    # Assert.
+    assert [(w.line, w.code) for w in result.warnings] == [(6, "NAMING-008")]

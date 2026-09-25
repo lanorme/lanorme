@@ -24,6 +24,8 @@ from typing import ClassVar
 
 from lanorme import CheckResult, Violation, register
 from lanorme.checkconfig import is_flag_set
+from lanorme.checks.naming_shapes import Definition, is_framework_named
+from lanorme.checks.naming_words import is_predicate, split_name
 from lanorme.sources import Module, iter_parsed_modules, locate
 
 # Allowed public method prefixes for repositories and services.
@@ -63,7 +65,11 @@ VERB_EXEMPT_ENDPOINTS = frozenset(
     },
 )
 
-# Boolean-appropriate prefixes (NAMING-004).
+# Boolean-appropriate prefixes (NAMING-004), the ones the fix names. A name
+# passes when it reads as an assertion by any of the predicate shapes in
+# ``naming_words.is_predicate``: an auxiliary anywhere (``is_``, ``has_``,
+# ``can_``, ``should_``, ``does_``, ``user_is_active``), a third-person verb in
+# front (``exists``, ``matches``, ``contains``), or a fused ``isdir``.
 BOOL_PREFIXES = ("is_", "has_", "can_", "should_")
 
 # Decorators that exempt a bool-returning function from NAMING-004: property
@@ -249,6 +255,16 @@ def _collect_protocol_members(*, module: Module) -> set[int]:
     return members
 
 
+def _map_method_owners(*, module: Module) -> dict[int, ast.ClassDef]:
+    """The class each method is defined directly in, keyed by the method node's id."""
+    owners: dict[int, ast.ClassDef] = {}
+    for node in module.index.collect(ast.ClassDef):
+        for item in node.body:
+            if isinstance(item, ast.FunctionDef | ast.AsyncFunctionDef):
+                owners[id(item)] = node
+    return owners
+
+
 def _suggest_bool_rename(*, name: str) -> str:
     """Suggest a boolean-prefixed rename, stripping a leading verb if present."""
     suggested = name
@@ -263,6 +279,7 @@ def _check_bool_naming(*, module: Module) -> list[Violation]:
     """NAMING-004: Boolean functions should use is_/has_/can_/should_ prefix."""
     warnings: list[Violation] = []
     protocol_members = _collect_protocol_members(module=module)
+    owners = _map_method_owners(module=module)
 
     for node in module.index.functions:
         if node.name.startswith("_"):
@@ -277,7 +294,12 @@ def _check_bool_naming(*, module: Module) -> list[Violation]:
         if not _has_bool_return_annotation(node=node):
             continue
 
-        if any(node.name.startswith(prefix) for prefix in BOOL_PREFIXES):
+        if is_predicate(tokens=split_name(name=node.name)):
+            continue
+
+        # A name a protocol or framework fixed (``readable``, ``filter`` on a
+        # logging.Filter, Django's ``allow_migrate``, Qt's ``eventFilter``).
+        if is_framework_named(definition=Definition(node=node, owner=owners.get(id(node)))):
             continue
 
         warnings.append(

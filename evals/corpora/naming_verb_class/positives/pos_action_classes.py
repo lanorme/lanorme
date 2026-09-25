@@ -55,3 +55,10 @@ class CreateConnection:
 
     def __call__(self, dsn):
         return connect(dsn)
+
+
+class EmitMetrics:
+    """Metrics are what the emit acts on, so the name is an action."""
+
+    def run(self):
+        pass

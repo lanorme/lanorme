@@ -18,5 +18,8 @@
   "negatives/neg_named_actions_and_hooks.py:37": false,
   "negatives/neg_named_actions_and_hooks.py:40": false,
   "negatives/neg_named_actions_and_hooks.py:47": false,
-  "negatives/neg_named_actions_and_hooks.py:60": false
+  "negatives/neg_named_actions_and_hooks.py:60": false,
+  "negatives/neg_named_actions_and_hooks.py:69": false,
+  "negatives/neg_named_actions_and_hooks.py:72": false,
+  "positives/pos_weak_verbs.py:53": true
 }

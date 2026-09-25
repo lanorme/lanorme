@@ -402,3 +402,84 @@ def test_naming002_default_off_then_opt_in_flags_service_prefix(tmp_path: Path):
     assert off.status == Status.PASS and not off.violations
     assert on.status == Status.FAIL
     assert _collect_codes(on.violations) == ["NAMING-002"]
+
+
+# --------------------------------------------------------------------------- #
+# Red-team additions: predicates and protocol names under NAMING-004
+# --------------------------------------------------------------------------- #
+
+
+def test_naming004_silent_on_third_person_fused_and_auxiliary_predicates(tmp_path: Path):
+    # Arrange: assertions about the receiver in every accepted shape.
+    _write(
+        root=tmp_path,
+        rel="b.py",
+        body=(
+            "def exists(path) -> bool:\n    return True\n"
+            "def matches_pattern(text, pattern) -> bool:\n    return True\n"
+            "def contains(items, item) -> bool:\n    return True\n"
+            "def needs_refresh(token) -> bool:\n    return True\n"
+            "def user_is_active(user) -> bool:\n    return True\n"
+            "def does_match(a, b) -> bool:\n    return True\n"
+            "def isdir(path) -> bool:\n    return True\n"
+            "class W(QWidget):\n"
+            "    def isEnabled(self) -> bool:\n        return True\n"
+        ),
+    )
+    check = NamingConsistencyCheck()
+
+    # Act.
+    result = check.run(src_root=str(tmp_path))
+
+    # Assert.
+    assert result.status == Status.PASS
+    assert not result.warnings
+
+
+def test_naming004_silent_on_protocol_and_framework_bool_methods(tmp_path: Path):
+    # Arrange: logging.Filter, io, Django's router and mixin, Qt's eventFilter, and a plain method.
+    _write(
+        root=tmp_path,
+        rel="b.py",
+        body=(
+            "class F(logging.Filter):\n"
+            "    def filter(self, record) -> bool:\n        return True\n"
+            "class S(io.RawIOBase):\n"
+            "    def readable(self) -> bool:\n        return True\n"
+            "class R:\n"
+            "    def allow_migrate(self, db, app_label, **hints) -> bool:\n        return True\n"
+            "    def test_func(self) -> bool:\n        return True\n"
+            "class W(QWidget):\n"
+            "    def eventFilter(self, obj, event) -> bool:\n        return False\n"
+            "class P:\n"
+            "    def stale(self) -> bool:\n        return True\n"
+        ),
+    )
+    check = NamingConsistencyCheck()
+
+    # Act.
+    result = check.run(src_root=str(tmp_path))
+
+    # Assert: only the author-named plain method fires.
+    assert _collect_codes(result.warnings) == ["NAMING-004"]
+    assert "stale" in result.warnings[0].message
+
+
+def test_naming004_still_flags_check_and_verify_prefixes(tmp_path: Path):
+    # Arrange: verb-led names that return bool are the smell the rule targets.
+    _write(
+        root=tmp_path,
+        rel="b.py",
+        body=(
+            "def check_password(raw, encoded) -> bool:\n    return True\n"
+            "def verify_signature(sig) -> bool:\n    return True\n"
+            "def empty(items) -> bool:\n    return True\n"
+        ),
+    )
+    check = NamingConsistencyCheck()
+
+    # Act.
+    result = check.run(src_root=str(tmp_path))
+
+    # Assert.
+    assert _collect_codes(result.warnings) == ["NAMING-004"] * 3

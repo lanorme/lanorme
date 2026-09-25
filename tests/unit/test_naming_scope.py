@@ -215,3 +215,101 @@ def test_skip_named_subdirectory_inside_the_root_is_skipped(
 
     # Assert
     assert result.violations == []
+
+
+# --------------------------------------------------------------------------- #
+# Red-team additions: nested scopes and match captures
+# --------------------------------------------------------------------------- #
+
+
+def _build_filler(*, gap: int) -> str:
+    """*gap* lines of harmless statements."""
+    return "\n".join(f"    total += {i} - {i}" for i in range(gap))
+
+
+def test_comprehension_and_lambda_names_are_their_own_scope(
+    tmp_path: Path,
+    check: NamingScopeCheck,
+) -> None:
+    # Arrange: ``r`` bound by a comprehension at the top and by a lambda at the bottom, never carried.
+    body = (
+        "def sample(rows):\n"
+        "    keys = [r for r in rows]\n"
+        "    total = 0\n"
+        f"{_build_filler(gap=25)}\n"
+        "    return keys, sorted(rows, key=lambda r: r.key), total\n"
+    )
+    _write(root=tmp_path, body=body)
+
+    # Act.
+    result = check.run(src_root=str(tmp_path))
+
+    # Assert.
+    assert result.status == Status.PASS
+
+
+def test_nested_function_parameters_do_not_stretch_the_outer_extent(
+    tmp_path: Path,
+    check: NamingScopeCheck,
+) -> None:
+    # Arrange: two inner functions each take an ``s``; the outer function never binds one.
+    body = (
+        "def sample(items):\n"
+        "    def key(s):\n"
+        "        return s.lower()\n"
+        "    total = 0\n"
+        f"{_build_filler(gap=25)}\n"
+        "    def tail(s):\n"
+        "        return s[-1]\n"
+        "    return sorted(items, key=key), tail, total\n"
+    )
+    _write(root=tmp_path, body=body)
+
+    # Act.
+    result = check.run(src_root=str(tmp_path))
+
+    # Assert.
+    assert result.status == Status.PASS
+
+
+def test_outer_name_used_inside_a_nested_scope_still_counts(
+    tmp_path: Path,
+    check: NamingScopeCheck,
+) -> None:
+    # Arrange: ``rc`` bound at the top and read only inside a lambda at the bottom.
+    body = (
+        "def sample(rows):\n"
+        "    rc = 0\n"
+        "    total = 0\n"
+        f"{_build_filler(gap=25)}\n"
+        "    return sorted(rows, key=lambda row: row.weight + rc), total\n"
+    )
+    _write(root=tmp_path, body=body)
+
+    # Act.
+    result = check.run(src_root=str(tmp_path))
+
+    # Assert.
+    assert _collect_codes(result=result) == ["NAMING-005"]
+    assert result.violations[0].line == 2
+
+
+def test_match_capture_is_a_binding(tmp_path: Path, check: NamingScopeCheck) -> None:
+    # Arrange: ``px`` captured by a match arm and used far below it.
+    body = (
+        "def sample(value):\n"
+        "    match value:\n"
+        "        case [px, py]:\n"
+        "            total = 0\n"
+        f"{_build_filler(gap=25).replace('    total', '            total')}\n"
+        "            return px + py + total\n"
+        "    return 0\n"
+    )
+    _write(root=tmp_path, body=body)
+
+    # Act.
+    result = check.run(src_root=str(tmp_path))
+
+    # Assert.
+    assert _collect_codes(result=result) == ["NAMING-005", "NAMING-005"]
+    assert {v.line for v in result.violations} == {3}

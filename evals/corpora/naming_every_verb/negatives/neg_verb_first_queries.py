@@ -88,3 +88,36 @@ def build_helper():
         return 1
 
     return helper
+
+
+def deprecated(reason):
+    """A decorator factory is named for what it confers."""
+
+    def decorator(func):
+        return func
+
+    return decorator
+
+
+class Shell(cmd.Cmd):
+    """A cmd.Cmd hook."""
+
+    def precmd(self, line):
+        return line.strip()
+
+
+class Canvas(QWidget):
+    """A camelCase override on a subclass."""
+
+    def sizeHint(self):
+        return self._hint
+
+
+def application(environ, start_response):
+    """The WSGI callable, named by PEP 3333."""
+    return [b""]
+
+
+def exists(path):
+    """A third-person predicate."""
+    return True

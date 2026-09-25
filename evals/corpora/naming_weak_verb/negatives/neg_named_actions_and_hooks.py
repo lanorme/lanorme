@@ -61,3 +61,13 @@ def outer():
         return value.strip()
 
     return process
+
+
+class OwnerMixin:
+    """DRF and Django command hooks on a plain mixin keep the framework's names."""
+
+    def perform_create(self, serializer):
+        serializer.save(owner=self.request.user)
+
+    def handle_label(self, label, **options):
+        run(label)

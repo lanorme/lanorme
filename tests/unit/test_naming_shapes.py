@@ -15,11 +15,15 @@ from lanorme.checks.naming_shapes import (
     resolve_decorator_leaves,
     has_opaque_decorator,
     is_command,
+    is_camel_case,
+    is_exception_class,
     is_exempt,
     is_framework_named,
     is_raiser,
     iter_definitions,
+    list_base_leaves,
     name_setting,
+    returns_nested_function,
 )
 
 
@@ -195,3 +199,106 @@ def test_exempt_matches_with_or_without_leading_underscores() -> None:
     assert is_exempt(name="_cert_verify", exempt=frozenset({"cert_verify"}))
     assert is_exempt(name="_cert_verify", exempt=frozenset({"_cert_verify"}))
     assert not is_exempt(name="cert_verify_all", exempt=frozenset({"cert_verify"}))
+
+
+# --------------------------------------------------------------------------- #
+# Red-team additions: hook words, protocol and framework methods, camelCase, shapes
+# --------------------------------------------------------------------------- #
+
+
+@pytest.mark.parametrize("name", ["onMessage", "callback", "handler", "application", "app"])
+def test_camel_hooks_bare_roles_and_server_entry_points_are_reserved(name: str) -> None:
+    assert is_framework_named(definition=_find_definition(f"def {name}():\n    pass\n"))
+
+
+@pytest.mark.parametrize("name", ["after", "before", "ready", "closed", "form_valid", "readable"])
+def test_module_level_names_that_are_only_reserved_as_methods(name: str) -> None:
+    assert not is_framework_named(definition=_find_definition(f"def {name}():\n    pass\n"))
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "connection_made",
+        "server_bind",
+        "generic_visit",
+        "characters",
+        "emptyline",
+        "ready",
+        "perform_create",
+        "closed",
+    ],
+)
+def test_protocol_and_framework_methods_are_reserved(name: str) -> None:
+    definition = list(
+        iter_definitions(tree=ast.parse(f"class C:\n    def {name}(self):\n        pass\n")),
+    )[1]
+    assert is_framework_named(definition=definition)
+
+
+def test_camel_case_is_reserved_on_a_subclass_only() -> None:
+    # Arrange: the same camelCase method on a subclass, on a plain class, and at module level.
+    on_subclass = list(
+        iter_definitions(tree=ast.parse("class C(Base):\n    def userSync(self):\n        pass\n")),
+    )[1]
+    on_plain = list(
+        iter_definitions(tree=ast.parse("class C:\n    def userSync(self):\n        pass\n")),
+    )[1]
+    # Act / Assert: only the subclass method is the base API's.
+    assert is_framework_named(definition=on_subclass)
+    assert not is_framework_named(definition=on_plain)
+    assert not is_framework_named(definition=_find_definition("def userSync():\n    pass\n"))
+
+
+@pytest.mark.parametrize(
+    ("name", "expected"),
+    [
+        ("mousePressEvent", True),
+        ("setUp", True),
+        ("set_up", False),
+        ("setup", False),
+        ("SetUp", False),
+        ("_", False),
+    ],
+)
+def test_is_camel_case(name: str, expected: bool) -> None:
+    assert is_camel_case(name=name) is expected
+
+
+@pytest.mark.parametrize(
+    ("body", "expected"),
+    [
+        ("def deco(f):\n    def w():\n        return f()\n    return w\n", True),
+        ("def deco(f):\n    return lambda: f()\n", True),
+        (
+            "def deco(f):\n    if f:\n        def w():\n            pass\n        return w\n    return None\n",
+            True,
+        ),
+        ("def deco(f):\n    actual = build()\n    return actual\n", False),
+        ("def deco(f):\n    def w():\n        return w\n    return f\n", False),
+    ],
+)
+def test_returns_nested_function(body: str, expected: bool) -> None:
+    assert returns_nested_function(node=_find_function(body)) is expected
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        ("class E(RuntimeError):\n    pass\n", True),
+        ("class E(errors.BaseAppException):\n    pass\n", True),
+        ("class E(UserWarning, Generic[T]):\n    pass\n", True),
+        ("class E(Base):\n    pass\n", False),
+        ("class E:\n    pass\n", False),
+    ],
+)
+def test_is_exception_class(source: str, expected: bool) -> None:
+    node = next(iter_definitions(tree=ast.parse(source))).node
+    assert is_exception_class(node=node) is expected
+
+
+def test_list_base_leaves_unwraps_attributes_and_subscripts() -> None:
+    node = next(
+        iter_definitions(tree=ast.parse("class M(models.Manager, Generic[T], (x)):\n    pass\n")),
+    ).node
+    assert list_base_leaves(node=node) == ["Manager", "Generic", "x"]

@@ -188,3 +188,72 @@ def test_verbs_and_exempt_config(tmp_path: Path) -> None:
 
     # Assert: only the unconfigured query remains.
     assert [(w.code, w.line) for w in result.warnings] == [("NAMING-011", 5)]
+
+
+# --------------------------------------------------------------------------- #
+# Red-team additions
+# --------------------------------------------------------------------------- #
+
+
+def test_inherited_noise_word_is_the_frameworks(
+    tmp_path: Path, check: NamingCleanCodeCheck,
+) -> None:
+    # Arrange: a Django manager, a multiprocessing manager, and a manager with no such base.
+    body = (
+        "class UserManager(models.Manager):\n    pass\n"
+        "class ProcessManager(BaseManager):\n    pass\n"
+        "class SessionManager(Base):\n    pass\n"
+    )
+
+    # Act.
+    result = _run(root=tmp_path, body=body, check=check)
+
+    # Assert.
+    assert [(w.line, w.code) for w in result.warnings] == [(5, "NAMING-009")]
+
+
+def test_decorators_and_closure_factories_are_named_for_what_they_confer(
+    tmp_path: Path,
+    check: NamingCleanCodeCheck,
+) -> None:
+    # Arrange: a decorator factory, a decorator, a lambda factory, and an indirect one.
+    body = (
+        "def deprecated(reason):\n"
+        "    def decorator(func):\n"
+        "        return func\n"
+        "    return decorator\n"
+        "def cached(func):\n"
+        "    def wrapper(*args):\n"
+        "        return func(*args)\n"
+        "    return wrapper\n"
+        "def always(value):\n"
+        "    return lambda: value\n"
+        "def staff_required(function=None):\n"
+        "    actual = user_passes_test(lambda u: u.is_staff)\n"
+        "    return actual\n"
+    )
+
+    # Act.
+    result = _run(root=tmp_path, body=body, check=check)
+
+    # Assert: only the decorator returned through a variable is still reported.
+    assert [(w.line, w.code) for w in result.warnings] == [(11, "NAMING-011")]
+
+
+def test_framework_query_methods_pass(tmp_path: Path, check: NamingCleanCodeCheck) -> None:
+    # Arrange: Django's form_valid, cmd's precmd, a Qt override, and a WSGI callable.
+    body = (
+        "class V(CreateView):\n"
+        "    def form_valid(self, form):\n        return super().form_valid(form)\n"
+        "class C(cmd.Cmd):\n"
+        "    def precmd(self, line):\n        return line.strip()\n"
+        "class W(QWidget):\n"
+        "    def sizeHint(self):\n        return self._hint\n"
+        "def application(environ, start_response):\n    return [b'']\n"
+    )
+
+    # Act.
+    result = _run(root=tmp_path, body=body, check=check)
+
+    # Assert.
+    assert result.status == Status.PASS

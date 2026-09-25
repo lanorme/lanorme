@@ -45,3 +45,10 @@ class Report:
         """Sum the rows into the totals."""
         for row in rows:
             self.total += row.amount
+
+
+class Game:
+    """No framework fixed this name: the author chose the weak verb."""
+
+    def handle_event(self, event):
+        self.events.append(event)

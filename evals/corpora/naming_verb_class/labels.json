@@ -21,5 +21,9 @@
   "negatives/neg_thing_classes.py:68": false,
   "negatives/neg_thing_classes.py:74": false,
   "negatives/neg_thing_classes.py:80": false,
-  "negatives/neg_thing_classes.py:84": false
+  "negatives/neg_thing_classes.py:84": false,
+  "negatives/neg_thing_classes.py:88": false,
+  "negatives/neg_thing_classes.py:92": false,
+  "negatives/neg_thing_classes.py:96": false,
+  "positives/pos_action_classes.py:60": true
 }

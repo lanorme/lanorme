@@ -20,9 +20,11 @@ from lanorme.checks.naming_words import (
     CONVERSION_PREFIXES,
     ENTRY_POINTS,
     FRAMEWORK_HOOKS,
-    HOOK_PREFIXES,
-    HOOK_SUFFIXES,
+    FRAMEWORK_METHODS,
+    HOOK_PREFIX_WORDS,
+    HOOK_SUFFIX_WORDS,
     PROTOCOL_NAMES,
+    split_name,
 )
 from lanorme.sources import iter_parsed_modules
 
@@ -37,6 +39,9 @@ TRANSPARENT_DECORATORS: frozenset[str] = frozenset(
 
 # Generated migration trees carry names the tool chose.
 _SKIP_DIRS = frozenset({"alembic", "migrations"})
+
+# A base whose name ends this way makes the class an exception, whatever it is called.
+_EXCEPTION_BASE_ENDINGS: tuple[str, ...] = ("Error", "Exception", "Warning", "Exit", "Interrupt")
 
 _BLOCKS = (
     ast.If,
@@ -189,9 +194,67 @@ def is_command(*, node: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
     return not has_return_value(node=node)
 
 
+def returns_nested_function(*, node: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
+    """True if the body defines a function and returns it, or returns a lambda.
+
+    That is the shape of a decorator or a decorator factory, which Python
+    names for what it confers (``deprecated``, ``cached``, ``lru_cache``,
+    ``login_required``), and of a closure factory.
+    """
+    inner: set[str] = set()
+    returned: set[str] = set()
+    pending: list[ast.AST] = list(node.body)
+    while pending:
+        current = pending.pop()
+        if isinstance(current, FUNCTION_TYPES):
+            inner.add(current.name)
+            continue
+        if isinstance(current, (ast.ClassDef, ast.Lambda)):
+            continue
+        if isinstance(current, ast.Return):
+            if isinstance(current.value, ast.Lambda):
+                return True
+            if isinstance(current.value, ast.Name):
+                returned.add(current.value.id)
+        pending.extend(ast.iter_child_nodes(current))
+    return bool(inner & returned)
+
+
+def _resolve_base_leaf(*, base: ast.expr) -> str:
+    """The last name of a base expression: ``models.Manager`` gives ``Manager``, ``Generic[T]`` gives ``Generic``."""
+    target = base.value if isinstance(base, ast.Subscript) else base
+    if isinstance(target, ast.Attribute):
+        return target.attr
+    return target.id if isinstance(target, ast.Name) else ""
+
+
+def list_base_leaves(*, node: ast.ClassDef) -> list[str]:
+    """The last name of each base: ``class M(models.Manager, Generic[T])`` gives ``["Manager", "Generic"]``."""
+    return [_resolve_base_leaf(base=base) for base in node.bases]
+
+
+def is_exception_class(*, node: ast.ClassDef) -> bool:
+    """True if a base is named as an exception (``RuntimeError``, ``Exception``, ``UserWarning``)."""
+    return any(leaf.endswith(_EXCEPTION_BASE_ENDINGS) for leaf in list_base_leaves(node=node))
+
+
+def is_camel_case(*, name: str) -> bool:
+    """True for ``mousePressEvent`` and ``setUp``; not for ``set_up``, ``setup`` or ``SetUp``."""
+    bare = name.strip("_")
+    return "_" not in bare and bare[:1].islower() and bare != bare.lower()
+
+
 def is_exempt(*, name: str, exempt: frozenset[str]) -> bool:
     """True if *name*, as written or without its leading underscores, is configured exempt."""
     return name in exempt or name.lstrip("_") in exempt
+
+
+def _is_hook_name(*, name: str) -> bool:
+    """``on_click``, ``onMessage``, ``pytest_configure``, ``error_handler``, a bare ``callback``."""
+    tokens = split_name(name=name)
+    if not tokens:
+        return False
+    return (len(tokens) > 1 and tokens[0] in HOOK_PREFIX_WORDS) or tokens[-1] in HOOK_SUFFIX_WORDS
 
 
 def _is_reserved_name(*, name: str) -> bool:
@@ -199,7 +262,7 @@ def _is_reserved_name(*, name: str) -> bool:
     if name.startswith("__") and name.endswith("__") or name.endswith("_"):
         return True
     bare = name.lstrip("_")
-    if bare.startswith(HOOK_PREFIXES) or bare.endswith(HOOK_SUFFIXES):
+    if _is_hook_name(name=bare):
         return True
     if bare.startswith(CONVERSION_PREFIXES) or any(infix in bare for infix in CONVERSION_INFIXES):
         return True
@@ -211,12 +274,16 @@ def is_framework_named(*, definition: Definition) -> bool:
 
     Dunders, keyword-clash trailing underscores, hook prefixes and suffixes,
     conversion and constructor prefixes, entry points, standard-library
-    protocol methods, known framework hooks, and anything under a decorator
-    that registers the function somewhere.
+    protocol methods, known framework hooks, a camelCase method on a subclass
+    (PEP 8 allows mixedCase only to match a prevailing style, so the name is
+    the base API's: ``mousePressEvent``, ``dataReceived``), and anything under
+    a decorator that registers the function somewhere.
     """
     if _is_reserved_name(name=definition.name):
         return True
-    if definition.is_method and definition.name.lstrip("_") in PROTOCOL_NAMES:
+    if definition.is_method and definition.name.lstrip("_") in PROTOCOL_NAMES | FRAMEWORK_METHODS:
+        return True
+    if definition.may_override and is_camel_case(name=definition.name):
         return True
     return isinstance(definition.node, FUNCTION_TYPES) and has_opaque_decorator(
         node=definition.node,
