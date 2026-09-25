@@ -36,7 +36,7 @@ from lanorme.errors import UsageError
 from lanorme.invocation import invoke_check, resolve_scan, warn_legacy_run_once
 from lanorme.scan import Scan
 
-__version__ = "0.20.0"
+__version__ = "0.21.0"
 
 
 class Status(enum.Enum):
