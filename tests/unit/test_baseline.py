@@ -16,7 +16,7 @@ from pathlib import Path
 
 import pytest
 
-from lanorme import CheckResult, Status, Violation
+from lanorme import CheckResult, Violation
 from lanorme import baseline as bl
 from lanorme.cli import main
 
@@ -149,7 +149,7 @@ def test_count_budget_never_suppresses_one_more_than_recorded():
     # Arrange: a baseline recording two occurrences of one key; a run with three.
     root = Path("/proj")
     findings = [Violation(file="a.py", line=0, rule="X-001: thing", message="m", fix="")] * 3
-    result = CheckResult(check="x", status=Status.FAIL, violations=list(findings))
+    result = CheckResult(check="x", violations=list(findings))
     entries = bl._entries_from_results(results=[result], project_root=root)
     entries[0]["count"] = 2  # pretend only two were recorded
 
@@ -173,7 +173,7 @@ def test_error_entry_suppresses_its_improved_warning_form():
     root = Path("/proj")
     finding = Violation(file="a.py", line=0, rule="X-001: thing", message="m", fix="")
     [entry] = bl._entries_from_results(
-        results=[CheckResult(check="x", status=Status.FAIL, violations=[finding])],
+        results=[CheckResult(check="x", violations=[finding])],
         project_root=root,
     )
     index = {(entry["file"], entry["code"], entry["anchor"]): entry}
@@ -197,7 +197,7 @@ def test_no_source_text_or_secret_reaches_the_committed_file(tmp_path: Path):
         message="Raw SQL passed to a database sink: SELECT * FROM users WHERE token='sk-LEAK-9999'",
         fix="",
     )
-    result = CheckResult(check="security_patterns", status=Status.FAIL, violations=[leaky])
+    result = CheckResult(check="security_patterns", violations=[leaky])
     baseline_path = tmp_path / "lanorme-baseline.json"
 
     # Act.
@@ -213,7 +213,7 @@ def test_run000_crash_notices_are_never_recorded(tmp_path: Path):
     # Arrange: a RUN-000 crash notice (no file) alongside a real finding.
     crash = Violation(file="", line=0, rule="RUN-000: check raised", message="boom", fix="")
     real = Violation(file="a.py", line=2, rule="EVAL-001: eval", message="m", fix="")
-    result = CheckResult(check="x", status=Status.WARN, warnings=[crash, real])
+    result = CheckResult(check="x", warnings=[crash, real])
     baseline_path = tmp_path / "lanorme-baseline.json"
 
     # Act.
@@ -345,7 +345,7 @@ def test_warning_entry_never_suppresses_an_error_finding():
     root = Path("/proj")
     finding = Violation(file="a.py", line=0, rule="X-001: thing", message="m", fix="")
     [entry] = bl._entries_from_results(
-        results=[CheckResult(check="x", status=Status.WARN, warnings=[finding])],
+        results=[CheckResult(check="x", warnings=[finding])],
         project_root=root,
     )
     index = {(entry["file"], entry["code"], entry["anchor"]): entry}

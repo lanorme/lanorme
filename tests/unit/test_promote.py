@@ -22,8 +22,7 @@ def _finding(code: str) -> Violation:
 
 
 def _result(*, violations: list[Violation], warnings: list[Violation]) -> CheckResult:
-    status = Status.FAIL if violations else (Status.WARN if warnings else Status.PASS)
-    return CheckResult(check="c", status=status, violations=violations, warnings=warnings)
+    return CheckResult(check="c", violations=violations, warnings=warnings)
 
 
 def test_promote_by_exact_code_moves_warning_to_violation():

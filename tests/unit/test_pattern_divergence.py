@@ -14,6 +14,7 @@ import pytest
 
 from lanorme import Status
 from lanorme.checks.pattern_divergence import PatternDivergenceCheck
+from lanorme.scan import Scan
 
 _ENDPOINTS_DIR = "api/v1/endpoints"
 
@@ -67,7 +68,7 @@ def test_deeply_nested_endpoint_is_skipped_not_crashed(
     (tmp_path / "service.py").write_text(_INLINE_IMPORT_SRC, encoding="utf-8")
 
     # Act: the run must complete rather than raise RecursionError.
-    result = PatternDivergenceCheck().run(src_root=str(tmp_path))
+    result = PatternDivergenceCheck().check(Scan.for_root(tmp_path))
 
     # Assert: the deep file is skipped with an ENDPOINT-000 warning, and the
     # genuine inline-import violation is still detected.
@@ -81,7 +82,7 @@ def test_inline_import_is_flagged(tmp_path: Path):
     (tmp_path / "service.py").write_text(_INLINE_IMPORT_SRC, encoding="utf-8")
 
     # Act.
-    result = PatternDivergenceCheck().run(src_root=str(tmp_path))
+    result = PatternDivergenceCheck().check(Scan.for_root(tmp_path))
 
     # Assert.
     assert result.status == Status.FAIL
@@ -95,7 +96,7 @@ def test_module_level_imports_are_clean(tmp_path: Path):
     (tmp_path / "service.py").write_text(_MODULE_IMPORT_SRC, encoding="utf-8")
 
     # Act.
-    result = PatternDivergenceCheck().run(src_root=str(tmp_path))
+    result = PatternDivergenceCheck().check(Scan.for_root(tmp_path))
 
     # Assert.
     assert result.status == Status.PASS
@@ -110,7 +111,7 @@ def test_endpoint_nesting_at_threshold_is_clean(endpoints_dir: Path, tmp_path: P
     )
 
     # Act.
-    result = PatternDivergenceCheck().run(src_root=str(tmp_path))
+    result = PatternDivergenceCheck().check(Scan.for_root(tmp_path))
 
     # Assert: no ENDPOINT-001 warning at the boundary.
     assert not any(w.rule.startswith("ENDPOINT-001") for w in result.warnings)
@@ -123,7 +124,7 @@ def test_deeply_nested_endpoint_is_flagged(endpoints_dir: Path, tmp_path: Path):
     )
 
     # Act.
-    result = PatternDivergenceCheck().run(src_root=str(tmp_path))
+    result = PatternDivergenceCheck().check(Scan.for_root(tmp_path))
 
     # Assert: an ENDPOINT-001 warning is raised (a warning, not a violation).
     assert result.status == Status.WARN

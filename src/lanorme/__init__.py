@@ -24,8 +24,12 @@ List every registered rule:
 from __future__ import annotations
 
 import enum
+import warnings as _warnings
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from typing import Protocol, runtime_checkable
+
+from lanorme.scan import Scan, activate
 
 __version__ = "0.20.0"
 
@@ -71,14 +75,53 @@ class Violation:
         )
 
 
-@dataclass
+@dataclass(init=False)
 class CheckResult:
-    """Result of running a single check."""
+    """Result of running a single check.
+
+    ``status`` is derived from the findings: any violation is ``FAIL``, else any
+    warning is ``WARN``, else ``PASS``. Build one with :meth:`from_findings` or
+    the constructor; the constructor's ``status=`` argument is deprecated and
+    ignored, since a stored status could disagree with the findings it sits
+    beside.
+    """
 
     check: str
-    status: Status
     violations: list[Violation] = field(default_factory=list)
     warnings: list[Violation] = field(default_factory=list)
+
+    def __init__(
+        self,
+        check: str,
+        status: Status | None = None,
+        violations: list[Violation] | None = None,
+        warnings: list[Violation] | None = None,
+    ) -> None:
+        self.check = check
+        self.violations = [] if violations is None else violations
+        self.warnings = [] if warnings is None else warnings
+        if status is not None:
+            _warn_stored_status(given=status, derived=self.status)
+
+    @classmethod
+    def from_findings(
+        cls,
+        *,
+        check: str,
+        violations: Iterable[Violation] = (),
+        warnings: Iterable[Violation] = (),
+    ) -> CheckResult:
+        """Build a result from its findings; the status follows from them."""
+        return cls(check=check, violations=list(violations), warnings=list(warnings))
+
+    @property
+    def status(self) -> Status:
+        """``FAIL`` on any violation, else ``WARN`` on any warning, else ``PASS``."""
+        if self.violations:
+            return Status.FAIL
+        if self.warnings:
+            return Status.WARN
+        return Status.PASS
 
     def to_dict(self) -> dict[str, str | list[dict[str, str | int]]]:
         return {
@@ -100,8 +143,29 @@ class CheckResult:
         return "\n".join(lines)
 
 
+def _warn_stored_status(*, given: Status, derived: Status) -> None:
+    """Deprecation notice for ``CheckResult(status=...)``, louder when it disagrees."""
+    if given is derived:
+        detail = "it is derived from the findings and the argument is ignored"
+    else:
+        detail = f"it is derived from the findings ({derived.value}); {given.value} was ignored"
+    _warnings.warn(
+        f"CheckResult(status=...) is deprecated: {detail}. Build the result with "
+        "CheckResult.from_findings() or drop the status argument.",
+        DeprecationWarning,
+        stacklevel=3,
+    )
+
+
 class Check(Protocol):
     """Protocol that all checks must implement.
+
+    A check receives the :class:`~lanorme.scan.Scan` for the pass, which knows
+    the root to walk, the excludes in force, and caches sources and parsed
+    modules across the checks of a run. The previous entry point,
+    ``run(self, *, src_root: str)``, is deprecated: the runner still calls it
+    on a check that defines no ``check`` method, with a ``DeprecationWarning``
+    once per check class, until it is removed.
 
     A check may declare ``scope = "tree"`` (default ``"file"``) to mark that it
     compares or aggregates across files. Under cascading per-directory config a
@@ -113,8 +177,8 @@ class Check(Protocol):
     description: str
     rules: list[str]
 
-    def run(self, *, src_root: str) -> CheckResult:
-        """Run the check against the given source root and return results."""
+    def check(self, scan: Scan) -> CheckResult:
+        """Run the check over *scan* and return its findings."""
         ...
 
 
@@ -147,19 +211,84 @@ def get_all_checks() -> dict[str, Check]:
     return dict(_registry)
 
 
-def run_check(check: Check, *, src_root: str) -> CheckResult:
+# Check classes already told that ``run(*, src_root)`` is deprecated, so a run
+# over many regions warns once per class rather than once per call.
+_legacy_run_warned: set[type] = set()
+
+
+def _warn_legacy_run_once(check: Check, *, message: str) -> None:
+    """Emit a ``run(*, src_root)`` deprecation once per check class."""
+    check_type = type(check)
+    if check_type in _legacy_run_warned:
+        return
+    _legacy_run_warned.add(check_type)
+    _warnings.warn(message, DeprecationWarning, stacklevel=4)
+
+
+def invoke_check(check: Check, *, scan: Scan) -> CheckResult:
+    """Call the check's entry point over *scan*, letting any exception escape.
+
+    ``check(scan)`` when the check defines it, else the deprecated
+    ``run(src_root=...)``. Either way the scan is active for the call, so a
+    helper that still takes a bare root prunes what the scan prunes.
+    """
+    entry = getattr(check, "check", None)
+    with activate(scan):
+        if callable(entry):
+            return entry(scan)
+        _warn_legacy_run_once(
+            check,
+            message=(
+                f"Check {check.name!r} defines run(*, src_root) but no check(scan): "
+                "implement check(self, scan) -> CheckResult; the run() entry point "
+                "is deprecated and will be removed."
+            ),
+        )
+        return check.run(src_root=str(scan.root))
+
+
+def run_via_check(check: Check, *, src_root: str) -> CheckResult:
+    """Serve a deprecated ``run(*, src_root)`` call through ``check(scan)``.
+
+    The built-in checks keep ``run`` as a thin wrapper that delegates here: it
+    warns once per class that ``run`` is deprecated, then runs the check over a
+    scan of *src_root* under the excludes in effect.
+    """
+    _warn_legacy_run_once(
+        check,
+        message=(
+            f"{type(check).__name__}.run(src_root=...) is deprecated and will be "
+            "removed: call check(scan) with a lanorme.scan.Scan instead."
+        ),
+    )
+    return invoke_check(check, scan=Scan.for_root(src_root))
+
+
+def _resolve_scan(*, scan: Scan | None, src_root: str | None) -> Scan:
+    """The scan to run over: the one given, else one built from *src_root*."""
+    if scan is not None:
+        return scan
+    if src_root is None:
+        raise TypeError("run_check() needs a scan or a src_root")
+    return Scan.for_root(src_root)
+
+
+def run_check(
+    check: Check, *, scan: Scan | None = None, src_root: str | None = None
+) -> CheckResult:
     """Run one check, isolating any exception so it cannot abort the whole run.
 
     A bug in one check (a `RecursionError` on a pathological file, say) must not
     discard the results of every other check. The failure is reported as a
-    warning on that check and the run continues.
+    warning on that check and the run continues. Pass the *scan* to run over;
+    *src_root* alone builds a scan of that path under the excludes in effect.
     """
+    resolved = _resolve_scan(scan=scan, src_root=src_root)
     try:
-        return check.run(src_root=src_root)
+        return invoke_check(check, scan=resolved)
     except Exception as exc:  # noqa: BLE001 - one check must not sink the run
         return CheckResult(
             check=check.name,
-            status=Status.WARN,
             warnings=[
                 Violation(
                     file="",
@@ -172,6 +301,7 @@ def run_check(check: Check, *, src_root: str) -> CheckResult:
         )
 
 
-def run_all(*, src_root: str) -> list[CheckResult]:
-    """Run all registered checks and return their results."""
-    return [run_check(check, src_root=src_root) for check in _registry.values()]
+def run_all(*, scan: Scan | None = None, src_root: str | None = None) -> list[CheckResult]:
+    """Run all registered checks over one scan and return their results."""
+    resolved = _resolve_scan(scan=scan, src_root=src_root)
+    return [run_check(check, scan=resolved) for check in _registry.values()]

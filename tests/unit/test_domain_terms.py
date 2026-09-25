@@ -19,6 +19,7 @@ import pytest
 
 from lanorme import Status
 from lanorme.checks.domain_terms import DomainTermsCheck
+from lanorme.scan import Scan
 
 # The canonical fixture vocabulary: prefer "Account" over the legacy synonyms.
 _RULE = {"id": "TERM-001", "canonical": "Account", "forbidden": ["Acct", "Acnt"]}
@@ -62,7 +63,7 @@ def test_true_positive_comment_and_docstring_fire(check: DomainTermsCheck, tmp_p
     )
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan.for_root(tmp_path))
 
     # Assert: the check fails and both prose occurrences are flagged.
     assert result.status == Status.FAIL
@@ -79,7 +80,7 @@ def test_true_negative_canonical_term_is_silent(check: DomainTermsCheck, tmp_pat
     )
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan.for_root(tmp_path))
 
     # Assert: no vocabulary drift, so the check passes.
     assert result.status == Status.PASS
@@ -91,7 +92,7 @@ def test_inert_without_rules_never_fires(inert_check: DomainTermsCheck, tmp_path
     _write(root=tmp_path, name="q.py", body="acct = 1\n# acct comment\n")
 
     # Act.
-    result = inert_check.run(src_root=str(tmp_path))
+    result = inert_check.check(Scan.for_root(tmp_path))
 
     # Assert: the check is inert by default and must not produce a false positive.
     assert result.status == Status.PASS
@@ -105,7 +106,7 @@ def test_empty_forbidden_list_is_inert(tmp_path: Path):
     _write(root=tmp_path, name="e.py", body="acct = 1\n")
 
     # Act.
-    result = instance.run(src_root=str(tmp_path))
+    result = instance.check(Scan.for_root(tmp_path))
 
     # Assert: a rule with nothing forbidden behaves like no rule at all.
     assert result.status == Status.PASS
@@ -128,7 +129,7 @@ def test_forbidden_term_inside_regular_string_literal_is_silent(
     _write(root=tmp_path, name="z.py", body=body)
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan.for_root(tmp_path))
 
     # Assert: string literals are outside the scanned surface -- firing here
     # would be a false positive, the cardinal sin.
@@ -141,7 +142,7 @@ def test_substring_overlap_does_not_false_positive(check: DomainTermsCheck, tmp_
     _write(root=tmp_path, name="wb.py", body="acctual = 3\nxacctx = 4\n")
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan.for_root(tmp_path))
 
     # Assert: word-boundary anchoring means incidental overlap is not a match.
     assert result.status == Status.PASS
@@ -154,7 +155,7 @@ def test_compound_identifier_is_not_matched(check: DomainTermsCheck, tmp_path: P
     _write(root=tmp_path, name="cmp.py", body="AcctId = 1\nget_acct_id = 2\nacct_balance = 5\n")
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan.for_root(tmp_path))
 
     # Assert: pins the OBSERVED (documented) word-boundary behaviour -- these
     # compound forms currently slip through (see findings: intent_question).
@@ -168,7 +169,7 @@ def test_bare_identifier_class_name_fires_once(check: DomainTermsCheck, tmp_path
     _write(root=tmp_path, name="c.py", body="class Acct:\n    pass\n")
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan.for_root(tmp_path))
 
     # Assert: exactly one identifier-level violation, naming the matched term.
     assert result.status == Status.FAIL
@@ -188,7 +189,7 @@ def test_import_line_comment_skipped_normal_comment_fires(
     )
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan.for_root(tmp_path))
 
     # Assert: only the non-import comment (line 2) is flagged.
     prose = [v for v in _term001(result) if "comment/docstring" in v.message]
@@ -205,7 +206,7 @@ def test_regex_special_chars_in_forbidden_are_escaped(tmp_path: Path):
     _write(root=tmp_path, name="r.py", body="# U.ser here and User here\nx = 1\n")
 
     # Act.
-    result = instance.run(src_root=str(tmp_path))
+    result = instance.check(Scan.for_root(tmp_path))
 
     # Assert: the dot matches literally (one hit on 'U.ser'), and the wildcard
     # interpretation that would also match 'User' does NOT occur.
@@ -222,7 +223,7 @@ def test_test_prefixed_and_migrations_files_are_exempt(check: DomainTermsCheck, 
     _write(root=tmp_path, name="real.py", body="acct = 1\n")
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan.for_root(tmp_path))
 
     # Assert: only the non-exempt file is flagged.
     files = {v.file for v in _term001(result)}
@@ -234,7 +235,7 @@ def test_bare_assignment_should_fire_exactly_once(check: DomainTermsCheck, tmp_p
     _write(root=tmp_path, name="dup.py", body="acct = 1\n")
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan.for_root(tmp_path))
 
     # Assert: exactly one violation per textual occurrence of the bare target.
     ident = [v for v in _term001(result) if "identifier" in v.message]

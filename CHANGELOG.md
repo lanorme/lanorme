@@ -9,6 +9,45 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
 
 ## [Unreleased]
 
+### Added
+
+- `lanorme.scan.Scan`, the run context a check receives: the root being
+  walked, whether the pass covers the whole tree or one config region's own
+  files, the `exclude` globs in force, the project's `source_root`, and a cache
+  of sources and parsed modules shared by every check in the run, so a file is
+  read and parsed once rather than once per check. `scan.py_files()`,
+  `scan.files(suffix=...)`, `scan.parsed_modules()`, `scan.source(path)`,
+  `scan.module(path)` and `scan.relative(path)` replace the bare-root helpers
+  in a check. The runner activates the scan around each check, so a helper
+  that still calls `lanorme.discovery.iter_py_files(root)` prunes by the
+  scan's globs.
+- `check(self, scan: Scan) -> CheckResult` is the entry point of the `Check`
+  protocol. `run_check` and `run_all` take `scan=`; `src_root=` still works and
+  builds a scan of that path. `lanorme.invoke_check` calls a check's entry
+  point without the exception isolation `run_check` adds.
+- `CheckResult.from_findings(check=..., violations=..., warnings=...)` builds a
+  result from any iterables of findings.
+
+### Changed
+
+- `CheckResult.status` is a property derived from the findings: any violation
+  is `FAIL`, else any warning is `WARN`, else `PASS`. A result can no longer
+  disagree with its own findings, and every filter, merge and re-anchor step
+  that used to recompute the status by hand now just carries the findings.
+- Every built-in check implements `check(scan)`. Findings are unchanged.
+
+### Deprecated
+
+- `CheckResult(status=...)`. The argument is accepted for this release and
+  ignored, with a `DeprecationWarning` that names the derived status when the
+  two disagree. Drop the argument or build the result with
+  `CheckResult.from_findings`. Removed in the next minor release.
+- The `run(self, *, src_root: str)` entry point of a check. A check that
+  defines `run` and no `check` still runs: the runner calls `run` with the scan
+  active and emits a `DeprecationWarning` once per check class. The built-in
+  checks keep `run` as a thin wrapper over `check` that warns the same way.
+  Both are removed two minor versions from now; implement `check(scan)`.
+
 ## [0.20.0]
 
 ### Fixed

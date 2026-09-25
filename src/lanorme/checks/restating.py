@@ -29,10 +29,9 @@ import re
 import tokenize
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from pathlib import Path
 
-from lanorme import CheckResult, Status, Violation, register
-from lanorme.discovery import iter_py_files
+from lanorme import CheckResult, Violation, register, run_via_check
+from lanorme.scan import Scan
 
 MAX_CONTENT_WORDS = 4
 MIN_STEM_LEN = 4
@@ -313,11 +312,15 @@ class RestatingCheck:
             self.enabled = bool(settings["enabled"])
 
     def run(self, *, src_root: str) -> CheckResult:
+        """Deprecated entry point kept until removal; ``check(scan)`` replaces it."""
+        return run_via_check(self, src_root=src_root)
+
+    def check(self, scan: Scan) -> CheckResult:
         if not self.enabled:
-            return CheckResult(check=self.name, status=Status.PASS, violations=[])
+            return CheckResult(check=self.name, violations=[])
         violations: list[Violation] = []
-        root = Path(src_root)
-        for path in iter_py_files(root):
+        root = scan.root
+        for path in scan.py_files():
             # Match skip directories inside the root only: the absolute path's
             # ancestors are the user's filesystem, not the project layout.
             relative = path.relative_to(root)
@@ -333,8 +336,7 @@ class RestatingCheck:
             violations.extend(
                 _restating_violations(tree=tree, comments=comments, file=relative.as_posix())
             )
-        status = Status.FAIL if violations else Status.PASS
-        return CheckResult(check=self.name, status=status, violations=violations)
+        return CheckResult(check=self.name, violations=violations)
 
 
 register(RestatingCheck())

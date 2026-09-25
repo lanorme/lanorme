@@ -45,8 +45,8 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from lanorme import CheckResult, Status, Violation, register
-from lanorme.discovery import iter_files
+from lanorme import CheckResult, Violation, register, run_via_check
+from lanorme.scan import Scan
 
 _EM_DASH = "—"
 
@@ -151,15 +151,6 @@ _SKIP_PARTS = frozenset(
 def _strip_inline_code(line: str) -> str:
     """Blank out inline `code` spans, preserving length for column fidelity."""
     return _INLINE_CODE.sub(lambda m: " " * len(m.group(0)), line)
-
-
-def _status_for(*, violations: list[Violation], warnings: list[Violation]) -> Status:
-    """Map findings to a status: any hard violation fails, an advisory warns."""
-    if violations:
-        return Status.FAIL
-    if warnings:
-        return Status.WARN
-    return Status.PASS
 
 
 def _compile_spellings(spellings: dict[str, str]) -> re.Pattern[str] | None:
@@ -371,15 +362,19 @@ class ProseCheck:
         return not any(part in _SKIP_PARTS for part in relative.parts)
 
     def run(self, *, src_root: str) -> CheckResult:
+        """Deprecated entry point kept until removal; ``check(scan)`` replaces it."""
+        return run_via_check(self, src_root=src_root)
+
+    def check(self, scan: Scan) -> CheckResult:
         if not self.enabled:
-            return CheckResult(check=self.name, status=Status.PASS, violations=[])
+            return CheckResult(check=self.name, violations=[])
 
         violations: list[Violation] = []
         warnings: list[Violation] = []
         spell_re = _compile_spellings(self.spellings)
-        root = Path(src_root)
+        root = scan.root
 
-        for path in iter_files(root):
+        for path in scan.files():
             relative = path.relative_to(root)
             if not self._is_doc(path=path, relative=relative):
                 continue
@@ -391,7 +386,6 @@ class ProseCheck:
 
         return CheckResult(
             check=self.name,
-            status=_status_for(violations=violations, warnings=warnings),
             violations=violations,
             warnings=warnings,
         )

@@ -14,6 +14,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
 from lanorme.checks.docstrings import DocstringsCheck  # noqa: E402
+from lanorme.scan import Scan
 
 RULE = "CMT-007"
 CORPUS = Path(__file__).resolve().parent / "corpora" / "docstrings_vacuous"
@@ -23,7 +24,7 @@ def _findings() -> set[str]:
     """Run the check over the corpus and return the flagged 'file:line' keys."""
     check = DocstringsCheck()
     check.configure(settings={"enabled": True})
-    result = check.run(src_root=str(CORPUS))
+    result = check.check(Scan.for_root(CORPUS))
     return {
         f"{violation.file}:{violation.line}"
         for violation in result.violations

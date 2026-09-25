@@ -33,11 +33,10 @@ import io
 import re
 import tokenize
 from dataclasses import dataclass, field
-from pathlib import Path
 
-from lanorme import CheckResult, Status, Violation, register
+from lanorme import CheckResult, Violation, register, run_via_check
 from lanorme.checks.file_limits import _cyclomatic_complexity
-from lanorme.discovery import iter_py_files
+from lanorme.scan import Scan
 
 _EM_DASH = "—"
 
@@ -423,9 +422,13 @@ class CommentsCheck:
         return found
 
     def run(self, *, src_root: str) -> CheckResult:
+        """Deprecated entry point kept until removal; ``check(scan)`` replaces it."""
+        return run_via_check(self, src_root=src_root)
+
+    def check(self, scan: Scan) -> CheckResult:
         violations: list[Violation] = []
-        root = Path(src_root)
-        for py_file in iter_py_files(root):
+        root = scan.root
+        for py_file in scan.py_files():
             # Match skip directories inside the root only: the absolute path's
             # ancestors are the user's filesystem, not the project layout.
             relative = py_file.relative_to(root)
@@ -445,9 +448,7 @@ class CommentsCheck:
                     relative_file=relative.as_posix(),
                 )
             )
-
-        status = Status.FAIL if violations else Status.PASS
-        return CheckResult(check=self.name, status=status, violations=violations)
+        return CheckResult(check=self.name, violations=violations)
 
 
 register(CommentsCheck())

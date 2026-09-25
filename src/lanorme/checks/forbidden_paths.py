@@ -23,9 +23,9 @@ Run:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from pathlib import Path
 
-from lanorme import CheckResult, Status, Violation, register
+from lanorme import CheckResult, Violation, register, run_via_check
+from lanorme.scan import Scan
 
 # Default is empty → the check is inert until configured.
 _FORBIDDEN_DIRS: tuple[str, ...] = ()
@@ -62,8 +62,12 @@ class ForbiddenPathsCheck:
         self.forbidden_dirs = tuple(settings.get("dirs", []))
 
     def run(self, *, src_root: str) -> CheckResult:
+        """Deprecated entry point kept until removal; ``check(scan)`` replaces it."""
+        return run_via_check(self, src_root=src_root)
+
+    def check(self, scan: Scan) -> CheckResult:
         violations: list[Violation] = []
-        root = Path(src_root)
+        root = scan.root
 
         for forbidden in self.forbidden_dirs:
             for hit in root.rglob(forbidden):
@@ -81,9 +85,7 @@ class ForbiddenPathsCheck:
                         fix=f"Delete '{relative}' or remove it from the forbidden list",
                     )
                 )
-
-        status = Status.FAIL if violations else Status.PASS
-        return CheckResult(check=self.name, status=status, violations=violations)
+        return CheckResult(check=self.name, violations=violations)
 
 
 register(ForbiddenPathsCheck())

@@ -44,8 +44,8 @@ import tokenize
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from lanorme import CheckResult, Status, Violation, register
-from lanorme.discovery import iter_py_files
+from lanorme import CheckResult, Violation, register, run_via_check
+from lanorme.scan import Scan
 from lanorme.filtering import _IGNORE_RE, _NOQA_RE
 
 # Code lists that name no rule in particular, so the directive covers whatever
@@ -163,12 +163,16 @@ class SuppressionsCheck:
             self.allow_blanket = bool(settings["allow_blanket"])
 
     def run(self, *, src_root: str) -> CheckResult:
+        """Deprecated entry point kept until removal; ``check(scan)`` replaces it."""
+        return run_via_check(self, src_root=src_root)
+
+    def check(self, scan: Scan) -> CheckResult:
         """Collect every suppression directive, then price it."""
         if not self.enabled:
-            return CheckResult(check=self.name, status=Status.PASS, violations=[])
-        root = Path(src_root)
+            return CheckResult(check=self.name, violations=[])
+        root = scan.root
         directives: list[_Directive] = []
-        for path in iter_py_files(root):
+        for path in scan.py_files():
             # Match skip directories inside the root only: the absolute path's
             # ancestors are the user's filesystem, not the project layout.
             relative = path.relative_to(root)
@@ -180,8 +184,7 @@ class SuppressionsCheck:
         violations = _budget_violation(directives=directives, max_total=self.max_total)
         if not self.allow_blanket:
             violations.extend(_blanket_violations(directives=directives))
-        status = Status.FAIL if violations else Status.PASS
-        return CheckResult(check=self.name, status=status, violations=violations)
+        return CheckResult(check=self.name, violations=violations)
 
 
 register(SuppressionsCheck())

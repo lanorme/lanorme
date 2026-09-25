@@ -24,7 +24,8 @@ import ast
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from lanorme import CheckResult, Status, Violation, register
+from lanorme import CheckResult, Violation, register, run_via_check
+from lanorme.scan import Scan
 
 
 # ---------------------------------------------------------------------------
@@ -243,15 +244,17 @@ class TestCoverageCheck:
                 self.test_roots = cleaned
 
     def run(self, *, src_root: str) -> CheckResult:
+        """Deprecated entry point kept until removal; ``check(scan)`` replaces it."""
+        return run_via_check(self, src_root=src_root)
+
+    def check(self, scan: Scan) -> CheckResult:
         """Run the coverage check and return advisory warnings."""
-        backend_root = Path(src_root).parent
+        backend_root = scan.root.parent
         coverage_warnings = _check_module_coverage(
-            src_root=src_root, backend_root=backend_root, test_roots=self.test_roots
+            src_root=str(scan.root), backend_root=backend_root, test_roots=self.test_roots
         )
-        status = Status.WARN if coverage_warnings else Status.PASS
         return CheckResult(
             check=self.name,
-            status=status,
             warnings=coverage_warnings,
         )
 

@@ -16,6 +16,7 @@ import pytest
 
 from lanorme import Status
 from lanorme.checks.file_limits import FileLimitsCheck
+from lanorme.scan import Scan
 
 
 @pytest.fixture
@@ -28,7 +29,7 @@ def run_on(tmp_path: Path):
 
     def _run(source: str):
         (tmp_path / "sample.py").write_text(source, encoding="utf-8")
-        return FileLimitsCheck().run(src_root=str(tmp_path))
+        return FileLimitsCheck().check(Scan.for_root(tmp_path))
 
     return _run
 
@@ -480,7 +481,7 @@ def test_root_under_a_skip_named_ancestor_is_still_scanned(tmp_path: Path):
     (root / "sample.py").write_text(_file_with_effective_lines(300), encoding="utf-8")
 
     # Act.
-    result = FileLimitsCheck().run(src_root=str(root))
+    result = FileLimitsCheck().check(Scan.for_root(root))
 
     # Assert: the ancestor is the user's filesystem, not the project layout.
     assert _has_rule(result.warnings, "SIZE-001")

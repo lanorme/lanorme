@@ -12,7 +12,7 @@ import fnmatch
 import re
 from pathlib import Path
 
-from lanorme import CheckResult, Status, Violation
+from lanorme import CheckResult, Violation
 
 _CODE_RE = re.compile(r"^([A-Z]+)-\d+")
 
@@ -63,9 +63,8 @@ def _apply_filters(
     for result in results:
         violations = [v for v in result.violations if _keep(rule=v.rule, select=select, ignore=ignore)]
         warnings = [w for w in result.warnings if _keep(rule=w.rule, select=select, ignore=ignore)]
-        status = Status.FAIL if violations else (Status.WARN if warnings else Status.PASS)
         filtered.append(
-            CheckResult(check=result.check, status=status, violations=violations, warnings=warnings)
+            CheckResult(check=result.check, violations=violations, warnings=warnings)
         )
     return filtered
 
@@ -94,9 +93,8 @@ def _apply_target_filter(
     for result in results:
         violations = [v for v in result.violations if should_keep(v)]
         warnings = [w for w in result.warnings if should_keep(w)]
-        status = Status.FAIL if violations else (Status.WARN if warnings else Status.PASS)
         filtered.append(
-            CheckResult(check=result.check, status=status, violations=violations, warnings=warnings)
+            CheckResult(check=result.check, violations=violations, warnings=warnings)
         )
     return filtered
 
@@ -115,9 +113,8 @@ def _apply_excludes(*, results: list[CheckResult], exclude: list[str]) -> list[C
     for result in results:
         violations = [v for v in result.violations if not _path_excluded(path=v.file, patterns=exclude)]
         warnings = [w for w in result.warnings if not _path_excluded(path=w.file, patterns=exclude)]
-        status = Status.FAIL if violations else (Status.WARN if warnings else Status.PASS)
         filtered.append(
-            CheckResult(check=result.check, status=status, violations=violations, warnings=warnings)
+            CheckResult(check=result.check, violations=violations, warnings=warnings)
         )
     return filtered
 
@@ -147,9 +144,8 @@ def _apply_per_file_ignores(
         warnings = [
             w for w in result.warnings if not _per_file_silences(file=w.file, rule=w.rule, table=table)
         ]
-        status = Status.FAIL if violations else (Status.WARN if warnings else Status.PASS)
         filtered.append(
-            CheckResult(check=result.check, status=status, violations=violations, warnings=warnings)
+            CheckResult(check=result.check, violations=violations, warnings=warnings)
         )
     return filtered
 
@@ -228,11 +224,9 @@ def _apply_inline_ignores(*, results: list[CheckResult], project_root: Path) -> 
     for result in results:
         violations = [v for v in result.violations if should_keep(v)]
         warnings = [w for w in result.warnings if should_keep(w)]
-        status = Status.FAIL if violations else (Status.WARN if warnings else Status.PASS)
         filtered.append(
             CheckResult(
                 check=result.check,
-                status=status,
                 violations=violations,
                 warnings=warnings,
             )
@@ -271,11 +265,9 @@ def _apply_promotions(*, results: list[CheckResult], promote: list[str]) -> list
             else:
                 kept.append(warning)
         violations = [*result.violations, *escalated]
-        status = Status.FAIL if violations else (Status.WARN if kept else Status.PASS)
         promoted_results.append(
             CheckResult(
                 check=result.check,
-                status=status,
                 violations=violations,
                 warnings=kept,
             )

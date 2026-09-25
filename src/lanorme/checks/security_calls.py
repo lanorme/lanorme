@@ -29,8 +29,8 @@ import ast
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from lanorme import CheckResult, Status, Violation, register
-from lanorme.discovery import iter_py_files
+from lanorme import CheckResult, Violation, register, run_via_check
+from lanorme.scan import Scan
 
 _SKIP_DIRS = frozenset({".git", ".venv", "venv", "node_modules", "__pycache__", "dist", "build"})
 
@@ -378,9 +378,13 @@ class SecurityCallsCheck:
         return found
 
     def run(self, *, src_root: str) -> CheckResult:
+        """Deprecated entry point kept until removal; ``check(scan)`` replaces it."""
+        return run_via_check(self, src_root=src_root)
+
+    def check(self, scan: Scan) -> CheckResult:
         violations: list[Violation] = []
-        root = Path(src_root)
-        for path in iter_py_files(root):
+        root = scan.root
+        for path in scan.py_files():
             # Match skip directories inside the root only: the absolute path's
             # ancestors are the user's filesystem, not the project layout.
             relative = path.relative_to(root)
@@ -392,8 +396,7 @@ class SecurityCallsCheck:
             except (OSError, UnicodeDecodeError, SyntaxError):
                 continue
             violations.extend(self._scan_tree(tree=tree, relative_file=relative.as_posix()))
-        status = Status.FAIL if violations else Status.PASS
-        return CheckResult(check=self.name, status=status, violations=violations)
+        return CheckResult(check=self.name, violations=violations)
 
 
 register(SecurityCallsCheck())

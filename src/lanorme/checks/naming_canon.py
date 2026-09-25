@@ -27,9 +27,9 @@ Default-on, warnings. Calibration and measured precision: ``docs/RULES.md``.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from pathlib import Path
 
-from lanorme import CheckResult, Status, Violation, register
+from lanorme import CheckResult, Violation, register, run_via_check
+from lanorme.scan import Scan
 from lanorme.checks.naming_shapes import (
     FUNCTION_TYPES,
     Definition,
@@ -227,6 +227,10 @@ class NamingCanonCheck:
             self.exempt = frozenset(exempt)
 
     def run(self, *, src_root: str) -> CheckResult:
+        """Deprecated entry point kept until removal; ``check(scan)`` replaces it."""
+        return run_via_check(self, src_root=src_root)
+
+    def check(self, scan: Scan) -> CheckResult:
         """Walk every module and collect NAMING-006..008 warnings, in source order."""
         settings = _Settings(
             verbs=self.verbs | self.weak_verbs,
@@ -235,12 +239,11 @@ class NamingCanonCheck:
             exempt=self.exempt,
         )
         warnings: list[Violation] = []
-        for relative, tree in iter_modules(root=Path(src_root)):
+        for relative, tree in iter_modules(scan=scan):
             for definition in iter_definitions(tree=tree):
                 warnings.extend(_findings(definition=definition, file=relative, settings=settings))
         warnings.sort(key=lambda warning: (warning.file, warning.line))
-        status = Status.WARN if warnings else Status.PASS
-        return CheckResult(check=self.name, status=status, warnings=warnings)
+        return CheckResult(check=self.name, warnings=warnings)
 
 
 register(NamingCanonCheck())

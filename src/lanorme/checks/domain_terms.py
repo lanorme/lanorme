@@ -28,8 +28,8 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from lanorme import CheckResult, Status, Violation, register
-from lanorme.discovery import iter_py_files
+from lanorme import CheckResult, Violation, register, run_via_check
+from lanorme.scan import Scan
 
 # Each rule maps forbidden terms to a canonical replacement. Empty by default →
 # the check is inert until a project supplies its own vocabulary.
@@ -180,14 +180,18 @@ class DomainTermsCheck:
         self.term_rules = list(settings.get("rules", []))
 
     def run(self, *, src_root: str) -> CheckResult:
+        """Deprecated entry point kept until removal; ``check(scan)`` replaces it."""
+        return run_via_check(self, src_root=src_root)
+
+    def check(self, scan: Scan) -> CheckResult:
         violations: list[Violation] = []
         warnings: list[Violation] = []
         compiled = _compile_rules(self.term_rules)
         if not compiled:
-            return CheckResult(check=self.name, status=Status.PASS, violations=[])
+            return CheckResult(check=self.name, violations=[])
 
-        src_path = Path(src_root)
-        for py_file in iter_py_files(src_path):
+        src_path = scan.root
+        for py_file in scan.py_files():
             relative_file = py_file.relative_to(src_path).as_posix()
             if _is_exempt_path(relative_path=relative_file):
                 continue
@@ -218,11 +222,8 @@ class DomainTermsCheck:
                     compiled=compiled,
                 ),
             )
-
-        status = Status.FAIL if violations else (Status.WARN if warnings else Status.PASS)
         return CheckResult(
             check=self.name,
-            status=status,
             violations=violations,
             warnings=warnings,
         )

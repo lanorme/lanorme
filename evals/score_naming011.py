@@ -14,6 +14,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
 from lanorme.checks.naming_clean_code import NamingCleanCodeCheck  # noqa: E402
+from lanorme.scan import Scan
 
 RULE = "NAMING-011"
 CORPUS = Path(__file__).resolve().parent / "corpora" / "naming_every_verb"
@@ -23,7 +24,7 @@ def _findings() -> set[str]:
     """Run the check over the corpus and return the flagged 'file:line' keys."""
     check = NamingCleanCodeCheck()
     check.configure(settings={"enabled": True})
-    result = check.run(src_root=str(CORPUS))
+    result = check.check(Scan.for_root(CORPUS))
     return {
         f"{finding.file}:{finding.line}"
         for finding in [*result.violations, *result.warnings]

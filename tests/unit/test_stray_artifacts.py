@@ -11,10 +11,11 @@ from pathlib import Path
 
 from lanorme import Status
 from lanorme.checks.stray_artifacts import StrayArtifactsCheck
+from lanorme.scan import Scan
 
 
 def _codes(tmp_path: Path) -> set[str]:
-    result = StrayArtifactsCheck().run(src_root=str(tmp_path))
+    result = StrayArtifactsCheck().check(Scan.for_root(tmp_path))
     return {(v.rule, v.file) for v in result.violations}
 
 
@@ -40,7 +41,7 @@ def test_legitimate_dotfiles_are_not_flagged(tmp_path: Path):
     ):
         (tmp_path / name).write_text("x\n", encoding="utf-8")
     # Act + Assert: nothing flagged.
-    result = StrayArtifactsCheck().run(src_root=str(tmp_path))
+    result = StrayArtifactsCheck().check(Scan.for_root(tmp_path))
     assert result.status == Status.PASS
     assert not result.violations
 
@@ -63,7 +64,7 @@ def test_allow_glob_exempts_a_stray_image(tmp_path: Path):
     check = StrayArtifactsCheck()
     check.configure(settings={"allow": ["diagram.png"]})
     # Act
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan.for_root(tmp_path))
     # Assert: the allow entry suppresses the JUNK-002 finding.
     assert result.status == Status.PASS
     assert not result.violations

@@ -13,7 +13,6 @@ from __future__ import annotations
 import ast
 from collections.abc import Iterator
 from dataclasses import dataclass
-from pathlib import Path
 
 from lanorme.checks.naming_words import (
     CONVERSION_INFIXES,
@@ -24,7 +23,7 @@ from lanorme.checks.naming_words import (
     HOOK_SUFFIXES,
     PROTOCOL_NAMES,
 )
-from lanorme.discovery import iter_py_files
+from lanorme.scan import Scan
 
 FUNCTION_TYPES = (ast.FunctionDef, ast.AsyncFunctionDef)
 
@@ -98,21 +97,17 @@ def iter_definitions(*, tree: ast.Module) -> Iterator[Definition]:
                 pending.extend((block, owner) for block in _block_bodies(statement=statement))
 
 
-def iter_modules(*, root: Path) -> Iterator[tuple[str, ast.Module]]:
-    """Every parseable module under *root* with its root-relative posix path.
+def iter_modules(*, scan: Scan) -> Iterator[tuple[str, ast.Module]]:
+    """Every parseable module under the scan root with its root-relative posix path.
 
-    Parsing from bytes honours a BOM and a coding cookie. A file the parser
-    rejects, including one that overflows it, is skipped rather than raised.
+    The scan parses from bytes, so a BOM and a coding cookie are honoured, and
+    skips a file the parser rejects, including one that overflows it. Generated
+    migration trees are skipped too.
     """
-    for path in iter_py_files(root):
-        relative = path.relative_to(root)
-        if any(part in _SKIP_DIRS for part in relative.parts):
+    for relative, tree in scan.parsed_modules():
+        if any(part in _SKIP_DIRS for part in relative.split("/")):
             continue
-        try:
-            tree = ast.parse(path.read_bytes(), filename=str(path))
-        except (OSError, SyntaxError, ValueError, RecursionError, MemoryError):
-            continue
-        yield relative.as_posix(), tree
+        yield relative, tree
 
 
 def decorator_leaves(*, node: ast.FunctionDef | ast.AsyncFunctionDef) -> set[str]:

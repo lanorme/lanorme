@@ -23,6 +23,7 @@ from pathlib import Path
 
 from lanorme import run_all
 from lanorme.cli import _load_builtin_checks  # noqa: PLC2701 -- benchmarks pin to internals
+from lanorme.scan import Scan
 
 _CORPUS = Path(__file__).resolve().parent / "corpora" / "security_raw_sql"
 _LABELS = _CORPUS / "labels.json"
@@ -48,7 +49,7 @@ def _load_labels() -> dict[tuple[str, int], dict[str, str]]:
 def _flagged_sec002() -> set[tuple[str, int]]:
     """Return (file, line) for every violation whose rule starts with SQL-001."""
     _load_builtin_checks()
-    results = run_all(src_root=str(_CORPUS))
+    results = run_all(scan=Scan.for_root(_CORPUS))
     flagged: set[tuple[str, int]] = set()
     for result in results:
         for v in result.violations:

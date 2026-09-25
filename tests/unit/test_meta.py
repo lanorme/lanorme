@@ -16,6 +16,7 @@ from __future__ import annotations
 
 from lanorme import CheckResult, Status, Violation
 from lanorme.checks import meta as meta_module
+from lanorme.scan import Scan
 from lanorme.checks.meta import (
     MetaCheck,
     _validate_description,
@@ -46,10 +47,9 @@ class _FakeCheck:
         self._violations = violations or []
         self._warnings = warnings or []
 
-    def run(self, *, src_root: str) -> CheckResult:
+    def check(self, scan: Scan) -> CheckResult:
         return CheckResult(
             check=self._result_check,
-            status=Status.PASS,
             violations=list(self._violations),
             warnings=list(self._warnings),
         )
@@ -103,8 +103,8 @@ def test_validate_rules_flags_empty_list():
 
 def test_validate_result_check_name_requires_exact_match():
     # Arrange: a result whose check field has trailing whitespace is NOT a match.
-    matching = CheckResult(check="c", status=Status.PASS)
-    trailing = CheckResult(check="c ", status=Status.PASS)
+    matching = CheckResult(check="c")
+    trailing = CheckResult(check="c ")
 
     # Act
     ok = _validate_result_check_name(check_name="c", result=matching)
@@ -157,7 +157,7 @@ def test_run_passes_when_all_checks_well_formed(monkeypatch):
     )
 
     # Act
-    result = MetaCheck().run(src_root="/tmp")
+    result = MetaCheck().check(Scan.for_root("/tmp"))
 
     # Assert
     assert result.check == "meta"
@@ -170,7 +170,7 @@ def test_run_flags_empty_name(monkeypatch):
     _install_registry(monkeypatch, {"k": _FakeCheck(name="")})
 
     # Act
-    result = MetaCheck().run(src_root="/tmp")
+    result = MetaCheck().check(Scan.for_root("/tmp"))
 
     # Assert
     assert result.status is Status.FAIL
@@ -185,7 +185,7 @@ def test_run_flags_empty_description_and_rules_together(monkeypatch):
     )
 
     # Act
-    result = MetaCheck().run(src_root="/tmp")
+    result = MetaCheck().check(Scan.for_root("/tmp"))
 
     # Assert: both META-002 and META-003 fire.
     assert result.status is Status.FAIL
@@ -200,7 +200,7 @@ def test_run_flags_result_check_name_mismatch(monkeypatch):
     )
 
     # Act
-    result = MetaCheck().run(src_root="/tmp")
+    result = MetaCheck().check(Scan.for_root("/tmp"))
 
     # Assert
     assert result.status is Status.FAIL
@@ -213,7 +213,7 @@ def test_run_flags_violation_with_empty_field(monkeypatch):
     _install_registry(monkeypatch, {"k": _FakeCheck(name="k", violations=[bad])})
 
     # Act
-    result = MetaCheck().run(src_root="/tmp")
+    result = MetaCheck().check(Scan.for_root("/tmp"))
 
     # Assert
     assert result.status is Status.FAIL
@@ -226,7 +226,7 @@ def test_run_validates_warnings_too(monkeypatch):
     _install_registry(monkeypatch, {"k": _FakeCheck(name="k", warnings=[bad])})
 
     # Act
-    result = MetaCheck().run(src_root="/tmp")
+    result = MetaCheck().check(Scan.for_root("/tmp"))
 
     # Assert: META-005 still fires and the message identifies it as a warning.
     assert result.status is Status.FAIL
@@ -240,7 +240,7 @@ def test_run_skips_self(monkeypatch):
     _install_registry(monkeypatch, {})
 
     # Act: meta must not introspect itself (no infinite recursion, no findings).
-    result = MetaCheck().run(src_root="/tmp")
+    result = MetaCheck().check(Scan.for_root("/tmp"))
 
     # Assert
     assert result.status is Status.PASS
@@ -257,7 +257,7 @@ def test_run_self_skip_keys_on_registry_name_not_attribute(monkeypatch):
     )
 
     # Act
-    result = MetaCheck().run(src_root="/tmp")
+    result = MetaCheck().check(Scan.for_root("/tmp"))
 
     # Assert
     assert result.status is Status.PASS

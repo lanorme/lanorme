@@ -62,11 +62,13 @@ warnings down: refactor rather than suppress where you reasonably can.
 
 ## Adding or changing a check
 
-A check is any object with `name`, `description`, `rules`, and a `run` method.
-An optional `configure` method receives its `[tool.lanorme.<name>]` table.
+A check is any object with `name`, `description`, `rules`, and a `check`
+method that receives the `lanorme.scan.Scan` for the pass. An optional
+`configure` method receives its `[tool.lanorme.<name>]` table.
 
 ```python
-from lanorme import CheckResult, Status, Violation, register
+from lanorme import CheckResult, Violation, register
+from lanorme.scan import Scan
 
 
 class MyCheck:
@@ -74,15 +76,20 @@ class MyCheck:
     description = "What it enforces, in one line"
     rules = ["MYCODE-001: the rule, in one line"]
 
-    def run(self, *, src_root: str) -> CheckResult:
+    def check(self, scan: Scan) -> CheckResult:
         violations: list[Violation] = []
-        # inspect files under src_root (use lanorme.discovery.iter_py_files)
-        status = Status.FAIL if violations else Status.PASS
-        return CheckResult(check=self.name, status=status, violations=violations)
+        # inspect files under scan.root (walk them with scan.py_files())
+        return CheckResult(check=self.name, violations=violations)
 
 
 register(MyCheck())
 ```
+
+The result's status is derived from its findings; a check never sets it. The
+built-in checks keep a `run(self, *, src_root)` method that only delegates to
+`check` through `lanorme.run_via_check`; it is the deprecated entry point and
+goes away two minor versions after `check` arrived, so a new check does not
+add one. See [Write a custom check](docs/how-to/write-a-check.md) for the scan's API.
 
 Drop the module in `src/lanorme/checks/`; it is discovered and registered
 automatically. Third-party checks can instead ship under the `lanorme.checks`
@@ -90,9 +97,10 @@ entry-point group or be named in `[tool.lanorme] plugins = [...]`.
 
 Conventions for a new rule:
 
-- **Scan files through `lanorme.discovery.iter_py_files` / `iter_files`,** not
+- **Scan files through the scan,** `scan.py_files()` / `scan.files(suffix=...)`
+  (or `scan.parsed_modules()` for the modules the parser accepts), not
   `Path.rglob`, so the built-in directory pruning and the user's `exclude`
-  globs are honoured.
+  globs are honoured and each file is read and parsed once per run.
 - **One category prefix per check.** Rule codes (`SQL-001`, `LAYER-005`) are the
   public surface: people put them in `select` / `ignore` / `per-file-ignores`.
   Treat them as stable. Renaming or removing one is a breaking change.

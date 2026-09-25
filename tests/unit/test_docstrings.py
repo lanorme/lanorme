@@ -18,6 +18,7 @@ import pytest
 
 from lanorme import Status
 from lanorme.checks.docstrings import DocstringsCheck
+from lanorme.scan import Scan
 
 # A body long enough to clear the default size floor, so scope is never the
 # reason a case passes or fails.
@@ -62,7 +63,7 @@ def test_disabled_by_default(tmp_path: Path) -> None:
     _write(root=tmp_path, body=_func(doc=None))
 
     # Act
-    result = DocstringsCheck().run(src_root=str(tmp_path))
+    result = DocstringsCheck().check(Scan.for_root(tmp_path))
 
     # Assert
     assert result.status is Status.PASS
@@ -77,7 +78,7 @@ def test_disabled_by_default(tmp_path: Path) -> None:
 def test_missing_docstring_is_flagged(tmp_path: Path, check: DocstringsCheck) -> None:
     _write(root=tmp_path, body=_func(doc=None))
 
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan.for_root(tmp_path))
 
     # Assert
     assert _codes(result=result) == ["CMT-006"]
@@ -86,7 +87,7 @@ def test_missing_docstring_is_flagged(tmp_path: Path, check: DocstringsCheck) ->
 def test_short_definition_needs_no_docstring(tmp_path: Path, check: DocstringsCheck) -> None:
     _write(root=tmp_path, body="def tiny(value):\n    return value\n")
 
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan.for_root(tmp_path))
 
     # Assert
     assert result.violations == []
@@ -95,7 +96,7 @@ def test_short_definition_needs_no_docstring(tmp_path: Path, check: DocstringsCh
 def test_private_definition_is_out_of_scope_by_default(tmp_path: Path, check: DocstringsCheck) -> None:
     _write(root=tmp_path, body=_func(name="_helper", doc=None))
 
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan.for_root(tmp_path))
 
     # Assert
     assert result.violations == []
@@ -108,7 +109,7 @@ def test_private_definition_flagged_when_configured(tmp_path: Path) -> None:
     _write(root=tmp_path, body=_func(name="_helper", doc=None))
 
     # Act
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan.for_root(tmp_path))
 
     # Assert
     assert _codes(result=result) == ["CMT-006"]
@@ -121,7 +122,7 @@ def test_min_lines_is_configurable(tmp_path: Path) -> None:
     _write(root=tmp_path, body=_func(doc=None))
 
     # Act
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan.for_root(tmp_path))
 
     # Assert
     assert result.violations == []
@@ -135,7 +136,7 @@ def test_min_lines_is_configurable(tmp_path: Path) -> None:
 def test_docstring_restating_the_name_is_flagged(tmp_path: Path, check: DocstringsCheck) -> None:
     _write(root=tmp_path, body=_func(doc="Calculate the total."))
 
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan.for_root(tmp_path))
 
     # Assert
     assert _codes(result=result) == ["CMT-007"]
@@ -144,7 +145,7 @@ def test_docstring_restating_the_name_is_flagged(tmp_path: Path, check: Docstrin
 def test_abbreviated_name_is_still_a_restatement(tmp_path: Path, check: DocstringsCheck) -> None:
     _write(root=tmp_path, body=_func(name="proc", params="data", doc="Process the data."))
 
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan.for_root(tmp_path))
 
     # Assert
     assert _codes(result=result) == ["CMT-007"]
@@ -153,7 +154,7 @@ def test_abbreviated_name_is_still_a_restatement(tmp_path: Path, check: Docstrin
 def test_empty_docstring_is_flagged(tmp_path: Path, check: DocstringsCheck) -> None:
     _write(root=tmp_path, body=_func(doc=""))
 
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan.for_root(tmp_path))
 
     # Assert
     assert _codes(result=result) == ["CMT-007"]
@@ -162,7 +163,7 @@ def test_empty_docstring_is_flagged(tmp_path: Path, check: DocstringsCheck) -> N
 def test_pure_filler_is_flagged(tmp_path: Path, check: DocstringsCheck) -> None:
     _write(root=tmp_path, body=_func(doc="This is a helper function."))
 
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan.for_root(tmp_path))
 
     # Assert
     assert _codes(result=result) == ["CMT-007"]
@@ -183,7 +184,7 @@ def test_method_restating_its_class_is_flagged(tmp_path: Path, check: Docstrings
     _write(root=tmp_path, body=body)
 
     # Act
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan.for_root(tmp_path))
 
     # Assert
     assert _codes(result=result) == ["CMT-007"]
@@ -197,7 +198,7 @@ def test_method_restating_its_class_is_flagged(tmp_path: Path, check: Docstrings
 def test_docstring_adding_a_unit_is_kept(tmp_path: Path, check: DocstringsCheck) -> None:
     _write(root=tmp_path, body=_func(doc="Total in minor units, never a rounded float."))
 
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan.for_root(tmp_path))
 
     # Assert
     assert result.violations == []
@@ -206,7 +207,7 @@ def test_docstring_adding_a_unit_is_kept(tmp_path: Path, check: DocstringsCheck)
 def test_docstring_adding_a_why_is_kept(tmp_path: Path, check: DocstringsCheck) -> None:
     _write(root=tmp_path, body=_func(doc="Calculate the total, so that callers avoid a second pass."))
 
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan.for_root(tmp_path))
 
     # Assert
     assert result.violations == []
@@ -215,7 +216,7 @@ def test_docstring_adding_a_why_is_kept(tmp_path: Path, check: DocstringsCheck) 
 def test_docstring_with_a_reference_is_kept(tmp_path: Path, check: DocstringsCheck) -> None:
     _write(root=tmp_path, body=_func(doc="Calculate the total. See issue #412 for the rounding rule."))
 
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan.for_root(tmp_path))
 
     # Assert
     assert result.violations == []
@@ -224,7 +225,7 @@ def test_docstring_with_a_reference_is_kept(tmp_path: Path, check: DocstringsChe
 def test_short_name_does_not_swallow_unrelated_words(tmp_path: Path, check: DocstringsCheck) -> None:
     _write(root=tmp_path, body=_func(name="go", params="target", doc="Govern the retry cadence."))
 
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan.for_root(tmp_path))
 
     # Assert
     assert result.violations == []
@@ -245,7 +246,7 @@ def test_dunder_is_out_of_scope(tmp_path: Path, check: DocstringsCheck) -> None:
     _write(root=tmp_path, body=body)
 
     # Act
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan.for_root(tmp_path))
 
     # Assert
     assert result.violations == []
@@ -254,7 +255,7 @@ def test_dunder_is_out_of_scope(tmp_path: Path, check: DocstringsCheck) -> None:
 def test_test_files_are_skipped(tmp_path: Path, check: DocstringsCheck) -> None:
     (tmp_path / "test_thing.py").write_text(_func(doc=None), encoding="utf-8")
 
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan.for_root(tmp_path))
 
     # Assert
     assert result.violations == []
@@ -272,7 +273,7 @@ def test_root_under_a_skip_named_ancestor_is_still_scanned(tmp_path: Path, check
     _write(root=root, body=_func(doc=None))
 
     # Act
-    result = check.run(src_root=str(root))
+    result = check.check(Scan.for_root(root))
 
     # Assert
     assert _codes(result=result) == ["CMT-006"]
@@ -285,7 +286,7 @@ def test_skip_named_subdirectory_inside_the_root_is_skipped(tmp_path: Path, chec
     _write(root=nested, body=_func(doc=None))
 
     # Act
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan.for_root(tmp_path))
 
     # Assert
     assert result.violations == []

@@ -42,7 +42,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 
-from lanorme import Check, CheckResult, Status, Violation
+from lanorme import Check, CheckResult, Violation
 from lanorme.discovery import DEFAULT_PRUNE_DIRS
 
 # A loaded TOML config: string keys to arbitrary scalar / list / table values.
@@ -263,10 +263,7 @@ def combine_results(*, existing: CheckResult | None, addition: CheckResult) -> C
         return addition
     violations = existing.violations + addition.violations
     warnings = existing.warnings + addition.warnings
-    status = Status.FAIL if violations else (Status.WARN if warnings else Status.PASS)
-    return CheckResult(
-        check=addition.check, status=status, violations=violations, warnings=warnings
-    )
+    return CheckResult(check=addition.check, violations=violations, warnings=warnings)
 
 
 def reanchor_results(
@@ -298,7 +295,6 @@ def reanchor_results(
         rebuilt.append(
             CheckResult(
                 check=result.check,
-                status=result.status,
                 violations=[relocate(v) for v in result.violations],
                 warnings=[relocate(w) for w in result.warnings],
             )

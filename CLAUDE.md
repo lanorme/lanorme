@@ -51,8 +51,16 @@ one-line fix, a doc edit. Anything larger gets the phases above.
 
 ## When you touch a check
 
-- Scan files through `lanorme.discovery.iter_py_files` / `iter_files`, never
-  `Path.rglob`, so directory pruning and the user's `exclude` globs are honoured.
+- The entry point is `check(self, scan: Scan) -> CheckResult`; the `Scan`
+  (`lanorme.scan`) carries the root, the excludes, the `source_root` and a
+  per-run cache of sources and parsed modules. The built-in `run(*, src_root)`
+  methods are deprecated wrappers over `check` (via `lanorme.run_via_check`),
+  kept for two minor versions; do not add one to a new check.
+- Scan files through `scan.py_files()` / `scan.files(suffix=...)` (or
+  `scan.parsed_modules()`), never `Path.rglob`, so directory pruning and the
+  user's `exclude` globs are honoured and a file is parsed once per run.
+- `CheckResult.status` is derived from the findings: fill `violations` and
+  `warnings` and never pass `status=`.
 - One category prefix per check. Rule codes (`SQL-001`, `LAYER-005`) are the
   public surface and are stable: renaming or removing one is a breaking change.
 - Put a hard finding in `violations` (fails the run) and an advisory in

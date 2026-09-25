@@ -19,10 +19,9 @@ from __future__ import annotations
 
 import ast
 from dataclasses import dataclass, field
-from pathlib import Path
 
-from lanorme import CheckResult, Status, Violation, register
-from lanorme.discovery import iter_py_files
+from lanorme import CheckResult, Violation, register, run_via_check
+from lanorme.scan import Scan
 
 # Allowed public method prefixes for repositories and services.
 ALLOWED_PREFIXES = ("get_", "create_", "update_", "delete_", "list_")
@@ -342,12 +341,16 @@ class NamingConsistencyCheck:
             self.service_crud = bool(settings["service_crud"])
 
     def run(self, *, src_root: str) -> CheckResult:
+        """Deprecated entry point kept until removal; ``check(scan)`` replaces it."""
+        return run_via_check(self, src_root=src_root)
+
+    def check(self, scan: Scan) -> CheckResult:
         """Scan source files and validate naming conventions."""
         violations: list[Violation] = []
         warnings: list[Violation] = []
-        src_path = Path(src_root)
+        src_path = scan.root
 
-        for py_file in iter_py_files(src_path):
+        for py_file in scan.py_files():
             relative_file = py_file.relative_to(src_path).as_posix()
 
             try:
@@ -394,11 +397,8 @@ class NamingConsistencyCheck:
                     relative_file=relative_file,
                 ),
             )
-
-        status = Status.FAIL if violations else (Status.WARN if warnings else Status.PASS)
         return CheckResult(
             check=self.name,
-            status=status,
             violations=violations,
             warnings=warnings,
         )

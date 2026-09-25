@@ -31,8 +31,8 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from lanorme import CheckResult, Status, Violation, register
-from lanorme.discovery import iter_files
+from lanorme import CheckResult, Violation, register, run_via_check
+from lanorme.scan import Scan
 
 NAME_MAX = 64
 DESCRIPTION_MAX = 1024
@@ -438,14 +438,18 @@ class SkillsCheck:
         return warnings
 
     def run(self, *, src_root: str) -> CheckResult:
+        """Deprecated entry point kept until removal; ``check(scan)`` replaces it."""
+        return run_via_check(self, src_root=src_root)
+
+    def check(self, scan: Scan) -> CheckResult:
         if not self.enabled:
-            return CheckResult(check=self.name, status=Status.PASS)
+            return CheckResult(check=self.name)
 
         violations: list[Violation] = []
         warnings: list[Violation] = []
-        root = Path(src_root)
+        root = scan.root
 
-        for path in iter_files(root):
+        for path in scan.files():
             if path.name != "SKILL.md" or not path.is_file():
                 continue
             # Match skip directories inside the root only: the absolute path's
@@ -456,9 +460,7 @@ class SkillsCheck:
             file_violations, file_warnings = self._scan_file(path=path, file=relative.as_posix())
             violations.extend(file_violations)
             warnings.extend(file_warnings)
-
-        status = Status.FAIL if violations else (Status.WARN if warnings else Status.PASS)
-        return CheckResult(check=self.name, status=status, violations=violations, warnings=warnings)
+        return CheckResult(check=self.name, violations=violations, warnings=warnings)
 
 
 register(SkillsCheck())

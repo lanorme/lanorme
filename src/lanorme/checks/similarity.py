@@ -52,8 +52,8 @@ from dataclasses import dataclass, field
 from itertools import combinations
 from pathlib import Path
 
-from lanorme import CheckResult, Status, Violation, register
-from lanorme.discovery import iter_py_files
+from lanorme import CheckResult, Violation, register, run_via_check
+from lanorme.scan import Scan
 
 _SKIP_DIRS = frozenset({".git", ".venv", "venv", "node_modules", "__pycache__", "dist", "build"})
 
@@ -477,13 +477,17 @@ class SimilarityCheck:
         )
 
     def run(self, *, src_root: str) -> CheckResult:
+        """Deprecated entry point kept until removal; ``check(scan)`` replaces it."""
+        return run_via_check(self, src_root=src_root)
+
+    def check(self, scan: Scan) -> CheckResult:
         """Scan files under *src_root*; emit SIMILAR-001 warnings, never failing."""
         if not self.enabled:
-            return CheckResult(check=self.name, status=Status.PASS, warnings=[])
+            return CheckResult(check=self.name, warnings=[])
         warnings: list[Violation] = []
-        root = Path(src_root)
+        root = scan.root
         thresholds = self._thresholds()
-        for path in iter_py_files(root):
+        for path in scan.py_files():
             relative = path.relative_to(root)
             if _should_skip(relative=relative):
                 continue
@@ -504,8 +508,7 @@ class SimilarityCheck:
                 )
             except (OSError, UnicodeDecodeError, SyntaxError, RecursionError):
                 continue
-        status = Status.WARN if warnings else Status.PASS
-        return CheckResult(check=self.name, status=status, warnings=warnings)
+        return CheckResult(check=self.name, warnings=warnings)
 
 
 # Self-register on import.

@@ -8,6 +8,7 @@ can be built later if the precision needs to be measured at scale.
 from __future__ import annotations
 
 from lanorme.checks.security_calls import SecurityCallsCheck
+from lanorme.scan import Scan
 
 
 def _codes(violations) -> set[str]:
@@ -22,7 +23,7 @@ def test_shell_001_fires_on_subprocess_shell_true(tmp_path, tmp_py_file):
     )
 
     # Act
-    result = SecurityCallsCheck().run(src_root=str(tmp_path))
+    result = SecurityCallsCheck().check(Scan.for_root(tmp_path))
 
     # Assert
     assert "SHELL-001" in _codes(result.violations)
@@ -36,7 +37,7 @@ def test_shell_001_does_not_fire_on_argv_list(tmp_path, tmp_py_file):
     )
 
     # Act
-    result = SecurityCallsCheck().run(src_root=str(tmp_path))
+    result = SecurityCallsCheck().check(Scan.for_root(tmp_path))
 
     # Assert
     assert "SHELL-001" not in _codes(result.violations)
@@ -50,7 +51,7 @@ def test_deserial_001_fires_on_pickle_loads(tmp_path, tmp_py_file):
     )
 
     # Act
-    result = SecurityCallsCheck().run(src_root=str(tmp_path))
+    result = SecurityCallsCheck().check(Scan.for_root(tmp_path))
 
     # Assert
     assert "DESERIAL-001" in _codes(result.violations)
@@ -64,7 +65,7 @@ def test_deserial_001_accepts_yaml_safe_loader(tmp_path, tmp_py_file):
     )
 
     # Act
-    result = SecurityCallsCheck().run(src_root=str(tmp_path))
+    result = SecurityCallsCheck().check(Scan.for_root(tmp_path))
 
     # Assert
     assert "DESERIAL-001" not in _codes(result.violations)
@@ -78,7 +79,7 @@ def test_eval_001_fires_on_eval_with_variable(tmp_path, tmp_py_file):
     )
 
     # Act
-    result = SecurityCallsCheck().run(src_root=str(tmp_path))
+    result = SecurityCallsCheck().check(Scan.for_root(tmp_path))
 
     # Assert
     assert "EVAL-001" in _codes(result.violations)
@@ -92,7 +93,7 @@ def test_eval_001_does_not_fire_on_compile_with_literal(tmp_path, tmp_py_file):
     )
 
     # Act
-    result = SecurityCallsCheck().run(src_root=str(tmp_path))
+    result = SecurityCallsCheck().check(Scan.for_root(tmp_path))
 
     # Assert
     assert "EVAL-001" not in _codes(result.violations)
@@ -106,7 +107,7 @@ def test_crypto_001_fires_on_hashlib_md5(tmp_path, tmp_py_file):
     )
 
     # Act
-    result = SecurityCallsCheck().run(src_root=str(tmp_path))
+    result = SecurityCallsCheck().check(Scan.for_root(tmp_path))
 
     # Assert
     assert "CRYPTO-001" in _codes(result.violations)
@@ -120,7 +121,7 @@ def test_crypto_001_accepts_md5_for_non_security_use(tmp_path, tmp_py_file):
     )
 
     # Act
-    result = SecurityCallsCheck().run(src_root=str(tmp_path))
+    result = SecurityCallsCheck().check(Scan.for_root(tmp_path))
 
     # Assert
     assert "CRYPTO-001" not in _codes(result.violations)
@@ -134,7 +135,7 @@ def test_tls_001_fires_on_requests_verify_false(tmp_path, tmp_py_file):
     )
 
     # Act
-    result = SecurityCallsCheck().run(src_root=str(tmp_path))
+    result = SecurityCallsCheck().check(Scan.for_root(tmp_path))
 
     # Assert
     assert "TLS-001" in _codes(result.violations)
@@ -148,7 +149,7 @@ def test_tls_001_does_not_fire_on_default_verify(tmp_path, tmp_py_file):
     )
 
     # Act
-    result = SecurityCallsCheck().run(src_root=str(tmp_path))
+    result = SecurityCallsCheck().check(Scan.for_root(tmp_path))
 
     # Assert
     assert "TLS-001" not in _codes(result.violations)
@@ -162,7 +163,7 @@ def test_debug_001_fires_on_flask_debug_true(tmp_path, tmp_py_file):
     )
 
     # Act
-    result = SecurityCallsCheck().run(src_root=str(tmp_path))
+    result = SecurityCallsCheck().check(Scan.for_root(tmp_path))
 
     # Assert
     assert "DEBUG-001" in _codes(result.violations)
@@ -176,7 +177,7 @@ def test_debug_001_does_not_fire_on_normal_app_run(tmp_path, tmp_py_file):
     )
 
     # Act
-    result = SecurityCallsCheck().run(src_root=str(tmp_path))
+    result = SecurityCallsCheck().check(Scan.for_root(tmp_path))
 
     # Assert
     assert "DEBUG-001" not in _codes(result.violations)
@@ -190,7 +191,7 @@ def test_root_under_a_skip_named_ancestor_is_still_scanned(tmp_path, tmp_py_file
     )
 
     # Act
-    result = SecurityCallsCheck().run(src_root=str(tmp_path / "build" / "project"))
+    result = SecurityCallsCheck().check(Scan.for_root(tmp_path / "build" / "project"))
 
     # Assert
     assert "SHELL-001" in _codes(result.violations)

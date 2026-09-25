@@ -15,7 +15,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from lanorme import CheckResult, Status, Violation, get_all_checks, register
+from lanorme import CheckResult, Violation, get_all_checks, invoke_check, register, run_via_check
+from lanorme.scan import Scan
 
 
 def _validate_name(*, check_name: str) -> Violation | None:
@@ -123,6 +124,10 @@ class MetaCheck:
     )
 
     def run(self, *, src_root: str) -> CheckResult:
+        """Deprecated entry point kept until removal; ``check(scan)`` replaces it."""
+        return run_via_check(self, src_root=src_root)
+
+    def check(self, scan: Scan) -> CheckResult:
         """Inspect all registered checks (excluding self) for structural correctness."""
         violations: list[Violation] = []
         all_checks = get_all_checks()
@@ -154,7 +159,7 @@ class MetaCheck:
                 violations.append(rules_violation)
 
             # META-004: run the check and verify result.check matches.
-            result = check.run(src_root=src_root)
+            result = invoke_check(check, scan=scan)
             result_violation = _validate_result_check_name(
                 check_name=check.name,
                 result=result,
@@ -179,11 +184,8 @@ class MetaCheck:
                         source="warning",
                     ),
                 )
-
-        status = Status.FAIL if violations else Status.PASS
         return CheckResult(
             check=self.name,
-            status=status,
             violations=violations,
         )
 

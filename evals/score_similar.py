@@ -25,6 +25,7 @@ import sys
 from pathlib import Path
 
 from lanorme.checks.similarity import SimilarityCheck
+from lanorme.scan import Scan
 
 _CORPUS = Path(__file__).resolve().parent / "corpora" / "duplication_similar"
 _POSITIVES = _CORPUS / "positives"
@@ -44,7 +45,7 @@ def _flagged(*, file_path: Path) -> bool:
     filtering by filename reproduces strict per-file isolation.
     """
     check = SimilarityCheck(enabled=True)
-    result = check.run(src_root=str(file_path.parent))
+    result = check.check(Scan.for_root(file_path.parent))
     return any(w.file == file_path.name for w in result.warnings)
 
 

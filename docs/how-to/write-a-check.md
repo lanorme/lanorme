@@ -16,16 +16,20 @@ A check is any object with four members:
 - `name` (str): a unique identifier, used by `--check <name>` and in output.
 - `description` (str): one line describing what the check enforces.
 - `rules` (list of str): one entry per rule code, each `"CODE-001: one line"`.
-- `run(self, *, src_root: str) -> CheckResult`: scans the tree and returns the
+- `check(self, scan: Scan) -> CheckResult`: scans the tree and returns the
   findings.
 
-`run` is keyword-only on `src_root` (the path being checked, as a string). It
-returns a `CheckResult` carrying two lists of `Violation`: `violations` (hard
-findings that fail the build) and `warnings` (advisories that report but keep the
-exit code at `0`).
+`check` receives the `lanorme.scan.Scan` for the pass: `scan.root` is the
+directory being checked, and the scan knows the user's `exclude` globs and
+caches sources and parsed modules across every check in the run. It returns a
+`CheckResult` carrying two lists of `Violation`: `violations` (hard findings
+that fail the build) and `warnings` (advisories that report but keep the exit
+code at `0`). The result's `status` follows from those lists (any violation is
+`FAIL`, else any warning is `WARN`, else `PASS`), so a check never sets it.
 
 ```python
-from lanorme import CheckResult, Status, Violation
+from lanorme import CheckResult, Violation
+from lanorme.scan import Scan
 
 
 class MyCheck:
@@ -33,12 +37,23 @@ class MyCheck:
     description = "What it enforces, in one line"
     rules = ["MYCODE-001: the rule, in one line"]
 
-    def run(self, *, src_root: str) -> CheckResult:
+    def check(self, scan: Scan) -> CheckResult:
         violations: list[Violation] = []
-        # inspect files under src_root
-        status = Status.FAIL if violations else Status.PASS
-        return CheckResult(check=self.name, status=status, violations=violations)
+        # inspect files under scan.root
+        return CheckResult(check=self.name, violations=violations)
 ```
+
+`CheckResult.from_findings(check=..., violations=..., warnings=...)` builds the
+same result from any iterables of findings.
+
+!!! note "The previous entry point"
+    A check that defines `run(self, *, src_root: str)` and no `check` still
+    runs: LaNorme calls `run` with the scan root as a string, with the scan
+    active so `lanorme.discovery.iter_py_files` prunes what it prunes, and
+    emits a `DeprecationWarning` once per check class. `run` is removed two
+    minor versions after `check` arrived, so move to `check(scan)` now. The
+    `status=` argument to `CheckResult` is deprecated the same way: it is
+    ignored, with a `DeprecationWarning`, and goes away in the next release.
 
 A `Violation` records where and what:
 
@@ -71,25 +86,38 @@ A check that reads configuration may also implement `configure(self, *,
 settings)`, which receives its `[tool.lanorme.<name>]` table before the run. See
 [Configuring a check](#configuring-a-check) below.
 
-## Scan files through discovery
+## Scan files through the scan
 
-Iterate files with `lanorme.discovery.iter_py_files` (or `iter_files` for other
-suffixes), never `Path.rglob`. The discovery helpers prune the built-in
-never-source directories (`.venv`, `node_modules`, `__pycache__`, `dist`,
-`build`, and the rest) and honour the user's `exclude` globs at walk time, so an
-excluded subtree is never read. A raw `Path.rglob` would walk into a virtualenv
-and report findings the user asked to exclude.
+Iterate files with `scan.py_files()` (or `scan.files(suffix=...)` for other
+suffixes), never `Path.rglob`. The scan prunes the built-in never-source
+directories (`.venv`, `node_modules`, `__pycache__`, `dist`, `build`, and the
+rest) and honours the user's `exclude` globs at walk time, so an excluded
+subtree is never read. A raw `Path.rglob` would walk into a virtualenv and
+report findings the user asked to exclude.
 
 ```python
-from pathlib import Path
-
-from lanorme.discovery import iter_py_files
-
-for path in iter_py_files(Path(src_root)):
-    ...  # path is a Path to a *.py file under src_root
+for path in scan.py_files():
+    relative = scan.relative(path)  # "pkg/module.py", the path a finding reports
+    source = scan.source(path)      # the text, read once for the whole run
+    tree = scan.module(path)        # the ast.Module, parsed once for the whole run
 ```
 
-`iter_files(root, suffix=".md")` does the same for any suffix.
+`scan.files(suffix=".md")` walks any suffix, and `scan.files()` every file.
+`scan.source` and `scan.module` raise what the read or the parser raises
+(`OSError`, `UnicodeDecodeError`, `SyntaxError`), so a check decides for itself
+whether a broken file is skipped or reported. A check that only wants the
+modules the parser accepts iterates `scan.parsed_modules()`, which yields
+`(relative_path, tree)` pairs and skips the rest:
+
+```python
+for relative, tree in scan.parsed_modules():
+    ...
+```
+
+The scan also carries `scan.excludes` (the globs in force) and
+`scan.source_root` (the project's configured `source_root`, or `""`).
+`lanorme.discovery.iter_py_files(root)` still works for a helper that is handed
+a bare directory; while a scan is active it prunes by that scan's globs.
 
 ## Conventions
 
@@ -104,8 +132,9 @@ rules apply whether the check ships inside LaNorme or as your plugin.
   exit code at `0`. Opinionated or stylistic rules belong in `warnings`, so a
   user can promote them to errors when they choose (see
   [`promote`](../reference/configuration.md#promote)).
-- **Set the status to match.** Return `Status.FAIL` when `violations` is
-  non-empty, `Status.WARN` when only `warnings` is, otherwise `Status.PASS`.
+- **The status is derived.** `CheckResult.status` is `FAIL` when `violations`
+  is non-empty, `WARN` when only `warnings` is, otherwise `PASS`. Fill the two
+  lists and leave the status alone.
 - **Cross-file checks declare `scope = "tree"`.** If a finding depends on
   comparing or aggregating across files, set the class attribute `scope =
   "tree"`. The default `"file"` scope lets a check run once per config region
@@ -115,9 +144,9 @@ rules apply whether the check ships inside LaNorme or as your plugin.
   code should ship default-off behind an `enabled` flag, so users opt in (see
   [Configuring a check](#configuring-a-check)).
 
-A check must never let an exception escape `run`; LaNorme isolates a crashing
-check and reports it as a warning so one bug cannot sink the whole run, but a
-clean check should not rely on that safety net.
+A check must never let an exception escape `check`; LaNorme isolates a
+crashing check and reports it as a warning so one bug cannot sink the whole
+run, but a clean check should not rely on that safety net.
 
 ## A worked example
 
@@ -130,10 +159,8 @@ here as the example because it is the smallest complete check.
 # house_rules.py
 from __future__ import annotations
 
-from pathlib import Path
-
-from lanorme import CheckResult, Status, Violation, register
-from lanorme.discovery import iter_py_files
+from lanorme import CheckResult, Violation, register
+from lanorme.scan import Scan
 
 
 class NoUtilsModule:
@@ -141,21 +168,20 @@ class NoUtilsModule:
     description = "Modules must have a meaningful name, not 'utils'"
     rules = ["HOUSE-001: Module must not be named 'utils.py'"]
 
-    def run(self, *, src_root: str) -> CheckResult:
+    def check(self, scan: Scan) -> CheckResult:
         violations: list[Violation] = []
-        for path in iter_py_files(Path(src_root)):
+        for path in scan.py_files():
             if path.name == "utils.py":
                 violations.append(
                     Violation(
-                        file=str(path.relative_to(src_root)),
+                        file=scan.relative(path),
                         line=0,
                         rule=self.rules[0],
                         message="Module named 'utils.py' has no clear responsibility",
                         fix="Rename it after what it actually does",
                     )
                 )
-        status = Status.FAIL if violations else Status.PASS
-        return CheckResult(check=self.name, status=status, violations=violations)
+        return CheckResult(check=self.name, violations=violations)
 
 
 register(NoUtilsModule())
@@ -188,12 +214,11 @@ The exit code is `0`.
 
 ### Make it an advisory
 
-To report without failing the build, put findings in `warnings` and return
-`Status.WARN`:
+To report without failing the build, put findings in `warnings`; the status
+becomes `WARN` on its own:
 
 ```python
-        status = Status.WARN if warnings else Status.PASS
-        return CheckResult(check=self.name, status=status, warnings=warnings)
+        return CheckResult(check=self.name, warnings=warnings)
 ```
 
 The run then exits `0` and the check shows as `[WARN]`. A user who wants it to
@@ -276,7 +301,7 @@ class StrayExtensions:
         if isinstance(exts, list):
             self.extensions = tuple(exts)
 
-    def run(self, *, src_root: str) -> CheckResult:
+    def check(self, scan: Scan) -> CheckResult:
         ...
 ```
 
@@ -288,8 +313,8 @@ enabled = true
 extensions = [".zip", ".tmp"]
 ```
 
-An opt-in check defaults `enabled` to `false` and returns `Status.PASS` with no
-findings until the table sets `enabled = true`. That keeps a broad or opinionated
+An opt-in check defaults `enabled` to `false` and returns a result with no
+findings (so `PASS`) until the table sets `enabled = true`. That keeps a broad or opinionated
 rule inert on a project that has not asked for it.
 
 ## Verify it is loaded

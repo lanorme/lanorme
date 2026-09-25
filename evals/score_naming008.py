@@ -14,6 +14,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
 from lanorme.checks.naming_canon import NamingCanonCheck  # noqa: E402
+from lanorme.scan import Scan
 
 RULE = "NAMING-008"
 CORPUS = Path(__file__).resolve().parent / "corpora" / "naming_weak_verb"
@@ -21,7 +22,7 @@ CORPUS = Path(__file__).resolve().parent / "corpora" / "naming_weak_verb"
 
 def _findings() -> set[str]:
     """Run the check over the corpus and return the flagged 'file:line' keys."""
-    result = NamingCanonCheck().run(src_root=str(CORPUS))
+    result = NamingCanonCheck().check(Scan.for_root(CORPUS))
     return {
         f"{finding.file}:{finding.line}"
         for finding in [*result.violations, *result.warnings]

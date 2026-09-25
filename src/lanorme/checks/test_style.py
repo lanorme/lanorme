@@ -33,8 +33,8 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from lanorme import CheckResult, Status, Violation, register
-from lanorme.discovery import iter_py_files
+from lanorme import CheckResult, Violation, register, run_via_check
+from lanorme.scan import Scan
 
 # Default marker vocabulary. AAA + BDD + a few common aliases.
 _DEFAULT_MARKERS = ("arrange", "act", "assert", "given", "when", "then")
@@ -253,12 +253,16 @@ class TestStyleCheck:
         return found
 
     def run(self, *, src_root: str) -> CheckResult:
+        """Deprecated entry point kept until removal; ``check(scan)`` replaces it."""
+        return run_via_check(self, src_root=src_root)
+
+    def check(self, scan: Scan) -> CheckResult:
         if not self.enabled:
-            return CheckResult(check=self.name, status=Status.PASS, violations=[])
+            return CheckResult(check=self.name, violations=[])
         marker_re, alias_to_section = self._build_alias_map()
         violations: list[Violation] = []
-        root = Path(src_root)
-        for path in iter_py_files(root):
+        root = scan.root
+        for path in scan.py_files():
             # Match skip directories inside the root only: the absolute path's
             # ancestors are the user's filesystem, not the project layout.
             relative = path.relative_to(root)
@@ -283,8 +287,7 @@ class TestStyleCheck:
                 )
             )
             violations.extend(self._dry_violations(tree=tree, relative_file=relative_file))
-        status = Status.FAIL if violations else Status.PASS
-        return CheckResult(check=self.name, status=status, violations=violations)
+        return CheckResult(check=self.name, violations=violations)
 
 
 register(TestStyleCheck())

@@ -27,6 +27,7 @@ import sys
 from pathlib import Path
 
 from lanorme.checks.prose import ProseCheck
+from lanorme.scan import Scan
 
 _RULE = "PROSE-004"
 _CORPUS_REL = "evals/corpora/prose_em_dash"
@@ -51,7 +52,7 @@ def _fired_documents() -> set[str]:
         flag_em_dash=False,
         flag_em_dash_density=True,
     )
-    result = check.run(src_root=str(_CORPUS))
+    result = check.check(Scan.for_root(_CORPUS))
     return {
         warning.file.replace("\\", "/")
         for warning in result.warnings

@@ -38,7 +38,8 @@ import fnmatch
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from lanorme import CheckResult, Status, Violation, register
+from lanorme import CheckResult, Violation, register, run_via_check
+from lanorme.scan import Scan
 
 # Adapter files that are pure utilities or re-exports, not port implementations.
 INFRA_SERVICE_SKIP_FILES = ("__init__.py",)
@@ -492,9 +493,13 @@ class PortCoverageCheck:
                 setattr(self, key, frozenset(str(item) for item in value))
 
     def run(self, *, src_root: str) -> CheckResult:
+        """Deprecated entry point kept until removal; ``check(scan)`` replaces it."""
+        return run_via_check(self, src_root=src_root)
+
+    def check(self, scan: Scan) -> CheckResult:
         """Scan ports and adapters and validate coverage."""
         violations: list[Violation] = []
-        src_path = Path(src_root)
+        src_path = scan.root
         # Ports/adapters/api are located under the architectural root; reported
         # paths stay anchored at the scan target (so --exclude / # noqa line up).
         base = src_path / self.source_root if self.source_root else src_path
@@ -538,9 +543,7 @@ class PortCoverageCheck:
                 composition_root=self.composition_root,
             )
         )
-
-        status = Status.FAIL if violations else Status.PASS
-        return CheckResult(check=self.name, status=status, violations=violations)
+        return CheckResult(check=self.name, violations=violations)
 
 
 # Self-register on import.

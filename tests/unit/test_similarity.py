@@ -11,6 +11,7 @@ from pathlib import Path
 
 from lanorme import Status
 from lanorme.checks.similarity import SimilarityCheck
+from lanorme.scan import Scan
 
 _CORPUS = Path(__file__).resolve().parents[2] / "evals" / "corpora" / "duplication_similar"
 
@@ -26,7 +27,7 @@ def _flags(tmp_path: Path, body: str) -> bool:
     # SIMILAR-001 fired (mirrors the corpus scoring methodology).
     path = tmp_path / "case.py"
     path.write_text(body, encoding="utf-8")
-    result = _enabled().run(src_root=str(tmp_path))
+    result = _enabled().check(Scan.for_root(tmp_path))
     return any(w.rule == "SIMILAR-001" for w in result.warnings)
 
 
@@ -38,7 +39,7 @@ def test_corpus_precision_is_perfect_and_recall_is_high():
         for case in sorted((_CORPUS / folder).glob("*.py")):
             flagged = any(
                 w.rule == "SIMILAR-001"
-                for w in check.run(src_root=str(case.parent)).warnings
+                for w in check.check(Scan.for_root(case.parent)).warnings
                 if w.file == case.name
             )
             if label == "pos":
@@ -90,7 +91,7 @@ def test_disabled_by_default(tmp_path: Path):
     (tmp_path / "m.py").write_text(body, encoding="utf-8")
 
     # Act: the default check ships off.
-    result = SimilarityCheck().run(src_root=str(tmp_path))
+    result = SimilarityCheck().check(Scan.for_root(tmp_path))
 
     # Assert.
     assert result.status == Status.PASS
@@ -104,7 +105,7 @@ def test_findings_are_warnings_not_violations(tmp_path: Path):
         "def b(s):\n x = s.gamma\n y = s.beta\n z = combine(x, y)\n w = z * 2\n return w\n"
     )
     (tmp_path / "m.py").write_text(body, encoding="utf-8")
-    result = _enabled().run(src_root=str(tmp_path))
+    result = _enabled().check(Scan.for_root(tmp_path))
 
     # Assert: advisory only, never fails the build.
     assert result.status == Status.WARN

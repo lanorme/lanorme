@@ -13,6 +13,7 @@ from pathlib import Path
 from lanorme import Status
 from lanorme.checks.layer_deps import LayerDepsCheck
 from lanorme.checks.port_coverage import PortCoverageCheck
+from lanorme.scan import Scan
 
 
 def _write(root: Path, rel: str, body: str) -> None:
@@ -33,7 +34,7 @@ def test_layer_violation_missed_without_source_root(tmp_path: Path):
     _write(tmp_path, "src/pkg/domain/thing.py", "from application.svc import X\n")
 
     # Act: no source_root, so the path classifies as 'src/...', not a layer.
-    result = LayerDepsCheck().run(src_root=str(tmp_path))
+    result = LayerDepsCheck().check(Scan.for_root(tmp_path))
 
     # Assert.
     assert result.status == Status.PASS
@@ -47,7 +48,7 @@ def test_layer_violation_caught_with_source_root(tmp_path: Path):
     check.configure(settings={"source_root": "src/pkg"})
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan.for_root(tmp_path))
 
     # Assert: classified as domain, and the reported path is scan-target-relative.
     assert "LAYER-001" in _codes(result)
@@ -63,7 +64,7 @@ def test_file_outside_source_root_is_layer_exempt(tmp_path: Path):
     check.configure(settings={"source_root": "src/pkg"})
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan.for_root(tmp_path))
 
     # Assert: nothing under src/pkg violates, and the stray file is exempt.
     assert result.status == Status.PASS
@@ -79,7 +80,7 @@ def test_composition_root_glob_is_source_root_relative(tmp_path: Path):
     )
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan.for_root(tmp_path))
 
     # Assert: only the non-comp-root file fires LAYER-005, reported full path.
     files = {v.file for v in result.violations}
@@ -96,7 +97,7 @@ def test_port001_missed_without_source_root(tmp_path: Path):
     _write(tmp_path, "src/pkg/infrastructure/services/impl.py", "VALUE = 1\n")
 
     # Act: defaults look for application/ports + infrastructure/services at root.
-    result = PortCoverageCheck().run(src_root=str(tmp_path))
+    result = PortCoverageCheck().check(Scan.for_root(tmp_path))
 
     # Assert.
     assert result.status == Status.PASS
@@ -110,7 +111,7 @@ def test_port001_caught_with_source_root(tmp_path: Path):
     check.configure(settings={"source_root": "src/pkg"})
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan.for_root(tmp_path))
 
     # Assert: the adapter is flagged, reported at its scan-target-relative path.
     codes = _codes(result)

@@ -2,7 +2,7 @@
 
 These lock the parts that live in ``cli.py``: that ``source_root`` is injected
 into the layout-aware checks and *only* those, and that a configured
-``exclude`` reaches the discovery layer through ``main``.
+``exclude`` reaches the scan the checks are handed through ``main``.
 """
 
 from __future__ import annotations
@@ -12,7 +12,8 @@ from pathlib import Path
 
 import pytest
 
-from lanorme import CheckResult, Status, Violation, _registry, discovery, get_check, register
+from lanorme import CheckResult, Violation, _registry, get_check, register
+from lanorme.scan import Scan
 from lanorme.checkconfig import apply_check_config
 from lanorme.cli import main
 from lanorme.reporting import _emit_github
@@ -84,21 +85,43 @@ def test_authn_fires_on_a_src_layout_project_through_the_cli(tmp_path: Path, cap
     assert "AUTHN-001" in codes
 
 
-def test_main_publishes_configured_excludes_to_discovery(tmp_path: Path, capsys):
-    # Arrange: a project that configures an exclude glob.
+class _ScanSpy:
+    """A throwaway check that records the scan the runner hands it."""
+
+    name = "scan_spy_check"
+    description = "records the scan"
+    rules: list[str] = []
+
+    def __init__(self) -> None:
+        self.scan: Scan | None = None
+
+    def check(self, scan: Scan) -> CheckResult:
+        self.scan = scan
+        return CheckResult(check=self.name)
+
+
+def test_main_hands_checks_a_scan_carrying_the_configured_excludes(tmp_path: Path):
+    # Arrange: a project that configures an exclude glob and a source root.
     (tmp_path / "pyproject.toml").write_text(
-        '[tool.lanorme]\nexclude = ["vendor/*"]\n', encoding="utf-8"
+        '[tool.lanorme]\nexclude = ["vendor/*"]\nsource_root = "src/pkg"\n', encoding="utf-8"
     )
     (tmp_path / "mod.py").write_text("x = 1\n", encoding="utf-8")
+    spy = _ScanSpy()
+    register(spy)
 
     # Act: run the real CLI entry point (it may exit nonzero on findings).
     try:
         main(["check", str(tmp_path), "--json"])
     except SystemExit:
         pass
+    finally:
+        _registry.pop(spy.name, None)
 
-    # Assert: the configured glob reached the discovery layer, not just output.
-    assert "vendor/*" in discovery.active_excludes()
+    # Assert: the scan the check ran over carries the root, the glob and the source root.
+    assert spy.scan is not None
+    assert spy.scan.root == tmp_path
+    assert "vendor/*" in spy.scan.excludes
+    assert spy.scan.source_root == "src/pkg"
 
 
 def test_show_config_reports_source_and_opt_in_state(tmp_path: Path, capsys):
@@ -120,8 +143,7 @@ def test_show_config_reports_source_and_opt_in_state(tmp_path: Path, capsys):
 # --------------------------------------------------------------------------- #
 
 def _make_result(*, violations=(), warnings=()):
-    status = Status.FAIL if violations else (Status.WARN if warnings else Status.PASS)
-    return CheckResult(check="test_check", status=status, violations=list(violations), warnings=list(warnings))
+    return CheckResult(check="test_check", violations=list(violations), warnings=list(warnings))
 
 
 def test_github_format_violations(capsys):

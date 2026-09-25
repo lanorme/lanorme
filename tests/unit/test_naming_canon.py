@@ -15,6 +15,7 @@ import pytest
 
 from lanorme import Status
 from lanorme.checks.naming_canon import NamingCanonCheck, agent_noun
+from lanorme.scan import Scan
 
 
 def _run(*, root: Path, body: str, check: NamingCanonCheck | None = None, name: str = "sample.py"):
@@ -22,7 +23,7 @@ def _run(*, root: Path, body: str, check: NamingCanonCheck | None = None, name: 
     path = root / name
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(body, encoding="utf-8")
-    return (check or NamingCanonCheck()).run(src_root=str(root))
+    return (check or NamingCanonCheck()).check(Scan.for_root(root))
 
 
 def _codes(result) -> list[str]:
@@ -199,7 +200,7 @@ def test_unparseable_and_bom_files(tmp_path: Path) -> None:
     (tmp_path / "bom.py").write_bytes(b"\xef\xbb\xbfdef layout(root):\n    root.clear()\n")
 
     # Act
-    result = NamingCanonCheck().run(src_root=str(tmp_path))
+    result = NamingCanonCheck().check(Scan.for_root(tmp_path))
 
     # Assert
     assert [(w.code, w.file) for w in result.warnings] == [("NAMING-007", "bom.py")]

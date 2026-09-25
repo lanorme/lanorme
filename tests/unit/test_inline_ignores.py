@@ -76,7 +76,6 @@ def test_apply_drops_native_ignored_finding_and_clears_status(tmp_path: Path):
     )
     result = CheckResult(
         check="c",
-        status=Status.FAIL,
         violations=[
             _violation(file="m.py", line=1, code="EVAL-001"),
             _violation(file="m.py", line=2, code="EVAL-001"),
@@ -98,7 +97,6 @@ def test_apply_native_ignore_flips_status_to_pass(tmp_path: Path):
     src.write_text("a = eval(x)  # lanorme: ignore\n", encoding="utf-8")
     result = CheckResult(
         check="c",
-        status=Status.FAIL,
         violations=[_violation(file="m.py", line=1, code="EVAL-001")],
         warnings=[],
     )
@@ -117,7 +115,6 @@ def test_apply_native_ignore_silences_warning(tmp_path: Path):
     src.write_text("a = b  # lanorme: ignore[TYPE-004]\n", encoding="utf-8")
     result = CheckResult(
         check="c",
-        status=Status.WARN,
         violations=[],
         warnings=[_violation(file="m.py", line=1, code="TYPE-004")],
     )

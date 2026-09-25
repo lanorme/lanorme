@@ -21,8 +21,8 @@ import ast
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from lanorme import CheckResult, Status, Violation, register
-from lanorme.discovery import iter_py_files
+from lanorme import CheckResult, Violation, register, run_via_check
+from lanorme.scan import Scan
 
 # Parameters that are implicit receiver, never counted.
 SELF_CLS_NAMES = {"self", "cls"}
@@ -184,14 +184,18 @@ class NamedArgsCheck:
             self.enabled = bool(settings["enabled"])
 
     def run(self, *, src_root: str) -> CheckResult:
+        """Deprecated entry point kept until removal; ``check(scan)`` replaces it."""
+        return run_via_check(self, src_root=src_root)
+
+    def check(self, scan: Scan) -> CheckResult:
         """Scan all Python files under src/ and flag functions missing bare ``*``."""
         if not self.enabled:
-            return CheckResult(check=self.name, status=Status.PASS, violations=[])
+            return CheckResult(check=self.name, violations=[])
         violations: list[Violation] = []
         warnings: list[Violation] = []
-        src_path = Path(src_root)
+        src_path = scan.root
 
-        for py_file in iter_py_files(src_path):
+        for py_file in scan.py_files():
             relative_file = py_file.relative_to(src_path).as_posix()
 
             # Skip test files entirely.
@@ -226,11 +230,8 @@ class NamedArgsCheck:
                 )
                 if violation:
                     violations.append(violation)
-
-        status = Status.FAIL if violations else (Status.WARN if warnings else Status.PASS)
         return CheckResult(
             check=self.name,
-            status=status,
             violations=violations,
             warnings=warnings,
         )

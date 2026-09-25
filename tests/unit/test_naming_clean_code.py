@@ -14,6 +14,7 @@ import pytest
 
 from lanorme import Status
 from lanorme.checks.naming_clean_code import NamingCleanCodeCheck
+from lanorme.scan import Scan
 
 
 @pytest.fixture
@@ -29,7 +30,7 @@ def _run(*, root: Path, body: str, check: NamingCleanCodeCheck, name: str = "sam
     path = root / name
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(body, encoding="utf-8")
-    return check.run(src_root=str(root))
+    return check.check(Scan.for_root(root))
 
 
 def _codes(result) -> list[str]:

@@ -33,7 +33,8 @@ import os
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from lanorme import CheckResult, Status, Violation, register
+from lanorme import CheckResult, Violation, register, run_via_check
+from lanorme.scan import Scan
 
 # Directories never scanned (vendored / generated / VCS).
 _VENDOR_DIRS = frozenset(
@@ -147,8 +148,12 @@ class StrayArtifactsCheck:
         return None
 
     def run(self, *, src_root: str) -> CheckResult:
+        """Deprecated entry point kept until removal; ``check(scan)`` replaces it."""
+        return run_via_check(self, src_root=src_root)
+
+    def check(self, scan: Scan) -> CheckResult:
         violations: list[Violation] = []
-        root = Path(src_root)
+        root = scan.root
         skip = _VENDOR_DIRS | set(self.extra_excludes)
 
         for dirpath, dirnames, filenames in os.walk(root):
@@ -159,9 +164,7 @@ class StrayArtifactsCheck:
                 if code is None:
                     continue
                 violations.append(_build_violation(code=code, rel=rel))
-
-        status = Status.FAIL if violations else Status.PASS
-        return CheckResult(check=self.name, status=status, violations=violations)
+        return CheckResult(check=self.name, violations=violations)
 
 
 def _build_violation(*, code: str, rel: Path) -> Violation:

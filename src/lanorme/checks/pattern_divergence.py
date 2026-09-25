@@ -14,8 +14,8 @@ import ast
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from lanorme import CheckResult, Status, Violation, register
-from lanorme.discovery import iter_py_files
+from lanorme import CheckResult, Violation, register, run_via_check
+from lanorme.scan import Scan
 
 # ---------------------------------------------------------------------------
 # IMPORT-001: No inline imports inside functions
@@ -239,12 +239,16 @@ class PatternDivergenceCheck:
     )
 
     def run(self, *, src_root: str) -> CheckResult:
+        """Deprecated entry point kept until removal; ``check(scan)`` replaces it."""
+        return run_via_check(self, src_root=src_root)
+
+    def check(self, scan: Scan) -> CheckResult:
         """Scan Python files under src/ for pattern divergence."""
         violations: list[Violation] = []
         warnings: list[Violation] = []
-        src_path = Path(src_root)
+        src_path = scan.root
 
-        for py_file in iter_py_files(src_path):
+        for py_file in scan.py_files():
             relative_file = py_file.relative_to(src_path).as_posix()
 
             # Skip test files.
@@ -297,11 +301,8 @@ class PatternDivergenceCheck:
 
             violations.extend(file_violations)
             warnings.extend(file_warnings)
-
-        status = Status.FAIL if violations else (Status.WARN if warnings else Status.PASS)
         return CheckResult(
             check=self.name,
-            status=status,
             violations=violations,
             warnings=warnings,
         )

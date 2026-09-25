@@ -37,8 +37,9 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from lanorme import CheckResult, Status, Violation, register
+from lanorme import CheckResult, Violation, register, run_via_check
 from lanorme.discovery import iter_files
+from lanorme.scan import Scan
 
 # Vendored or generated directories that are never part of a docs tree.
 _SKIP_PARTS = frozenset(
@@ -429,10 +430,14 @@ class DocsCheck:
         return found
 
     def run(self, *, src_root: str) -> CheckResult:
-        if not self.enabled:
-            return CheckResult(check=self.name, status=Status.PASS)
+        """Deprecated entry point kept until removal; ``check(scan)`` replaces it."""
+        return run_via_check(self, src_root=src_root)
 
-        root = Path(src_root)
+    def check(self, scan: Scan) -> CheckResult:
+        if not self.enabled:
+            return CheckResult(check=self.name)
+
+        root = scan.root
         docs_dir = root / self.docs_root
         violations: list[Violation] = []
         warnings: list[Violation] = []
@@ -465,9 +470,7 @@ class DocsCheck:
                 warnings.append(quadrant)
 
         warnings.extend(self._section_index_findings(docs_dir=docs_dir, pages=pages))
-
-        status = Status.FAIL if violations else (Status.WARN if warnings else Status.PASS)
-        return CheckResult(check=self.name, status=status, violations=violations, warnings=warnings)
+        return CheckResult(check=self.name, violations=violations, warnings=warnings)
 
 
 register(DocsCheck())

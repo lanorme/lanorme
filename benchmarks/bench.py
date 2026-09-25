@@ -21,6 +21,7 @@ from pathlib import Path
 
 from lanorme import Check, get_all_checks
 from lanorme.cli import _load_builtin_checks
+from lanorme.scan import Scan
 
 
 def _corpus_stats(*, root: Path) -> tuple[int, int]:
@@ -51,7 +52,7 @@ def _time_check(*, check: Check, root: str, runs: int) -> float:
     samples: list[float] = []
     for _ in range(runs):
         start = time.perf_counter()
-        check.run(src_root=root)
+        check.check(Scan.for_root(root))
         samples.append(time.perf_counter() - start)
     return statistics.median(samples)
 
@@ -72,7 +73,7 @@ def main(argv: list[str]) -> None:
 
     # Warm the filesystem cache before timing.
     for check in checks.values():
-        check.run(src_root=str(root))
+        check.check(Scan.for_root(root))
 
     rows = sorted(
         ((name, _time_check(check=check, root=str(root), runs=runs)) for name, check in checks.items()),

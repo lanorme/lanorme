@@ -10,6 +10,7 @@ import tomllib
 
 from lanorme import Status
 from lanorme.checks.layer_deps import LayerDepsCheck
+from lanorme.scan import Scan
 
 
 def _codes(violations) -> set[str]:
@@ -61,7 +62,7 @@ def test_api_file_importing_infra_outside_comp_root_is_flagged(tmp_path, tmp_py_
     check = LayerDepsCheck()
 
     # Act
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan.for_root(tmp_path))
 
     # Assert
     assert "LAYER-005" in _codes(result.violations)
@@ -74,7 +75,7 @@ def test_default_directory_composition_root_is_allowed(tmp_path, tmp_py_file):
     check = LayerDepsCheck()
 
     # Act
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan.for_root(tmp_path))
 
     # Assert
     assert "LAYER-005" not in _codes(result.violations)
@@ -86,11 +87,11 @@ def test_module_file_comp_root_missed_by_default_but_caught_when_configured(tmp_
     tmp_py_file(name="api/dependencies.py", body="from infrastructure.db import Repo\n")
 
     # Act: default config does NOT treat the module file as a composition root.
-    default_result = LayerDepsCheck().run(src_root=str(tmp_path))
+    default_result = LayerDepsCheck().check(Scan.for_root(tmp_path))
 
     configured = LayerDepsCheck()
     configured.configure(settings={"composition_root": ["api/dependencies.py", "api/app.py"]})
-    configured_result = configured.run(src_root=str(tmp_path))
+    configured_result = configured.check(Scan.for_root(tmp_path))
 
     # Assert: the one-line config fix is exactly what unblocks the module-file root.
     assert "LAYER-005" in _codes(default_result.violations)
@@ -104,7 +105,7 @@ def test_domain_importing_infra_is_layer_001(tmp_path, tmp_py_file):
     check = LayerDepsCheck()
 
     # Act
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan.for_root(tmp_path))
 
     # Assert
     assert "LAYER-001" in _codes(result.violations)
@@ -117,7 +118,7 @@ def test_application_importing_infra_is_layer_002(tmp_path, tmp_py_file):
     check = LayerDepsCheck()
 
     # Act
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan.for_root(tmp_path))
 
     # Assert
     assert "LAYER-002" in _codes(result.violations)
@@ -151,7 +152,7 @@ def test_custom_layers_and_allowed(tmp_path, tmp_py_file):
     check = _core_adapters_check(tmp_py_file)
 
     # Act
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan.for_root(tmp_path))
 
     # Assert: adapters -> core is allowed, so no layer violation.
     assert not any(code.startswith("LAYER-00") and code != "LAYER-000" for code in _codes(result.violations))
@@ -164,7 +165,7 @@ def test_transport_layer_composition_root_may_import_infra(tmp_path, tmp_py_file
     check.configure(settings={**_MCP_SETTINGS, "transport_layers": ["api", "mcp_server"]})
 
     # Act
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan.for_root(tmp_path))
 
     # Assert: the comp-root file may bind infrastructure, exactly as api/ can.
     assert result.violations == []
@@ -179,7 +180,7 @@ def test_transport_composition_root_still_flagged_under_default(tmp_path, tmp_py
     check.configure(settings=_MCP_SETTINGS)
 
     # Act
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan.for_root(tmp_path))
 
     # Assert: the default does not extend the exception to mcp_server.
     assert "LAYER-005" in _codes(result.violations)
@@ -193,7 +194,7 @@ def test_transport_non_comp_root_importing_infra_is_layer_005(tmp_path, tmp_py_f
     check.configure(settings={**_MCP_SETTINGS, "transport_layers": ["api", "mcp_server"]})
 
     # Act
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan.for_root(tmp_path))
 
     # Assert: only the composition root is exempt; handlers.py is not.
     assert "LAYER-005" in _codes(result.violations)
@@ -206,7 +207,7 @@ def test_unknown_transport_layer_emits_layer_006_warning(tmp_path, tmp_py_file):
     check.configure(settings={"transport_layers": ["api", "grpc_server"]})
 
     # Act
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan.for_root(tmp_path))
 
     # Assert: a no-op transport layer is surfaced as an advisory warning.
     assert "LAYER-006" in _codes(result.warnings)
@@ -217,7 +218,7 @@ def test_default_transport_layers_does_not_warn_on_renamed_layout(tmp_path, tmp_
     check = _core_adapters_check(tmp_py_file)
 
     # Act
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan.for_root(tmp_path))
 
     # Assert: the default api transport being absent is not the user's concern.
     assert "LAYER-006" not in _codes(result.warnings)

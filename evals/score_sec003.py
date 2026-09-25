@@ -23,6 +23,7 @@ from pathlib import Path
 
 from lanorme import get_check
 from lanorme.checks import secrets as _secrets  # noqa: F401  (self-register)
+from lanorme.scan import Scan
 
 _CORPUS = (
     Path(__file__).resolve().parent
@@ -59,7 +60,7 @@ def _flagged_sec003() -> set[tuple[str, int]]:
     check = get_check("secrets")
     if check is None:
         raise RuntimeError("secrets check is not registered")
-    result = check.run(src_root=str(_CORPUS))
+    result = check.check(Scan.for_root(_CORPUS))
     return {
         (v.file.replace("\\", "/"), v.line)
         for v in result.violations

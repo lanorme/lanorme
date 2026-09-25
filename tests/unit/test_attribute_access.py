@@ -6,6 +6,7 @@ from pathlib import Path
 
 from lanorme import Status
 from lanorme.checks.attribute_access import AttributeAccessCheck
+from lanorme.scan import Scan
 
 
 def _run(tmp_path: Path, body: str, *, name: str = "mod.py", **cfg: object):
@@ -17,7 +18,7 @@ def _run(tmp_path: Path, body: str, *, name: str = "mod.py", **cfg: object):
     path.write_text(body, encoding="utf-8")
     check = AttributeAccessCheck()
     check.configure(settings={"enabled": True, **cfg})
-    return check.run(src_root=str(root))
+    return check.check(Scan.for_root(root))
 
 
 def _codes(result) -> list[str]:
@@ -97,7 +98,7 @@ def test_disabled_by_default(tmp_path: Path):
     path.write_text("def f(x):\n    return hasattr(x, 'foo')\n", encoding="utf-8")
 
     # Act: the default check (no configure) ships off.
-    result = AttributeAccessCheck().run(src_root=str(tmp_path))
+    result = AttributeAccessCheck().check(Scan.for_root(tmp_path))
 
     # Assert.
     assert result.status == Status.PASS

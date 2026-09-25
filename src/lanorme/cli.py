@@ -37,7 +37,6 @@ from lanorme import (
     run_check,
 )
 from lanorme.checkconfig import apply_check_config
-from lanorme.discovery import set_excludes
 from lanorme.filtering import (
     _apply_excludes,
     _apply_filters,
@@ -50,6 +49,7 @@ from lanorme.filtering import (
 )
 from lanorme.presets import _resolve_extends
 from lanorme.regions import (
+    Config,
     Region,
     child_exclude_globs,
     combine_results,
@@ -61,6 +61,7 @@ from lanorme.regions import (
     restore_defaults,
     snapshot_defaults,
 )
+from lanorme.scan import Scan, SourceCache
 
 # --------------------------------------------------------------------------- #
 # Check discovery
@@ -127,7 +128,7 @@ def _checks_for_selector(*, selector: str) -> list[Check]:
     return sorted(matched, key=lambda c: c.name)
 
 
-def _resolve_single(*, selector: str, src_root: str) -> tuple[list[CheckResult], list[str]]:
+def _resolve_single(*, selector: str, scan: Scan) -> tuple[list[CheckResult], list[str]]:
     """Run the check(s) named or coded by *selector*.
 
     Resolution is name-first (an exact check name like ``duplication``), then by
@@ -137,11 +138,11 @@ def _resolve_single(*, selector: str, src_root: str) -> tuple[list[CheckResult],
     """
     by_name = get_check(selector)
     if by_name is not None:
-        return [run_check(by_name, src_root=src_root)], []
+        return [run_check(by_name, scan=scan)], []
 
     matched = _checks_for_selector(selector=selector)
     if matched:
-        return [run_check(check, src_root=src_root) for check in matched], [selector.upper()]
+        return [run_check(check, scan=scan) for check in matched], [selector.upper()]
 
     names = ", ".join(sorted(get_all_checks())) or "(none)"
     print(
@@ -291,12 +292,17 @@ def _build_parser() -> argparse.ArgumentParser:
 # --------------------------------------------------------------------------- #
 
 
+def _configured_source_root(config: Config) -> str:
+    """The ``source_root`` a config sets, or ``""`` when unset or not a string."""
+    source_root = config.get("source_root")
+    return source_root if isinstance(source_root, str) else ""
+
+
 def _run_regions(
     *,
     regions: list[Region],
     root_config: dict[str, object],
-    scan_root: Path,
-    exclude: list[str],
+    tree_scan: Scan,
     pristine: dict[str, object],
 ) -> list[CheckResult]:
     """Run the checks under cascading per-directory config and merge the results.
@@ -310,13 +316,13 @@ def _run_regions(
     """
     checks = get_all_checks()
     by_name: dict[str, CheckResult] = {}
+    scan_root = tree_scan.root
 
     restore_defaults(checks=checks, snapshot=pristine)
     apply_check_config(config=root_config)
-    set_excludes(exclude)
     for name, check in checks.items():
         if is_tree_scoped(check):
-            by_name[name] = run_check(check, src_root=str(scan_root))
+            by_name[name] = run_check(check, scan=tree_scan)
 
     root_dir = scan_root.resolve()
     for region in regions:
@@ -329,12 +335,18 @@ def _run_regions(
         # line up, so their user excludes are left to the post-filter, which
         # works in project-root coordinates and still drops the findings.
         if region.directory == root_dir:
-            region_excludes = list(exclude) + region_excludes
-        set_excludes(region_excludes)
+            region_excludes = list(tree_scan.excludes) + region_excludes
+        region_scan = Scan(
+            root=region.directory,
+            scope="file",
+            excludes=tuple(region_excludes),
+            source_root=_configured_source_root(region.merged),
+            cache=tree_scan.cache,
+        )
         for name, check in checks.items():
             if is_tree_scoped(check):
                 continue
-            result = run_check(check, src_root=str(region.directory))
+            result = run_check(check, scan=region_scan)
             (result,) = reanchor_results(
                 results=[result], from_root=region.directory, to_root=scan_root
             )
@@ -370,23 +382,29 @@ def _collect_results(
     hook and promotion run after this, on the returned project-root-relative
     results. Returns ``None`` when no checks are registered.
     """
-    src_root = str(scan_root)
     per_file_ignores = _parse_per_file_ignores(table=config.get("per-file-ignores", {}))
-    set_excludes(filters.exclude)
+    # One scan per run: the root, the excludes, and a source cache every check
+    # in the run shares, so each file is read and parsed once.
+    scan = Scan(
+        root=scan_root,
+        scope="tree",
+        excludes=tuple(filters.exclude),
+        source_root=_configured_source_root(config),
+        cache=SourceCache(),
+    )
 
     if filters.single:
-        results, implicit_select = _resolve_single(selector=filters.single, src_root=src_root)
+        results, implicit_select = _resolve_single(selector=filters.single, scan=scan)
     else:
         implicit_select = []
         regions = discover_regions(
             scan_root=scan_root, root_config=config, resolve_extends=_resolve_extends
         )
         if len(regions) == 1:
-            results = run_all(src_root=src_root)
+            results = run_all(scan=scan)
         else:
             results = _run_regions(
-                regions=regions, root_config=config, scan_root=scan_root,
-                exclude=filters.exclude, pristine=pristine,
+                regions=regions, root_config=config, tree_scan=scan, pristine=pristine
             )
 
     if not results:

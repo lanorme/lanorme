@@ -41,8 +41,8 @@ import ast
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from lanorme import CheckResult, Status, Violation, register
-from lanorme.discovery import iter_py_files
+from lanorme import CheckResult, Violation, register, run_via_check
+from lanorme.scan import Scan
 
 _ATTR_BUILTINS = frozenset({"getattr", "hasattr", "setattr", "delattr"})
 
@@ -161,12 +161,16 @@ class AttributeAccessCheck:
         )
 
     def run(self, *, src_root: str) -> CheckResult:
+        """Deprecated entry point kept until removal; ``check(scan)`` replaces it."""
+        return run_via_check(self, src_root=src_root)
+
+    def check(self, scan: Scan) -> CheckResult:
         if not self.enabled:
-            return CheckResult(check=self.name, status=Status.PASS, violations=[], warnings=[])
+            return CheckResult(check=self.name, violations=[], warnings=[])
 
         warnings: list[Violation] = []
-        root = Path(src_root)
-        for path in iter_py_files(root):
+        root = scan.root
+        for path in scan.py_files():
             relative = path.relative_to(root).as_posix()
             if _is_exempt_file(relative=relative):
                 continue
@@ -179,9 +183,7 @@ class AttributeAccessCheck:
                     warning = self._call_warning(call=node, relative=relative)
                     if warning is not None:
                         warnings.append(warning)
-
-        status = Status.WARN if warnings else Status.PASS
-        return CheckResult(check=self.name, status=status, violations=[], warnings=warnings)
+        return CheckResult(check=self.name, violations=[], warnings=warnings)
 
 
 # Self-register on import.

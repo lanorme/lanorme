@@ -28,8 +28,8 @@ import tokenize
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from lanorme import CheckResult, Status, Violation, register
-from lanorme.discovery import iter_py_files
+from lanorme import CheckResult, Violation, register, run_via_check
+from lanorme.scan import Scan
 
 # Default is empty → the check is inert until configured.
 _STALE_TOKENS: tuple[str, ...] = ()
@@ -160,22 +160,24 @@ class StalePathsCheck:
         self.tokens = tuple(settings.get("tokens", []))
 
     def run(self, *, src_root: str) -> CheckResult:
+        """Deprecated entry point kept until removal; ``check(scan)`` replaces it."""
+        return run_via_check(self, src_root=src_root)
+
+    def check(self, scan: Scan) -> CheckResult:
         violations: list[Violation] = []
         patterns = _compile_patterns(self.tokens)
         if not patterns:
-            return CheckResult(check=self.name, status=Status.PASS, violations=[])
+            return CheckResult(check=self.name, violations=[])
 
-        src_path = Path(src_root)
-        for py_file in iter_py_files(src_path):
+        src_path = scan.root
+        for py_file in scan.py_files():
             relative_file = py_file.relative_to(src_path).as_posix()
             if _is_exempt(relative_path=relative_file):
                 continue
             violations.extend(
                 _scan_file(py_file=py_file, relative_file=relative_file, patterns=patterns)
             )
-
-        status = Status.FAIL if violations else Status.PASS
-        return CheckResult(check=self.name, status=status, violations=violations)
+        return CheckResult(check=self.name, violations=violations)
 
 
 register(StalePathsCheck())

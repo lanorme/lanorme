@@ -27,7 +27,7 @@ import json
 import sys
 from pathlib import Path
 
-from lanorme import CheckResult, Status, Violation
+from lanorme import CheckResult, Violation
 from lanorme.filtering import _line_at, _rule_code
 
 BASELINE_VERSION = 1
@@ -262,9 +262,8 @@ def suppress(
                 index=index, consumed=consumed, project_root=project_root, finding=w, tier=_WARNING, cache=cache
             )
         ]
-        status = Status.FAIL if violations else (Status.WARN if warnings else Status.PASS)
         filtered.append(
-            CheckResult(check=result.check, status=status, violations=violations, warnings=warnings)
+            CheckResult(check=result.check, violations=violations, warnings=warnings)
         )
     return filtered
 

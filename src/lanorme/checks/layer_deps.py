@@ -57,10 +57,9 @@ from __future__ import annotations
 import ast
 import fnmatch
 from dataclasses import dataclass, field
-from pathlib import Path
 
-from lanorme import CheckResult, Status, Violation, register
-from lanorme.discovery import iter_py_files
+from lanorme import CheckResult, Violation, register, run_via_check
+from lanorme.scan import Scan
 
 # The architectural layers in a hexagonal backend (default).
 LAYERS = ("domain", "application", "infrastructure", "api")
@@ -283,10 +282,14 @@ class LayerDepsCheck:
         ]
 
     def run(self, *, src_root: str) -> CheckResult:
+        """Deprecated entry point kept until removal; ``check(scan)`` replaces it."""
+        return run_via_check(self, src_root=src_root)
+
+    def check(self, scan: Scan) -> CheckResult:
         """Scan all Python files under the source root and validate import directions."""
         violations: list[Violation] = []
         warnings: list[Violation] = self._config_warnings()
-        src_path = Path(src_root)
+        src_path = scan.root
         # The architectural root. Layer classification and composition-root
         # globs are anchored here; Violation paths stay anchored at src_path so
         # they line up with --exclude / per-file-ignores / # noqa.
@@ -296,7 +299,7 @@ class LayerDepsCheck:
         # which case only a bare layer name (domain.models) is a project import.
         package = self.source_root.rsplit("/", 1)[-1] if self.source_root else ""
 
-        for py_file in iter_py_files(src_path):
+        for py_file in scan.py_files():
             relative = py_file.relative_to(src_path).as_posix()
             try:
                 classify_rel = py_file.relative_to(base).as_posix()
@@ -341,11 +344,8 @@ class LayerDepsCheck:
                         is_comp_root=is_comp_root,
                     )
                 )
-
-        status = Status.FAIL if violations else (Status.WARN if warnings else Status.PASS)
         return CheckResult(
             check=self.name,
-            status=status,
             violations=violations,
             warnings=warnings,
         )

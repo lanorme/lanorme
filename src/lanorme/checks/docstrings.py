@@ -36,11 +36,10 @@ from __future__ import annotations
 
 import ast
 from dataclasses import dataclass, field
-from pathlib import Path
 
-from lanorme import CheckResult, Status, Violation, register
+from lanorme import CheckResult, Violation, register, run_via_check
 from lanorme.checks.restating import _is_allowlisted, _split_identifier, _stem
-from lanorme.discovery import iter_py_files
+from lanorme.scan import Scan
 
 # Definitions shorter than this need no docstring: a three-line helper whose
 # name says it all is not improved by a sentence repeating the name.
@@ -227,12 +226,16 @@ class DocstringsCheck:
             self.require_private = bool(settings["require_private"])
 
     def run(self, *, src_root: str) -> CheckResult:
+        """Deprecated entry point kept until removal; ``check(scan)`` replaces it."""
+        return run_via_check(self, src_root=src_root)
+
+    def check(self, scan: Scan) -> CheckResult:
         """Walk every Python file and collect CMT-006 / CMT-007 violations."""
         if not self.enabled:
-            return CheckResult(check=self.name, status=Status.PASS, violations=[])
+            return CheckResult(check=self.name, violations=[])
         violations: list[Violation] = []
-        root = Path(src_root)
-        for path in iter_py_files(root):
+        root = scan.root
+        for path in scan.py_files():
             # Match skip directories inside the root only: the absolute path's
             # ancestors are the user's filesystem, not the project layout.
             relative = path.relative_to(root)
@@ -250,8 +253,7 @@ class DocstringsCheck:
                 min_lines=self.min_lines,
                 require_private=self.require_private,
             ))
-        status = Status.FAIL if violations else Status.PASS
-        return CheckResult(check=self.name, status=status, violations=violations)
+        return CheckResult(check=self.name, violations=violations)
 
 
 register(DocstringsCheck())

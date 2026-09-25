@@ -17,6 +17,7 @@ import pytest
 
 from lanorme import Status
 from lanorme.checks.naming_scope import NamingScopeCheck
+from lanorme.scan import Scan
 
 
 @pytest.fixture
@@ -60,7 +61,7 @@ def test_disabled_by_default(tmp_path: Path) -> None:
     _write(root=tmp_path, body=_module(name="rc", gap=40))
 
     # Act
-    result = NamingScopeCheck().run(src_root=str(tmp_path))
+    result = NamingScopeCheck().check(Scan.for_root(tmp_path))
 
     # Assert
     assert result.status is Status.PASS
@@ -75,7 +76,7 @@ def test_disabled_by_default(tmp_path: Path) -> None:
 def test_short_name_over_a_long_span_is_flagged(tmp_path: Path, check: NamingScopeCheck) -> None:
     _write(root=tmp_path, body=_module(name="rc", gap=40))
 
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan.for_root(tmp_path))
 
     # Assert
     assert _codes(result=result) == ["NAMING-005"]
@@ -84,7 +85,7 @@ def test_short_name_over_a_long_span_is_flagged(tmp_path: Path, check: NamingSco
 def test_same_name_over_a_short_span_is_kept(tmp_path: Path, check: NamingScopeCheck) -> None:
     _write(root=tmp_path, body=_module(name="rc", gap=3))
 
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan.for_root(tmp_path))
 
     # Assert
     assert result.violations == []
@@ -93,7 +94,7 @@ def test_same_name_over_a_short_span_is_kept(tmp_path: Path, check: NamingScopeC
 def test_long_name_over_a_long_span_is_kept(tmp_path: Path, check: NamingScopeCheck) -> None:
     _write(root=tmp_path, body=_module(name="run_count", gap=40))
 
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan.for_root(tmp_path))
 
     # Assert
     assert result.violations == []
@@ -106,7 +107,7 @@ def test_max_span_is_configurable(tmp_path: Path) -> None:
     _write(root=tmp_path, body=_module(name="rc", gap=40))
 
     # Act
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan.for_root(tmp_path))
 
     # Assert
     assert result.violations == []
@@ -120,7 +121,7 @@ def test_max_span_is_configurable(tmp_path: Path) -> None:
 def test_conventional_counter_survives_any_distance(tmp_path: Path, check: NamingScopeCheck) -> None:
     _write(root=tmp_path, body=_module(name="i", gap=60))
 
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan.for_root(tmp_path))
 
     # Assert
     assert result.violations == []
@@ -129,7 +130,7 @@ def test_conventional_counter_survives_any_distance(tmp_path: Path, check: Namin
 def test_allowlisted_idiom_survives_any_distance(tmp_path: Path, check: NamingScopeCheck) -> None:
     _write(root=tmp_path, body=_module(name="lo", gap=60))
 
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan.for_root(tmp_path))
 
     # Assert
     assert result.violations == []
@@ -142,7 +143,7 @@ def test_allow_setting_extends_the_default(tmp_path: Path) -> None:
     _write(root=tmp_path, body=_module(name="rc", gap=40))
 
     # Act
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan.for_root(tmp_path))
 
     # Assert
     assert result.violations == []
@@ -162,7 +163,7 @@ def test_imported_module_alias_is_not_a_local(tmp_path: Path, check: NamingScope
     _write(root=tmp_path, body=body)
 
     # Act
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan.for_root(tmp_path))
 
     # Assert
     assert result.violations == []
@@ -171,7 +172,7 @@ def test_imported_module_alias_is_not_a_local(tmp_path: Path, check: NamingScope
 def test_test_files_are_skipped(tmp_path: Path, check: NamingScopeCheck) -> None:
     (tmp_path / "test_thing.py").write_text(_module(name="rc", gap=40), encoding="utf-8")
 
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan.for_root(tmp_path))
 
     # Assert
     assert result.violations == []
@@ -189,7 +190,7 @@ def test_root_under_a_skip_named_ancestor_is_still_scanned(tmp_path: Path, check
     _write(root=root, body=_module(name="rc", gap=40))
 
     # Act
-    result = check.run(src_root=str(root))
+    result = check.check(Scan.for_root(root))
 
     # Assert
     assert _codes(result=result) == ["NAMING-005"]
@@ -202,7 +203,7 @@ def test_skip_named_subdirectory_inside_the_root_is_skipped(tmp_path: Path, chec
     _write(root=nested, body=_module(name="rc", gap=40))
 
     # Act
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan.for_root(tmp_path))
 
     # Assert
     assert result.violations == []

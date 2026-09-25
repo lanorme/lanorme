@@ -11,6 +11,7 @@ from pathlib import Path
 
 from lanorme import Status
 from lanorme.checks.duplication import DuplicationCheck
+from lanorme.scan import Scan
 
 _DUP_BODY = (
     "def {name}(a, b):\n"
@@ -33,7 +34,7 @@ def test_deeply_nested_file_is_skipped_not_crashed(tmp_path: Path):
     (tmp_path / "b.py").write_text(_DUP_BODY.format(name="beta"), encoding="utf-8")
 
     # Act: the run must complete rather than raise RecursionError.
-    result = DuplicationCheck().run(src_root=str(tmp_path))
+    result = DuplicationCheck().check(Scan.for_root(tmp_path))
 
     # Assert: the deep file is skipped with a DRY-000 warning, and the genuine
     # duplicate is still detected.
@@ -50,7 +51,7 @@ def test_clean_tree_has_no_findings(tmp_path: Path):
     )
 
     # Act.
-    result = DuplicationCheck().run(src_root=str(tmp_path))
+    result = DuplicationCheck().check(Scan.for_root(tmp_path))
 
     # Assert.
     assert result.status == Status.PASS
@@ -71,7 +72,7 @@ def test_short_identical_bodies_below_threshold_are_not_flagged(tmp_path: Path):
     (tmp_path / "b.py").write_text(short_body.format(name="beta"), encoding="utf-8")
 
     # Act.
-    result = DuplicationCheck().run(src_root=str(tmp_path))
+    result = DuplicationCheck().check(Scan.for_root(tmp_path))
 
     # Assert: identical but too short, so no DRY-001 duplicate is raised.
     assert result.status == Status.PASS
@@ -85,7 +86,7 @@ def test_test_prefixed_files_are_excluded_from_duplication(tmp_path: Path):
     (tmp_path / "test_b.py").write_text(_DUP_BODY.format(name="beta"), encoding="utf-8")
 
     # Act.
-    result = DuplicationCheck().run(src_root=str(tmp_path))
+    result = DuplicationCheck().check(Scan.for_root(tmp_path))
 
     # Assert: excluded files never pair up, so the tree stays clean.
     assert result.status == Status.PASS
@@ -101,7 +102,7 @@ def test_root_under_a_skip_named_ancestor_is_still_scanned(tmp_path: Path):
     (root / "b.py").write_text(_DUP_BODY.format(name="beta"), encoding="utf-8")
 
     # Act: scan the project, not its ancestor.
-    result = DuplicationCheck().run(src_root=str(root))
+    result = DuplicationCheck().check(Scan.for_root(root))
 
     # Assert: the ancestor is the user's filesystem, not the project layout.
     assert result.status == Status.FAIL

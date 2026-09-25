@@ -20,6 +20,7 @@ import pytest
 
 from lanorme import Status
 from lanorme.checks.prose import ProseCheck
+from lanorme.scan import Scan
 
 # Unicode literals used by the fixtures (kept out of the prose to avoid
 # accidentally triggering the very rules under test in this file's own text).
@@ -53,7 +54,7 @@ def test_disabled_by_default_never_fires(tmp_path: Path):
     _write(root=tmp_path, name="doc.md", body=f"color {_EM_DASH} {_ROCKET}\n")
 
     # Act: run the check without enabling it.
-    result = ProseCheck().run(src_root=str(tmp_path))
+    result = ProseCheck().check(Scan.for_root(tmp_path))
 
     # Assert: opt-in means silence until configured on.
     assert result.status == Status.PASS
@@ -70,7 +71,7 @@ def test_prose002_flags_american_spelling(check: ProseCheck, tmp_path: Path):
     _write(root=tmp_path, name="doc.md", body="Use color and analyze the behavior.\n")
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan.for_root(tmp_path))
 
     # Assert: each US word is reported with its British fix.
     assert result.status == Status.FAIL
@@ -91,7 +92,7 @@ def test_prose002_silent_on_british_spelling(check: ProseCheck, tmp_path: Path):
     )
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan.for_root(tmp_path))
 
     # Assert: correct prose stays silent.
     assert result.status == Status.PASS
@@ -103,7 +104,7 @@ def test_prose002_respects_word_boundaries(check: ProseCheck, tmp_path: Path):
     _write(root=tmp_path, name="doc.md", body="The word colorful and discolored appear.\n")
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan.for_root(tmp_path))
 
     # Assert: \b boundaries mean no false positive on embedded substrings.
     assert result.status == Status.PASS
@@ -117,7 +118,7 @@ def test_prose002_is_case_insensitive_but_fix_keeps_canonical_form(
     _write(root=tmp_path, name="doc.md", body="Color is nice.\n")
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan.for_root(tmp_path))
 
     # Assert: 'Color' fires; the message echoes the source casing while the fix
     # uses the canonical lower-case British form.
@@ -136,7 +137,7 @@ def test_prose002_omits_part_of_speech_ambiguous_pairs(check: ProseCheck, tmp_pa
     )
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan.for_root(tmp_path))
 
     # Assert: ambiguous pairs do not fire.
     assert result.status == Status.PASS
@@ -157,7 +158,7 @@ def test_prose001_flags_em_dash_only(check: ProseCheck, tmp_path: Path):
     )
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan.for_root(tmp_path))
 
     # Assert: only the em-dash line trips PROSE-001; the en dash is left alone.
     em = [v for v in result.violations if v.rule == "PROSE-001"]
@@ -171,7 +172,7 @@ def test_prose003_flags_emoji_but_not_typographic_symbols(check: ProseCheck, tmp
     _write(root=tmp_path, name="typo.md", body=f"Flow {_ARROW} and bullet {_BULLET} point.\n")
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan.for_root(tmp_path))
 
     # Assert: the emoji fires; arrows and bullets never do.
     emoji = [v for v in result.violations if v.rule == "PROSE-003"]
@@ -185,7 +186,7 @@ def test_prose003_reports_one_emoji_per_line(check: ProseCheck, tmp_path: Path):
     _write(root=tmp_path, name="doc.md", body=f"Two {_ROCKET} and {_PARTY} emoji.\n")
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan.for_root(tmp_path))
 
     # Assert: exactly one PROSE-003 per line, reporting the first emoji.
     emoji = [v for v in result.violations if v.rule == "PROSE-003"]
@@ -198,7 +199,7 @@ def test_prose003_flags_dingbat_checkmark(check: ProseCheck, tmp_path: Path):
     _write(root=tmp_path, name="doc.md", body=f"Done {_CHECK} now.\n")
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan.for_root(tmp_path))
 
     # Assert: it is flagged as an emoji.
     emoji = [v for v in result.violations if v.rule == "PROSE-003"]
@@ -211,7 +212,7 @@ def test_all_three_rules_on_one_line(check: ProseCheck, tmp_path: Path):
     _write(root=tmp_path, name="doc.md", body=f"color {_EM_DASH} {_ROCKET}\n")
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan.for_root(tmp_path))
 
     # Assert: all three codes are present.
     codes = {v.rule for v in result.violations}
@@ -229,7 +230,7 @@ def test_fenced_code_block_is_skipped(check: ProseCheck, tmp_path: Path):
     _write(root=tmp_path, name="doc.md", body=body)
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan.for_root(tmp_path))
 
     # Assert: nothing inside the fence fires.
     assert result.status == Status.PASS
@@ -244,7 +245,7 @@ def test_tilde_fence_is_skipped_but_outside_prose_still_scanned(
     _write(root=tmp_path, name="doc.md", body=body)
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan.for_root(tmp_path))
 
     # Assert: only the post-fence 'behavior' fires; fence content is exempt.
     spell = [v for v in result.violations if v.rule == "PROSE-002"]
@@ -258,7 +259,7 @@ def test_strikethrough_two_tildes_is_not_a_fence(check: ProseCheck, tmp_path: Pa
     _write(root=tmp_path, name="doc.md", body="This ~~old~~ text has behavior in it.\n")
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan.for_root(tmp_path))
 
     # Assert: the line is still scanned; 'behavior' fires.
     spell = [v for v in result.violations if v.rule == "PROSE-002"]
@@ -276,7 +277,7 @@ def test_single_backtick_inline_code_is_skipped(check: ProseCheck, tmp_path: Pat
     )
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan.for_root(tmp_path))
 
     # Assert: inline code is exempt.
     assert result.status == Status.PASS
@@ -293,7 +294,7 @@ def test_python_files_are_not_scanned_by_prose(check: ProseCheck, tmp_path: Path
     )
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan.for_root(tmp_path))
 
     # Assert: .py is outside the configured extensions -> silence.
     assert result.status == Status.PASS
@@ -312,7 +313,7 @@ def test_toggles_disable_em_dash_and_emoji(tmp_path: Path):
     _write(root=tmp_path, name="doc.md", body=f"color {_EM_DASH} {_ROCKET}\n")
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan.for_root(tmp_path))
 
     # Assert: only the spelling rule remains active.
     codes = {v.rule for v in result.violations}
@@ -326,7 +327,7 @@ def test_custom_spellings_extend_the_map(tmp_path: Path):
     _write(root=tmp_path, name="doc.md", body="I have gotten color here.\n")
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan.for_root(tmp_path))
 
     # Assert: both the custom word and a default word fire.
     messages = {v.message for v in result.violations if v.rule == "PROSE-002"}
@@ -349,7 +350,7 @@ def test_double_backtick_inline_code_should_be_skipped(check: ProseCheck, tmp_pa
     )
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan.for_root(tmp_path))
 
     # Assert (desired behaviour): inline code is exempt, so nothing fires.
     assert result.status == Status.PASS
@@ -389,7 +390,7 @@ def test_prose004_fires_on_llm_style_dense_doc(tmp_path: Path):
     _write(root=tmp_path, name="llm.md", body=body)
 
     # Act.
-    result = _density_check().run(src_root=str(tmp_path))
+    result = _density_check().check(Scan.for_root(tmp_path))
 
     # Assert: one PROSE-004 warning (not a violation), anchored at line 1.
     assert result.violations == []
@@ -408,7 +409,7 @@ def test_prose004_silent_on_natural_long_doc(tmp_path: Path):
     _write(root=tmp_path, name="natural.md", body=body)
 
     # Act.
-    result = _density_check().run(src_root=str(tmp_path))
+    result = _density_check().check(Scan.for_root(tmp_path))
 
     # Assert: natural prose stays silent.
     assert [w for w in result.warnings if w.code == "PROSE-004"] == []
@@ -426,7 +427,7 @@ def test_prose004_does_not_fire_when_only_one_axis_is_high(tmp_path: Path):
     _write(root=tmp_path, name="skewed.md", body=body)
 
     # Act.
-    result = _density_check().run(src_root=str(tmp_path))
+    result = _density_check().check(Scan.for_root(tmp_path))
 
     # Assert: high rate but low fraction -> no fire (AND, not OR).
     assert [w for w in result.warnings if w.code == "PROSE-004"] == []
@@ -442,7 +443,7 @@ def test_prose004_silent_below_eligibility_floor(tmp_path: Path):
     )
 
     # Act.
-    result = _density_check().run(src_root=str(tmp_path))
+    result = _density_check().check(Scan.for_root(tmp_path))
 
     # Assert: the floor keeps it silent.
     assert [w for w in result.warnings if w.code == "PROSE-004"] == []
@@ -457,7 +458,7 @@ def test_prose004_silent_by_default_when_not_enabled(tmp_path: Path):
     check.configure(settings={"enabled": True, "em_dash": False})
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan.for_root(tmp_path))
 
     # Assert: opt-in means no density warning until em_dash_density is set.
     assert [w for w in result.warnings if w.code == "PROSE-004"] == []
@@ -471,7 +472,7 @@ def test_prose004_ignores_em_dashes_inside_fenced_code(tmp_path: Path):
     _write(root=tmp_path, name="fenced.md", body=body)
 
     # Act.
-    result = _density_check().run(src_root=str(tmp_path))
+    result = _density_check().check(Scan.for_root(tmp_path))
 
     # Assert: em dashes inside the fence never count.
     assert [w for w in result.warnings if w.code == "PROSE-004"] == []
@@ -489,7 +490,7 @@ def test_root_under_a_skip_named_ancestor_is_still_scanned(check: ProseCheck, tm
     _write(root=root, name="doc.md", body="Use color here.\n")
 
     # Act: scan the project, not its ancestor.
-    result = check.run(src_root=str(root))
+    result = check.check(Scan.for_root(root))
 
     # Assert: the ancestor is the user's filesystem, not the project layout.
     assert result.status == Status.FAIL

@@ -36,10 +36,9 @@ from __future__ import annotations
 
 import ast
 from dataclasses import dataclass, field
-from pathlib import Path
 
-from lanorme import CheckResult, Status, Violation, register
-from lanorme.discovery import iter_py_files
+from lanorme import CheckResult, Violation, register, run_via_check
+from lanorme.scan import Scan
 
 # Beyond this many lines between binding and last use, a short name stops
 # paying for itself. Roughly one screen: see the calibration above.
@@ -170,17 +169,21 @@ class NamingScopeCheck:
             self.allow = DEFAULT_ALLOW | {str(item) for item in extra}
 
     def run(self, *, src_root: str) -> CheckResult:
+        """Deprecated entry point kept until removal; ``check(scan)`` replaces it."""
+        return run_via_check(self, src_root=src_root)
+
+    def check(self, scan: Scan) -> CheckResult:
         """Walk every Python file and collect NAMING-005 violations."""
         if not self.enabled:
-            return CheckResult(check=self.name, status=Status.PASS, violations=[])
+            return CheckResult(check=self.name, violations=[])
         resolved = _Settings(
             max_span=self.max_span,
             max_short_length=self.max_short_length,
             allow=frozenset(self.allow),
         )
         violations: list[Violation] = []
-        root = Path(src_root)
-        for path in iter_py_files(root):
+        root = scan.root
+        for path in scan.py_files():
             # Match skip directories inside the root only: the absolute path's
             # ancestors are the user's filesystem, not the project layout.
             relative = path.relative_to(root)
@@ -194,8 +197,7 @@ class NamingScopeCheck:
             for node in ast.walk(tree):
                 if isinstance(node, _FUNCTION_TYPES):
                     violations.extend(_function_violations(func=node, file=file, settings=resolved))
-        status = Status.FAIL if violations else Status.PASS
-        return CheckResult(check=self.name, status=status, violations=violations)
+        return CheckResult(check=self.name, violations=violations)
 
 
 register(NamingScopeCheck())
