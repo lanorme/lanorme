@@ -1,7 +1,7 @@
 """Every test-aware check agrees on what a test file is.
 
 Four boundary files exercise the shared definition (``lanorme.paths``)
-through each check's ``run()``:
+through each check's ``check(scan)``:
 
 - ``tests/helpers.py``: under a tests directory, no ``test_`` prefix.
 - ``pkg/test_module.py``: a ``test_*.py`` module beside production code.

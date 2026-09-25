@@ -84,8 +84,8 @@ def test_run_check_hands_the_check_its_scan_and_keeps_it_active_for_the_call(tmp
     run_check(spy, scan=scan)
 
     # Assert: the same scan is handed and current while the check runs, not after.
-    assert spy.handed == scan
-    assert spy.active == scan
+    assert spy.handed is scan
+    assert spy.active is scan
     assert get_current_scan() == before
 
 
@@ -162,6 +162,29 @@ def test_a_run_only_check_still_runs_under_the_scan_and_is_told_it_is_deprecated
     assert legacy.seen_root == str(tmp_path)
     assert legacy.seen_excludes == ("vendor/*",)
     assert [v.rule for v in result.violations] == ["OLD-001: Say it once"]
+
+
+def test_a_caller_mistake_is_the_callers_not_the_checks(tmp_path: Path):
+    # Arrange: a scan= that is not a Scan.
+    check = _build_legacy_class()()
+
+    # Act / Assert: a TypeError to the caller, not a RUN-000 notice blaming the check.
+    with pytest.raises(TypeError, match="scan= must be a lanorme.scan.Scan"):
+        run_check(check, scan="src")  # type: ignore[arg-type]
+
+
+def test_a_deprecation_turned_into_an_error_reaches_the_caller(tmp_path: Path):
+    # Arrange: the caller asked for deprecations to be errors (-W error::DeprecationWarning).
+    legacy_class = _build_legacy_class()
+    scan = Scan(root=tmp_path)
+
+    # Act / Assert: the warning is the caller's error, twice (nothing marks the class as
+    # told while the warning was never delivered), and not a RUN-000 crash notice.
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", DeprecationWarning)
+        for _ in range(2):
+            with pytest.raises(DeprecationWarning):
+                run_check(legacy_class(), scan=scan)
 
 
 def test_the_run_deprecation_is_said_once_per_check_class(tmp_path: Path):

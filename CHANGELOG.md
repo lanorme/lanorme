@@ -93,8 +93,11 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
   `TYPE-001..004` and `STALE-001` exempted only a `tests/` directory, so a
   `test/` suite or a `test_*.py` beside code was judged; `ATTR-001` and
   `ATTR-002` already combined the two. All of them now exempt the union.
-  On LaNorme's own tree the change adds and removes no finding; see "Test
-  files" in `docs/RULES.md`.
+  On LaNorme's own tree the change removes two advisory `TYPE-001`
+  findings and adds none: the production modules
+  `src/lanorme/checks/test_coverage.py` and `test_style.py` carry the
+  `test_` stem pytest collects, so the union now exempts them, the known
+  cost stated under "Test files" in `docs/RULES.md`.
 - `AAA-001` and `AAA-002` judge exactly the modules the shared definition
   calls collected tests; the behaviour is unchanged.
 - `TESTFILE-001` now finds partner tests recursively under each configured

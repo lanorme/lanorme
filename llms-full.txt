@@ -298,7 +298,9 @@ A name that only contains the word (`tests_utils.py`, `contest.py`,
 `integration_tests/`) matches none of the three. The union errs towards
 exempting: a `test_*.py` module that ships inside a package (a dialect
 compliance suite, a self-test) is exempt from the production rules although
-it is not under a tests directory, because pytest would collect it.
+it is not under a tests directory, because pytest would collect it. LaNorme
+pays that cost itself: its `test_coverage.py` and `test_style.py` checks are
+production modules the `TYPE` rules no longer see.
 
 ---
 

@@ -27,7 +27,7 @@ Run:
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import ClassVar
 
@@ -35,7 +35,7 @@ from lanorme import CheckResult, Violation, register
 from lanorme.checkconfig import read_str, read_str_list
 from lanorme.discovery import DEFAULT_PRUNE_DIRS, iter_py_files
 from lanorme.paths import is_test_module
-from lanorme.scan import Scan
+from lanorme.scan import Scan, get_current_scan
 from lanorme.sources import UNREADABLE, Module, parse_module
 
 # ---------------------------------------------------------------------------
@@ -128,19 +128,31 @@ def _find_production_modules(*, run_root: Path, source_dir: Path) -> list[tuple[
 def _find_test_files(*, backend_root: Path, test_roots: tuple[str, ...]) -> list[Path]:
     """Return every test module (``lanorme.paths.is_test_module``) under each test root.
 
-    The walk is recursive and honours the user's ``exclude`` globs, so a
-    partner test in a nested package (``tests/integration/api/test_users.py``)
-    counts. Support files (``conftest.py``, fixtures, helpers) are not partners.
+    The walk is recursive, so a partner in a nested package
+    (``tests/integration/api/test_users.py``) counts, and the user's
+    ``exclude`` globs prune it, matched against the run root as everywhere
+    else. The scan's ``scope`` does not confine it: a run scoped to ``src/``
+    still credits the partners under ``tests/``. Support files
+    (``conftest.py``, fixtures, helpers) are not partners.
     """
     found: list[Path] = []
     for test_root in test_roots:
         tests_dir = backend_root / test_root
-        if not tests_dir.is_dir():
-            continue
-        found.extend(
-            path for path in iter_py_files(tests_dir) if is_test_module(path.relative_to(tests_dir))
-        )
+        if tests_dir.is_dir():
+            found.extend(_walk_test_root(tests_dir=tests_dir))
     return sorted(found)
+
+
+def _walk_test_root(*, tests_dir: Path) -> list[Path]:
+    """The collected test modules under *tests_dir*, walked from the run root when it holds it."""
+    scan = get_current_scan()
+    try:
+        scope = tests_dir.relative_to(scan.root).as_posix()
+        walk_root = scan.root
+    except ValueError:  # a test root outside the run: excludes cannot be run-relative
+        scope, walk_root = "", tests_dir
+    with replace(scan, scope=scope).activate():
+        return [path for path in iter_py_files(walk_root) if is_test_module(path.name)]
 
 
 def _collect_dotted_import_paths(module: Module) -> list[str]:

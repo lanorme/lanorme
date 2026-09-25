@@ -30,7 +30,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from lanorme import Status
+from lanorme import Status, run_check
 from lanorme.checks.test_coverage import TestCoverageCheck as CoverageCheck
 from lanorme.cli import main
 from lanorme.scan import Scan
@@ -423,6 +423,32 @@ def test_test_file_with_a_coding_cookie_is_read(tmp_path: Path):
     # Assert
     assert result.warnings == []
     assert result.status == Status.PASS
+
+
+def test_a_scoped_scan_still_credits_partners_and_excludes_match_the_run_root(tmp_path: Path):
+    # Arrange: billing's partner under tests/integration/legacy/; a run scoped to src/.
+    src = _project_with_uncovered_module(tmp_path, config="[tool.lanorme]\n")
+    legacy = tmp_path / "tests" / "integration" / "legacy"
+    legacy.mkdir(parents=True)
+    (legacy / "test_billing.py").write_text("def test_charge(): ...\n", encoding="utf-8")
+
+    # Act: the Python API (run_check activates the scan), scoped to src/, with and
+    # without an exclude on the partner.
+    scoped = run_check(CoverageCheck(), scan=Scan(root=tmp_path, scope="src"))
+    excluded = run_check(
+        CoverageCheck(),
+        scan=Scan(root=tmp_path, scope="src", excludes=("tests/integration/legacy/*",)),
+    )
+    unrelated = run_check(
+        CoverageCheck(),
+        scan=Scan(root=tmp_path, scope="src", excludes=("legacy/*",)),
+    )
+
+    # Assert: the scope does not hide the partner; an exclude prunes it only when
+    # it matches the partner's run-relative path, as excludes match everywhere else.
+    assert [w.file for w in scoped.warnings] == []
+    assert [w.file for w in excluded.warnings] == ["src/application/services/billing.py"]
+    assert [w.file for w in unrelated.warnings] == []
 
 
 def test_cli_scoped_to_src_credits_a_nested_partner_under_the_test_root(tmp_path: Path, capsys):

@@ -33,7 +33,7 @@ from typing import Protocol, runtime_checkable
 from lanorme.checkconfig import ConfigurableCheck as ConfigurableCheck
 from lanorme.checkconfig import configure_checks
 from lanorme.errors import UsageError
-from lanorme.invocation import invoke_check, resolve_scan
+from lanorme.invocation import invoke_check, resolve_scan, warn_legacy_run_once
 from lanorme.scan import Scan
 
 __version__ = "0.20.0"
@@ -393,6 +393,7 @@ def run_check(
     at the CLI) rather than hiding in a crash notice.
     """
     resolved = resolve_scan(scan=scan, src_root=src_root)
+    warn_legacy_run_once(check)
     try:
         return expand_rules(check=check, result=invoke_check(check, scan=resolved))
     except UsageError:

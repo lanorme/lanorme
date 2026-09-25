@@ -33,6 +33,8 @@ def resolve_scan(*, scan: Scan | None, src_root: str | None) -> Scan:
     is the whole tree with no excludes.
     """
     if scan is not None:
+        if not isinstance(scan, Scan):
+            raise TypeError(f"scan= must be a lanorme.scan.Scan, not {type(scan).__name__}")
         return scan
     if src_root is None:
         raise TypeError("pass scan= (a lanorme.scan.Scan) or src_root= (a path)")
@@ -47,19 +49,25 @@ def invoke_check(check: Check, *, scan: Scan) -> CheckResult:
     ``lanorme.sources`` and ``lanorme.discovery`` prune what it prunes.
     """
     entry = getattr(check, "check", None)
+    if not callable(entry):
+        warn_legacy_run_once(check)
     with scan.activate():
         if callable(entry):
             return entry(scan)
-        _warn_legacy_run_once(check)
         return check.run(src_root=str(scan.root))  # type: ignore[attr-defined]
 
 
-def _warn_legacy_run_once(check: Check) -> None:
-    """Say once per class that ``run(*, src_root)`` is deprecated."""
+def warn_legacy_run_once(check: Check) -> None:
+    """Say once per class that ``run(*, src_root)`` is deprecated.
+
+    Called before a run is isolated, so a ``-W error::DeprecationWarning``
+    reaches the caller as the error it asked for instead of a crash notice
+    on the check, and the class is remembered only once the warning was
+    delivered.
+    """
     check_type = type(check)
-    if check_type in _legacy_run_warned:
+    if check_type in _legacy_run_warned or callable(getattr(check, "check", None)):
         return
-    _legacy_run_warned.add(check_type)
     warnings.warn(
         f"{check_type.__module__}.{check_type.__qualname__} defines run(*, src_root) "
         "but no check(scan): the run() entry point is deprecated and will be removed; "
@@ -67,3 +75,4 @@ def _warn_legacy_run_once(check: Check) -> None:
         DeprecationWarning,
         stacklevel=4,
     )
+    _legacy_run_warned.add(check_type)
