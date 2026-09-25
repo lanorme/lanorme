@@ -258,3 +258,36 @@ def test_framework_query_methods_pass(tmp_path: Path, check: NamingCleanCodeChec
 
     # Assert.
     assert result.status == Status.PASS
+
+
+def test_camel_case_query_on_a_subclass_of_a_local_base_is_reported(
+    tmp_path: Path,
+    check: NamingCleanCodeCheck,
+) -> None:
+    # Arrange: ``BaseService`` is defined here, so ``userData`` is the author's name.
+    body = (
+        "class BaseService:\n"
+        "    pass\n"
+        "class X(BaseService):\n"
+        "    def userData(self):\n        return self.user\n"
+    )
+
+    # Act
+    result = _run(root=tmp_path, body=body, check=check)
+
+    # Assert
+    assert [(w.code, w.file, w.line) for w in result.warnings] == [("NAMING-011", "sample.py", 4)]
+
+
+def test_camel_case_query_on_an_external_base_is_still_exempt(
+    tmp_path: Path,
+    check: NamingCleanCodeCheck,
+) -> None:
+    # Arrange: ``services.BaseService`` is imported, so the name may be its API.
+    body = "class X(services.BaseService):\n    def userData(self):\n        return self.user\n"
+
+    # Act
+    result = _run(root=tmp_path, body=body, check=check)
+
+    # Assert
+    assert result.warnings == []

@@ -124,3 +124,29 @@ def test_probing_an_imported_module_is_feature_detection(tmp_path: Path):
         ("ATTR-001", 9),
         ("ATTR-001", 9),
     ]
+
+
+def test_writing_to_an_imported_module_is_not_feature_detection(tmp_path: Path):
+    # Arrange + Act: ``settings`` is a module, but setting and deleting on it is mutation.
+    result = _run(
+        tmp_path,
+        "import settings\n\nsetattr(settings, 'DEBUG', True)\ndelattr(settings, 'CACHE')\n",
+    )
+
+    # Assert.
+    assert [(w.code, w.file, w.line) for w in result.warnings] == [
+        ("ATTR-002", "mod.py", 3),
+        ("ATTR-002", "mod.py", 4),
+    ]
+
+
+def test_dispatch_through_an_imported_module_is_dynamic_access(tmp_path: Path):
+    # Arrange + Act: a computed name on a module is reflection, not detection.
+    result = _run(
+        tmp_path,
+        "import handlers\n\n\ndef dispatch(action):\n    return getattr(handlers, action)()\n",
+        flag_dynamic=True,
+    )
+
+    # Assert.
+    assert [(w.code, w.file, w.line) for w in result.warnings] == [("ATTR-002", "mod.py", 5)]

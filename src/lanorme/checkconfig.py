@@ -23,7 +23,7 @@ import copy
 from collections.abc import Mapping
 from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
-from lanorme.errors import ConfigError
+from lanorme.errors import ConfigError, UsageError
 
 if TYPE_CHECKING:
     from lanorme import Check
@@ -223,6 +223,26 @@ def _build_settings(*, name: str, config: Settings) -> Settings:
     return settings
 
 
+def _copy_template(*, name: str, template: Check) -> Check:
+    """A deep copy of *template*, or a usage error naming the check that cannot be copied.
+
+    Every pass configures its own copies, so a check must survive
+    :func:`copy.deepcopy`. A plugin check holding a lock, an open file or a
+    connection does not, and the raw ``TypeError`` from deep inside ``copy``
+    named neither the check nor the fix.
+    """
+    try:
+        return copy.deepcopy(template)
+    except Exception as error:  # whatever the plugin's state raises, the fix is the same
+        kind = f"{type(template).__module__}.{type(template).__qualname__}"
+        raise UsageError(
+            f"check {name!r} ({kind}) cannot be copied for a run: "
+            f"{type(error).__name__}: {error}.\n"
+            "  A check must be deep-copyable: create locks, files and connections in run(), "
+            "not on the instance, or define __deepcopy__.",
+        ) from error
+
+
 def configure_checks(*, templates: Mapping[str, Check], config: Settings) -> dict[str, Check]:
     """A deep copy of each of *templates*, configured from its ``[tool.lanorme.<name>]`` table.
 
@@ -233,7 +253,7 @@ def configure_checks(*, templates: Mapping[str, Check], config: Settings) -> dic
     """
     configured: dict[str, Check] = {}
     for name, template in templates.items():
-        check = copy.deepcopy(template)
+        check = _copy_template(name=name, template=template)
         if isinstance(check, ConfigurableCheck):
             settings = _build_settings(name=name, config=config)
             if settings:

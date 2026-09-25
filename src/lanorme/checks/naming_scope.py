@@ -150,10 +150,15 @@ def _collect_own_bindings(*, scope: ast.AST) -> set[str]:
 def _list_outer_parts(*, scope: ast.AST) -> list[ast.AST]:
     """The children of a nested scope that belong to the enclosing one."""
     if isinstance(scope, (ast.FunctionDef, ast.AsyncFunctionDef)):
-        return [*scope.decorator_list, *scope.args.defaults, *scope.args.kw_defaults]
+        return [*scope.decorator_list, *_list_defaults(args=scope.args)]
     if isinstance(scope, ast.Lambda):
-        return [*scope.args.defaults, *scope.args.kw_defaults]
+        return _list_defaults(args=scope.args)
     return [scope.generators[0].iter] if scope.generators else []
+
+
+def _list_defaults(*, args: ast.arguments) -> list[ast.AST]:
+    """Default expressions of *args*; a keyword-only argument without one holds ``None``."""
+    return [node for node in (*args.defaults, *args.kw_defaults) if node is not None]
 
 
 def _iter_name_uses(*, scope: ast.AST, shadowed: frozenset[str]) -> Iterator[tuple[str, ast.AST]]:

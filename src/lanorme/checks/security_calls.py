@@ -21,9 +21,10 @@ patches (e.g. trusted-input ``pickle.load`` inside an internal cache module).
 
 Every rule sees a call through the module's imports: ``import subprocess as
 sp`` and ``from subprocess import run as sh`` resolve to ``subprocess.run``.
-A name the module rebinds itself (a parameter, a local ``def``, an
-assignment) is treated as unknown, so a local ``run(cmd, shell=True)`` or a
-visitor's own ``eval(node)`` never fires. An ``ssl`` constant that is only
+A name the module rebinds where the call can see it (at module level, or in
+the calling function: a parameter, a local ``def``, an assignment) is treated
+as unknown, so a local ``run(cmd, shell=True)`` never fires; a method named
+``exec`` or another function's parameter named ``sp`` shadows nothing. An ``ssl`` constant that is only
 compared against (``if proto == ssl.PROTOCOL_TLSv1: reject()``) is a guard,
 not a use.
 
@@ -34,32 +35,16 @@ Run:
 from __future__ import annotations
 
 import ast
-from collections.abc import Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
 
 from lanorme import CheckResult, Violation, register
 from lanorme.astnames import build_attr_chain, read_str_constant
+from lanorme.lexical_scopes import Binding, ScopeTree
 from lanorme.sources import Module, iter_parsed_modules, locate
 
 # (rule, message, fix) for one finding.
 _Finding = tuple[str, str, str]
-
-# Nodes that bind a plain name and so shadow an import or a builtin.
-_BINDING_NODES = (
-    ast.arg,
-    ast.FunctionDef,
-    ast.AsyncFunctionDef,
-    ast.ClassDef,
-    ast.ExceptHandler,
-    ast.Assign,
-    ast.AnnAssign,
-    ast.For,
-    ast.AsyncFor,
-    ast.comprehension,
-    ast.withitem,
-    ast.NamedExpr,
-)
 
 _FIX_SHELL = "Use subprocess.run([...], shell=False) with an argv list instead"
 _FIX_DESERIAL = "Replace with a safe serialiser (json, msgpack), or # noqa: DESERIAL-001 if the input is trusted"
@@ -156,39 +141,22 @@ def _build_violation(*, node: ast.AST, finding: _Finding, file: str) -> Violatio
 
 @dataclass(frozen=True)
 class _Scope:
-    """What a module's own text says about the names its calls use."""
+    """What a module's own text says about the names its calls use.
+
+    *bindings* holds every binding of an import alias or an eval builtin's
+    name, so a use can be judged under Python's scoping: only a module-level
+    binding or one in a function around the use shadows it.
+    """
 
     aliases: dict[str, tuple[str, ...]]
-    rebound: frozenset[str]
+    bindings: dict[str, list[Binding]]
+    tree: ScopeTree
     compared: frozenset[int]
 
-
-def _iter_target_names(target: ast.AST | None) -> Iterator[str]:
-    if isinstance(target, ast.Name):
-        yield target.id
-    elif isinstance(target, ast.Starred):
-        yield from _iter_target_names(target.value)
-    elif isinstance(target, ast.Tuple | ast.List):
-        for element in target.elts:
-            yield from _iter_target_names(element)
-
-
-def _iter_bound_names(node: ast.AST) -> Iterator[str]:
-    """The plain names *node* binds: parameters, def/class names, targets."""
-    if isinstance(node, ast.arg):
-        yield node.arg
-    elif isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
-        yield node.name
-    elif isinstance(node, ast.ExceptHandler):
-        if node.name:
-            yield node.name
-    elif isinstance(node, ast.Assign):
-        for target in node.targets:
-            yield from _iter_target_names(target)
-    elif isinstance(node, ast.withitem):
-        yield from _iter_target_names(node.optional_vars)
-    else:  # AnnAssign, For, AsyncFor, comprehension, NamedExpr
-        yield from _iter_target_names(node.target)  # type: ignore[attr-defined]
+    def is_rebound(self, name: str, *, at: ast.AST) -> bool:
+        """True when the module rebinds *name* where *at* can see it."""
+        bindings = self.bindings.get(name)
+        return bindings is not None and self.tree.is_bound_at(bindings=bindings, at=at)
 
 
 def _collect_import_aliases(module: Module) -> dict[str, tuple[str, ...]]:
@@ -226,13 +194,12 @@ def _collect_compared_ids(module: Module) -> frozenset[int]:
 
 
 def _build_scope(module: Module) -> _Scope:
-    rebound: set[str] = set()
-    for node in module.index.collect(*_BINDING_NODES):
-        rebound.update(_iter_bound_names(node))
     aliases = _collect_import_aliases(module)
+    tree = ScopeTree(module)
     return _Scope(
-        aliases={name: target for name, target in aliases.items() if name not in rebound},
-        rebound=frozenset(rebound),
+        aliases=aliases,
+        bindings=tree.collect_bindings(frozenset(aliases) | _EVAL_FUNCS),
+        tree=tree,
         compared=_collect_compared_ids(module),
     )
 
@@ -240,7 +207,7 @@ def _build_scope(module: Module) -> _Scope:
 def _resolve_chain(node: ast.AST, *, scope: _Scope) -> tuple[str, ...]:
     """The attribute chain at *node* with its head import alias expanded."""
     chain = build_attr_chain(node)
-    if chain and chain[0] in scope.aliases:
+    if chain and chain[0] in scope.aliases and not scope.is_rebound(chain[0], at=node):
         return scope.aliases[chain[0]] + chain[1:]
     return chain
 
@@ -278,16 +245,18 @@ def _find_deserial_finding(*, call: ast.Call, chain: tuple[str, ...]) -> _Findin
     )
 
 
-def _is_eval_chain(chain: tuple[str, ...], *, scope: _Scope) -> bool:
+def _is_eval_chain(chain: tuple[str, ...], *, scope: _Scope, at: ast.Call) -> bool:
     """True for the builtin ``eval`` / ``exec`` / ``compile``, bare or via ``builtins``."""
     if len(chain) == 2 and chain[0] == "builtins":
         return chain[1] in _EVAL_FUNCS
-    return len(chain) == 1 and chain[0] in _EVAL_FUNCS and chain[0] not in scope.rebound
+    if len(chain) != 1 or chain[0] not in _EVAL_FUNCS:
+        return False
+    return not scope.is_rebound(chain[0], at=at)
 
 
 def _find_eval_finding(*, call: ast.Call, chain: tuple[str, ...], scope: _Scope) -> _Finding | None:
     """EVAL-001: the builtin on a non-literal first argument."""
-    if not call.args or not _is_eval_chain(chain, scope=scope):
+    if not call.args or not _is_eval_chain(chain, scope=scope, at=call):
         return None
     if _is_string_literal(call.args[0]):
         return None  # literal argument: common in trusted compile() flows
@@ -310,13 +279,12 @@ def _find_weak_hash_name(*, call: ast.Call, chain: tuple[str, ...]) -> str | Non
 
 
 def _find_crypto_finding(*, call: ast.Call, chain: tuple[str, ...]) -> _Finding | None:
-    """CRYPTO-001: a weak hash, unless ``usedforsecurity`` is False or not a literal."""
+    """CRYPTO-001: a weak hash, unless ``usedforsecurity`` is the literal ``False``."""
     algorithm = _find_weak_hash_name(call=call, chain=chain)
     if algorithm is None:
         return None
-    flag = _find_kwarg_named(call=call, name="usedforsecurity")
-    if flag is not None and not _is_constant_true(flag):
-        return None  # declared non-security, or too ambiguous to call
+    if _is_constant_false(_find_kwarg_named(call=call, name="usedforsecurity")):
+        return None  # declared non-security; a computed flag may still be True
     spelled = f"hashlib.new({algorithm!r})" if chain[1] == "new" else f"hashlib.{algorithm}"
     return (
         "CRYPTO-001",

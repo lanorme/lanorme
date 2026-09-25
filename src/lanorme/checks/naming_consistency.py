@@ -25,7 +25,7 @@ from typing import ClassVar
 from lanorme import CheckResult, Violation, register
 from lanorme.astnames import list_decorator_leaves
 from lanorme.checkconfig import is_flag_set
-from lanorme.checks.naming_shapes import Definition, is_framework_named
+from lanorme.checks.naming_shapes import Definition, is_framework_named, map_module_classes
 from lanorme.checks.naming_words import is_predicate, split_name
 from lanorme.sources import Module, iter_parsed_modules, locate
 
@@ -277,6 +277,7 @@ def _check_bool_naming(*, module: Module) -> list[Violation]:
     warnings: list[Violation] = []
     protocol_members = _collect_protocol_members(module=module)
     owners = _map_method_owners(module=module)
+    classes = map_module_classes(tree=module.tree)
 
     for node in module.index.functions:
         if node.name.startswith("_"):
@@ -296,7 +297,8 @@ def _check_bool_naming(*, module: Module) -> list[Violation]:
 
         # A name a protocol or framework fixed (``readable``, ``filter`` on a
         # logging.Filter, Django's ``allow_migrate``, Qt's ``eventFilter``).
-        if is_framework_named(definition=Definition(node=node, owner=owners.get(id(node)))):
+        definition = Definition(node=node, owner=owners.get(id(node)), classes=classes)
+        if is_framework_named(definition=definition):
             continue
 
         warnings.append(

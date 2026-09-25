@@ -174,6 +174,22 @@ def _select_checks(*, only: list[Check] | None) -> tuple[list[str], list[str]]:
 
 
 @dataclass(frozen=True)
+class RunConfigs:
+    """The two configs a run reads.
+
+    *project* is the project root's own config: the run keys (``select``,
+    ``ignore``, ``exclude``, ``per-file-ignores``, ``source_root``,
+    ``baseline``) and the whole-tree pass read it, whatever subtree is
+    scanned. *scan* is the config in force at the scan root (the project's
+    with every nested config down to it folded in), which the region passes
+    start from. For a scan of the project root they are the same.
+    """
+
+    project: Config
+    scan: Config
+
+
+@dataclass(frozen=True)
 class Filters:
     """The result-narrowing inputs a run applies (CLI value or config fallback)."""
 
@@ -263,7 +279,7 @@ def _read_per_file_ignores(*, config: Config, filters: Filters) -> dict[str, lis
 
 def collect_results(
     *,
-    config: dict[str, object],
+    configs: RunConfigs,
     configured: dict[str, Check],
     scan_root: Path,
     project_root: Path,
@@ -273,15 +289,16 @@ def collect_results(
 ) -> RunOutcome | None:
     """Run the checks and narrow the results up to (and including) inline ignores.
 
-    *configured* holds the registered checks configured from *config* (the
-    root config); they run the whole-tree pass and judge the opt-in count,
-    while each region's pass configures its own. This is the shared spine of
-    ``check``, ``baseline write`` and ``baseline status``: all three must see
-    byte-identical findings through an identical path, or recorded anchors
-    would not line up with checked ones. The baseline hook and promotion run
-    after this, on the returned project-root-relative results. Returns
-    ``None`` when no checks are registered.
+    *configured* holds the registered checks configured from the project
+    root's config; they run the whole-tree pass and judge the opt-in count,
+    while each region's pass configures its own from *configs*. This is the
+    shared spine of ``check``, ``baseline write`` and ``baseline status``: all
+    three must see byte-identical findings through an identical path, or
+    recorded anchors would not line up with checked ones. The baseline hook and
+    promotion run after this, on the returned project-root-relative results.
+    Returns ``None`` when no checks are registered.
     """
+    config = configs.project
     per_file_ignores = _read_per_file_ignores(config=config, filters=filters)
 
     only: list[Check] | None = None
@@ -296,7 +313,7 @@ def collect_results(
         source_root=source_root if isinstance(source_root, str) else "",
     )
     bounds = RunBounds(scan=base, scope=scope)
-    results = _run_checks(config=config, configured=configured, bounds=bounds, only=only)
+    results = _run_checks(config=configs.scan, configured=configured, bounds=bounds, only=only)
     if not results:
         return None
 

@@ -444,3 +444,54 @@ def test_prose003_on_comments_spares_typographic_symbols(tmp_path: Path):
 
     # Assert: the rocket and the heavy check mark are emoji; the rest is not.
     assert [v.line for v in result.violations if v.rule == "PROSE-003"] == [3, 4]
+
+
+@pytest.mark.parametrize(
+    ("body", "line"),
+    [
+        (
+            "from datetime import datetime\n\n# created: datetime = datetime.now()\nx = 1\n",
+            3,
+        ),
+        ("def total(monthly):\n    # return monthly\n    return 0\n", 2),
+        ("monthly = 12\n\n\ndef total():\n    # return monthly\n    return 0\n", 5),
+    ],
+)
+def test_cmt001_reads_a_module_name_as_code_not_as_a_note(
+    check: CommentsCheck,
+    tmp_path: Path,
+    body: str,
+    line: int,
+):
+    # Arrange: the "label" is an imported type, the "adverb" a name the module binds.
+    _write(root=tmp_path, name="dead.py", body=body)
+
+    # Act.
+    result = check.run(src_root=str(tmp_path))
+
+    # Assert.
+    assert [(v.code, v.file, v.line) for v in result.violations if v.code == "CMT-001"] == [
+        ("CMT-001", "dead.py", line),
+    ]
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "import os\n\n# created: datetime = datetime.now()\nx = 1\n",
+        "yearly = 1\n\n\ndef total():\n    # return monthly\n    return 0\n",
+    ],
+)
+def test_cmt001_keeps_the_note_reading_when_the_word_is_not_the_modules(
+    check: CommentsCheck,
+    tmp_path: Path,
+    body: str,
+):
+    # Arrange: the lowercase label is not imported; the adverb is not bound here.
+    _write(root=tmp_path, name="note.py", body=body)
+
+    # Act.
+    result = check.run(src_root=str(tmp_path))
+
+    # Assert.
+    assert not any(v.code == "CMT-001" for v in result.violations)

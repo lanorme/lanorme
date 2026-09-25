@@ -43,6 +43,7 @@ from lanorme.comment_code import (
     _measure_prose_length,
 )
 from lanorme.checks.file_limits import _measure_cyclomatic_complexity
+from lanorme.lexical_scopes import ModuleBindings
 from lanorme.markdown import EMOJI_RE
 from lanorme.sources import Module, iter_parsed_modules
 
@@ -307,6 +308,7 @@ class CommentsCheck:
         metadata_lines = _find_pep723_metadata_lines(module.lines)
         if self.flag_commented_code:
             exempt = metadata_lines | _find_illustrative_lines(comments)
+            names = ModuleBindings(module)
             found.extend(
                 _build_violation(
                     relative_file=relative_file,
@@ -317,7 +319,7 @@ class CommentsCheck:
                     column=c.column,
                 )
                 for c in comments
-                if c.line not in exempt and _looks_like_code(text=c.text)
+                if c.line not in exempt and _looks_like_code(text=c.text, names=names)
             )
         if self.flag_verbose:
             found.extend(

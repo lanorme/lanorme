@@ -451,3 +451,80 @@ def test_drf_and_django_command_hooks_are_not_weak_verbs_on_a_plain_class(tmp_pa
 
     # Assert.
     assert [(w.line, w.code) for w in result.warnings] == [(6, "NAMING-008")]
+
+
+def test_camel_case_method_on_a_subclass_of_a_local_base_is_the_authors(tmp_path: Path) -> None:
+    # Arrange: ``BaseService`` is defined here, so ``userData`` is no inherited API.
+    body = (
+        "class BaseService:\n"
+        "    pass\n"
+        "class X(BaseService):\n"
+        "    def userData(self):\n        self.cache.clear()\n"
+    )
+
+    # Act.
+    result = _run(root=tmp_path, body=body)
+
+    # Assert.
+    assert [(w.code, w.file, w.line) for w in result.warnings] == [("NAMING-007", "sample.py", 4)]
+
+
+def test_camel_case_method_on_a_nameless_base_is_the_authors(tmp_path: Path) -> None:
+    # Arrange: ``ABC`` and ``Generic[T]`` carry no method names to override.
+    body = "class X(ABC, Generic[T]):\n    def userData(self):\n        self.cache.clear()\n"
+
+    # Act.
+    result = _run(root=tmp_path, body=body)
+
+    # Assert.
+    assert [(w.code, w.file, w.line) for w in result.warnings] == [("NAMING-007", "sample.py", 2)]
+
+
+def test_camel_case_method_through_a_local_base_on_an_external_one_passes(
+    tmp_path: Path,
+) -> None:
+    # Arrange: the local ``Base`` extends Qt's ``QWidget``, so the name is still Qt's.
+    body = (
+        "class Base(QWidget):\n"
+        "    pass\n"
+        "class W(Base):\n"
+        "    def mousePressEvent(self, event):\n        self.pressed = True\n"
+    )
+
+    # Act.
+    result = _run(root=tmp_path, body=body)
+
+    # Assert.
+    assert result.warnings == []
+
+
+def test_weak_verb_method_on_a_subclass_of_a_local_base_is_reported(tmp_path: Path) -> None:
+    # Arrange: NAMING-008 skipped every method with a base; ``BaseService`` is this module's.
+    body = (
+        "class BaseService:\n"
+        "    pass\n"
+        "class X(BaseService):\n"
+        "    def handle_order(self, order):\n        return order.total\n"
+    )
+
+    # Act.
+    result = _run(root=tmp_path, body=body)
+
+    # Assert.
+    assert [(w.code, w.file, w.line) for w in result.warnings] == [("NAMING-008", "sample.py", 4)]
+
+
+def test_override_of_a_local_base_method_leaves_the_finding_on_the_base(tmp_path: Path) -> None:
+    # Arrange: ``Child`` overrides the name ``Base`` chose; only ``Base`` owns it.
+    body = (
+        "class Base:\n"
+        "    def handle_order(self, order):\n        return order.total\n"
+        "class Child(Base):\n"
+        "    def handle_order(self, order):\n        return order.total * 2\n"
+    )
+
+    # Act.
+    result = _run(root=tmp_path, body=body)
+
+    # Assert.
+    assert [(w.code, w.file, w.line) for w in result.warnings] == [("NAMING-008", "sample.py", 2)]

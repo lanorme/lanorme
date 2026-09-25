@@ -40,8 +40,8 @@ from lanorme.errors import UsageError
 from lanorme.filters import apply_promotions, count_findings, note_excluded_targets
 from lanorme.presets import _resolve_extends
 from lanorme.selectors import checks_for_selector, reject_unknown_selectors
-from lanorme.regions import discover_config, reject_unknown_top_level_keys
-from lanorme.runner import Filters, RunOutcome, collect_results
+from lanorme.regions import DiscoveredConfig, discover_config, reject_unknown_top_level_keys
+from lanorme.runner import Filters, RunConfigs, RunOutcome, collect_results
 
 logger = logging.getLogger(__name__)
 
@@ -295,13 +295,21 @@ def _resolve_baseline_path(*, config: dict[str, object], project_root: Path) -> 
 def _run_and_report(
     *,
     args: argparse.Namespace,
-    config: dict[str, object],
+    found: DiscoveredConfig,
     scan_root: Path,
-    project_root: Path,
     targets: list[Path] | None,
     configured: dict[str, Check],
 ) -> None:
-    """Run the selected checks, apply the filters, print, and set the exit code."""
+    """Run the selected checks, apply the filters, print, and set the exit code.
+
+    *found* is the config in force at the scan root and *configured* the
+    checks configured from it. The run keys and the whole-tree pass read the
+    project root's own config instead, so ``check sub`` applies the same
+    standard as ``check .`` and a nested config governs only its region.
+    """
+    project_root = found.project_root
+    config = _read_project_config(found=found, scan_root=scan_root)
+    root_checks = configured if config is found.config else get_registry().build_configured(config)
     ignore = _split_csv(args.ignore) or _read_config_list(config.get("ignore"))
     exclude = _split_csv(args.exclude) or _read_config_list(config.get("exclude"))
     promote = _split_csv(args.promote) or _read_config_list(config.get("promote"))
@@ -310,8 +318,8 @@ def _run_and_report(
     reject_unknown_selectors(selectors=promote, origin="'promote'")
 
     outcome = collect_results(
-        config=config,
-        configured=configured,
+        configs=RunConfigs(project=config, scan=found.config),
+        configured=root_checks,
         scan_root=scan_root,
         project_root=project_root,
         targets=targets,
@@ -365,12 +373,25 @@ def _apply_baseline(
     return narrowed, drifted
 
 
+def _read_project_config(*, found: DiscoveredConfig, scan_root: Path) -> dict[str, object]:
+    """The project root's own config, which the run keys and whole-tree checks read.
+
+    *found* is the config in force at *scan_root*: the project root's with
+    every nested config down to the scan root folded in. For a scan of the
+    project root the two are the same object; for a subtree scan the nested
+    configs govern only the region passes, never the run.
+    """
+    if scan_root.resolve() == found.project_root.resolve():
+        return found.config
+    return discover_config(start=found.project_root, resolve_extends=_resolve_extends).config
+
+
 def _run_check_command(*, args: argparse.Namespace) -> None:
     """Handle the ``check`` subcommand: discover config, then report or run."""
     scan_root, targets = _resolve_targets(args.paths)
 
     found = discover_config(start=scan_root, resolve_extends=_resolve_extends)
-    config, project_root, config_source = found.config, found.project_root, found.source
+    config = found.config
     _load_plugin_modules([*config.get("plugins", []), *args.plugin])
     reject_unknown_top_level_keys(config=config, origin="[tool.lanorme]")
     # The registered checks are templates; the run works on configured copies,
@@ -384,9 +405,8 @@ def _run_check_command(*, args: argparse.Namespace) -> None:
 
     _run_and_report(
         args=args,
-        config=config,
+        found=found,
         scan_root=scan_root,
-        project_root=project_root,
         targets=targets,
         configured=configured,
     )
@@ -415,7 +435,7 @@ def _run_baseline_command(*, args: argparse.Namespace) -> None:
         baseline_path = project_root / "lanorme-baseline.json"
 
     outcome = collect_results(
-        config=config,
+        configs=RunConfigs(project=config, scan=config),
         configured=configured,
         scan_root=scan_root,
         project_root=project_root,

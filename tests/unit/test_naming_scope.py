@@ -15,7 +15,7 @@ from pathlib import Path
 
 import pytest
 
-from lanorme import Status
+from lanorme import Status, run_check
 from lanorme.checks.naming_scope import NamingScopeCheck
 
 
@@ -313,3 +313,59 @@ def test_match_capture_is_a_binding(tmp_path: Path, check: NamingScopeCheck) -> 
     # Assert.
     assert _collect_codes(result=result) == ["NAMING-005", "NAMING-005"]
     assert {v.line for v in result.violations} == {3}
+
+
+# --------------------------------------------------------------------------- #
+# Keyword-only arguments without a default (regression: RUN-000 crash)
+# --------------------------------------------------------------------------- #
+
+
+def test_keyword_only_argument_without_default_runs_clean(
+    tmp_path: Path,
+    check: NamingScopeCheck,
+) -> None:
+    # Arrange: ``kw_defaults`` holds ``None`` for ``key``, which once crashed the walk.
+    body = (
+        "def outer():\n"
+        "    def inner(*, key):\n"
+        "        return key\n"
+        "    return inner, lambda *, flag: flag\n"
+    )
+    _write(root=tmp_path, body=body)
+
+    # Act
+    result = run_check(check, src_root=str(tmp_path))
+
+    # Assert
+    assert result.status is Status.PASS
+    assert result.violations == []
+    assert result.warnings == []
+
+
+def test_short_keyword_only_argument_over_a_long_span_is_flagged(
+    tmp_path: Path,
+    check: NamingScopeCheck,
+) -> None:
+    # Arrange: ``rc`` is keyword-only with no default and is used far below.
+    body = (
+        f"def sample(*, rc, rows):\n    total = 0\n{_build_filler(gap=25)}\n    return rc + total\n"
+    )
+    _write(root=tmp_path, body=body)
+
+    # Act
+    result = run_check(check, src_root=str(tmp_path))
+
+    # Assert
+    assert [(v.code, v.file, v.line) for v in result.violations] == [("NAMING-005", "sample.py", 1)]
+    assert result.warnings == []
+
+
+def test_check_runs_on_its_own_source_without_a_crash(check: NamingScopeCheck) -> None:
+    # Arrange
+    src_root = Path(__file__).resolve().parents[2] / "src"
+
+    # Act
+    result = run_check(check, src_root=str(src_root))
+
+    # Assert
+    assert [w.code for w in result.warnings if w.code == "RUN-000"] == []

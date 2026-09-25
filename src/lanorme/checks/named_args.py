@@ -24,7 +24,6 @@ from pathlib import Path
 from typing import ClassVar
 
 from lanorme import CheckResult, Violation, register
-from lanorme.astnames import find_decorator_leaf
 from lanorme.checkconfig import is_flag_set
 from lanorme.sources import UnparseableFile, iter_modules, locate, build_unparseable_notice
 
@@ -42,6 +41,10 @@ def _is_dunder(*, name: str) -> bool:
     return name.startswith("__") and name.endswith("__")
 
 
+# The modules whose ``override`` marks a method as overriding its base.
+_OVERRIDE_MODULES = frozenset({"typing", "typing_extensions"})
+
+
 def _is_override(*, node: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
     """True if the function is decorated ``@override`` / ``@typing.override``.
 
@@ -49,9 +52,16 @@ def _is_override(*, node: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
     ``*`` cannot be added here: the finding belongs on the base method.
     """
     for decorator in node.decorator_list:
-        # One call is looked through (``@override()``), no more.
-        target = decorator.func if isinstance(decorator, ast.Call) else decorator
-        if find_decorator_leaf(target, calls=False) == "override":
+        # ``typing.override`` is never called, so a call (Django's
+        # ``@translation.override("fr")``) is some other decorator.
+        if isinstance(decorator, ast.Name) and decorator.id == "override":
+            return True
+        if (
+            isinstance(decorator, ast.Attribute)
+            and decorator.attr == "override"
+            and isinstance(decorator.value, ast.Name)
+            and decorator.value.id in _OVERRIDE_MODULES
+        ):
             return True
     return False
 

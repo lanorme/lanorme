@@ -203,6 +203,10 @@ def _collect_sites(violations) -> set[tuple[str, int]]:
     return {(v.rule, v.line) for v in violations}
 
 
+def _collect_located(violations) -> list[tuple[str, str, int]]:
+    return sorted((v.code, v.file, v.line) for v in violations)
+
+
 def test_shell_001_resolves_a_from_import_alias(tmp_path, tmp_py_file):
     # Arrange: subprocess.run bound to another name.
     tmp_py_file(
@@ -307,15 +311,18 @@ def test_crypto_001_accepts_hashlib_new_for_non_security_use(tmp_path, tmp_py_fi
     assert not result.violations
 
 
-def test_crypto_001_stays_quiet_when_usedforsecurity_is_not_a_literal(tmp_path, tmp_py_file):
-    # Arrange: the flag comes from a variable; the shape is ambiguous.
-    tmp_py_file(name="ok.py", body="import hashlib\nhashlib.md5(payload, usedforsecurity=flag)\n")
+def test_crypto_001_fires_when_usedforsecurity_is_not_a_literal(tmp_path, tmp_py_file):
+    # Arrange: a computed flag may be True at run time; only a literal False opts out.
+    tmp_py_file(
+        name="bad.py",
+        body="import hashlib\nhashlib.md5(payload, usedforsecurity=strict)\n",
+    )
 
     # Act
     result = SecurityCallsCheck().run(src_root=str(tmp_path))
 
     # Assert
-    assert not result.violations
+    assert _collect_located(result.violations) == [("CRYPTO-001", "bad.py", 2)]
 
 
 def test_crypto_001_ignores_a_protocol_constant_that_is_only_compared(tmp_path, tmp_py_file):
@@ -370,3 +377,69 @@ def test_debug_001_resolves_a_constructor_alias(tmp_path, tmp_py_file):
 
     # Assert
     assert _collect_sites(result.violations) == {("DEBUG-001", 2)}
+
+
+# --- Shadowing follows Python's scopes, not a file-wide name set ----------- #
+
+
+def test_eval_001_is_not_shadowed_by_a_method_of_the_same_name(tmp_path, tmp_py_file):
+    # Arrange: ``Job.exec`` binds in the class body; the module-level call is the builtin.
+    tmp_py_file(
+        name="bad.py",
+        body="class Job:\n    def exec(self):\n        return 1\n\n\nexec(code)\n",
+    )
+
+    # Act
+    result = SecurityCallsCheck().run(src_root=str(tmp_path))
+
+    # Assert
+    assert _collect_located(result.violations) == [("EVAL-001", "bad.py", 6)]
+
+
+def test_shell_001_alias_is_not_shadowed_by_another_functions_parameter(tmp_path, tmp_py_file):
+    # Arrange: ``helper``'s parameter ``sp`` is its own; ``launch`` still calls subprocess.
+    tmp_py_file(
+        name="bad.py",
+        body=(
+            "import subprocess as sp\n\n\n"
+            "def helper(sp=None):\n    return sp\n\n\n"
+            "def launch(cmd):\n    return sp.run(cmd, shell=True)\n"
+        ),
+    )
+
+    # Act
+    result = SecurityCallsCheck().run(src_root=str(tmp_path))
+
+    # Assert
+    assert _collect_located(result.violations) == [("SHELL-001", "bad.py", 9)]
+
+
+def test_shell_001_alias_rebound_in_the_calling_function_is_unknown(tmp_path, tmp_py_file):
+    # Arrange: ``launch`` binds its own ``sp``; that call is not subprocess.run.
+    tmp_py_file(
+        name="ok.py",
+        body="import subprocess as sp\n\n\ndef launch(sp, cmd):\n    return sp.run(cmd, shell=True)\n",
+    )
+
+    # Act
+    result = SecurityCallsCheck().run(src_root=str(tmp_path))
+
+    # Assert
+    assert not result.violations
+
+
+def test_eval_001_is_shadowed_inside_a_nested_function_by_the_outer_parameter(
+    tmp_path,
+    tmp_py_file,
+):
+    # Arrange: ``eval`` is ``outer``'s parameter, visible to ``inner`` as a closure.
+    tmp_py_file(
+        name="ok.py",
+        body="def outer(eval):\n    def inner(value):\n        return eval(value)\n    return inner\n",
+    )
+
+    # Act
+    result = SecurityCallsCheck().run(src_root=str(tmp_path))
+
+    # Assert
+    assert not result.violations

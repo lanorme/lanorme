@@ -384,3 +384,151 @@ def test_literal_joined_to_a_variable_is_interpolation(
     assert len(findings) == 1
     assert findings[0].line == 2
     assert "interpolation" in findings[0].message
+
+
+def _collect_located(result) -> list[tuple[str, str, int]]:
+    return sorted((v.code, v.file, v.line) for v in result.violations)
+
+
+def test_parameter_named_like_a_constant_elsewhere_is_not_static(
+    check: SecurityPatternsCheck,
+    tmp_path: Path,
+):
+    # Arrange: ``clause`` is a string constant in ``defaults`` but a caller's value in ``find_rows``.
+    (tmp_path / "dao.py").write_text(
+        "def defaults():\n"
+        "    clause = 'id = 1'\n"
+        "    return clause\n\n\n"
+        "def find_rows(cur, clause, uid):\n"
+        "    cur.execute('SELECT id FROM users WHERE ' + clause, (uid,))\n",
+        encoding="utf-8",
+    )
+
+    # Act
+    result = check.run(src_root=str(tmp_path))
+
+    # Assert
+    assert _collect_located(result) == [("SQL-001", "dao.py", 7)]
+    assert "interpolation" in result.violations[0].message
+
+
+def test_module_constant_shadowed_by_a_parameter_is_not_static(
+    check: SecurityPatternsCheck,
+    tmp_path: Path,
+):
+    # Arrange: the module's ``WHERE`` is static, but ``find_rows`` takes its own.
+    (tmp_path / "dao.py").write_text(
+        "WHERE = 'WHERE id = %s'\n\n\n"
+        "def find_rows(cur, WHERE, uid):\n"
+        "    cur.execute('SELECT id FROM users ' + WHERE, (uid,))\n",
+        encoding="utf-8",
+    )
+
+    # Act
+    result = check.run(src_root=str(tmp_path))
+
+    # Assert
+    assert _collect_located(result) == [("SQL-001", "dao.py", 5)]
+
+
+def test_same_function_constant_still_resolves_as_static(
+    check: SecurityPatternsCheck,
+    tmp_path: Path,
+):
+    # Arrange: the fragment is assigned in the calling function, not passed in.
+    (tmp_path / "dao.py").write_text(
+        "def find_rows(cur, uid):\n"
+        "    clause = 'WHERE id = %s'\n"
+        "    cur.execute('SELECT id FROM users ' + clause, (uid,))\n",
+        encoding="utf-8",
+    )
+
+    # Act
+    result = check.run(src_root=str(tmp_path))
+
+    # Assert
+    assert _collect_located(result) == []
+
+
+def test_optional_user_dependency_is_not_auth(
+    check: SecurityPatternsCheck,
+    tmp_path: Path,
+):
+    # Arrange: an optional user is not an authenticated one.
+    _write_api_endpoint(
+        tmp_path,
+        source=(
+            '@router.post("/items")\n'
+            "async def make_item(payload: dict, user=Depends(get_current_user_optional)):\n"
+            "    return payload\n"
+        ),
+    )
+
+    # Act
+    result = check.run(src_root=str(tmp_path))
+
+    # Assert
+    assert _collect_located(result) == [("AUTHN-001", "api/items.py", 2)]
+
+
+def test_auth_named_operand_of_a_non_dependency_default_is_not_auth(
+    check: SecurityPatternsCheck,
+    tmp_path: Path,
+):
+    # Arrange: ``require_admin`` is an operand of some other call, not a declared dependency.
+    _write_api_endpoint(
+        tmp_path,
+        source=(
+            '@router.post("/items")\n'
+            "async def make_item(payload: dict, hook=wrap(require_admin)):\n"
+            "    return payload\n"
+        ),
+    )
+
+    # Act
+    result = check.run(src_root=str(tmp_path))
+
+    # Assert
+    assert _collect_located(result) == [("AUTHN-001", "api/items.py", 2)]
+
+
+def test_auth_named_extra_operand_of_depends_is_not_auth(
+    check: SecurityPatternsCheck,
+    tmp_path: Path,
+):
+    # Arrange: the dependency is ``load_user``; ``require_admin`` is only a keyword value.
+    _write_api_endpoint(
+        tmp_path,
+        source=(
+            '@router.post("/items")\n'
+            "async def make_item(payload: dict, user=Depends(load_user, extra=require_admin)):\n"
+            "    return payload\n"
+        ),
+    )
+
+    # Act
+    result = check.run(src_root=str(tmp_path))
+
+    # Assert
+    assert _collect_located(result) == [("AUTHN-001", "api/items.py", 2)]
+
+
+def test_security_marker_with_keyword_dependency_is_auth(
+    check: SecurityPatternsCheck,
+    tmp_path: Path,
+):
+    # Arrange: ``Security(dependency=...)`` through the ``fastapi`` module attribute.
+    _write_api_endpoint(
+        tmp_path,
+        source=(
+            '@router.post("/items")\n'
+            "async def make_item(payload: dict, user=fastapi.Security(dependency=require_user)):\n"
+            "    return payload\n"
+        ),
+    )
+
+    # Act
+    result = check.run(src_root=str(tmp_path))
+
+    # Assert
+    assert _collect_located(result) == []

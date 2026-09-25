@@ -26,13 +26,21 @@ from typing import ClassVar
 from lanorme import CheckResult, Violation, register
 from lanorme.astnames import read_str_constant
 from lanorme.checkconfig import read_str
+from lanorme.lexical_scopes import Binding, ScopeTree
 from lanorme.sources import TOO_DEEP, Module, iter_parsed_modules, build_skip_notice, locate
 
 # HTTP methods that mutate data, these MUST have auth.
 MUTATION_METHODS = {"post", "put", "patch", "delete"}
 
-# Auth dependency detection: any Depends() arg matching these prefixes counts as auth.
-AUTH_DEPENDENCY_PREFIXES = ("get_current_user", "require_")
+# Auth dependency detection: the dependency handed to ``Depends()`` /
+# ``Security()`` counts as auth when it is named exactly one of these, or
+# starts with one of the prefixes. ``get_current_user_optional`` is neither:
+# an optional user is not an authenticated one.
+AUTH_DEPENDENCY_NAMES = frozenset({"get_current_user"})
+AUTH_DEPENDENCY_PREFIXES = ("require_",)
+
+# The FastAPI markers that declare a dependency.
+_DEPENDENCY_MARKERS = frozenset({"Depends", "Security"})
 
 # Endpoints that are exempt from AUTHN-001, they ARE the auth boundary,
 # so they cannot themselves require auth. Common auth-issuance and public
@@ -79,8 +87,6 @@ _SQL_KEYWORDS_RE = re.compile(
     re.IGNORECASE | re.DOTALL,
 )
 
-# The module's ``NAME = "<sql>"`` bindings, when a sink is handed a bare Name.
-_SqlConstants = dict[str, "_SqlConst"] | None
 
 # Placeholder shapes a driver binds; SQL with a placeholder + a params arg is safe.
 _SQL_PLACEHOLDER_RE = re.compile(r":[A-Za-z_]\w*|%s|%\([A-Za-z_]\w*\)s|\?")
@@ -99,32 +105,54 @@ def _is_mutation_endpoint(node: ast.FunctionDef | ast.AsyncFunctionDef) -> str |
 
 def _is_auth_name(name: str) -> bool:
     """Check if a function name looks like an auth dependency."""
-    return any(name.startswith(prefix) for prefix in AUTH_DEPENDENCY_PREFIXES)
+    return name in AUTH_DEPENDENCY_NAMES or name.startswith(AUTH_DEPENDENCY_PREFIXES)
 
 
 def _collect_dependency_sites(node: ast.FunctionDef | ast.AsyncFunctionDef) -> list[ast.expr]:
-    """Where FastAPI accepts a ``Depends(...)``: annotations, defaults, ``dependencies=``."""
+    """Where a ``Depends(...)`` may sit nested: annotations and ``dependencies=`` lists."""
     arguments = node.args
     params = (*arguments.posonlyargs, *arguments.args, *arguments.kwonlyargs)
     sites: list[ast.expr] = [arg.annotation for arg in params if arg.annotation is not None]
-    sites.extend(d for d in (*arguments.defaults, *arguments.kw_defaults) if d is not None)
     for decorator in node.decorator_list:
         if isinstance(decorator, ast.Call):
             sites.extend(kw.value for kw in decorator.keywords if kw.arg == "dependencies")
     return sites
 
 
-def _is_auth_call(call: ast.Call) -> bool:
-    """True for ``Depends(require_*)`` / ``Security(get_current_user, ...)`` shapes."""
-    operands = (*call.args, *(kw.value for kw in call.keywords))
-    return any(isinstance(o, ast.Name) and _is_auth_name(o.id) for o in operands)
+def _is_auth_call(call: ast.AST) -> bool:
+    """True for ``Depends(require_*)`` / ``Security(get_current_user, ...)`` shapes.
+
+    The call must be a dependency marker, and the dependency it declares (its
+    first argument, or ``dependency=``) must carry an auth name itself; an
+    auth-named operand anywhere else in the call does not count.
+    """
+    if not isinstance(call, ast.Call):
+        return False
+    marker = call.func
+    marker_name = marker.id if isinstance(marker, ast.Name) else getattr(marker, "attr", None)
+    if marker_name not in _DEPENDENCY_MARKERS:
+        return False
+    dependency = call.args[0] if call.args else None
+    for keyword in call.keywords:
+        if keyword.arg == "dependency":
+            dependency = keyword.value
+    return isinstance(dependency, ast.Name) and _is_auth_name(dependency.id)
 
 
 def _has_auth_dependency(node: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
-    """Check if a function declares an auth dependency anywhere FastAPI accepts one."""
+    """Check if a function declares an auth dependency anywhere FastAPI accepts one.
+
+    A parameter default counts only when the default itself is the marker
+    call (``user = Depends(get_current_user)``); an annotation or a
+    ``dependencies=`` list may nest it (``Annotated[User, Depends(...)]``).
+    """
+    arguments = node.args
+    defaults = (*arguments.defaults, *arguments.kw_defaults)
+    if any(_is_auth_call(default) for default in defaults if default is not None):
+        return True
     for site in _collect_dependency_sites(node):
         for child in ast.walk(site):
-            if isinstance(child, ast.Call) and _is_auth_call(child):
+            if _is_auth_call(child):
                 return True
     return False
 
@@ -186,7 +214,7 @@ def _find_literal_node(node: ast.expr) -> ast.expr | None:
     return None
 
 
-def _find_literal_lineno(node: ast.expr, *, constants: _SqlConstants = None) -> int | None:
+def _find_literal_lineno(node: ast.expr, *, constants: _SqlConstants | None = None) -> int | None:
     """Return the source line of the SQL-bearing literal at *node*, or ``None``.
 
     Knows the same shapes as :func:`_extract_sql_string`: literals, f-strings,
@@ -201,12 +229,16 @@ def _find_literal_lineno(node: ast.expr, *, constants: _SqlConstants = None) -> 
     while isinstance(node, ast.Call) and _is_text_constructor(node) and node.args:
         node = node.args[0]
     if isinstance(node, ast.Name) and constants is not None:
-        entry = constants.get(node.id)
+        entry = constants.find(node)
         return entry.lineno if entry is not None else None
     return None
 
 
-def _sql_from_concat(node: ast.BinOp, *, constants: _SqlConstants) -> tuple[str | None, bool]:
+def _sql_from_concat(
+    node: ast.BinOp,
+    *,
+    constants: _SqlConstants | None,
+) -> tuple[str | None, bool]:
     """Resolve ``"..." + x``: static only when every piece is a literal or literal constant."""
     left_text, left_interp = _extract_sql_string(node.left, constants=constants)
     right_text, right_interp = _extract_sql_string(node.right, constants=constants)
@@ -216,7 +248,7 @@ def _sql_from_concat(node: ast.BinOp, *, constants: _SqlConstants) -> tuple[str 
     return (left_text or "") + (right_text or ""), interpolated
 
 
-def _sql_from_binop(node: ast.BinOp, *, constants: _SqlConstants) -> tuple[str | None, bool]:
+def _sql_from_binop(node: ast.BinOp, *, constants: _SqlConstants | None) -> tuple[str | None, bool]:
     """Resolve ``"..." + x`` and ``"..." % x`` SQL-bearing BinOps."""
     if isinstance(node.op, ast.Add):
         return _sql_from_concat(node, constants=constants)
@@ -227,7 +259,7 @@ def _sql_from_binop(node: ast.BinOp, *, constants: _SqlConstants) -> tuple[str |
     return None, False
 
 
-def _sql_from_call(node: ast.Call, *, constants: _SqlConstants) -> tuple[str | None, bool]:
+def _sql_from_call(node: ast.Call, *, constants: _SqlConstants | None) -> tuple[str | None, bool]:
     """Resolve ``text(...)`` wrappers and ``"...".format(...)`` SQL-bearing calls."""
     if _is_text_constructor(node) and node.args:
         return _extract_sql_string(node.args[0], constants=constants)
@@ -241,7 +273,7 @@ def _sql_from_call(node: ast.Call, *, constants: _SqlConstants) -> tuple[str | N
 def _extract_sql_string(
     node: ast.expr,
     *,
-    constants: _SqlConstants = None,
+    constants: _SqlConstants | None = None,
 ) -> tuple[str | None, bool]:
     """Return ``(text, interpolated)`` for an SQL-argument AST node, or ``(None, False)``.
 
@@ -253,8 +285,9 @@ def _extract_sql_string(
     - ``"..." + name + "..."`` ``BinOp(Add)`` (``interpolated`` unless every piece is static).
     - ``"... %s ..." % name`` ``BinOp(Mod)`` (``interpolated=True``).
     - ``"...".format(name)`` (``interpolated=True``).
-    - ``Name`` looked up in *constants* (preserving the constant's
-      ``interpolated`` flag).
+    - ``Name`` resolved through *constants* to a module-level constant or
+      a same-function assignment (preserving the constant's ``interpolated``
+      flag); a parameter, or a name bound by anything else, stays unknown.
     - One-deep ``text(<expr>)`` / ``sa.text(<expr>)`` wrapper, unwrapped
       recursively.
     """
@@ -264,8 +297,8 @@ def _extract_sql_string(
         case ast.JoinedStr(values=parts):
             text = "".join(read_str_constant(part) or "" for part in parts)
             return text, any(isinstance(part, ast.FormattedValue) for part in parts)
-        case ast.Name(id=name) if constants is not None:
-            entry = constants.get(name)
+        case ast.Name() if constants is not None:
+            entry = constants.find(node)
             if entry is None:
                 return None, False
             return entry.text, entry.interpolated
@@ -281,17 +314,59 @@ class _SqlConst:
     text: str
     interpolated: bool
     lineno: int
+    node: ast.Assign
 
 
-def _collect_string_constants(*, module: Module) -> dict[str, _SqlConst]:
-    """Return ``{NAME: _SqlConst}`` for every ``NAME = "<str>"`` assign in *tree*.
+class _SqlConstants:
+    """The module's ``NAME = "<sql>"`` bindings, resolved the way Python scopes a name.
+
+    A bare ``Name`` handed to a sink resolves to the constant assigned in the
+    nearest function around it that binds the name, unless that function
+    binds it as a parameter; to the module-level constant when no function
+    around it binds the name; and to nothing otherwise. So a parameter named
+    like a constant elsewhere in the file is never mistaken for static SQL.
+    Scopes are placed only for a name a sink actually uses.
+    """
+
+    def __init__(self, *, by_name: dict[str, list[_SqlConst]], tree: ScopeTree) -> None:
+        self._by_name = by_name
+        self._tree = tree
+        self._bindings: dict[str, list[Binding]] = {}
+
+    def _read_bindings(self, name: str) -> list[Binding]:
+        if name not in self._bindings:
+            self._bindings[name] = self._tree.collect_bindings(frozenset({name})).get(name, [])
+        return self._bindings[name]
+
+    def find(self, node: ast.Name) -> _SqlConst | None:
+        """The constant *node* refers to, or ``None`` when it is not a known constant."""
+        entries = self._by_name.get(node.id)
+        if not entries:
+            return None
+        bindings = self._read_bindings(node.id)
+        owner = self._tree.find_owner(bindings=bindings, at=node)
+        if owner is not None and any(
+            isinstance(binding.node, ast.arg) for binding in bindings if binding.scope is owner
+        ):
+            return None
+        matching = [
+            entry
+            for entry in entries
+            if next(iter(self._tree.find_enclosing(entry.node)), None) is owner
+        ]
+        return matching[-1] if matching else None
+
+
+def _collect_string_constants(*, module: Module) -> _SqlConstants:
+    """Every ``NAME = "<str>"`` assign in *module*, resolved by scope on lookup.
 
     Walks the whole tree (not just module body), so function-local SQL
     variables like ``sql = f"..."`` are resolved when later passed to
-    ``execute(text(sql))``. Later assignments overwrite earlier ones; that is
-    acceptable since we only need *some* SQL string to flag the call.
+    ``execute(text(sql))`` in the same function. Later assignments in one
+    scope overwrite earlier ones; that is acceptable since we only need
+    *some* SQL string to flag the call.
     """
-    constants: dict[str, _SqlConst] = {}
+    by_name: dict[str, list[_SqlConst]] = {}
     for node in module.index.collect(ast.Assign):
         if len(node.targets) != 1:
             continue
@@ -300,8 +375,10 @@ def _collect_string_constants(*, module: Module) -> dict[str, _SqlConst]:
             continue
         text, interp = _extract_sql_string(node.value)
         if text is not None:
-            constants[target.id] = _SqlConst(text=text, interpolated=interp, lineno=node.lineno)
-    return constants
+            by_name.setdefault(target.id, []).append(
+                _SqlConst(text=text, interpolated=interp, lineno=node.lineno, node=node),
+            )
+    return _SqlConstants(by_name=by_name, tree=ScopeTree(module))
 
 
 def _is_non_db_receiver(call: ast.Call) -> bool:

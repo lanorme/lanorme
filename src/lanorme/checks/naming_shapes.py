@@ -11,8 +11,8 @@ or ``inner`` is local, and the hooks a test registers inline (``before``,
 from __future__ import annotations
 
 import ast
-from collections.abc import Iterator
-from dataclasses import dataclass
+from collections.abc import Iterator, Mapping
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from lanorme.astnames import list_decorator_leaves
@@ -57,12 +57,25 @@ _BLOCKS = (
 )
 
 
+# Bases that hand a subclass no method names of their own to override: a
+# method on a class built only on these was named by its author.
+_NAMELESS_BASES: frozenset[str] = frozenset(
+    "object ABC Generic Protocol NamedTuple TypedDict Enum IntEnum StrEnum Flag IntFlag".split(),
+)
+
+
 @dataclass(frozen=True)
 class Definition:
-    """A function or class a naming rule may look at, with the class it belongs to."""
+    """A function or class a naming rule may look at, with the class it belongs to.
+
+    *classes* maps the name of every class the module defines to its node, so
+    a base defined in the same file is followed rather than taken as an
+    external API whose names a method must match.
+    """
 
     node: ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef
     owner: ast.ClassDef | None
+    classes: Mapping[str, ast.ClassDef] = field(default_factory=dict, compare=False, hash=False)
 
     @property
     def name(self) -> str:
@@ -74,8 +87,62 @@ class Definition:
 
     @property
     def may_override(self) -> bool:
-        """True for a method on a class with bases, where the name may be inherited."""
-        return self.owner is not None and bool(self.owner.bases)
+        """True for a method whose name a base class may have chosen.
+
+        A base is external when the module does not define it and it is not
+        one of the bases that carry no method names (``object``, ``ABC``,
+        ``Generic[...]``, ``Protocol``, ``Enum``, ...); any method on a class
+        with one may be inherited. A base the module defines counts when it
+        defines the same method (the finding belongs on that definition) or
+        has an external base itself.
+        """
+        return self.owner is not None and can_inherit(
+            node=self.owner,
+            classes=self.classes,
+            method=self.name,
+            seen=frozenset(),
+        )
+
+
+def _defines_method(*, node: ast.ClassDef, method: str) -> bool:
+    return any(isinstance(item, FUNCTION_TYPES) and item.name == method for item in node.body)
+
+
+def can_inherit(
+    *,
+    node: ast.ClassDef,
+    classes: Mapping[str, ast.ClassDef],
+    method: str,
+    seen: frozenset[str],
+) -> bool:
+    """True if *node* may inherit *method*: from an external base, or a class in *classes* defining it."""
+    for base in node.bases:
+        leaf = _resolve_base_leaf(base=base)
+        if leaf in _NAMELESS_BASES:
+            continue
+        target = base.value if isinstance(base, ast.Subscript) else base
+        local = classes.get(leaf) if isinstance(target, ast.Name) else None
+        if local is None:
+            return True
+        if leaf in seen:
+            continue
+        if _defines_method(node=local, method=method) or can_inherit(
+            node=local,
+            classes=classes,
+            method=method,
+            seen=seen | {leaf},
+        ):
+            return True
+    return False
+
+
+def map_module_classes(*, tree: ast.Module) -> dict[str, ast.ClassDef]:
+    """Every class *tree* defines at module level or in a class body, by name."""
+    return {
+        definition.node.name: definition.node
+        for definition in _iter_bare_definitions(tree=tree)
+        if isinstance(definition.node, ast.ClassDef)
+    }
 
 
 def _block_bodies(*, statement: ast.stmt) -> list[list[ast.stmt]]:
@@ -99,6 +166,13 @@ def iter_definitions(*, tree: ast.Module) -> Iterator[Definition]:
     ``match``, ``for``, ``while``, ``try`` and ``with`` blocks are looked
     through, so a platform-guarded definition still counts.
     """
+    classes = map_module_classes(tree=tree)
+    for definition in _iter_bare_definitions(tree=tree):
+        yield Definition(node=definition.node, owner=definition.owner, classes=classes)
+
+
+def _iter_bare_definitions(*, tree: ast.Module) -> Iterator[Definition]:
+    """The definitions :func:`iter_definitions` yields, before the module's classes are known."""
     pending: list[tuple[list[ast.stmt], ast.ClassDef | None]] = [(tree.body, None)]
     while pending:
         body, owner = pending.pop()

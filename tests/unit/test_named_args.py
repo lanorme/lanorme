@@ -281,3 +281,25 @@ def test_override_decorated_methods_are_exempt(check: NamedArgsCheck, tmp_path: 
     # Assert: only the method that owns its signature is flagged.
     hits = _collect_kwarg_hits(result)
     assert [(h.line, h.message.split("'")[1]) for h in hits] == [(14, "process_local")]
+
+
+def test_a_called_decorator_named_override_is_not_an_override(
+    check: NamedArgsCheck,
+    tmp_path: Path,
+):
+    # Arrange: Django's ``translation.override("fr")`` is a context decorator, not typing's.
+    body = (
+        "from django.utils import translation\n\n\n"
+        '@translation.override("fr")\n'
+        "def render_invoice(order, template):\n"
+        "    return template.format(order)\n"
+    )
+    _write(root=tmp_path, name="views.py", body=body)
+
+    # Act.
+    result = check.run(src_root=str(tmp_path))
+
+    # Assert.
+    assert [(h.code, h.file, h.line) for h in _collect_kwarg_hits(result)] == [
+        ("KWARG-001", "views.py", 5),
+    ]

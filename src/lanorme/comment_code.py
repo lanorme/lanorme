@@ -18,6 +18,7 @@ import io
 import re
 import tokenize
 from dataclasses import dataclass
+from typing import Protocol
 
 from lanorme.markdown import URL_RE
 
@@ -194,10 +195,35 @@ _LY_NOUNS = frozenset(
 )
 
 
-def _is_type_like(annotation: ast.expr) -> bool:
-    """True if an annotation could be a type rather than a note's label."""
+class ModuleNames(Protocol):
+    """The names the module around a comment imports and binds.
+
+    A comment that reads like a labelled note (``created: datetime = ...``)
+    or an adverb after a keyword (``return monthly``) is code after all when
+    the word is one of the module's own names.
+    """
+
+    @property
+    def imported(self) -> frozenset[str]:
+        """Names an ``import`` statement binds."""
+        ...
+
+    @property
+    def bound(self) -> frozenset[str]:
+        """Every name the module binds anywhere, imports included."""
+        ...
+
+
+def _is_type_like(annotation: ast.expr, *, names: ModuleNames | None = None) -> bool:
+    """True if an annotation could be a type rather than a note's label.
+
+    A lowercase word is a label (``TODO: retries = 5``) unless it is a builtin
+    type or a name the module imports (``from datetime import datetime``).
+    """
     if isinstance(annotation, ast.Name):
-        return annotation.id in _BUILTIN_TYPES or not annotation.id.islower()
+        if annotation.id in _BUILTIN_TYPES or not annotation.id.islower():
+            return True
+        return names is not None and annotation.id in names.imported
     return True
 
 
@@ -227,13 +253,13 @@ def _read_sole_operand(node: ast.stmt) -> str | None:
     return value.id if isinstance(value, ast.Name) else None
 
 
-def _is_code_statement(node: ast.stmt) -> bool:
+def _is_code_statement(node: ast.stmt, *, names: ModuleNames | None = None) -> bool:
     """True if *node* is a statement type we treat as commented-out code."""
     # 'label: type' without a value reads as documentation, not an assignment,
     # and 'label: word = value' is a labelled note unless the word is a type.
     if isinstance(node, ast.AnnAssign):
-        return node.value is not None and _is_type_like(node.annotation)
-    if _is_foreign_assignment(node) or _is_adverb_fragment(node):
+        return node.value is not None and _is_type_like(node.annotation, names=names)
+    if _is_foreign_assignment(node) or _is_adverb_fragment(node, names=names):
         return False
     # 'foo(...)' with a literal ellipsis is illustrative, not dead code.
     if isinstance(node, ast.Expr) and isinstance(node.value, ast.Call):
@@ -248,10 +274,16 @@ def _is_foreign_assignment(node: ast.stmt) -> bool:
     return node.value.id in _FOREIGN_LITERALS
 
 
-def _is_adverb_fragment(node: ast.stmt) -> bool:
-    """True for ``return early`` and friends: a keyword and an adverb, no code."""
+def _is_adverb_fragment(node: ast.stmt, *, names: ModuleNames | None = None) -> bool:
+    """True for ``return early`` and friends: a keyword and an adverb, no code.
+
+    An ``-ly`` word the module binds itself (``monthly = ...``) is a name, so
+    ``return monthly`` is a disabled statement, not a fragment.
+    """
     operand = _read_sole_operand(node)
-    return operand is not None and _is_adverb(operand)
+    if operand is None or not _is_adverb(operand):
+        return False
+    return operand in _ADVERBS or names is None or operand not in names.bound
 
 
 # Block-header keywords whose comments don't parse standalone (they require a
@@ -302,7 +334,7 @@ def _list_parsing_candidates(text: str) -> list[str]:
     return candidates
 
 
-def _comment_parses_as_code(text: str) -> bool:
+def _comment_parses_as_code(text: str, *, names: ModuleNames | None = None) -> bool:
     """Return True if the comment text resolves to a code statement."""
     for candidate in _list_parsing_candidates(text):
         try:
@@ -316,18 +348,24 @@ def _comment_parses_as_code(text: str) -> bool:
             # decorator lines: the wrapper is a def, so it is judged by what
             # it wraps, a decorator or a code statement, never by itself.
             if isinstance(node, ast.FunctionDef) and node.name == "_":
-                if node.decorator_list or any(_is_code_statement(child) for child in node.body):
+                if node.decorator_list or any(
+                    _is_code_statement(child, names=names) for child in node.body
+                ):
                     return True
-            elif _is_code_statement(node):
+            elif _is_code_statement(node, names=names):
                 return True
     return False
 
 
-def _looks_like_code(*, text: str) -> bool:
-    """True if a comment body parses as a code statement rather than prose."""
+def _looks_like_code(*, text: str, names: ModuleNames | None = None) -> bool:
+    """True if a comment body parses as a code statement rather than prose.
+
+    *names* are the surrounding module's, which turn a labelled-note or
+    adverb reading back into code when the word is one of them.
+    """
     if not text or text.startswith(_PRAGMA_PREFIXES) or text.endswith((".", "?", "!")):
         return False
-    return _comment_parses_as_code(text)
+    return _comment_parses_as_code(text, names=names)
 
 
 # PEP 723 inline script metadata: a ``# /// <type>`` ... ``# ///`` block whose

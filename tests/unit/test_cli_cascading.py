@@ -198,3 +198,62 @@ def test_single_check_selector_honours_nested_regions(tmp_path: Path, capsys):
         "strict/infrastructure/repositories/store.py",
     }
     assert set(results) == {"naming_consistency"}
+
+
+def _write_split_clones(tmp_path: Path, nested_config: str) -> Path:
+    """A project whose clone pair straddles ``sub`` (holding *nested_config*) and ``other``."""
+    (tmp_path / "lanorme.toml").write_text("", encoding="utf-8")
+    sub = tmp_path / "sub"
+    other = tmp_path / "other"
+    sub.mkdir()
+    other.mkdir()
+    (sub / "lanorme.toml").write_text(nested_config, encoding="utf-8")
+    (sub / "a.py").write_text(_DUP_FUNCTION, encoding="utf-8")
+    (other / "b.py").write_text(_DUP_FUNCTION, encoding="utf-8")
+    return sub
+
+
+def _collect_located_codes(result: dict) -> list[tuple[str, str, int]]:
+    """``(code, file, line)`` of every violation on a check's JSON result."""
+    return [
+        (violation["rule"].split(":")[0], violation["file"], violation["line"])
+        for violation in result["violations"]
+    ]
+
+
+def test_nested_ignore_does_not_narrow_a_subtree_scan(tmp_path: Path, capsys):
+    """``check sub`` reads ``ignore`` from the project root, as ``check .`` does."""
+    # Arrange
+    sub = _write_split_clones(tmp_path, 'ignore = ["DRY-001"]\n')
+
+    # Act
+    results = _run_full(sub, capsys)
+
+    # Assert
+    assert _collect_located_codes(results["duplication"]) == [("DRY-001", "sub/a.py", 1)]
+
+
+def test_nested_exclude_does_not_narrow_a_subtree_scan(tmp_path: Path, capsys):
+    """A nested ``exclude`` is a run key: the subtree scan takes the project root's."""
+    # Arrange
+    sub = _write_split_clones(tmp_path, 'exclude = ["sub/*", "other/*"]\n')
+
+    # Act
+    results = _run_full(sub, capsys)
+
+    # Assert
+    assert _collect_located_codes(results["duplication"]) == [("DRY-001", "sub/a.py", 1)]
+
+
+def test_nested_check_config_still_governs_a_subtree_scan(tmp_path: Path, capsys):
+    """The nested region's check settings still apply to its own files under ``check sub``."""
+    # Arrange
+    _write_root_and_strict_repo(tmp_path, "[naming_consistency]\nrepo_crud = true\n")
+
+    # Act
+    results = _run_full(tmp_path / "strict", capsys)
+
+    # Assert
+    assert _collect_located_codes(results["naming_consistency"]) == [
+        ("NAMING-001", "strict/infrastructure/repositories/store.py", 2),
+    ]

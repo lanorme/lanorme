@@ -22,9 +22,12 @@ cases only:
     - Dunder names (``__class__``, ``__name__`` ...) are introspection, exempt.
     - Three-argument ``getattr(x, "name", default)`` is the legitimate
       safe-access idiom, exempt.
-    - A receiver bound by a plain ``import`` (``hasattr(os, "fork")``,
-      ``hasattr(socket, "AF_UNIX")``) is platform feature detection on a
-      module, not duck typing of an object, exempt.
+    - ``hasattr`` on a receiver bound by a plain ``import`` (``hasattr(os,
+      "fork")``, ``hasattr(socket, "AF_UNIX")``) is platform feature
+      detection on a module, not duck typing of an object, exempt, and so is
+      ``getattr`` on one with a literal name. A ``setattr`` / ``delattr`` on
+      a module, or a ``getattr`` through one by a computed name, is not
+      detection and is still reported.
     - Files under ``tests/`` are exempt (tests poke internals on purpose).
 
 Dynamic names (``getattr(x, name)``, ``getattr(x, "_" + n)``) are genuine
@@ -71,10 +74,20 @@ def _collect_imported_module_names(*, module: Module) -> frozenset[str]:
     return frozenset(names)
 
 
-def _is_module_receiver(*, call: ast.Call, module_names: frozenset[str]) -> bool:
-    """True when the object probed is a module the file imported."""
+def _is_module_probe(*, call: ast.Call, builtin: str, module_names: frozenset[str]) -> bool:
+    """True for feature detection on a module the file imported.
+
+    ``hasattr(os, "fork")``, or ``getattr(sys, "getwindowsversion")`` with a
+    literal name. Writing to a module (``setattr(settings, "DEBUG", True)``)
+    or dispatching through one by a computed name (``getattr(handlers,
+    action)()``) is not detection, and keeps its finding.
+    """
     receiver = call.args[0]
-    return isinstance(receiver, ast.Name) and receiver.id in module_names
+    if not isinstance(receiver, ast.Name) or receiver.id not in module_names:
+        return False
+    if builtin == "hasattr":
+        return True
+    return builtin == "getattr" and _extract_literal_name(node=call.args[1]) is not None
 
 
 def _extract_builtin_name(*, call: ast.Call) -> str | None:
@@ -165,7 +178,7 @@ class AttributeAccessCheck:
         if builtin == "getattr" and len(call.args) >= 3:
             return None
         # Probing an imported module (hasattr(os, "fork")) is feature detection.
-        if _is_module_receiver(call=call, module_names=module_names):
+        if _is_module_probe(call=call, builtin=builtin, module_names=module_names):
             return None
 
         name = _extract_literal_name(node=call.args[1])

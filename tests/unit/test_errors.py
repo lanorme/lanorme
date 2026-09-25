@@ -10,6 +10,7 @@ value (``TypeError``/``ValueError``) becomes a :class:`ConfigError`, and a
 from __future__ import annotations
 
 import ast
+import threading
 from collections.abc import Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -20,7 +21,7 @@ import pytest
 from lanorme import CheckResult, Registry, get_registry, run_audit, run_check
 from lanorme.checkconfig import SettingError, read_int, read_str_list
 from lanorme.checks.strong_types import StrongTypesCheck
-from lanorme.cli import _load_builtin_checks
+from lanorme.cli import _load_builtin_checks, main
 from lanorme.errors import ConfigError, UsageError
 from lanorme.presets import _resolve_extends
 from lanorme.regions import read_toml
@@ -217,3 +218,50 @@ def test_other_unparse_failures_are_not_swallowed(tmp_path: Path, monkeypatch) -
 
     # Assert
     assert [w.code for w in result.warnings] == ["RUN-000"]
+
+
+@dataclass
+class _LockedCheck:
+    """A plugin check that holds a lock on the instance, so it cannot be deep-copied."""
+
+    name: str = "locked_plugin"
+    description: str = "holds a lock"
+    rules: list[str] = field(default_factory=lambda: ["LOCK-001: holds a lock"])
+    guard: object = field(default_factory=threading.Lock)
+
+    def run(self, *, src_root: str) -> CheckResult:
+        return CheckResult.from_findings(check=self.name)
+
+
+def test_a_check_that_cannot_be_copied_is_a_usage_error_naming_it() -> None:
+    # Arrange
+    registry = Registry({"locked_plugin": _LockedCheck()})
+
+    # Act
+    with pytest.raises(UsageError) as caught:
+        registry.build_configured({})
+
+    # Assert
+    assert not isinstance(caught.value, ConfigError)
+    assert "'locked_plugin'" in str(caught.value)
+    assert "_LockedCheck" in str(caught.value)
+    assert isinstance(caught.value.__cause__, TypeError)
+
+
+def test_the_cli_exits_2_for_a_check_that_cannot_be_copied(
+    tmp_path: Path,
+    monkeypatch,
+    capsys,
+) -> None:
+    # Arrange: the registry holds only the locked plugin.
+    (tmp_path / "mod.py").write_text("x = 1\n", encoding="utf-8")
+    _load_builtin_checks()
+    monkeypatch.setattr("lanorme._registry", Registry({"locked_plugin": _LockedCheck()}))
+
+    # Act
+    with pytest.raises(SystemExit) as exited:
+        main(["check", str(tmp_path)])
+
+    # Assert
+    assert exited.value.code == 2
+    assert "ERROR: check 'locked_plugin'" in capsys.readouterr().err
