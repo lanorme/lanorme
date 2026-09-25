@@ -24,9 +24,7 @@ Run:
 from __future__ import annotations
 
 import ast
-import io
 import re
-import tokenize
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -34,27 +32,13 @@ from typing import ClassVar
 
 from lanorme import CheckResult, Violation, register
 from lanorme.checkconfig import is_flag_set
+from lanorme.checks.comment_code import _PRAGMA_PREFIXES, _Comment, _collect_comments
 from lanorme.sources import iter_parsed_modules
 
 MAX_CONTENT_WORDS = 4
 MIN_STEM_LEN = 4
 COVERAGE_FLOOR = 1.0
 ALLOW_TRAILING = True
-
-_PRAGMA_PREFIXES = (
-    "noqa",
-    "type:",
-    "pragma",
-    "pylint:",
-    "mypy:",
-    "ruff:",
-    "isort:",
-    "fmt:",
-    "!",
-    "-*-",
-    "region",
-    "endregion",
-)
 
 _STOPWORDS = frozenset(
     {
@@ -171,6 +155,8 @@ _ALLOWLIST_WORD_RE = re.compile(
     re.IGNORECASE,
 )
 _SECTION_HEADER_DASH = re.compile(r"^[-=#*~ ]{2,}$")
+# ``--- Setup ---`` and ``== Totals``: a title framed or led by a rule.
+_SECTION_HEADER_FRAMED = re.compile(r"^[-=#*~]{2,}\s+\S")
 _NUMERIC_REF = re.compile(r"#\d+")
 _CAMEL_SPLIT = re.compile(r"[A-Z]+(?=[A-Z][a-z])|[A-Z]?[a-z]+|[A-Z]+|[0-9]+")
 _WORD = re.compile(r"[A-Za-z]+")
@@ -251,7 +237,7 @@ _VERB_TABLE: dict[str, Callable[[ast.stmt], bool]] = {
 
 def _is_section_header(text: str) -> bool:
     stripped = text.strip()
-    if _SECTION_HEADER_DASH.fullmatch(stripped):
+    if _SECTION_HEADER_DASH.fullmatch(stripped) or _SECTION_HEADER_FRAMED.match(stripped):
         return True
     words = stripped.split()
     return len(words) >= 2 and all(word.isupper() and len(word) >= 2 for word in words)
@@ -323,14 +309,6 @@ def _collect_code_tokens(*, s: ast.stmt) -> set[str]:
 
 
 @dataclass(frozen=True)
-class _Comment:
-    line: int
-    column: int
-    text: str
-    standalone: bool
-
-
-@dataclass(frozen=True)
 class _Context:
     stmt_index: dict[int, ast.stmt]
     stmt_lines: list[int]
@@ -361,27 +339,6 @@ def _is_restating(*, comment: _Comment, s: ast.stmt) -> bool:
     covered_v = sum(1 for v in verbs if _VERB_TABLE[v](s))
     total = len(content) + len(verbs)
     return total > 0 and (covered_w + covered_v) / total >= COVERAGE_FLOOR
-
-
-def _collect_comments(*, source: str, source_lines: list[str]) -> list[_Comment]:
-    comments: list[_Comment] = []
-    try:
-        for token in tokenize.generate_tokens(io.StringIO(source).readline):
-            if token.type != tokenize.COMMENT:
-                continue
-            row, col = token.start
-            before = source_lines[row - 1][:col] if 0 <= row - 1 < len(source_lines) else ""
-            comments.append(
-                _Comment(
-                    line=row,
-                    column=col,
-                    text=token.string.lstrip("#").strip(),
-                    standalone=not before.strip(),
-                ),
-            )
-    except (tokenize.TokenError, IndentationError, SyntaxError):
-        pass
-    return comments
 
 
 def _find_restating_violations(

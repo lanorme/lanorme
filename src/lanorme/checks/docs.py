@@ -41,6 +41,7 @@ from typing import ClassVar
 from lanorme import CheckResult, Violation, register
 from lanorme.checkconfig import is_flag_set, read_str_list, read_str
 from lanorme.discovery import iter_files
+from lanorme.markdown import iter_prose_lines, strip_inline_code
 
 # Vendored or generated directories that are never part of a docs tree.
 _SKIP_PARTS = frozenset(
@@ -66,6 +67,10 @@ _SCHEME_RE = re.compile(r"^[a-z][a-z0-9+.-]*://", re.IGNORECASE)
 
 # Manual section numbering at the start of a heading title: "1.", "2)", "1.3.".
 _NUMBERED_RE = re.compile(r"^\d+(\.\d+)*[.)]\s")
+
+# A line that cannot be the text of a setext heading: a list item, a quote, a
+# table row or raw HTML. A rule under one of these is a thematic break.
+_NOT_PARAGRAPH_RE = re.compile(r"^(?:[-*+]\s|\d+[.)]\s|[>|<])")
 
 # Canonical first-line openers for a content page (case-sensitive).
 _SKIMMER_OPENERS = (
@@ -108,37 +113,39 @@ def _resolve_str_list(
     return items if items else fallback
 
 
-def _parse_headings(*, lines: list[str]) -> list[_Heading]:
-    """Collect headings (ATX and setext) outside fenced code blocks.
+def _is_paragraph_text(line: str) -> bool:
+    """True if *line* is prose a setext underline could turn into a heading."""
+    stripped = line.strip()
+    if not stripped or _ATX_RE.match(line):
+        return False
+    return _NOT_PARAGRAPH_RE.match(stripped) is None
 
-    A setext heading is a non-blank text line immediately underlined by a run of
+
+def _parse_headings(*, lines: list[str]) -> list[_Heading]:
+    """Collect headings (ATX and setext) outside fenced code and front matter.
+
+    A setext heading is a paragraph line immediately underlined by a run of
     ``=`` (level 1) or ``-`` (level 2). The underline is only honoured when the
-    line above is prose, so a horizontal rule under a blank line is not a heading.
+    line above is prose, so a horizontal rule under a blank line, a list item
+    or a table row is not a heading.
     """
     headings: list[_Heading] = []
-    in_fence = False
     previous = ""
-    for index, raw in enumerate(lines):
-        stripped = raw.lstrip()
-        if stripped.startswith("```") or stripped.startswith("~~~"):
-            in_fence = not in_fence
+    previous_line = 0
+    for lineno, raw in iter_prose_lines(lines):
+        if lineno != previous_line + 1:
             previous = ""
-            continue
-        if in_fence:
-            previous = raw
-            continue
+        previous_line = lineno
         atx = _ATX_RE.match(raw)
         if atx is not None:
             headings.append(
-                _Heading(level=len(atx.group(1)), text=atx.group(2).strip(), line=index + 1),
+                _Heading(level=len(atx.group(1)), text=atx.group(2).strip(), line=lineno),
             )
-            previous = raw
-            continue
-        if previous.strip() and not _ATX_RE.match(previous):
+        elif _is_paragraph_text(previous):
             if _SETEXT_H1_RE.match(raw):
-                headings.append(_Heading(level=1, text=previous.strip(), line=index))
+                headings.append(_Heading(level=1, text=previous.strip(), line=lineno - 1))
             elif _SETEXT_H2_RE.match(raw):
-                headings.append(_Heading(level=2, text=previous.strip(), line=index))
+                headings.append(_Heading(level=2, text=previous.strip(), line=lineno - 1))
         previous = raw
     return headings
 
@@ -231,15 +238,9 @@ def _check_skimmer(*, lines: list[str], headings: list[_Heading], file: str) -> 
 
 def _find_first_prose_line(*, lines: list[str], after_line: int) -> str | None:
     """First non-blank line after a 1-based heading line, skipping code fences."""
-    in_fence = False
-    for raw in lines[after_line:]:
-        stripped = raw.strip()
-        if stripped.startswith("```") or stripped.startswith("~~~"):
-            in_fence = not in_fence
-            continue
-        if in_fence or not stripped:
-            continue
-        return stripped
+    for lineno, raw in iter_prose_lines(lines):
+        if lineno > after_line and raw.strip():
+            return raw.strip()
     return None
 
 
@@ -254,20 +255,14 @@ def _is_alt_missing(*, attributes: str) -> bool:
 def _check_images(*, lines: list[str], file: str) -> list[Violation]:
     """DOCS-004: every Markdown image and <img> tag carries non-empty alt text."""
     found: list[Violation] = []
-    in_fence = False
-    for index, raw in enumerate(lines):
-        stripped = raw.lstrip()
-        if stripped.startswith("```") or stripped.startswith("~~~"):
-            in_fence = not in_fence
-            continue
-        if in_fence:
-            continue
-        for match in _MD_IMAGE_RE.finditer(raw):
+    for lineno, raw in iter_prose_lines(lines):
+        line = strip_inline_code(raw)
+        for match in _MD_IMAGE_RE.finditer(line):
             if not match.group(1).strip():
-                found.append(_build_image_alt_violation(file=file, line=index + 1))
-        for match in _IMG_TAG_RE.finditer(raw):
+                found.append(_build_image_alt_violation(file=file, line=lineno))
+        for match in _IMG_TAG_RE.finditer(line):
             if _is_alt_missing(attributes=match.group(1)):
-                found.append(_build_image_alt_violation(file=file, line=index + 1))
+                found.append(_build_image_alt_violation(file=file, line=lineno))
     return found
 
 
@@ -304,15 +299,8 @@ def _check_rasters(
 ) -> list[Violation]:
     """DOCS-005: a local raster image should be an SVG or a Mermaid diagram."""
     found: list[Violation] = []
-    in_fence = False
-    for index, raw in enumerate(lines):
-        stripped = raw.lstrip()
-        if stripped.startswith("```") or stripped.startswith("~~~"):
-            in_fence = not in_fence
-            continue
-        if in_fence:
-            continue
-        for match in _MD_IMAGE_RE.finditer(raw):
+    for lineno, raw in iter_prose_lines(lines):
+        for match in _MD_IMAGE_RE.finditer(strip_inline_code(raw)):
             target = match.group(2)
             if _is_local_raster(target=target, rasters=rasters) and not _is_allowed(
                 target=target,
@@ -321,7 +309,7 @@ def _check_rasters(
                 found.append(
                     _build_violation(
                         file=file,
-                        line=index + 1,
+                        line=lineno,
                         rule="DOCS-005",
                         message=f"Local raster image '{target}' (prefer a vector format)",
                         fix="Export the diagram to SVG, or draw it inline with Mermaid",

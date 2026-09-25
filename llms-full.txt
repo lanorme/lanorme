@@ -336,11 +336,12 @@ tried in several wrapping strategies before being declared prose:
 - Bare `return` / `yield` / `raise` are tried inside `def _(): ...`.
 - Decorator lines (`@foo`) are tried followed by `def _(): pass`.
 
-Measured against the 165-comment corpus under
+Measured against the 187-comment corpus under
 `evals/corpora/comments_commented_code/` with `evals/score_cmt001.py`:
-**P = 0.985 / R = 1.000 / F1 = 0.992** (TP = 66, FP = 1, FN = 0). The
-single FP is an illustrative call signature following a `Typical usage:`
-header.
+**P = 1.000 / R = 1.000 / F1 = 1.000** (TP = 72, FP = 0, FN = 0, TN = 115).
+The negatives cover TODO tags, URLs, type contracts, licence headers, shebang
+lines, banners, math and units, prose, labelled notes, foreign literals,
+adverb fragments, illustrations and pragmas.
 
 Config:
 ```toml
@@ -397,9 +398,9 @@ and verb maps onto the adjacent statement, and an allowlist exempts comments
 that carry a why, a caveat, a unit, or a reference. It will miss synonym
 paraphrases. Full design: `docs/cmt005-design.md`.
 
-Measured against the 167-comment corpus under
+Measured against the 170-comment corpus under
 `evals/corpora/comments_restating/` with `evals/score_cmt005.py`:
-**P = 1.000 / R = 0.418 / F1 = 0.589** (TP = 33, FP = 0, FN = 46, TN = 88).
+**P = 1.000 / R = 0.418 / F1 = 0.589** (TP = 33, FP = 0, FN = 46, TN = 91).
 The 0.418 recall is bounded by the design's refusal to chase synonym
 paraphrases without losing precision.
 
@@ -442,9 +443,9 @@ carrying a why, a caveat, a unit or a reference. Two additions on top:
   after filler removal is vacuous whatever the allowlist says, so
   `This is a helper function.` is not rescued by it.
 
-Measured against the 23-definition corpus under
+Measured against the 29-definition corpus under
 `evals/corpora/docstrings_vacuous/` with `evals/score_cmt007.py`:
-**P = 1.000 / R = 1.000 / F1 = 1.000** (TP = 9, FP = 0, FN = 0, TN = 14).
+**P = 1.000 / R = 1.000 / F1 = 1.000** (TP = 11, FP = 0, FN = 0, TN = 18).
 That corpus was written alongside the rule and tuned against, so treat the
 figure as a regression guard rather than an unbiased estimate. The
 independent evidence is held-out: `CMT-007` returns **zero** findings over
@@ -852,6 +853,16 @@ view, `LoadBalancer` is an agent noun. Words a verb acts on (`User`,
 `Order`, `Connection`, `Session`, `Token`) are deliberately not on that
 list, or `CreateUser` would pass.
 
+A class with an exception base (one named `...Error`, `...Exception`,
+`...Warning`, `...Exit` or `...Interrupt`) is a thing whatever it is
+called, and a last word that names the state an action reached
+(`SendFailed`, `FetchAborted`, `LoadComplete`) names an outcome, so both
+pass. A few attribute heads are listed by word (`behaviour`, `direction`,
+`reason`, `timing`, `wizard`, `impl`, `abc`), and a head that is a verb's
+object as often as its attribute (`Permission`, `Scope`, `Metrics`,
+`Progress`) is deliberately not, so `EmitMetrics` and `CreatePermission`
+stay reported; a project that names enums that way adds them to `exempt`.
+
 A message object is a noun by convention and is exempt through its suffix:
 `Command`, `Query`, `Event`, `Handler`, `UseCase`, `Request`, `Response`,
 `Job`, `Task`, extensible through `command_suffixes`. A verb-first class
@@ -883,15 +894,28 @@ function is not a command:
   `abstractmethod`, `override` or `final`: a route, a fixture, a property
   setter, a signal receiver or a CLI command is named by the framework's
   contract.
-- Dunders, keyword-clash names ending in `_`, hook names (`on_`, `pre_`,
-  `post_`, `before_`, `after_`, `pytest_`, and `_hook`, `_handler`,
-  `_callback`, `_listener`, `_receiver`), conversions and constructors
-  (`from_`, `to_`, `as_`, `into_`, `with_`, and `x_to_y`), entry points
-  (`main`, `async_main`, `cli`), standard-library protocol methods on a
-  class (`keys`, `fetchone`, `rollback`, `flush`, `info`), and the Django
-  and Scrapy hook names on plain classes (`process_request`,
-  `process_item`). `setUp` and `tearDown` pass because `set` and `tear`
-  are verbs.
+- Dunders, keyword-clash names ending in `_`, hook names matched by word
+  so camelCase and bare forms count (`on_click`, `onMessage`, `pre_save`,
+  `after_request`, `pytest_configure`; `error_handler`, `_dynamic_class_hook`,
+  a bare `callback`, `handler` or `listener` handed to `signal.signal` or
+  `apply_async`), conversions and constructors (`from_`, `to_`, `as_`,
+  `into_`, `with_`, and `x_to_y`), entry points (`main`, `async_main`,
+  `cli`, the WSGI `application` of PEP 3333 and the ASGI `app`),
+  standard-library protocol methods on a class (`keys`, `fetchone`,
+  `rollback`, `flush`, `info`; the `asyncio` protocol hooks
+  `connection_made` and `data_received`, `socketserver`'s `server_bind`,
+  `ast.NodeVisitor.generic_visit`, `xml.sax`'s `characters`, `cmd.Cmd`'s
+  `emptyline`, `io`'s `readinto`, `urllib`'s `http_open`), the Django and
+  Scrapy hook names on plain classes (`process_request`, `process_item`),
+  and on a method only, the names Django, Django REST framework, Scrapy,
+  pydantic and SQLAlchemy fix (`ready`, `form_valid`, `allow_migrate`,
+  `test_func`, `perform_create`, `closed`, `spider_opened`,
+  `model_post_init`, `column_expression`): a module-level `ready()` is the
+  author's. `setUp` and `tearDown` pass because `set` and `tear` are verbs.
+- A camelCase method on a class with bases (`mousePressEvent`,
+  `dataReceived`, `onMessage`): PEP 8 allows mixedCase only where it is
+  the prevailing style, so the name is the base API's. The same name on a
+  class without bases, or at module level, is judged.
 - Files under `migrations/` or `alembic/` inside the scanned tree, whose
   names a tool generated. A name with non-ASCII letters is not judged.
 
@@ -901,10 +925,13 @@ a third-person form (`matches`), carries a verb suffix (`simplify`,
 `deregister`, `aclose`) or opens with one of the verbs Python fuses onto
 the next word (`getheaders`, `setdefault`, `isdigit`, `iteritems`; not
 `password`, `endpoint` or `checksum`), and leading modifiers are skipped
-(`bulk_insert`, `re_apply`, `atomic_write`, `safe_delete`). A word wrongly
-counted as a verb hides a finding and never creates one. The `verbs`
-setting extends the vocabulary, and a configured weak verb counts as a
-verb here too.
+(`bulk_insert`, `re_apply`, `atomic_write`, `safe_delete`). The listed
+verbs include the business, moderation and security verbs a domain model
+uses (`refund`, `invite`, `enrol`, `ban`, `redact`, `mint`), and a noun
+that merely ends like a verb (`enterprise`, `premise`, `chunksize`) is not
+one. A word wrongly counted as a verb hides a finding and never creates
+one. The `verbs` setting extends the vocabulary, and a configured weak verb
+counts as a verb here too.
 
 ### `NAMING-008`: A function does not open with a weak verb
 
@@ -919,8 +946,10 @@ A bare `handle` or `process` with no object is a dispatcher's slot and is
 not reported. A method on a class with bases may be overriding an inherited
 name (`do_GET` on a request handler, `process` on a SQLAlchemy type), so
 it is not reported either; nor is any name `NAMING-007` leaves alone as
-not the author's to choose. The rule applies to queries as well as
-commands. The list is replaced, not extended, through `weak_verbs`.
+not the author's to choose, which covers Django REST framework's
+`perform_create` and Django's `handle_label` on a plain mixin. The rule
+applies to queries as well as commands. The list is replaced, not
+extended, through `weak_verbs`.
 
 Config:
 ```toml
@@ -944,9 +973,9 @@ Measured against the labelled corpora with `evals/score_naming006.py`,
 
 | rule | corpus | P | R | F1 | TP | FP | FN | TN |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `NAMING-006` | `naming_verb_class` | 1.000 | 1.000 | 1.000 | 7 | 0 | 0 | 15 |
-| `NAMING-007` | `naming_command` | 1.000 | 1.000 | 1.000 | 9 | 0 | 0 | 31 |
-| `NAMING-008` | `naming_weak_verb` | 1.000 | 1.000 | 1.000 | 7 | 0 | 0 | 12 |
+| `NAMING-006` | `naming_verb_class` | 1.000 | 1.000 | 1.000 | 8 | 0 | 0 | 18 |
+| `NAMING-007` | `naming_command` | 1.000 | 1.000 | 1.000 | 11 | 0 | 0 | 39 |
+| `NAMING-008` | `naming_weak_verb` | 1.000 | 1.000 | 1.000 | 8 | 0 | 0 | 14 |
 
 Those corpora are regression guards for the exemptions listed above, not
 an unbiased estimate; the calibration evidence is the third-party
@@ -969,7 +998,9 @@ Clean Code names the words to keep off a class: `Manager`, `Processor`,
 `DependencyProcessor`, `ConfigData` or `ScriptInfo`; the fix is to say what
 the thing is (a registry, a pool, a scheduler) or what it holds. A single
 word (`Manager` as a domain class), `MetaData` and its compounds, a
-`ContextManager` and names that are not PascalCase are not reported.
+`ContextManager`, a class whose base already ends in the word
+(`UserManager(models.Manager)` is a Django manager, `ProcessManager` a
+`multiprocessing` one) and names that are not PascalCase are not reported.
 
 ### `NAMING-010`: A module is not a junk drawer
 
@@ -988,9 +1019,13 @@ The Java-school reading: a query leads with a verb too, so
 becomes `build_url()`. Commands are `NAMING-007`'s and a raiser exists to
 raise, so this rule takes the rest: functions that return a value, and
 stubs. Predicates that carry an auxiliary anywhere (`is_valid`,
-`line_has_noqa`), constructors under `@classmethod`, properties,
-conversions and every reserved-name shape `NAMING-007` lists are exempt,
-and the same verb vocabulary applies.
+`line_has_noqa`) or open with a third-person verb (`exists`, `matches`),
+constructors under `@classmethod`, properties, conversions, a decorator or
+closure factory (a function that returns a function it defines, or a
+lambda: `deprecated`, `cached` are named for what they confer) and every
+reserved-name shape `NAMING-007` lists are exempt, and the same verb
+vocabulary applies. A decorator returned through a variable
+(`actual = user_passes_test(...); return actual`) is not recognised as one.
 
 This is a house choice, not a correction. Naming a pure function for its
 value is the other canonical school (Code Complete, Ada, Swift, Kotlin, Go,
@@ -1011,7 +1046,7 @@ Measured on the third-party code under `benchmarks/.corpora/`:
 `NAMING-009` reports 10 classes, `NAMING-010` 9 modules, `NAMING-011`
 1473 functions. Measured against `evals/corpora/naming_every_verb/` with
 `evals/score_naming011.py`: **P = 1.000 / R = 1.000 / F1 = 1.000**
-(TP = 8, FP = 0, FN = 0, TN = 18), a regression guard for the exemptions
+(TP = 10, FP = 0, FN = 0, TN = 23), a regression guard for the exemptions
 rather than an unbiased estimate. `NAMING-009` and `NAMING-010` match exact
 words and have unit tests instead of a corpus.
 
@@ -1034,8 +1069,14 @@ words and have unit tests instead of a corpus.
   `@router.get`, `delete_user` on `@router.delete`). Health probes and
   auth-issuance handlers are exempt.
 - `NAMING-004`: default-on warning. Functions whose return annotation
-  is `bool` should use a boolean prefix (`is_` / `has_` / `can_` /
-  `should_`).
+  is `bool` should read as an assertion: a boolean prefix (`is_` / `has_` /
+  `can_` / `should_`), an auxiliary anywhere (`does_match`, `user_is_active`),
+  a third-person verb in front (`exists`, `matches`, `contains`,
+  `needs_refresh`) or a fused `isdir` / `hasattr` / `isEnabled` all pass;
+  `check_password` and `valid` are reported. Private names, `Protocol`
+  members, properties and the names a protocol or framework fixes
+  (`readable`, `filter` on a `logging.Filter`, Django's `allow_migrate`,
+  Qt's `eventFilter` on a subclass) are not judged.
 
 Config:
 ```toml
@@ -1058,9 +1099,13 @@ shortness *held over distance*, so the requirement scales with the span.
 
 Span is measured from where a name is first bound to where it is last
 referenced, within one function. Only names the function itself binds are
-considered (parameters and assignment targets): a referenced-but-unbound
-short name such as `np` or `re` is an imported module, where the name is
-the library's choice and not the function's.
+considered (parameters, assignment targets and `match` captures): a
+referenced-but-unbound short name such as `np` or `re` is an imported
+module, where the name is the library's choice and not the function's. A
+name a comprehension, a lambda or a nested function binds belongs to that
+scope, so an `r` in a comprehension at the top and another in a lambda at
+the bottom are two names, not one carried across; a use of the outer
+name inside such a scope still counts.
 
 Choosing the default (`max_span = 20`), measured over LaNorme's own
 `src/` and the 18 generated modules (about 10,000 lines) under `evals/`:
@@ -1094,7 +1139,7 @@ allow            = ["mu"]    # extends the default allowlist
 
 Measured against `evals/corpora/naming_scope/` with
 `evals/score_naming005.py`: **P = 1.000 / R = 1.000 / F1 = 1.000**
-(TP = 2, FP = 0, FN = 0, TN = 4). That corpus is a regression guard, not
+(TP = 3, FP = 0, FN = 0, TN = 6). That corpus is a regression guard, not
 an unbiased estimate; the calibration evidence is the table above.
 
 ---

@@ -174,12 +174,12 @@
     {"line": 40, "label": "ok", "note": "category=half_useful_qualifier; adds the RFC 4518 reference for the normalization"}
   ],
   "positives/pos_stale_comment.py": [
-    {"line": 13, "label": "restating", "note": "category=stale; stale: true — comment claims increment, code only wraps in dict"},
-    {"line": 18, "label": "restating", "note": "category=stale; stale: true — comment says multiply, code sums"},
-    {"line": 23, "label": "restating", "note": "category=stale; stale: true — comment says uppercase, code lowercases"},
-    {"line": 28, "label": "restating", "note": "category=stale; stale: true — comment says last item, code returns first"},
-    {"line": 33, "label": "restating", "note": "category=stale; stale: true — comment says UDP, code formats tcp:// URL"},
-    {"line": 38, "label": "restating", "note": "category=stale; stale: true — comment says hex, code parses base 10"}
+    {"line": 13, "label": "restating", "note": "category=stale; stale: true \u2014 comment claims increment, code only wraps in dict"},
+    {"line": 18, "label": "restating", "note": "category=stale; stale: true \u2014 comment says multiply, code sums"},
+    {"line": 23, "label": "restating", "note": "category=stale; stale: true \u2014 comment says uppercase, code lowercases"},
+    {"line": 28, "label": "restating", "note": "category=stale; stale: true \u2014 comment says last item, code returns first"},
+    {"line": 33, "label": "restating", "note": "category=stale; stale: true \u2014 comment says UDP, code formats tcp:// URL"},
+    {"line": 38, "label": "restating", "note": "category=stale; stale: true \u2014 comment says hex, code parses base 10"}
   ],
   "positives/pos_type_in_prose.py": [
     {"line": 12, "label": "restating", "note": "category=type_in_prose; restates -> list[str]"},
@@ -217,5 +217,10 @@
     {"line": 28, "label": "restating", "note": "category=docstring_dup; paraphrases the function's docstring"},
     {"line": 36, "label": "restating", "note": "category=docstring_dup; restates the enclosing class docstring inside __init__"},
     {"line": 42, "label": "restating", "note": "category=docstring_dup; paraphrases the docstring including the raised-exception clause"}
+  ],
+  "negatives/neg_framed_headers.py": [
+    {"line": 7, "label": "ok", "note": "framed section header naming the call under it"},
+    {"line": 9, "label": "ok", "note": "framed section header naming the call under it"},
+    {"line": 11, "label": "ok", "note": "hash-led section header naming the variable under it"}
   ]
 }

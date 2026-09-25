@@ -404,3 +404,48 @@ def test_root_under_a_skip_named_ancestor_is_still_scanned(tmp_path: Path, check
 
     # Assert: the ancestor is the user's filesystem, not the project layout.
     assert "DOCS-001" in _collect_codes(result=result)
+
+
+# --------------------------------------------------------------------------- #
+# What is not a heading or an image: fences, front matter, list rules, code
+# --------------------------------------------------------------------------- #
+
+
+def test_headings_inside_a_longer_fence_are_not_counted(tmp_path: Path, check: DocsCheck):
+    # Arrange: a four-backtick fence showing a three-backtick fence and a heading.
+    body = "# Title\n\nThis guide shows fences.\n\n````\n```\n# not a heading\n```\n````\n"
+    _write(root=tmp_path, name="docs/how-to/fences.md", body=body)
+
+    # Act.
+    result = check.run(src_root=str(tmp_path))
+
+    # Assert.
+    assert "DOCS-001" not in _collect_codes(result=result)
+
+
+def test_front_matter_and_list_rules_are_not_setext_headings(tmp_path: Path, check: DocsCheck):
+    # Arrange: front matter and a rule under a list item, then a real H1 to H3 jump.
+    body = "---\ntitle: Front\n---\n\n# Title\n\nThis guide shows rules.\n\n- item\n---\n\n### Deeper\n"
+    _write(root=tmp_path, name="docs/how-to/rules.md", body=body)
+
+    # Act.
+    result = check.run(src_root=str(tmp_path))
+
+    # Assert: no phantom heading, so the jump is seen and the H1 stays single.
+    codes = _collect_codes(result=result)
+    assert "DOCS-002" in codes
+    assert "DOCS-001" not in codes
+
+
+def test_docs004_ignores_images_inside_inline_code(tmp_path: Path, check: DocsCheck):
+    # Arrange: image syntax shown in code spans, not used.
+    body = '# Title\n\nThis guide shows images.\n\nUse `![](x.png)` or `<img src="y.png">`.\n'
+    _write(root=tmp_path, name="docs/how-to/images.md", body=body)
+
+    # Act.
+    result = check.run(src_root=str(tmp_path))
+
+    # Assert.
+    codes = _collect_codes(result=result)
+    assert "DOCS-004" not in codes
+    assert "DOCS-005" not in codes

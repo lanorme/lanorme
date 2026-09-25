@@ -8,9 +8,12 @@ house style for prose:
     PROSE-003  No emoji.
     PROSE-004  Em-dash density above natural English (advisory warning, opt-in).
 
-Fenced code blocks (``` … ```) and inline ``code`` spans are skipped, so code
-samples that contain ``color`` or ``optimize`` are not flagged. PROSE-004 reuses
-that same stripping and measures density over the remaining prose alone.
+Fenced code blocks (``` … ```), YAML front matter, inline ``code`` spans, URLs,
+link targets and HTML tags are skipped, so code samples that contain ``color``
+or ``optimize`` are not flagged, and the spelling rule further ignores tokens
+that are code rather than words (``--color``, ``settings.color``, ``org-42``).
+PROSE-004 reuses that same stripping and measures density over the remaining
+prose alone.
 
 Off by default, it only runs when enabled, so it never imposes a house style on
 a project that has not opted in::
@@ -49,6 +52,7 @@ from typing import ClassVar
 from lanorme import CheckResult, Violation, register
 from lanorme.checkconfig import is_flag_set, read_str_list
 from lanorme.discovery import iter_files
+from lanorme.markdown import EMOJI_RE, URL_RE, iter_prose_lines, strip_inline_code
 
 _EM_DASH = "—"
 
@@ -60,19 +64,15 @@ ProseSettings = dict[
     bool | int | float | list[str] | dict[str, str] | dict[str, float],
 ]
 
-# Common emoji code-point ranges. Deliberately excludes plain arrows (←→) and
-# other typographic symbols that appear legitimately in prose and diagrams.
-_EMOJI = re.compile(
-    "["
-    "\U0001f300-\U0001faff"  # symbols, pictographs, emoticons, transport, supplemental
-    "\U00002600-\U000026ff"  # miscellaneous symbols
-    "\U00002700-\U000027bf"  # dingbats
-    "\U0001f1e6-\U0001f1ff"  # regional indicator (flags)
-    "\U00002b00-\U00002bff"  # stars and misc symbols
-    "\U0000fe0f"  # emoji variation selector
-    "\U0000200d"  # zero-width joiner
-    "]",
-)
+# Non-prose that shares a line with prose: a link target, an HTML tag or a
+# single-line HTML comment. Blanked before any rule looks at the line.
+_LINK_TARGET = re.compile(r"\]\([^)]*\)")
+_HTML_TAG = re.compile(r"<[A-Za-z/!][^>]*>")
+
+# A token that is code, not a word, for the spelling rule only: a flag
+# (``--color``), or anything holding a path, an assignment, an underscore, a
+# scope, a dotted name or a digit (``settings.color``, ``org-color-42``).
+_CODE_TOKEN = re.compile(r"(?<!\S)(?:--?\w\S*|\S*(?:[/=_]|::|\w\.\w|\d)\S*)")
 
 # High-confidence American → British spellings. Part-of-speech-ambiguous pairs
 # (license/licence, practice/practise, program) are intentionally omitted.
@@ -122,12 +122,6 @@ _DEFAULT_SPELLINGS: dict[str, str] = {
     "dialog": "dialogue",
 }
 
-# A code span is a run of backticks, then content, then a matching run of the
-# same length (CommonMark). The backreference is what makes double-backtick
-# spans like ``color`` strip correctly; a single-backtick pattern would only
-# blank the delimiter pairs and leave the content exposed to the scanner.
-_INLINE_CODE = re.compile(r"(`+).*?\1")
-
 # Word and sentence segmentation for PROSE-004 density. Sentences split on a
 # terminal ``.!?`` followed by whitespace; segments are kept only when they hold
 # non-whitespace, so trailing or doubled breaks cannot inflate the count.
@@ -168,9 +162,21 @@ def _require_number(*, key: str, value: object) -> float:
     return value
 
 
-def _strip_inline_code(line: str) -> str:
-    """Blank out inline `code` spans, preserving length for column fidelity."""
-    return _INLINE_CODE.sub(lambda m: " " * len(m.group(0)), line)
+def _blank(match: re.Match[str]) -> str:
+    return " " * len(match.group(0))
+
+
+def _strip_non_prose(line: str) -> str:
+    """Blank inline code, link targets, URLs and HTML tags, keeping the length."""
+    stripped = strip_inline_code(line)
+    for pattern in (_LINK_TARGET, URL_RE, _HTML_TAG):
+        stripped = pattern.sub(_blank, stripped)
+    return stripped
+
+
+def _strip_code_tokens(line: str) -> str:
+    """Blank the tokens that are code rather than words, keeping the length."""
+    return _CODE_TOKEN.sub(_blank, line)
 
 
 def _compile_spellings(spellings: dict[str, str]) -> re.Pattern[str] | None:
@@ -253,7 +259,7 @@ class ProseCheck:
                 ),
             )
         if self.flag_emoji:
-            match = _EMOJI.search(line)
+            match = EMOJI_RE.search(line)
             if match is not None:
                 found.append(
                     Violation(
@@ -265,7 +271,7 @@ class ProseCheck:
                     ),
                 )
         if spell_re is not None:
-            for match in spell_re.finditer(line):
+            for match in spell_re.finditer(_strip_code_tokens(line)):
                 word = match.group(0)
                 found.append(
                     Violation(
@@ -279,24 +285,17 @@ class ProseCheck:
         return found
 
     def _extract_prose_lines(self, *, text: str) -> list[tuple[int, str]]:
-        """Yield ``(lineno, prose_line)`` with fenced and inline code removed.
+        """Yield ``(lineno, prose_line)`` with everything that is not prose removed.
 
         The single source of truth for what counts as prose: fenced code blocks
-        (``` or ~~~) are dropped and inline code spans are blanked. Both the
-        line scanners (PROSE-001/002/003) and the density measure (PROSE-004)
-        consume this, so they always agree on the prose surface.
+        (``` or ~~~) and front matter are dropped, and inline code, link
+        targets, URLs and HTML tags are blanked. Both the line scanners
+        (PROSE-001/002/003) and the density measure (PROSE-004) consume this,
+        so they always agree on the prose surface.
         """
-        lines: list[tuple[int, str]] = []
-        in_fence = False
-        for lineno, raw in enumerate(text.splitlines(), start=1):
-            stripped = raw.lstrip()
-            if stripped.startswith("```") or stripped.startswith("~~~"):
-                in_fence = not in_fence
-                continue
-            if in_fence:
-                continue
-            lines.append((lineno, _strip_inline_code(raw)))
-        return lines
+        return [
+            (lineno, _strip_non_prose(raw)) for lineno, raw in iter_prose_lines(text.splitlines())
+        ]
 
     def _scan_text(
         self,

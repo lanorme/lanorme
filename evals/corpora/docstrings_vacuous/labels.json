@@ -22,5 +22,11 @@
   "negatives/neg_short_and_private.py:4": false,
   "negatives/neg_short_and_private.py:9": false,
   "negatives/neg_short_and_private.py:17": false,
-  "negatives/neg_short_and_private.py:20": false
+  "negatives/neg_short_and_private.py:20": false,
+  "positives/pos_placeholders.py:4": true,
+  "positives/pos_placeholders.py:12": true,
+  "negatives/neg_out_of_scope.py:4": false,
+  "negatives/neg_out_of_scope.py:7": false,
+  "negatives/neg_out_of_scope.py:17": false,
+  "negatives/neg_out_of_scope.py:18": false
 }

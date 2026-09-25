@@ -497,3 +497,91 @@ def test_root_under_a_skip_named_ancestor_is_still_scanned(check: ProseCheck, tm
     assert result.status == Status.FAIL
     assert [v.code for v in result.violations] == ["PROSE-002"]
     assert result.violations[0].file == "doc.md"
+
+
+# --------------------------------------------------------------------------- #
+# What is not prose: URLs, link targets, HTML, code-like tokens, front matter
+# --------------------------------------------------------------------------- #
+
+
+def test_prose002_ignores_urls_link_targets_and_html(check: ProseCheck, tmp_path: Path):
+    # Arrange: American spellings that live in addresses and markup, not words.
+    body = (
+        "See https://example.com/api/organization/1 now.\n"
+        "Read the [guide](./behavior.md) first.\n"
+        '<div style="color: red">markup</div>\n'
+        "<!-- color in a comment -->\n"
+    )
+    _write(root=tmp_path, name="doc.md", body=body)
+
+    # Act.
+    result = check.run(src_root=str(tmp_path))
+
+    # Assert.
+    assert not any(v.rule == "PROSE-002" for v in result.violations)
+
+
+def test_prose002_ignores_code_like_tokens_but_not_words(check: ProseCheck, tmp_path: Path):
+    # Arrange: a flag, a dotted name and a key beside the word itself.
+    body = "Pass --color, set settings.color, use key org-color-42, but the color itself.\n"
+    _write(root=tmp_path, name="doc.md", body=body)
+
+    # Act.
+    result = check.run(src_root=str(tmp_path))
+
+    # Assert: one finding, for the word.
+    spellings = [v for v in result.violations if v.rule == "PROSE-002"]
+    assert len(spellings) == 1
+    assert "'color'" in spellings[0].message
+
+
+def test_front_matter_is_not_prose(check: ProseCheck, tmp_path: Path):
+    # Arrange: a YAML block with American keys and values, then real prose.
+    body = (
+        "---\ntitle: Color Theory\nlayout: center\n---\n\n# Title\n\n"
+        f"The colour of things {_EM_DASH} here.\n"
+    )
+    _write(root=tmp_path, name="doc.md", body=body)
+
+    # Act.
+    result = check.run(src_root=str(tmp_path))
+
+    # Assert: the front matter is skipped; the prose after it is still scanned.
+    assert not any(v.rule == "PROSE-002" for v in result.violations)
+    assert [v.line for v in result.violations if v.rule == "PROSE-001"] == [8]
+
+
+def test_longer_fence_holds_a_shorter_fence_line(check: ProseCheck, tmp_path: Path):
+    # Arrange: a four-backtick fence showing a three-backtick line.
+    body = f"````\n```\ninside {_EM_DASH} color\n```\n````\nafter {_EM_DASH}\n"
+    _write(root=tmp_path, name="doc.md", body=body)
+
+    # Act.
+    result = check.run(src_root=str(tmp_path))
+
+    # Assert: only the line after the fence is prose.
+    assert [v.line for v in result.violations if v.rule == "PROSE-001"] == [6]
+    assert not any(v.rule == "PROSE-002" for v in result.violations)
+
+
+def test_tilde_fence_is_not_closed_by_backticks(check: ProseCheck, tmp_path: Path):
+    # Arrange: a tilde fence showing a backtick fence line.
+    body = f"~~~\n```\ninside {_EM_DASH}\n~~~\nafter {_EM_DASH}\n"
+    _write(root=tmp_path, name="doc.md", body=body)
+
+    # Act.
+    result = check.run(src_root=str(tmp_path))
+
+    # Assert.
+    assert [v.line for v in result.violations if v.rule == "PROSE-001"] == [5]
+
+
+def test_prose003_spares_symbols_outside_the_emoji_set(check: ProseCheck, tmp_path: Path):
+    # Arrange: a check mark, a cross, a star, a note and a ballot box.
+    _write(root=tmp_path, name="doc.md", body="Done ✓ ✗ ★ ♪ ☐ now.\n")
+
+    # Act.
+    result = check.run(src_root=str(tmp_path))
+
+    # Assert: none of these carries the Emoji property.
+    assert result.violations == []

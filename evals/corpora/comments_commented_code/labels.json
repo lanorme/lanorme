@@ -199,5 +199,33 @@
     {"line": 21, "label": "ok", "note": "indented illustrative call signature with ellipsis"},
     {"line": 22, "label": "ok", "note": "indented illustrative call signature with ellipsis"},
     {"line": 23, "label": "ok", "note": "indented illustrative call signature with ellipsis"}
+  ],
+  "negatives/neg_labelled_notes.py": [
+    {"line": 7, "label": "ok", "note": "task tag with a labelled value: a note, not a typed assignment"},
+    {"line": 8, "label": "ok", "note": "task tag with a labelled value"},
+    {"line": 9, "label": "ok", "note": "'default:' label; the annotation word is not a type"},
+    {"line": 10, "label": "ok", "note": "cython directive"},
+    {"line": 11, "label": "ok", "note": "TOML/YAML literal 'true' is not Python"},
+    {"line": 12, "label": "ok", "note": "TOML/YAML literal 'false' is not Python"},
+    {"line": 13, "label": "ok", "note": "JSON/SQL literal 'null' is not Python"},
+    {"line": 14, "label": "ok", "note": "prose fragment: keyword followed only by an adverb"},
+    {"line": 15, "label": "ok", "note": "prose fragment: keyword followed only by an adverb"},
+    {"line": 16, "label": "ok", "note": "prose fragment: keyword followed only by an adverb"}
+  ],
+  "negatives/neg_illustrations.py": [
+    {"line": 7, "label": "ok", "note": "illustration header"},
+    {"line": 8, "label": "ok", "note": "call shape shown under an Example: header"},
+    {"line": 9, "label": "ok", "note": "call shape shown under an Example: header"},
+    {"line": 13, "label": "ok", "note": "illustration header (e.g.:)"},
+    {"line": 14, "label": "ok", "note": "assignment shown under an e.g.: header"}
+  ],
+  "positives/pos_typed_notes.py": [
+    {"line": 7, "label": "commented_code", "note": "disabled typed assignment (builtin type)"},
+    {"line": 8, "label": "commented_code", "note": "disabled typed assignment (subscript type)"},
+    {"line": 9, "label": "commented_code", "note": "disabled typed assignment (class type)"},
+    {"line": 10, "label": "commented_code", "note": "disabled return of a real name ending in -ly"},
+    {"line": 11, "label": "commented_code", "note": "disabled raise of a real name"},
+    {"line": 15, "label": "ok", "note": "prose header; not an illustration header"},
+    {"line": 16, "label": "commented_code", "note": "disabled assignment under an 'Old code:' header"}
   ]
 }

@@ -35,6 +35,7 @@ Run:
 from __future__ import annotations
 
 import ast
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import ClassVar
@@ -111,6 +112,19 @@ _FILLER = frozenset(
         "simple",
         "new",
         "one",
+        # A placeholder left where a docstring should go says nothing either.
+        "todo",
+        "tbd",
+        "fixme",
+        "xxx",
+        "wip",
+        "stub",
+        "placeholder",
+        "docstring",
+        "doc",
+        "docs",
+        "documentation",
+        "description",
     },
 )
 
@@ -190,14 +204,28 @@ def _is_vacuous(*, doc: str, node: ast.AST, owner: str = "") -> bool:
     return all(_covers(signature=signature, word=word) for word in content)
 
 
-def _skip(*, node: ast.AST, min_lines: int, require_private: bool) -> bool:
+@dataclass(frozen=True)
+class _Definition:
+    """A definition on the module's surface, with the class it belongs to.
+
+    A method's docstring is read next to its class, so ``Refill the bucket.``
+    on ``Bucket.refill`` restates the pair and adds nothing. ``hidden`` marks a
+    member of a private class, which is no more public than the class.
+    """
+
+    node: ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef
+    owner: str
+    hidden: bool
+
+
+def _skip(*, definition: _Definition, min_lines: int, require_private: bool) -> bool:
     """True if this definition is outside the rules' scope."""
-    name = getattr(node, "name", "")
+    name = definition.node.name
     if name.startswith("__") and name.endswith("__"):
         return True
-    if not require_private and not _is_public(name=name):
+    if not require_private and (definition.hidden or not _is_public(name=name)):
         return True
-    return _measure_effective_length(node=node) < min_lines
+    return _measure_effective_length(node=definition.node) < min_lines
 
 
 def _describe_node(*, node: ast.AST) -> str:
@@ -205,18 +233,43 @@ def _describe_node(*, node: ast.AST) -> str:
     return "Class" if isinstance(node, ast.ClassDef) else "Function"
 
 
-def _map_owners(*, module: Module) -> dict[int, str]:
-    """Map each method to its enclosing class name, keyed by node id.
+def _iter_nested_bodies(node: ast.stmt) -> Iterator[list[ast.stmt]]:
+    """The statement lists a module-level ``if`` or ``try`` can hold a definition in."""
+    if isinstance(node, ast.If):
+        yield node.body
+        yield node.orelse
+    elif isinstance(node, ast.Try):
+        yield node.body
+        yield node.orelse
+        yield node.finalbody
+        for handler in node.handlers:
+            yield handler.body
 
-    A method's docstring is read next to its class, so ``Refill the bucket.``
-    on ``Bucket.refill`` restates the pair and adds nothing.
+
+def _collect_definitions(
+    body: list[ast.stmt],
+    *,
+    owner: str = "",
+    hidden: bool = False,
+) -> Iterator[_Definition]:
+    """Every definition a reader documents: module level and class members.
+
+    A function nested inside another is an implementation detail of its
+    parent, not part of any public surface, so a function body is never
+    descended into. A class body is, so methods and nested classes are found.
     """
-    owned: dict[int, str] = {}
-    for node in module.index.collect(ast.ClassDef):
-        for child in node.body:
-            if isinstance(child, _DEF_TYPES):
-                owned[id(child)] = node.name
-    return owned
+    for node in body:
+        if isinstance(node, _DEF_TYPES):
+            yield _Definition(node=node, owner=owner, hidden=hidden)
+            if isinstance(node, ast.ClassDef):
+                yield from _collect_definitions(
+                    node.body,
+                    owner=node.name,
+                    hidden=hidden or not _is_public(name=node.name),
+                )
+            continue
+        for nested in _iter_nested_bodies(node):
+            yield from _collect_definitions(nested, owner=owner, hidden=hidden)
 
 
 def _find_definition_violations(
@@ -228,10 +281,10 @@ def _find_definition_violations(
     """Check every in-scope definition in one module for CMT-006 and CMT-007."""
     violations: list[Violation] = []
     file = module.relative
-    owned = _map_owners(module=module)
-    for node in module.index.collect(*_DEF_TYPES):
-        if _skip(node=node, min_lines=min_lines, require_private=require_private):
+    for definition in _collect_definitions(module.tree.body):
+        if _skip(definition=definition, min_lines=min_lines, require_private=require_private):
             continue
+        node = definition.node
         doc = ast.get_docstring(node)
         if doc is None:
             violations.append(
@@ -244,7 +297,7 @@ def _find_definition_violations(
                     **locate(node),
                 ),
             )
-        elif _is_vacuous(doc=doc, node=node, owner=owned.get(id(node), "")):
+        elif _is_vacuous(doc=doc, node=node, owner=definition.owner):
             violations.append(
                 Violation(
                     file=file,

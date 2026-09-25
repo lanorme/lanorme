@@ -15,8 +15,9 @@ from pathlib import Path
 import pytest
 
 from lanorme import Status
-from lanorme.checks import comments as comments_module
-from lanorme.checks.comments import CommentsCheck, _comment_parses_as_code
+from lanorme.checks import comment_code as comments_module
+from lanorme.checks.comment_code import _comment_parses_as_code
+from lanorme.checks.comments import CommentsCheck
 
 # A single-line expression nested far enough to overflow a recursion-bounded
 # parser, yet syntactically valid where it does parse.
@@ -278,3 +279,168 @@ def test_root_under_a_skip_named_ancestor_is_still_scanned(check: CommentsCheck,
     # Assert: the ancestor is the user's filesystem, not the project layout.
     assert result.status == Status.FAIL
     assert any(v.rule == "CMT-001" for v in result.violations)
+
+
+# --------------------------------------------------------------------------- #
+# CMT-001: shapes that parse as Python but are not code
+# --------------------------------------------------------------------------- #
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "TODO: retries = 5",
+        "default: timeout = 30",
+        "cython: boundscheck=False",
+        "enabled = true",
+        "timeout = null",
+        "return early",
+        "import lazily",
+        "raise instead",
+    ],
+)
+def test_cmt001_ignores_notes_that_happen_to_parse(
+    check: CommentsCheck,
+    tmp_path: Path,
+    text: str,
+):
+    # Arrange: a labelled note, a foreign literal or an adverb after a keyword.
+    _write(root=tmp_path, name="note.py", body=f"# {text}\nx = 1\n")
+
+    # Act.
+    result = check.run(src_root=str(tmp_path))
+
+    # Assert: none of these is disabled code.
+    assert not any(v.rule == "CMT-001" for v in result.violations)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "x: int = 5",
+        "items: list[int] = []",
+        "result: Result = compute()",
+        "return result",
+        "return reply",
+        "import os",
+    ],
+)
+def test_cmt001_still_flags_typed_assignments_and_real_operands(
+    check: CommentsCheck,
+    tmp_path: Path,
+    text: str,
+):
+    # Arrange: the same shapes with a real type or a real name.
+    _write(root=tmp_path, name="dead.py", body=f"# {text}\nx = 1\n")
+
+    # Act.
+    result = check.run(src_root=str(tmp_path))
+
+    # Assert.
+    assert [v.line for v in result.violations if v.rule == "CMT-001"] == [1]
+
+
+def test_cmt001_ignores_code_under_an_example_header(check: CommentsCheck, tmp_path: Path):
+    # Arrange: an illustration block, then a separate block of disabled code.
+    body = (
+        "# Typical usage:\n"
+        '#     register("svc", timeout=30)\n'
+        "#     client.get(url)\n"
+        "x = 1\n"
+        "# Old code:\n"
+        "#     total = add_legacy(1, 2)\n"
+    )
+    _write(root=tmp_path, name="usage.py", body=body)
+
+    # Act.
+    result = check.run(src_root=str(tmp_path))
+
+    # Assert: only the block without an illustration header is dead code.
+    assert [v.line for v in result.violations if v.rule == "CMT-001"] == [6]
+
+
+# --------------------------------------------------------------------------- #
+# CMT-002: blocks and lines that are long for a reason
+# --------------------------------------------------------------------------- #
+
+
+def test_cmt002_licence_header_is_not_a_verbose_block(check: CommentsCheck, tmp_path: Path):
+    # Arrange: a ten-line header opening with a copyright notice.
+    header = "# Copyright 2024 Acme Corp. All rights reserved.\n"
+    header += "".join(f"# Clause {i} of the permission notice.\n" for i in range(9))
+    _write(root=tmp_path, name="licensed.py", body=f"{header}x = 1\n")
+
+    # Act.
+    result = check.run(src_root=str(tmp_path))
+
+    # Assert.
+    assert not any(v.rule == "CMT-002" for v in result.violations)
+
+
+def test_cmt002_pep723_block_is_neither_verbose_nor_code(check: CommentsCheck, tmp_path: Path):
+    # Arrange: a metadata block longer than the base allowance.
+    block = "# /// script\n# dependencies = [\n"
+    block += "".join(f'#     "dep{i}",\n' for i in range(8))
+    block += "# ]\n# ///\n"
+    _write(root=tmp_path, name="script.py", body=f"{block}x = 1\n")
+
+    # Act.
+    result = check.run(src_root=str(tmp_path))
+
+    # Assert.
+    assert result.violations == []
+
+
+def test_cmt002_url_and_pragma_lines_are_not_measured(check: CommentsCheck, tmp_path: Path):
+    # Arrange: a line long only because of its URL, a long pragma, and long prose.
+    url = "# See https://example.com/" + "segment/" * 20
+    pragma = "# pylint: disable=" + ",".join(f"rule-{i}" for i in range(20))
+    prose = "# " + "word " * 30
+    _write(root=tmp_path, name="long.py", body=f"{url}\n{pragma}\n{prose}\nx = 1\n")
+
+    # Act.
+    result = check.run(src_root=str(tmp_path))
+
+    # Assert: only the prose is something the author can tighten.
+    assert [v.line for v in result.violations if v.rule == "CMT-002"] == [3]
+
+
+def test_cmt002_preamble_above_decorators_earns_the_function_allowance(
+    check: CommentsCheck,
+    tmp_path: Path,
+):
+    # Arrange: a ten-line preamble, two decorators, then a complex function.
+    block = "".join(f"# explanation line {i}\n" for i in range(10))
+    body = f"{block}@staticmethod\n@wraps(hard)\ndef hard(value):\n{_build_branchy_body(arms=12)}    return 0\n"
+    _write(root=tmp_path, name="decorated.py", body=body)
+
+    # Act.
+    result = check.run(src_root=str(tmp_path))
+
+    # Assert: the decorators do not push the preamble out of reach.
+    assert not any(v.rule == "CMT-002" for v in result.violations)
+
+
+# --------------------------------------------------------------------------- #
+# PROSE-003 on comments: emoji, not every symbol from the same blocks
+# --------------------------------------------------------------------------- #
+
+
+def test_prose003_on_comments_spares_typographic_symbols(tmp_path: Path):
+    # Arrange: check marks, a star, a note, a joiner in Hindi, then real emoji.
+    instance = CommentsCheck()
+    instance.configure(settings={"emoji": True})
+    body = (
+        "# ✓ done ✗ failed ★ star ♪ note ☐ open\n"
+        "# क्‍ष joined\n"
+        "# \U0001f680 rocket\n"
+        "# ✔ heavy check\n"
+        "x = 1\n"
+    )
+    _write(root=tmp_path, name="symbols.py", body=body)
+
+    # Act.
+    result = instance.run(src_root=str(tmp_path))
+
+    # Assert: the rocket and the heavy check mark are emoji; the rest is not.
+    assert [v.line for v in result.violations if v.rule == "PROSE-003"] == [3, 4]

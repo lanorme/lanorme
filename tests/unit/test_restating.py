@@ -339,3 +339,24 @@ def test_root_under_a_skip_named_ancestor_is_still_scanned(check: RestatingCheck
 
     # Assert: the ancestor is the user's filesystem, not the project layout.
     assert _collect_codes(result) == ["CMT-005"]
+
+
+# --------------------------------------------------------------------------- #
+# Single-line framed section headers
+# --------------------------------------------------------------------------- #
+
+
+@pytest.mark.parametrize("header", ["--- Setup ---", "=== Totals ===", "## Setup"])
+def test_framed_section_header_is_not_restating(
+    check: RestatingCheck,
+    tmp_path: Path,
+    header: str,
+):
+    # Arrange: a one-line banner whose title names the call under it.
+    _write(root=tmp_path, name="x.py", body=f"def run(setup):\n    # {header}\n    setup()\n")
+
+    # Act.
+    result = check.run(src_root=str(tmp_path))
+
+    # Assert: a navigation aid is not a restatement.
+    assert _collect_codes(result) == []

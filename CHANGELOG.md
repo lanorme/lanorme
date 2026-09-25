@@ -134,6 +134,60 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
 
 ### Fixed
 
+- A baselined whole-file finding (one reported at line 1, such as `SIZE-001`)
+  is anchored on its file and code rather than on the rule's wording, so a
+  recorded error still covers the warning it improves into instead of
+  failing a stricter build; entries in an existing baseline re-anchor on the
+  next `lanorme baseline write`, which the drift notice points to. Inline
+  ignores and baseline anchors are read through the file's `coding:` cookie,
+  so a `# noqa` in a latin-1 file is honoured.
+- The naming checks cry wolf less, after a red-team of framework hooks,
+  domain verbs and predicate shapes. `NAMING-007` / `NAMING-011` leave alone
+  the standard library's protocol methods on `asyncio`, `socketserver`,
+  `ast.NodeVisitor`, `xml.sax`, `cmd`, `io`, `logging` and `urllib` classes,
+  the method hooks Django, Django REST framework, Scrapy, pydantic and
+  SQLAlchemy fix (`ready`, `form_valid`, `perform_create`, `closed`,
+  `model_post_init`), a camelCase method on a subclass (`mousePressEvent`,
+  `dataReceived`: PEP 8 allows mixedCase only to match a prevailing style),
+  a hook named in camelCase (`onMessage`), a bare `callback` or `handler`,
+  and the WSGI `application` and ASGI `app` callables. `NAMING-011` also
+  leaves a decorator or closure factory (a function that returns a function
+  it defines) named for what it confers. The verb vocabulary gains business,
+  moderation and security verbs (`refund`, `invite`, `ban`, `redact`, ...)
+  and stops reading `enterprise`, `premise` and `-size` compounds as verbs.
+  `NAMING-006` treats an exception subclass and an outcome head
+  (`SendFailed`, `FetchAborted`) as things. `NAMING-009` accepts a noise word
+  a base already carries (`UserManager(models.Manager)`). `NAMING-004`
+  accepts every predicate shape (`exists`, `matches`, `needs_refresh`,
+  `user_is_active`, `isdir`) and the protocol and framework names above.
+  `NAMING-005` keeps a comprehension's, a lambda's or a nested function's
+  names to that scope and counts a `match` capture as a binding.
+- `CMT-001` no longer reads a labelled note (`# TODO: retries = 5`,
+  `# default: timeout = 30`, `# cython: boundscheck=False`), a foreign
+  literal (`# enabled = true`), a keyword followed only by an adverb
+  (`# return early`, `# import lazily`) or the lines under a `Usage:` /
+  `Example:` header as commented-out code. Typed assignments (`# x: int = 5`)
+  and real operands (`# return result`) are still flagged; the corpus now
+  scores P = 1.000.
+- `CMT-002` exempts a licence or copyright header, a PEP 723 metadata block,
+  a pragma line, and the URL part of a line, and a preamble above a decorated
+  function earns that function's allowance.
+- `CMT-005` treats a one-line framed banner (`# --- Setup ---`) as a section
+  header, not a restatement of the call under it.
+- `CMT-006` no longer requires a docstring on a function nested inside
+  another or on a member of a private class (unless `require_private` is on),
+  and `CMT-007` counts a placeholder (`TODO`, `Docstring.`) as saying nothing.
+- `PROSE-003` flags only code points with Unicode's Emoji property (or a
+  symbol carrying the emoji presentation selector): a check mark (U+2713), a
+  ballot box, a star or a musical note is no longer an emoji, and a zero-width
+  joiner in Hindi or Arabic text no longer is either.
+- `PROSE-002` ignores URLs, link targets, HTML tags, YAML front matter and
+  code-like tokens (`--color`, `settings.color`, `org-color-42`), and every
+  `PROSE` rule now tracks fence length, so a four-backtick fence holding a
+  three-backtick line no longer ends early.
+- `DOCS-*` share that fence tracking, skip front matter, no longer read a
+  rule under a list item or a table row as a setext heading, and no longer
+  read image syntax inside an inline code span as an image.
 - A single file the parser overflows on (a many-thousand-term expression) no
   longer blanks a whole check into a `RUN-000` notice, which also flipped a
   failing run to exit 0. It is skipped with that check's `-000` notice and the
