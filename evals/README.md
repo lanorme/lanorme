@@ -85,7 +85,10 @@ One `labels.json` per corpus holds every label:
   `definition` (a `def` or `class` line), `line` (the line a finding sits on) or
   `file` (the whole file, with `flag` and `note` on the entry instead of
   `labels`).
-- `flag` is the ground truth: `true` when the rule should flag the site.
+- `flag` is the ground truth: `true` when the rule should flag the site. In a
+  `file` corpus scored by several rules, a case the rules define differently
+  carries one flag per rule instead (`{"DRY-001": true, "SIMILAR-001": false}`),
+  naming every rule of the corpus.
 - `source` is `hand-written` (authored case by case, by a person or an agent),
   `mined:<repo@sha>` (taken from a named third-party revision) or
   `generated:<transform>` (written by `generate_adversarial.py`).
@@ -115,11 +118,15 @@ transformation that made them, never from running a rule:
   `corpora/duplication_similar/seeds/cpython_seeds.py` (functions copied
   verbatim from the CPython standard library) is paired with an edited copy.
   Label-preserving edits leave a duplicate (`flag: true`): rename every local
-  identifier, swap two adjacent independent assignments, change the string
-  literals. Label-breaking edits leave two different functions
-  (`flag: false`): flip one operator, wrap an assignment in a new branch on the
-  first parameter, change one called name. A transform with no site in a seed
-  is skipped.
+  identifier, swap two adjacent independent assignments. Label-breaking edits
+  leave two different functions (`flag: false`): flip one operator, wrap an
+  assignment in a new branch on the first parameter, change one called name.
+  Changing every string literal is labelled per rule: DRY-001 abstracts string
+  literals, so the pair is still an exact clone (`true`); SIMILAR-001 reads
+  them as the content a body is about, so a pair that shares no string is
+  parallel code, not a near-duplicate (`false`). Each label follows the rule's
+  definition in `docs/RULES.md`. A transform with no site in a seed is
+  skipped.
 - CMT-001: real one-line statements from the corpus's own code, commented out,
   are commented-out code (`flag: true`); prose sentences from the corpus's own
   docstrings, as comments, are not (`flag: false`).

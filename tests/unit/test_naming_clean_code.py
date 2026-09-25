@@ -196,7 +196,8 @@ def test_verbs_and_exempt_config(tmp_path: Path) -> None:
 
 
 def test_inherited_noise_word_is_the_frameworks(
-    tmp_path: Path, check: NamingCleanCodeCheck,
+    tmp_path: Path,
+    check: NamingCleanCodeCheck,
 ) -> None:
     # Arrange: a Django manager, a multiprocessing manager, and a manager with no such base.
     body = (

@@ -7,11 +7,14 @@ Checks:
 Normalization: variable names and string literals are replaced with placeholders
 so that functions differing only in naming are detected as duplicates. The name
 a call targets is kept, like an attribute name: ``min`` against ``max`` or
-``any`` against ``all`` is a different operation, not a renamed variable. The
-match is exact modulo those placeholders: a single added statement, a
-reordering, a changed number, a renamed attribute or a renamed call defeats it.
-A leading docstring is documentation, not a statement: it is left out of the
-body before the five-statement floor and the comparison. For the fuzzier
+``any`` against ``all`` is a different operation, not a renamed variable. A
+call to a name the function binds itself (a parameter, a local variable, a
+nested definition) targets data, so that name is abstracted like any other
+variable; builtins and imported names stay literal. The match is exact modulo
+those placeholders: a single added statement, a reordering, a changed number,
+a renamed attribute or a renamed call defeats it. A leading docstring is
+documentation, not a statement: it is left out of the body before the
+five-statement floor and the comparison. For the fuzzier
 near-duplicate cases see the ``similarity`` check (SIMILAR-001).
 
 Excludes: __init__.py, conftest.py, alembic/, migrations/, test_* prefixed files.
@@ -28,6 +31,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from lanorme import CheckResult, Violation, register
+from lanorme.function_body import collect_local_bindings, list_body_statements
 from lanorme.sources import (
     TOO_DEEP,
     Module,
@@ -77,10 +81,16 @@ class _NormalisedDump:
     sequential placeholders in first-seen order and every string literal by
     one token. The tree is read, never copied or mutated: it is shared with
     every other check this run.
+
+    *local_names* are the names the function binds: a call to one of them is
+    a call through a variable, so the callee is abstracted with the variable;
+    any other callee (a builtin, an import, a module-level function) is kept
+    literal.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, *, local_names: frozenset[str] = frozenset()) -> None:
         self._name_map: dict[str, str] = {}
+        self._local_names = local_names
 
     def _resolve_placeholder(self, name: str) -> str:
         """Map a name to a sequential placeholder."""
@@ -98,7 +108,7 @@ class _NormalisedDump:
                     rendered = self._resolve_placeholder(str(child))
                 elif isinstance(value, ast.Constant) and isinstance(child, str):
                     rendered = "_STR_"
-                elif _is_called_name(parent=value, field_name=field_name, child=child):
+                elif self._is_fixed_callee(parent=value, field_name=field_name, child=child):
                     # The callee is what the statement does; keep it literal, as
                     # a method's attribute name already is.
                     rendered = f"Called({child.id!r})"
@@ -110,28 +120,20 @@ class _NormalisedDump:
             return "[" + ", ".join(self.render(item) for item in value) + "]"
         return repr(value)
 
-
-def _is_called_name(*, parent: ast.AST, field_name: str, child: object) -> bool:
-    """True when *child* is the bare name a call targets (``max(...)``)."""
-    return isinstance(parent, ast.Call) and field_name == "func" and isinstance(child, ast.Name)
-
-
-def _list_body_statements(*, func_node: ast.FunctionDef | ast.AsyncFunctionDef) -> list[ast.stmt]:
-    """The function's statements without a leading docstring."""
-    body = func_node.body
-    if (
-        body
-        and isinstance(body[0], ast.Expr)
-        and isinstance(body[0].value, ast.Constant)
-        and isinstance(body[0].value.value, str)
-    ):
-        return body[1:]
-    return list(body)
+    def _is_fixed_callee(self, *, parent: ast.AST, field_name: str, child: object) -> bool:
+        """True when *child* is the bare name a call targets and it is not bound locally."""
+        return (
+            isinstance(parent, ast.Call)
+            and field_name == "func"
+            and isinstance(child, ast.Name)
+            and child.id not in self._local_names
+        )
 
 
 def _normalize_function_body(*, func_node: ast.FunctionDef | ast.AsyncFunctionDef) -> str:
     """Return a normalized dump of a function's body for comparison."""
-    return _NormalisedDump().render(_list_body_statements(func_node=func_node))
+    dump = _NormalisedDump(local_names=collect_local_bindings(func=func_node))
+    return dump.render(list_body_statements(func=func_node))
 
 
 @dataclass(frozen=True)
@@ -153,7 +155,7 @@ def _collect_functions(*, module: Module) -> list[tuple[str, _FunctionLocation]]
     for node in module.index.functions:
         # Skip functions with fewer statements than the threshold; the
         # docstring is documentation and does not count towards it.
-        if len(_list_body_statements(func_node=node)) < MIN_BODY_STATEMENTS:
+        if len(list_body_statements(func=node)) < MIN_BODY_STATEMENTS:
             continue
 
         normalized = _normalize_function_body(func_node=node)

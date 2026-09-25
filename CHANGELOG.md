@@ -36,10 +36,27 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
 
 ### Changed
 
+- `SIMILAR-001` states what it reports: two functions that carry out the same
+  operations in the same control-flow positions and agree on their string
+  literals and called names, differing only in names, numbers and one or two
+  inserted, removed or reordered statements. Bodies are compared statement by
+  statement, so a flipped operator, a statement moved into a new branch or a
+  changed callee no longer passes as drift, and a statement added with new
+  strings or calls no longer blocks a clone. A call through a parameter or
+  local variable is abstracted with the variable. The docstring no longer
+  counts towards `min_statements`. Defaults: `op_jaccard` and `call_jaccard`
+  are 1.0 (every operation and callee kept); the measure behind the
+  `op_jaccard`, `call_jaccard` and `str_jaccard` keys is the share of the
+  smaller side that the other side carries, not a Jaccard. Thresholds are
+  derived on the dev split of the corpus only; the documented numbers are the
+  holdout split's.
 - `DRY-001` keeps the name a call targets when it normalises a body, as it
   already keeps attribute names: `min` against `max`, or `any` against `all`,
-  is a different operation, not a renamed variable. A leading docstring no
-  longer counts towards the five-statement floor, nor splits a clone.
+  is a different operation, not a renamed variable. A call to a name the
+  function binds itself (a parameter, a local variable, a nested definition)
+  is abstracted with that name, so renaming a called local no longer defeats
+  the match; builtins and imports stay literal. A leading docstring no longer
+  counts towards the five-statement floor, nor splits a clone.
 - `SIZE-002` leaves the docstring out of a function's effective lines, and
   `PARAM-001` excludes `mcs` / `metacls` as it does `self` / `cls`.
 - `KWARG-001` exempts methods decorated `@override`, whose signature the base

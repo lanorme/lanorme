@@ -288,6 +288,57 @@ def test_gate_skips_a_baseline_without_holdout_and_fails_a_dropped_rule():
     assert outcome["regressions"] == ["GONE-001: scored in the baseline but not in this run"]
 
 
+def build_file_corpus(*, root: Path, flag: object) -> Path:
+    """Create a one-file corpus scored by two rules whose entry carries *flag*."""
+    corpus = root / "tiny_pairs"
+    (corpus / "dev" / "positives").mkdir(parents=True)
+    (corpus / "dev" / "positives" / "pos_a.py").write_text("x = 1\n", encoding="utf-8")
+    document = {
+        "rules": ["A-001", "B-001"],
+        "unit": "file",
+        "description": "test corpus",
+        "split": "too_small",
+        "files": {
+            "dev/positives/pos_a.py": {
+                "source": "hand-written",
+                "labelled_by": "test",
+                "labelled_before_rule": True,
+                "flag": flag,
+            },
+        },
+    }
+    (corpus / "labels.json").write_text(json.dumps(document), encoding="utf-8")
+    return corpus
+
+
+def test_per_rule_flag_is_resolved_for_each_rule(tmp_path):
+    # Arrange: one file the two rules label differently.
+    corpus = build_file_corpus(root=tmp_path, flag={"A-001": True, "B-001": False})
+    document = labelled_corpus.read_labels(corpus=corpus)
+
+    # Act.
+    problems = validate_corpora.find_corpus_problems(corpus=corpus)
+    expected_a = labelled_corpus.build_expected(document=document, rule="A-001")
+    expected_b = labelled_corpus.build_expected(document=document, rule="B-001")
+
+    # Assert: valid, and each rule reads its own label.
+    assert problems == []
+    assert expected_a == {("dev/positives/pos_a.py", 0): True}
+    assert expected_b == {("dev/positives/pos_a.py", 0): False}
+
+
+def test_per_rule_flag_must_name_every_scored_rule(tmp_path):
+    # Arrange: a per-rule flag that leaves one of the corpus's rules out.
+    corpus = build_file_corpus(root=tmp_path, flag={"A-001": True})
+
+    # Act.
+    problems = validate_corpora.find_corpus_problems(corpus=corpus)
+
+    # Assert: the validator names the missing rule set.
+    assert len(problems) == 1
+    assert "one boolean for each of ['A-001', 'B-001']" in problems[0]
+
+
 def test_generated_cases_are_reproducible_and_committed():
     # Arrange / Act: generate twice, and compare against the committed files.
     first = generate_adversarial.build_all_cases()

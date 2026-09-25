@@ -570,10 +570,17 @@ documentation and counts for neither). Normalisation strips variable names and
 string literals, so two functions differing only in identifier spelling or
 string-constant content still match. The name a call targets is kept, like an
 attribute name: `min(...)` against `max(...)`, or `any(...)` against
-`all(...)`, is a different operation, not a renamed variable. It is precise but
-strict: a single added statement, a reordering, a changed number, a renamed
-attribute or a renamed call defeats the match. For the fuzzier "these should
-share a helper" cases, see `SIMILAR-001` below.
+`all(...)`, is a different operation, not a renamed variable. A call to a name
+the function binds itself (a parameter, a local variable, a nested definition)
+is a call through a variable, so that name is abstracted with the variable;
+builtins and imported names stay literal. It is precise but strict: a single
+added statement, a reordering, a changed number, a renamed attribute or a
+renamed call defeats the match. For the fuzzier "these should share a helper"
+cases, see `SIMILAR-001` below. Measured on the holdout split of the shared
+corpus (`evals/corpora/duplication_similar/`, scorer `evals/score_dry001.py`),
+whose labels are near-duplicates rather than exact clones: **precision 1.000 /
+recall 0.538**; on the generated cases alone, precision 1.000 / recall 0.870
+(the misses are the reordered pairs, by design).
 
 Config: none. False positives on intentionally parallel
 adapters across bounded contexts are a known limit; suppress them with
@@ -585,25 +592,50 @@ adapters across bounded contexts are a known limit; suppress them with
 ## Near-duplicate: `SIMILAR-001`
 
 Opt-in (default-off), advisory **warning** (never fails the build). The fuzzy
-companion to `DRY-001`: it catches near-duplicates that the exact check misses
-(one or two added statements, reordering, a changed number, a renamed
-attribute, a renamed call) so a reviewer can decide whether to extract a shared
-helper.
+companion to `DRY-001`: it catches the near-duplicates the exact check misses
+so a reviewer can decide whether to extract a shared helper.
 
-Two functions in a file are compared on two signals. **Structure**: a token
-sequence over the body that abstracts away variable names, attribute names and
-numbers, scored with `difflib` (so a one-statement or reorder drift still
-aligns). **Anchors**: the meaning-bearing tokens `DRY-001` discards: string
-literals, called names, operator kinds, and accessed attribute names, each
-scored by weighted Jaccard. A pair flags only when the structure is similar
-**and** every anchor agrees, which keeps precision high: parallel boilerplate
-that shares a shape but differs in its string keys or source attributes (config
-builders, dispatch tables, field mappers, framework handlers) is rejected.
-Equality/dunder/`@property` boilerplate and drifted logging-message strings are
-handled specially. Measured on the bundled corpus
-(`evals/corpora/duplication_similar/`, scorer `evals/score_similar.py`):
-**precision 1.000 / recall 0.850 / F1 0.919**. Known recall gaps: fully renamed
-attribute sets and error-message-only drift.
+Two functions in a file are near-duplicates when they carry out the same
+operations in the same control-flow positions and differ only in data and in
+drift: variable, attribute and keyword names, numbers, and one or two
+statements inserted, removed or reordered. A pair whose statements differ in
+what they do is two functions: an operator flipped (`<` against `>`, `and`
+against `or`), a called name changed (`min` against `max`, `.append` against
+`.remove`), a statement moved into a new branch. So is a pair that differs in
+its string literals: keys, column names, formats and messages are the content
+a body is about, and parallel builders that share a shape but not their
+strings (config builders, column specs, dispatch tables, argparse subcommands)
+are boilerplate, not a clone. Message strings passed to a logging or `print`
+call are left out, so a reworded log line is drift.
+
+Each function is fingerprinted as a sequence of statement lines (one per
+statement at every nesting depth: the depth, the statement kind, and the
+statement's own tokens with names, attributes, numbers and strings abstracted,
+operator kinds and call arities kept) and four multisets: operations (each
+statement's depth, kind and operators), called names (a call to a parameter or
+local variable is abstracted, as `DRY-001` abstracts it), string literals, and
+accessed attribute names. A pair flags only when every gate passes:
+`struct_ratio`, a `difflib` ratio over the statement lines that tolerates a
+few inserted, removed or reordered statements; `op_jaccard`, `call_jaccard`
+and `str_jaccard`, the share of the smaller side's operations, called names
+and strings that the other side also carries, where 1.0 means nothing changed
+and things were only added; and `attr_jaccard`, a weighted Jaccard over
+attribute names that rejects the near-disjoint attribute sets of parallel
+mappers over different source objects. The `*_jaccard` keys keep their names;
+the measure behind the first three is that containment share, which unlike a
+Jaccard does not punish drift. Equality/dunder/`@property` boilerplate never
+flags.
+
+Known misses, by design: a call renamed to a synonym (`save` against
+`persist`) is indistinguishable from a call changed to its opposite, so called
+names must agree; a pair that differs only in its error messages; a pair whose
+attribute sets are fully renamed (`x`/`y` against `lon`/`lat`).
+
+The thresholds are derived on the dev split of the bundled corpus
+(`evals/corpora/duplication_similar/`, scorer `evals/score_similar.py`) and
+never on its holdout split. Measured on the holdout split: **precision 1.000 /
+recall 0.966 / F1 0.982**; on the generated holdout cases alone, precision
+1.000 / recall 1.000; on the dev split, precision 1.000 / recall 0.800.
 
 ```toml
 [tool.lanorme.similarity]
@@ -612,8 +644,8 @@ enabled = true
 min_statements = 5
 struct_ratio   = 0.55
 str_jaccard    = 0.60
-op_jaccard     = 0.60
-call_jaccard   = 0.35
+op_jaccard     = 1.0
+call_jaccard   = 1.0
 attr_jaccard   = 0.10
 ```
 

@@ -625,80 +625,80 @@
       "labelled_by": "evals/generate_adversarial.py",
       "labelled_before_rule": true,
       "seed": "cpython@v3.13.12:Lib/_pydatetime.py:_check_date_fields",
-      "flag": true,
-      "note": "label-preserving transform change_string_literals: still duplicates"
+      "flag": {"DRY-001": true, "SIMILAR-001": false},
+      "note": "label-preserving for DRY-001, label-breaking for SIMILAR-001 transform change_string_literals: still duplicates to DRY-001 and no longer duplicates to SIMILAR-001"
     },
     "holdout/generated/gen_change_string_literals_checknetloc.py": {
       "source": "generated:change_string_literals",
       "labelled_by": "evals/generate_adversarial.py",
       "labelled_before_rule": true,
       "seed": "cpython@v3.13.12:Lib/urllib/parse.py:_checknetloc",
-      "flag": true,
-      "note": "label-preserving transform change_string_literals: still duplicates"
+      "flag": {"DRY-001": true, "SIMILAR-001": false},
+      "note": "label-preserving for DRY-001, label-breaking for SIMILAR-001 transform change_string_literals: still duplicates to DRY-001 and no longer duplicates to SIMILAR-001"
     },
     "holdout/generated/gen_change_string_literals_cleandoc.py": {
       "source": "generated:change_string_literals",
       "labelled_by": "evals/generate_adversarial.py",
       "labelled_before_rule": true,
       "seed": "cpython@v3.13.12:Lib/inspect.py:cleandoc",
-      "flag": true,
-      "note": "label-preserving transform change_string_literals: still duplicates"
+      "flag": {"DRY-001": true, "SIMILAR-001": false},
+      "note": "label-preserving for DRY-001, label-breaking for SIMILAR-001 transform change_string_literals: still duplicates to DRY-001 and no longer duplicates to SIMILAR-001"
     },
     "holdout/generated/gen_change_string_literals_copyfileobj.py": {
       "source": "generated:change_string_literals",
       "labelled_by": "evals/generate_adversarial.py",
       "labelled_before_rule": true,
       "seed": "cpython@v3.13.12:Lib/tarfile.py:copyfileobj",
-      "flag": true,
-      "note": "label-preserving transform change_string_literals: still duplicates"
+      "flag": {"DRY-001": true, "SIMILAR-001": false},
+      "note": "label-preserving for DRY-001, label-breaking for SIMILAR-001 transform change_string_literals: still duplicates to DRY-001 and no longer duplicates to SIMILAR-001"
     },
     "holdout/generated/gen_change_string_literals_covariance.py": {
       "source": "generated:change_string_literals",
       "labelled_by": "evals/generate_adversarial.py",
       "labelled_before_rule": true,
       "seed": "cpython@v3.13.12:Lib/statistics.py:covariance",
-      "flag": true,
-      "note": "label-preserving transform change_string_literals: still duplicates"
+      "flag": {"DRY-001": true, "SIMILAR-001": false},
+      "note": "label-preserving for DRY-001, label-breaking for SIMILAR-001 transform change_string_literals: still duplicates to DRY-001 and no longer duplicates to SIMILAR-001"
     },
     "holdout/generated/gen_change_string_literals_long_has_args.py": {
       "source": "generated:change_string_literals",
       "labelled_by": "evals/generate_adversarial.py",
       "labelled_before_rule": true,
       "seed": "cpython@v3.13.12:Lib/getopt.py:long_has_args",
-      "flag": true,
-      "note": "label-preserving transform change_string_literals: still duplicates"
+      "flag": {"DRY-001": true, "SIMILAR-001": false},
+      "note": "label-preserving for DRY-001, label-breaking for SIMILAR-001 transform change_string_literals: still duplicates to DRY-001 and no longer duplicates to SIMILAR-001"
     },
     "holdout/generated/gen_change_string_literals_mac_ver_xml.py": {
       "source": "generated:change_string_literals",
       "labelled_by": "evals/generate_adversarial.py",
       "labelled_before_rule": true,
       "seed": "cpython@v3.13.12:Lib/platform.py:_mac_ver_xml",
-      "flag": true,
-      "note": "label-preserving transform change_string_literals: still duplicates"
+      "flag": {"DRY-001": true, "SIMILAR-001": false},
+      "note": "label-preserving for DRY-001, label-breaking for SIMILAR-001 transform change_string_literals: still duplicates to DRY-001 and no longer duplicates to SIMILAR-001"
     },
     "holdout/generated/gen_change_string_literals_make_msgid.py": {
       "source": "generated:change_string_literals",
       "labelled_by": "evals/generate_adversarial.py",
       "labelled_before_rule": true,
       "seed": "cpython@v3.13.12:Lib/email/utils.py:make_msgid",
-      "flag": true,
-      "note": "label-preserving transform change_string_literals: still duplicates"
+      "flag": {"DRY-001": true, "SIMILAR-001": false},
+      "note": "label-preserving for DRY-001, label-breaking for SIMILAR-001 transform change_string_literals: still duplicates to DRY-001 and no longer duplicates to SIMILAR-001"
     },
     "holdout/generated/gen_change_string_literals_parse257.py": {
       "source": "generated:change_string_literals",
       "labelled_by": "evals/generate_adversarial.py",
       "labelled_before_rule": true,
       "seed": "cpython@v3.13.12:Lib/ftplib.py:parse257",
-      "flag": true,
-      "note": "label-preserving transform change_string_literals: still duplicates"
+      "flag": {"DRY-001": true, "SIMILAR-001": false},
+      "note": "label-preserving for DRY-001, label-breaking for SIMILAR-001 transform change_string_literals: still duplicates to DRY-001 and no longer duplicates to SIMILAR-001"
     },
     "holdout/generated/gen_change_string_literals_urlunsplit.py": {
       "source": "generated:change_string_literals",
       "labelled_by": "evals/generate_adversarial.py",
       "labelled_before_rule": true,
       "seed": "cpython@v3.13.12:Lib/urllib/parse.py:urlunsplit",
-      "flag": true,
-      "note": "label-preserving transform change_string_literals: still duplicates"
+      "flag": {"DRY-001": true, "SIMILAR-001": false},
+      "note": "label-preserving for DRY-001, label-breaking for SIMILAR-001 transform change_string_literals: still duplicates to DRY-001 and no longer duplicates to SIMILAR-001"
     },
     "holdout/generated/gen_flip_operator_check_date_fields.py": {
       "source": "generated:flip_operator",
