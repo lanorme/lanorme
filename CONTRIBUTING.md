@@ -158,13 +158,25 @@ Conventions for a new rule:
     split. A change to a check's thresholds or source must not add, edit,
     relabel or move that rule's holdout files in the same change. Grow the
     holdout in a separate change that leaves the rule alone.
-  - A file's split follows the hash of its name; `evals/validate_corpora.py`
-    rejects a file on the wrong side, an unlabelled file or comment, and missing
-    provenance.
+  - A file's split is recorded per file in `labels.json`, and every label
+    carries a `line_hash` of the line it labels. The hash of a file's name only
+    proposes a split for a new file: `evals/validate_corpora.py --stamp` fills
+    in a missing split or line hash and never overwrites a recorded one. The
+    validator rejects a file on the wrong side of its recorded split, an
+    unlabelled file or comment, a label with no line hash or one that no longer
+    matches its line, a positive label under `negatives/` or a `positives/`
+    file with none, and missing provenance.
   - Report the dev and holdout numbers side by side. A large dev-minus-holdout
-    gap is overfitting to explain, not a number to tune away. The audit's
-    `--gate` fails a change that lowers a holdout precision or recall by more
-    than 0.02.
+    gap is overfitting to explain, not a number to tune away. The audit records
+    a digest of every holdout file (its content and labels), and `--gate latest`
+    fails a change that removes or changes a holdout file a baseline recorded,
+    or that lowers a rule's holdout precision or recall by more than 0.02 below
+    the best any comparable release reached over the history (one that scored
+    the same holdout files), not merely the latest. It prints a note when it
+    gated nothing.
+  - A deliberate holdout edit (a label proved wrong) is its own reviewed
+    change: an entry in the optional `evals/holdout_revisions.json` accepts one
+    exact new digest per file, with a reason.
 - **Stay within the house limits.** LaNorme enforces its own `SIZE` / `PARAM` /
   `COMPLEXITY` limits on itself: files warn at 300 effective lines and fail at
   500; functions warn at 50 and fail at 80; complexity warns at 10 and fails at

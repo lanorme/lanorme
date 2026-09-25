@@ -33,8 +33,12 @@ Every release records the same evidence so a green tag is auditable later:
    stamp is what makes it interpretable).
 4. **No holdout regression.** The audit runs with `--gate latest`: it fails
    when any rule's holdout precision or recall falls more than 0.02 below the
-   latest committed `evals/results/v*.json`, and lists the rules. Dev numbers
-   are informational and never block.
+   best value any comparable committed `evals/results/v*.json` recorded (one
+   that scored the same holdout files), not merely the latest, and lists the
+   rules. It also fails when a holdout file the newest recorded audit digested
+   was removed or changed, unless `evals/holdout_revisions.json` accepts that
+   exact new digest with a reason. Dev numbers are informational and never
+   block.
 5. **RULES.md reflects the measured F1** for every rule that has a corpus. If a
    rule's F1 moved, update its line before tagging.
 
@@ -108,13 +112,19 @@ The README "Versioning" section is canonical; keep them in step.
   fired only by the GitHub Release.
 - The eval audit's accuracy step is strict: if a scorer sees a finding that
   is not in its corpus `labels.json`, or `validate_corpora.py` finds an
-  unlabelled file or comment, it errors rather than scoring a wrong number.
+  unlabelled file or comment, a label whose line hash is missing or no longer
+  matches its line, a label of the wrong polarity for its directory, or a
+  file off its recorded split, it errors rather than scoring a wrong number.
   That means a fixture went stale, not that the release is blocked on
-  performance; fix the labels.
-- The holdout gate compares against the newest `evals/results/v*.json`. A rule
-  that result has no holdout numbers for is skipped, not failed, so the first
-  release after a corpus gains a holdout split records the baseline the next
-  one is held to.
+  performance; fix the labels. The split is recorded per file in
+  `labels.json` (the name hash only proposes one for a new file), and
+  `uv run python evals/validate_corpora.py --stamp` fills a missing split or
+  line hash.
+- The holdout gate holds each rule to the best comparable release over the
+  whole history of `evals/results/v*.json`, not the newest alone. A rule no
+  comparable audit has holdout numbers for is skipped, not failed, and the
+  gate prints a note when it gated nothing, so the first release after a
+  corpus gains a holdout split records the baseline the next one is held to.
 - Performance numbers are machine-dependent. The audit stamps the hardware so
   they are interpretable, but do not compare them across machines.
 
@@ -125,8 +135,10 @@ The README "Versioning" section is canonical; keep them in step.
 - The eval audit's accuracy step fails (a scorer flags an unlabelled
   finding): the corpus is out of date. Fix the labels or the fixture, re-run.
 - The holdout gate fails: a change since the last release made a rule worse on
-  data it was not tuned on. Fix or revert the rule change; do not edit the
-  holdout files to pass.
+  data it was not tuned on, or a holdout file changed. Fix or revert the rule
+  change; do not edit the holdout files to pass. A holdout edit that is right
+  on its own merits (a label proved wrong) goes in its own reviewed change with
+  an `evals/holdout_revisions.json` entry naming the new digest and the reason.
 - The publish workflow fails (for example a PyPI outage): the tag and release
   already exist, so do not re-tag. Re-run with `gh run rerun <id>` or
   `gh workflow run release.yml`.

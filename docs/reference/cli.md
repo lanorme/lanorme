@@ -72,10 +72,16 @@ it, whichever directory the command ran from, and `per-file-ignores` and
 `exclude` globs match against those paths.
 
 Every config between the project root and the scan path is a region, and so is
-every config below the scan path. A region's settings cascade over the ones
-above it, table by table and key by key. So
-`lanorme check tests` with a `tests/lanorme.toml` applies the project's config
-plus the subtree's overrides, not the subtree's file alone. Given this tree:
+every config below the scan path. A region's check settings cascade over the
+ones above it, table by table and key by key, for the file-level checks over
+that region's files. So `lanorme check tests` with a `tests/lanorme.toml`
+checks `tests/` under the project's check settings plus the subtree's
+overrides, not the subtree's file alone. The run keys (`select`, `ignore`,
+`exclude`, `promote`, `per-file-ignores`, `baseline`, `source_root`) and the
+whole-tree checks' settings come from the project root's config whatever path
+is scanned, so `lanorme check tests` holds the same standard as
+`lanorme check .`: a nested config governs only its own region's file-level
+checks. Given this tree:
 
 ```toml
 # lanorme.toml
@@ -112,7 +118,7 @@ Every check runs from the project root, whichever path the command names.
 the root, so checks are handed `tests/helpers.py`, not `helpers.py`, and the
 path-based exemptions some checks apply (the `tests/` and `migrations/` skips)
 hold; `per-file-ignores` globs such as `"tests/*"` match the same path. Checks
-that compare files across the tree (`duplication`, `test_coverage`,
+that compare files across the tree (`docs`, `duplication`, `test_coverage`,
 `layer_deps`, `port_coverage`) still see the whole project, so a duplicate of
 a scanned file elsewhere in the project is found and `source_root` is read
 from the project root; the report is then narrowed to the requested path. Each

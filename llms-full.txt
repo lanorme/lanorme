@@ -290,11 +290,12 @@ dynamic form only hides the attribute from the type checker.
 
 High-confidence cases only. Exempt: three-argument `getattr(x, "name",
 default)` (the safe-access idiom); dunder names (`__class__`, `__name__`, ...);
-names that are not valid identifiers (cannot be written as `x.name`); a
-receiver bound by a plain `import` (`hasattr(os, "fork")`,
-`hasattr(socket, "AF_UNIX")`), which is platform feature detection on a
-module rather than duck typing of an object; and files under `tests/` or
-`test/`. Dynamic names (`getattr(x, name)`) are reflection and exempt unless
+names that are not valid identifiers (cannot be written as `x.name`);
+`hasattr` on a receiver bound by a plain `import` (`hasattr(os, "fork")`,
+`hasattr(socket, "AF_UNIX")`) and `getattr` on one with a literal name
+(`getattr(sys, "getwindowsversion")`), which is platform feature detection
+on a module rather than duck typing of an object (a `setattr` or `delattr`
+on a module is still reported); and files under `tests/` or `test/`. Dynamic names (`getattr(x, name)`) are reflection and exempt unless
 `flag_dynamic` is set.
 
 Config:
@@ -315,12 +316,16 @@ result is one of `_CODE_NODES` (imports, assigns, defs, control flow,
 returns / raises / asserts, ...), the comment is treated as disabled code.
 Guards: comments ending in `.` / `?` / `!` are prose; `foo(...)` (literal
 `...`) is illustrative; `label: type` with no value is documentation, and
-`label: word = value` is a labelled note unless the word is a type
-(`# TODO: retries = 5` and `# cython: boundscheck=False` are notes,
-`# x: int = 5` is code); an assignment of a foreign literal (`# enabled = true`,
-`# timeout = null`) is TOML, YAML or JSON, not Python; a keyword followed only
-by an adverb (`# return early`, `# import lazily`, `# raise instead`) is a
-prose fragment; the lines that follow a `Usage:`, `Example:` or `e.g.:`
+`label: word = value` is a labelled note unless the word is a type: a
+builtin, a name that is not all lowercase, or a lowercase name the module
+imports (`# TODO: retries = 5` and `# cython: boundscheck=False` are notes,
+`# x: int = 5` is code, and so is `# created: datetime = now()` under
+`from datetime import datetime`); an assignment of a foreign literal
+(`# enabled = true`, `# timeout = null`) is TOML, YAML or JSON, not Python; a
+keyword followed only by an adverb (`# return early`, `# import lazily`,
+`# raise instead`) is a prose fragment, unless the adverb is an `-ly` word
+the module binds itself (`# return quickly` where `quickly` is assigned is
+code); the lines that follow a `Usage:`, `Example:` or `e.g.:`
 header in the same block show a call shape rather than disable one; tooling
 pragmas (`# noqa`, `# type:`, ...) are skipped; and the lines of a
 [PEP 723](https://peps.python.org/pep-0723/) `# /// script` ... `# ///` inline
@@ -794,8 +799,11 @@ it conforms.
 
 Opt-in. With `enabled = true`, every multi-argument function definition
 must contain a bare `*` separator to force keyword-only call sites. Dunder
-methods and methods decorated `@override` are exempt: their signature is fixed
-by the protocol or the base class, so the finding belongs there.
+methods and methods decorated `@override`, `@typing.override` or
+`@typing_extensions.override` are exempt: their signature is fixed by the
+protocol or the base class, so the finding belongs there. A called decorator
+that happens to be named `override` (Django's `@translation.override("fr")`)
+does not exempt a method.
 
 Config:
 ```toml
@@ -926,10 +934,16 @@ function is not a command:
   `test_func`, `perform_create`, `closed`, `spider_opened`,
   `model_post_init`, `column_expression`): a module-level `ready()` is the
   author's. `setUp` and `tearDown` pass because `set` and `tear` are verbs.
-- A camelCase method on a class with bases (`mousePressEvent`,
-  `dataReceived`, `onMessage`): PEP 8 allows mixedCase only where it is
-  the prevailing style, so the name is the base API's. The same name on a
-  class without bases, or at module level, is judged.
+- A camelCase method on a class that may inherit the name
+  (`mousePressEvent` on a `QWidget` subclass, `dataReceived`, `onMessage`):
+  PEP 8 allows mixedCase only where it is the prevailing style, so the name
+  is the base API's. A class may inherit a name through an external base (one
+  the module does not define), or through a base the module defines that has
+  an external base itself or defines the same method. `object`, `ABC`,
+  `Generic`, `Protocol`, `NamedTuple`, `TypedDict` and the `Enum` family
+  (`Enum`, `IntEnum`, `StrEnum`, `Flag`, `IntFlag`) carry no method names and
+  do not count. The same name on any other class, or at module level, is
+  judged.
 - Files under `migrations/` or `alembic/` inside the scanned tree, whose
   names a tool generated. A name with non-ASCII letters is not judged.
 
@@ -957,9 +971,10 @@ same evasion. The finding is a function such as `handle_data` or
 to say which.
 
 A bare `handle` or `process` with no object is a dispatcher's slot and is
-not reported. A method on a class with bases may be overriding an inherited
-name (`do_GET` on a request handler, `process` on a SQLAlchemy type), so
-it is not reported either; nor is any name `NAMING-007` leaves alone as
+not reported. A method on a class that may inherit its name, by the same
+test as the camelCase exemption above, may be overriding it (`do_GET` on a
+request handler, `process` on a SQLAlchemy type), so it is not reported
+either; nor is any name `NAMING-007` leaves alone as
 not the author's to choose, which covers Django REST framework's
 `perform_create` and Django's `handle_label` on a plain mixin. The rule
 applies to queries as well as commands. The list is replaced, not
@@ -1275,10 +1290,15 @@ for legitimate uses (e.g. a pickle load on a trusted local cache) or
 
 Every rule sees a call through the module's own imports: `import
 subprocess as sp` and `from subprocess import run as sh` resolve to
-`subprocess.run`. A name the module rebinds itself (a parameter, a local
-`def`, an assignment) is unknown, so a local `run(cmd, shell=True)` or an
-AST visitor's own `eval(node)` never fires. A `shell=` / `verify=` /
-`usedforsecurity=` value that is not a literal is ambiguous and stays quiet.
+`subprocess.run`. A name counts as shadowed, and so as unknown, only when
+the rebinding (a parameter, a local `def`, an assignment) is visible at the
+call under Python's scoping: at module level, or in the calling function or
+a function around it. So a local `run(cmd, shell=True)` never fires, while a
+method named `exec` leaves a module-level `exec(code)` reported (a method
+name never shadows a global) and another function's parameter named `sp`
+does not hide `import subprocess as sp`. A `shell=` / `verify=` value that is
+not a literal is ambiguous and stays quiet; `usedforsecurity=` is the
+exception, since only a literal `False` declares a non-security use.
 
 - `SHELL-001`: `subprocess.run` / `call` / `check_call` /
   `check_output` / `Popen` with `shell=True`; `os.system`; `os.popen`.
@@ -1290,8 +1310,9 @@ AST visitor's own `eval(node)` never fires. A `shell=` / `verify=` /
   where the first argument is not a string literal. (Literal-arg
   `compile(...)` flows are accepted.)
 - `CRYPTO-001`: `hashlib.md5` / `hashlib.sha1` / `hashlib.new("md5"/"sha1",
-  ...)` used for security (`usedforsecurity=False` is honoured on all
-  three), `ssl.PROTOCOL_SSLv2` / `SSLv3` / `TLSv1` / `TLSv1_1` referenced
+  ...)` used for security (a literal `usedforsecurity=False` is honoured on
+  all three; a value that is not a literal fires, since it may be `True`),
+  `ssl.PROTOCOL_SSLv2` / `SSLv3` / `TLSv1` / `TLSv1_1` referenced
   anywhere but as a comparison operand (`if proto == ssl.PROTOCOL_TLSv1:
   reject()` is a guard, not a use).
 - `TLS-001`: `requests` / `httpx` call with `verify=False`, `aiohttp` call
@@ -1309,10 +1330,14 @@ Each rule has a positive + negative unit test under
 ## Security patterns: `AUTHN-001` / `SQL-001` / `SECRETPY-001`
 
 - `AUTHN-001`: default-on. `@router.post` / `put` / `patch` / `delete`
-  handlers must have an auth dependency: `Depends(get_current_user)` /
-  `Depends(require_*)` (or `Security(...)`) in a parameter annotation, a
-  parameter default (`user: User = Depends(get_current_user)`), or the
-  decorator's `dependencies=[...]` list. FastAPI-shaped;
+  handlers must have an auth dependency: a `Depends(...)` or `Security(...)`
+  whose declared dependency (its first argument, or `dependency=`) is named
+  exactly `get_current_user` or starts with `require_`. It counts in a
+  parameter annotation (`Annotated[User, Depends(get_current_user)]`), as the
+  parameter default itself (`user: User = Depends(get_current_user)`), or in
+  the decorator's `dependencies=[...]` list. `get_current_user_optional`, an
+  auth name passed as some other argument, and a marker nested inside another
+  call in a default do not count. FastAPI-shaped;
   the rule checks for **authentication presence only**, not
   authorisation. Only endpoint files under `api/` are scanned; when the
   package sits under a nested directory (a src layout), set the top-level
@@ -1322,8 +1347,10 @@ Each rule has a positive + negative unit test under
 - `SQL-001`: default-on. AST-based: only flags SQL string literals that
   reach a database execution sink (`.execute` / `.executemany` /
   `.executescript` on a DB-shaped receiver, or `read_sql` /
-  `read_sql_query`). Unwraps `text(...)` constructors, resolves module-
-  level and function-local string constants, and treats `%`-formatted /
+  `read_sql_query`). Unwraps `text(...)` constructors, resolves a bare name
+  only to a module-level string constant or a string assigned in the same
+  function (never to a parameter, so a parameter named like a constant
+  elsewhere in the file stays unknown), and treats `%`-formatted /
   `.format`-built SQL, or a `+` join with a non-literal side, as
   interpolated (always flagged); a `+` join of literals and literal
   constants only is static. Static SQL passed alongside a `params=` /

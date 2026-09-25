@@ -49,18 +49,24 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
 - `lanorme.reports.format_violation` and `format_result`, the human rendering.
 - The evals keep every heuristic score honest. Each labelled corpus has a
   `dev/` split rules may be tuned against and a sealed `holdout/` split; a
-  file's split is recorded in `labels.json` when it is added and never moves.
-  Every label carries its provenance and a hash of the line it labels.
+  file's split is recorded per file in `labels.json` when it is added and
+  never moves, and the hash of its name only proposes a split for a new file.
+  Every label carries its provenance and a hash of the line it labels, and
+  `evals/validate_corpora.py --stamp` fills in a missing split or line hash.
   `evals/validate_corpora.py` fails on an unlabelled file or comment, a label
-  that drifted off its line, a positive under `negatives/`, a `positives/`
-  file with no positive, a misplaced file or missing provenance.
+  with no line hash or one that drifted off its line, a positive under
+  `negatives/`, a `positives/` file with no positive, a misplaced file or
+  missing provenance.
   `evals/generate_adversarial.py` writes seeded holdout cases whose labels come
   from the edit that made them, never from a rule. The audit reports dev,
   holdout and the gap per rule, records a digest of every holdout file, and
-  with `--gate` fails on a holdout file removed or changed since the baseline,
-  or on a holdout precision or recall more than 0.02 below the best any
-  release reached on the same holdout files, and says so when it had nothing
-  to gate. `scripts/check.sh` and `scripts/release.sh` run that gate.
+  with `--gate latest` fails on a holdout file removed or changed since the
+  baseline, or on a holdout precision or recall more than 0.02 below the best
+  any release reached on the same holdout files (not merely the latest), and
+  prints a note when it had nothing to gate. An optional
+  `evals/holdout_revisions.json` accepts a deliberate holdout edit: one exact
+  new digest per file, with a reason. `scripts/check.sh` and
+  `scripts/release.sh` run that gate.
 
 ### Changed
 
@@ -70,13 +76,45 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
   longer counts towards the five-statement floor, nor splits a clone.
 - `SIZE-002` leaves the docstring out of a function's effective lines, and
   `PARAM-001` excludes `mcs` / `metacls` as it does `self` / `cls`.
-- `KWARG-001` exempts methods decorated `@override`, whose signature the base
-  class fixes.
+- `KWARG-001` exempts methods decorated `@override`, `@typing.override` or
+  `@typing_extensions.override`, whose signature the base class fixes. A
+  called decorator such as Django's `@translation.override("fr")` is not one.
 - `TYPE-001` / `TYPE-002` / `TYPE-003` see through `| None`, `Optional[...]`
   and other generic wrappers to the weak container inside, and read a
   qualified `typing.Any` as `Any`.
-- `ATTR-001` / `ATTR-002` exempt a receiver bound by a plain `import`
-  (`hasattr(os, "fork")`): feature detection on a module, not duck typing.
+- `ATTR-001` / `ATTR-002` exempt `hasattr` on a receiver bound by a plain
+  `import` (`hasattr(os, "fork")`), and `getattr` on one with a literal name:
+  feature detection on a module, not duck typing. A `setattr` or `delattr` on
+  a module is still reported.
+- The security call rules (`SHELL-001`, `DESERIAL-001`, `EVAL-001`,
+  `CRYPTO-001`, `TLS-001`, `DEBUG-001`) see a call through the module's
+  imports (`from subprocess import run as sh` is `subprocess.run`), and treat
+  a name as shadowed only when the rebinding is visible at the call under
+  Python's scoping: at module level, or in the calling function or a function
+  around it. A method name never shadows a global, so a method named `exec`
+  leaves a module-level `exec(code)` reported, and neither does another
+  function's parameter named `sp` shadow `import subprocess as sp`.
+- `CRYPTO-001` honours `usedforsecurity=False` on `hashlib.new("md5"/"sha1",
+  ...)` as it does on `hashlib.md5` / `hashlib.sha1`. Only a literal `False`
+  silences it: a `usedforsecurity=` value that is not a literal still fires,
+  since it may be `True`.
+- `AUTHN-001` finds an auth dependency as the parameter default itself
+  (`user: User = Depends(get_current_user)`) and in the decorator's
+  `dependencies=[...]` list as well as in a parameter annotation, and counts
+  only a `Depends(...)` or `Security(...)` whose declared dependency (the first
+  argument, or `dependency=`) is named exactly `get_current_user` or starts
+  with `require_`. `Depends(get_current_user_optional)`, an auth name passed
+  as some other argument, or a marker nested inside another call in a default
+  does not satisfy it.
+- `SQL-001` resolves a bare name only to a module-level string constant or to
+  a string assigned in the same function, never to a parameter, so a
+  parameter named like a constant elsewhere in the file is not read as that
+  SQL.
+- `NAMING-008` leaves a method alone as a possible override only when its
+  class may inherit the name: through an external base, or a base in the same
+  module that has one or defines the same method. A method on a class built
+  only on `object`, `ABC`, `Generic`, `Protocol`, `NamedTuple`, `TypedDict` or
+  the `Enum` family is judged.
 - `SUPPRESS-001` no longer counts a `noqa` whose codes all belong to another
   tool (`# noqa: E501`); it silences no LaNorme rule.
 - `JUNK-001` matches `core.[0-9]*` rather than `core.*`, so a `core.py`
@@ -111,19 +149,20 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
 - Configuration discovery walks up to the outermost config (stopping below one
   that sets `root = true`) and treats every config between it and the scan
   path as a region, so `lanorme check tests` under a `tests/lanorme.toml`
-  applies the project's config with the subtree's overrides instead of the
-  subtree's file alone. Every check runs from the project root: a subtree
+  checks the subtree's files under the project's check settings with the
+  subtree's overrides instead of the subtree's file alone. Every check runs
+  from the project root: a subtree
   scan (`lanorme check tests`, `lanorme check tests/helpers.py`) confines the
   walk to the subtree instead of making it the root, so a nested region's
   files keep their `tests/` and `migrations/` exemptions, `per-file-ignores`
   globs match them, and the whole-tree checks (`docs`, `duplication`,
-  `layer_deps`, `port_coverage`, `test_coverage`) see the whole project. The
-  run keys (`exclude`, `ignore`, `select`, `promote`, `per-file-ignores`,
-  `source_root`, `baseline`) and the whole-tree checks' settings come from the
-  project root's config whatever path is scanned, so `lanorme check tests`
-  holds the same standard as `lanorme check .`; a nested config tunes only
-  its region's checks, and an `exclude` in a nested config no longer applies
-  to a subtree run. The report is narrowed to the requested path.
+  `layer_deps`, `port_coverage`, `test_coverage`) see the whole project.
+  `lanorme check <subdir>` reads `select`, `ignore`, `exclude`, `promote`,
+  `per-file-ignores`, `baseline`, `source_root` and the whole-tree checks'
+  settings from the project root's config, so `lanorme check tests` holds the
+  same standard as `lanorme check .`: a nested config governs only its own
+  region's file-level checks, and a nested `ignore` or `exclude` no longer
+  applies to a subtree run. The report is narrowed to the requested path.
 - `test_coverage` honours the top-level `source_root` and otherwise finds its
   production directories one level down (a `src/` layout), so `lanorme check .`
   at the project root reports `TESTFILE-001` for a `src/app/...` tree.
@@ -173,7 +212,8 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
   reported as a `RUN-000` crash notice.
 - Registered checks are never configured in place: each pass runs configured
   deep copies, so a check registered with constructor arguments keeps them
-  and a check must be deep-copyable.
+  and a check must be deep-copyable. A plugin check that cannot be copied is
+  an exit-2 usage error naming the check and the fix.
 - Under nested config regions, the summary's opt-in count reflects the root
   config rather than whichever region ran last.
 - `test_coverage` reads test files through the shared parse, so a `coding:`
@@ -210,8 +250,11 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
   `ast.NodeVisitor`, `xml.sax`, `cmd`, `io`, `logging` and `urllib` classes,
   the method hooks Django, Django REST framework, Scrapy, pydantic and
   SQLAlchemy fix (`ready`, `form_valid`, `perform_create`, `closed`,
-  `model_post_init`), a camelCase method on a subclass (`mousePressEvent`,
-  `dataReceived`: PEP 8 allows mixedCase only to match a prevailing style),
+  `model_post_init`), a camelCase method on a subclass of an external class
+  (`mousePressEvent`, `dataReceived`: PEP 8 allows mixedCase only to match a
+  prevailing style; `object`, `ABC`, `Generic`, `Protocol`, `NamedTuple`,
+  `TypedDict` and the `Enum` family do not count, and a base in the same
+  module counts only when it has an external base or defines the method),
   a hook named in camelCase (`onMessage`), a bare `callback` or `handler`,
   and the WSGI `application` and ASGI `app` callables. `NAMING-011` also
   leaves a decorator or closure factory (a function that returns a function
@@ -224,14 +267,18 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
   accepts every predicate shape (`exists`, `matches`, `needs_refresh`,
   `user_is_active`, `isdir`) and the protocol and framework names above.
   `NAMING-005` keeps a comprehension's, a lambda's or a nested function's
-  names to that scope and counts a `match` capture as a binding.
+  names to that scope (a keyword-only argument without a default included)
+  and counts a `match` capture as a binding.
 - `CMT-001` no longer reads a labelled note (`# TODO: retries = 5`,
   `# default: timeout = 30`, `# cython: boundscheck=False`), a foreign
   literal (`# enabled = true`), a keyword followed only by an adverb
   (`# return early`, `# import lazily`) or the lines under a `Usage:` /
   `Example:` header as commented-out code. Typed assignments (`# x: int = 5`)
-  and real operands (`# return result`) are still flagged; the corpus now
-  scores P = 1.000.
+  and real operands (`# return result`) are still flagged, as are a
+  lowercase annotation the module imports (`# created: datetime = now()`
+  under `from datetime import datetime`) and an `-ly` word the module binds
+  (`# return quickly` where `quickly` is assigned); the corpus now scores
+  P = 1.000.
 - `CMT-002` exempts a licence or copyright header, a PEP 723 metadata block,
   a pragma line, and the URL part of a line, and a preamble above a decorated
   function earns that function's allowance.
