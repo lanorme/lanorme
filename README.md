@@ -70,6 +70,7 @@ $ lanorme check src/
 
 Summary: 30 checks — 29 passed, 0 warned, 1 failed.
 Findings: 1 error to fix, 0 advisory warnings.
+Opt-in checks not enabled: 11 ('lanorme check --show-config' lists them).
 ```
 
 Every command, flag and output format is documented in the
@@ -116,9 +117,10 @@ each.
 
 ## Configuration
 
-LaNorme walks up from the target path looking for config: a dedicated
-`lanorme.toml`, otherwise a `[tool.lanorme]` table in `pyproject.toml`. Command
-line flags win over both.
+LaNorme reads a dedicated `lanorme.toml` (or `.lanorme.toml`), otherwise a
+`[tool.lanorme]` table in `pyproject.toml`. It walks up from the target path to
+the outermost config, which marks the project root, and a nested config
+cascades over the ones above it. Command line flags win over all of them.
 
 ```toml
 [tool.lanorme]

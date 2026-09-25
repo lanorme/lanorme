@@ -47,17 +47,40 @@ A `Violation` records where and what:
 
 ```python
 Violation(
-    file="src/utils.py",   # path, relative to src_root
-    line=12,               # 1-based line, or 0 for a whole-file or path finding
-    rule="MYCODE-001: the rule, in one line",  # or just the bare code
+    file="src/utils.py",  # path, relative to src_root
+    line=12,  # 1-based line, or 0 for a whole-file or path finding
+    rule="MYCODE-001",  # the bare code; the runner adds the description
     message="What is wrong here",
     fix="What to do about it",
 )
 ```
 
-The rule code is parsed from the `rule` string (everything before the first
-colon), so a `Violation` may carry either the full `"MYCODE-001: ..."` string or
-just `"MYCODE-001"`.
+`rule` may be the bare code (`"MYCODE-001"`) or the full declared string
+(`"MYCODE-001: the rule, in one line"`). The runner expands a bare code to the
+string the check declares in `rules`, so every output carries the description
+and you spell it once per check.
+
+Three optional fields give the finding's extent: `column` and `end_column`
+(0-based, as `ast` counts them) and `end_line` (1-based, inclusive). Fill all
+three from the node you report with `**locate(node)`:
+
+```python
+from lanorme.sources import locate
+
+Violation(
+    file=module.relative,
+    line=node.lineno,
+    rule="MYCODE-001",
+    message="What is wrong here",
+    fix="What to do about it",
+    **locate(node),
+)
+```
+
+A node without positions gives `None` for each. The JSON and ndjson records
+carry these fields, derive the finding's `scope` (`span`, `line` or `file`)
+from them, and the `github` format turns them into annotation columns. See
+[finding records](../reference/cli.md#finding-records).
 
 ## Register the check
 
@@ -89,11 +112,11 @@ per check.
 from lanorme.sources import iter_parsed_modules
 
 for module in iter_parsed_modules(src_root):
-    module.path      # Path to the *.py file
+    module.path  # Path to the *.py file
     module.relative  # its path relative to src_root, posix style
-    module.source    # the decoded text
-    module.lines     # the text split into lines
-    module.tree      # the parsed ast.Module
+    module.source  # the decoded text
+    module.lines  # the text split into lines
+    module.tree  # the parsed ast.Module
 ```
 
 `iter_parsed_modules(root)` yields only the files that parse. `iter_modules(root)`
@@ -119,11 +142,33 @@ finding: promotion never escalates it and the baseline never records it.
 file the check skips on its own.
 
 Trees are shared with every other check in the run, so a check must never
-mutate one. Copy the tree first, or collect what you need without changing
-nodes.
+mutate one, or read and `ast.parse` a file itself. Copy the tree first, or
+collect what you need without changing nodes.
 
 For files that are not Python, `lanorme.discovery.iter_files(root,
-suffix=".md")` walks the tree with the same pruning and yields paths.
+suffix=".md")` walks the tree with the same pruning and returns the paths,
+sorted.
+
+### Walk the tree through `module.index`
+
+`module.index` is the file's `NodeIndex`: every node grouped by type, from one
+walk of the tree that all checks share. Ask it for the nodes you need instead
+of calling `ast.walk(module.tree)`:
+
+```python
+import ast
+
+for module in iter_parsed_modules(src_root):
+    for call in module.index.collect(ast.Call):
+        ...  # every call in the file
+    for function in module.index.functions:
+        ...  # every def and async def, nested ones included
+```
+
+`collect(*types)` returns the nodes whose exact type is one of `types`.
+`functions` is `collect(ast.FunctionDef, ast.AsyncFunctionDef)`. Both keep
+`ast.walk` order, so a check that switches from a walk reports the same
+findings in the same order.
 
 ## Conventions
 
@@ -145,14 +190,23 @@ rules apply whether the check ships inside LaNorme or as your plugin.
   comparing or aggregating across files, set the class attribute `scope =
   "tree"`. The default `"file"` scope lets a check run once per config region
   under per-directory configuration; a tree-scoped check runs once at the scan
-  root so a finding split across two regions is not missed.
+  root so a finding split across two regions is not missed. A region pass
+  still starts at the scan root and sees only that region's files, so
+  `module.relative` keeps the full path (`tests/helpers.py`, not
+  `helpers.py`) and a path-based exemption such as `tests/` holds inside a
+  nested region.
 - **Default off when opinionated or broad.** A rule that fires often on ordinary
   code should ship default-off behind an `enabled` flag, so users opt in (see
   [Configuring a check](#configuring-a-check)).
+- **Raise `UsageError` for a user's mistake.** A setting that makes no sense is
+  not a crash. Raise `lanorme.errors.UsageError` from `configure` with the
+  message the user needs; the CLI prints it as `ERROR: ...` and exits `2`.
+  Never print to stderr or call `sys.exit` from a check.
 
-A check must never let an exception escape `run`; LaNorme isolates a crashing
-check and reports it as a warning so one bug cannot sink the whole run, but a
-clean check should not rely on that safety net.
+A check must never let an exception escape `run`. LaNorme isolates a check
+that raises and reports it as a `RUN-000` warning whose message carries the
+exception type and text, so one bug cannot sink the whole run. A clean check
+should not rely on that safety net.
 
 ## A worked example
 
@@ -182,7 +236,7 @@ class NoUtilsModule:
                     Violation(
                         file=module.relative,
                         line=0,
-                        rule=self.rules[0],
+                        rule="HOUSE-001",
                         message="Module named 'utils.py' has no clear responsibility",
                         fix="Rename it after what it actually does",
                     )
@@ -206,13 +260,18 @@ $ lanorme check src/ --plugin house_rules --check no_utils_module
 
 Summary: 1 checks — 0 passed, 0 warned, 1 failed.
 Findings: 1 error to fix, 0 advisory warnings.
+Opt-in checks not enabled: 11 ('lanorme check --show-config' lists them).
 ```
+
+The check emitted the bare code `HOUSE-001`; the report shows the full rule
+string from `rules`.
 
 The exit code is `1`. Rename or remove the file and the run is clean:
 
 ```console
 $ lanorme check src/ --plugin house_rules --check no_utils_module
 All 1 checks passed.
+Opt-in checks not enabled: 11 ('lanorme check --show-config' lists them).
 ```
 
 The exit code is `0`.
@@ -223,10 +282,11 @@ The exit code is `0`.
 
 ### Make it an advisory
 
-To report without failing the build, put findings in `warnings`:
+To report without failing the build, collect the findings in a `warnings`
+list instead and pass it as `warnings`:
 
 ```python
-        return CheckResult.from_findings(check=self.name, warnings=warnings)
+return CheckResult.from_findings(check=self.name, warnings=warnings)
 ```
 
 The run then exits `0`, the check shows as `[WARN]` and each finding is
@@ -235,11 +295,13 @@ fail the build can escalate the code with
 [`promote`](../reference/configuration.md#promote):
 
 ```console
-$ lanorme check src/ --plugin todo_advisory --promote TODO-001
+$ lanorme check src/ --plugin house_rules --promote HOUSE-001
 ```
 
 That turns the advisory into a build-failing error (exit code `1`). `promote =
-["ALL"]` escalates every advisory at once.
+["ALL"]` escalates every advisory at once. A code in `promote` must be one a
+loaded check declares, so load the plugin in the same run; otherwise the run
+exits `2` with `'promote' names no known rule code or category`.
 
 ## Loading the plugin
 
@@ -290,8 +352,23 @@ lists.
 To accept settings from a `[tool.lanorme.<name>]` table, implement an optional
 `configure` method. LaNorme hands it the table (a dict) before the run.
 
+Read each value through the typed readers in `lanorme.checkconfig`:
+`is_flag_set` for a boolean, `read_int`, `read_str` and `read_str_list`. Each
+returns the value or rejects the wrong type (a quoted number, a float or `true`
+for an integer, a bare string for a list). Declare the keys `configure` reads
+in `settings_keys`. LaNorme then refuses a key outside that set, and
+`--show-config` lists the set on the check's `keys:` line. Both mistakes exit
+`2` and name the table and the key.
+
 ```python
+# stray_extensions.py
 from dataclasses import dataclass, field
+from pathlib import Path
+from typing import ClassVar
+
+from lanorme import CheckResult, Violation, register
+from lanorme.checkconfig import is_flag_set, read_str_list
+from lanorme.discovery import iter_files
 
 
 @dataclass
@@ -300,18 +377,34 @@ class StrayExtensions:
     description: str = "Flag unwanted file extensions in the tree"
     enabled: bool = False
     extensions: tuple[str, ...] = ()
-    rules: list[str] = field(
-        default_factory=lambda: ["HOUSE-002: Unwanted file extension"]
-    )
+    rules: list[str] = field(default_factory=lambda: ["HOUSE-002: Unwanted file extension"])
+    settings_keys: ClassVar[frozenset[str]] = frozenset({"enabled", "extensions"})
 
     def configure(self, *, settings: dict[str, object]) -> None:
-        self.enabled = bool(settings.get("enabled", self.enabled))
-        exts = settings.get("extensions")
-        if isinstance(exts, list):
-            self.extensions = tuple(exts)
+        self.enabled = is_flag_set(settings=settings, key="enabled", default=self.enabled)
+        self.extensions = read_str_list(
+            settings=settings, key="extensions", default=self.extensions
+        )
 
     def run(self, *, src_root: str) -> CheckResult:
-        ...
+        if not self.enabled:
+            return CheckResult.from_findings(check=self.name)
+        root = Path(src_root)
+        warnings = [
+            Violation(
+                file=path.relative_to(root).as_posix(),
+                line=0,
+                rule="HOUSE-002",
+                message=f"File with unwanted extension {suffix}",
+                fix="Delete it, or keep it out of the repository",
+            )
+            for suffix in self.extensions
+            for path in iter_files(root, suffix=suffix)
+        ]
+        return CheckResult.from_findings(check=self.name, warnings=warnings)
+
+
+register(StrayExtensions())
 ```
 
 A user then configures it under the check's own table, named after `self.name`:
@@ -322,10 +415,49 @@ enabled = true
 extensions = [".zip", ".tmp"]
 ```
 
+With `stray_extensions.py` importable and `src/old.zip` and `src/notes.tmp` in
+the tree:
+
+```console
+$ lanorme check . --plugin stray_extensions --check stray_extensions
+[WARN] stray_extensions
+  WARNING: src/old.zip:0 — File with unwanted extension .zip
+    Rule: HOUSE-002: Unwanted file extension
+    Fix: Delete it, or keep it out of the repository
+  WARNING: src/notes.tmp:0 — File with unwanted extension .tmp
+    Rule: HOUSE-002: Unwanted file extension
+    Fix: Delete it, or keep it out of the repository
+--- stray_extensions: 0 violations, 2 warnings ---
+
+Summary: 1 checks — 0 passed, 1 warned, 0 failed.
+Findings: 0 errors to fix, 2 advisory warnings.
+Opt-in checks not enabled: 11 ('lanorme check --show-config' lists them).
+```
+
+A mistyped value or key stops the run before any check starts:
+
+```console
+$ cat pyproject.toml
+[tool.lanorme.stray_extensions]
+enabled = true
+extension = [".zip"]
+$ lanorme check . --plugin stray_extensions
+ERROR: unknown key in [tool.lanorme.stray_extensions]: 'extension'.
+  Keys this check reads: enabled, extensions.
+$ echo $?
+2
+```
+
 An opt-in check defaults `enabled` to `false` and returns an empty result
 (`CheckResult.from_findings(check=self.name)`) until the table sets
-`enabled = true`. That keeps a broad or opinionated
-rule inert on a project that has not asked for it.
+`enabled = true`. That keeps a broad or opinionated rule inert on a project
+that has not asked for it. The concise summary counts such checks on its
+`Opt-in checks not enabled:` line, and `--check` on one prints a note saying
+it is off.
+
+For a mistake `configure` cannot express as a type, such as two settings that
+contradict each other, raise `lanorme.errors.UsageError`. The CLI reports it
+the same way, with exit `2`.
 
 ## Verify it is loaded
 
@@ -337,7 +469,7 @@ $ lanorme check . --plugin myproject.checks.house_rules --output-format full
 ```
 
 For a check loaded via config or the entry-point group, drop the `--plugin`
-flag — plain `lanorme check . --output-format full` lists it once it is
+flag: plain `lanorme check . --output-format full` lists it once it is
 registered. Seeing your check in that output (a `[PASS]` line when it is clean)
 is the reliable signal that the plugin loaded. For machine-readable output while
 developing, use `--output-format ndjson` (one finding per line) or

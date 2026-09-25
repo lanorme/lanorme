@@ -41,15 +41,18 @@ stays `pytest`).
 
 ## The gates
 
-A change is ready when all three pass:
+A change is ready when all of these pass:
 
 ```console
-uv run --group dev pytest tests/unit   # unit tests
-uv run lanorme check .          # dogfood: exits 0 when the tree is clean
-uv build                        # the package still builds
+uv run --group dev ruff check .          # trailing commas
+uv run --group dev ruff format --check . # formatting, Markdown code blocks included
+uv run --group dev pytest tests/unit     # unit tests
+uv run lanorme check .                   # dogfood: exits 0 when the tree is clean
+uv build                                 # the package still builds
 ```
 
-Or run all three at once:
+`uv run --group dev ruff check --fix . && uv run --group dev ruff format .`
+fixes what ruff reports. Or run every gate at once:
 
 ```console
 scripts/check.sh
@@ -78,7 +81,7 @@ class MyCheck:
     def run(self, *, src_root: str) -> CheckResult:
         violations: list[Violation] = []
         for module in iter_parsed_modules(src_root):
-            ...  # inspect module.tree, module.source, module.lines
+            ...  # inspect module.index, module.source, module.lines
         return CheckResult.from_findings(check=self.name, violations=violations)
 
 
@@ -94,12 +97,28 @@ Conventions for a new rule:
 - **Read Python sources through `lanorme.sources`** (`iter_parsed_modules` for the
   files that parse, `iter_modules` when the check reports the ones that do
   not, with `build_unparseable_notice` building the `-000` notice) and other files
-  through `lanorme.discovery.iter_files`, never `Path.rglob`, so the built-in
-  directory pruning and the user's `exclude` globs are honoured. Each file is
-  read and parsed once per run and the tree is shared by every check, so never
-  mutate one; copy first.
+  through `lanorme.discovery.iter_files` / `iter_dirs`, never `Path.rglob` or
+  `os.walk`, so the built-in directory pruning and the user's `exclude` globs
+  are honoured. Each file is read and parsed once per run and the tree is
+  shared by every check, so never read, `ast.parse` or mutate one yourself.
+  `build_skip_notice` reports a file the check skips on its own.
+- **Walk the tree through `module.index`,** the file's `NodeIndex`:
+  `module.index.collect(ast.Call)` for the nodes of a type, `module.index.functions`
+  for every def. One walk per file is shared by every check, in `ast.walk`
+  order; do not call `ast.walk(tree)` yourself.
 - **Build the result with `CheckResult.from_findings`,** which derives the
-  status from the finding lists.
+  status from the finding lists. Give a finding its span with
+  `**locate(node)` (from `lanorme.sources`), and emit the bare code
+  (`rule="SIZE-001"`): the runner expands it to the string the check declares
+  in `rules`.
+- **Read settings in `configure()` through `lanorme.checkconfig`**
+  (`read_str_list`, `read_int`, `read_str`, `is_flag_set`) and declare the keys
+  the check reads in `settings_keys: ClassVar[frozenset[str]]`. A mistyped
+  value or an undeclared key is then an exit-2 config error naming the table
+  and key, and `--show-config` lists the keys.
+- **Raise `lanorme.errors.UsageError` for a user's mistake.** The CLI maps it
+  to `ERROR: ...` and exit `2`. Never print to stderr or call `sys.exit`
+  outside `cli.main`; diagnostics go through `logging.getLogger(__name__)`.
 - **One category prefix per check.** Rule codes (`SQL-001`, `LAYER-005`) are the
   public surface: people put them in `select` / `ignore` / `per-file-ignores`.
   Treat them as stable. Renaming or removing one is a breaking change.
