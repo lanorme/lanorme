@@ -19,7 +19,8 @@ Each function is fingerprinted as:
     statement's own expressions (a name is ``v``, an attribute access
     ``attr``, a number ``N``, a string ``S``; operator kinds and call arities
     are kept, keyword names are dropped);
-  - the multiset of OPERATIONS: each statement's depth, kind and operators;
+  - the multiset of OPERATIONS: each statement's depth, kind, operators and
+    calls (as arities: which name is called is the next anchor's business);
   - the multiset of CALLED NAMES: bare-call ids and method names; a call to a
     name the function binds itself (a parameter, a local) is a call through a
     variable and is abstracted, as DRY-001 abstracts it;
@@ -35,9 +36,10 @@ A pair is flagged when every gate passes:
                      reordered statements.
   ``op_jaccard``     the share of the smaller side's operations the other side
                      also carries: 1.0 means every statement keeps its
-                     operators and its control-flow position, so a flipped
-                     operator or a statement moved into a new branch fails it
-                     while an inserted statement does not.
+                     operators, its calls and its control-flow position, so a
+                     flipped operator, a call replaced by a subscript or a
+                     statement moved into a new branch fails it while an
+                     inserted statement does not.
   ``call_jaccard``   the same share over called names.
   ``str_jaccard``    the same share over string literals: an inserted
                      statement may bring new strings, a changed key may not.
@@ -150,7 +152,8 @@ class _StatementTokens(ast.NodeVisitor):
     Names, attribute names, numbers and strings collapse to placeholders so a
     renamed or renumbered clone still aligns; operator kinds and call arities
     stay, so the line says what the statement does. The visitor also collects
-    the statement's operators, called names, strings and attributes.
+    the statement's operations (its operators and calls), called names,
+    strings and attributes.
     """
 
     def __init__(self, *, local_names: frozenset[str], skip_str_ids: set[int]) -> None:
@@ -163,8 +166,11 @@ class _StatementTokens(ast.NodeVisitor):
         self._skip_str_ids = skip_str_ids
 
     def generic_visit(self, node: ast.AST) -> None:
+        # A statement's nested blocks are lines of their own; the ``body`` of
+        # a conditional expression or a lambda is part of this statement.
+        skip_blocks = isinstance(node, (ast.stmt, ast.ExceptHandler, ast.match_case))
         for field_name, value in ast.iter_fields(node):
-            if field_name in _BLOCK_FIELDS:
+            if skip_blocks and field_name in _BLOCK_FIELDS:
                 continue
             if isinstance(value, list):
                 for item in value:
@@ -174,7 +180,7 @@ class _StatementTokens(ast.NodeVisitor):
                 self.visit(value)
 
     def add_operator(self, *, token: str) -> None:
-        """Record an operator kind in both the line and the operation set."""
+        """Record an operation (an operator kind, a call) in the line and the operation set."""
         self.tokens.append(token)
         self.operators.append(token)
 
@@ -197,7 +203,7 @@ class _StatementTokens(ast.NodeVisitor):
 
     def visit_Call(self, node: ast.Call) -> None:  # noqa: N802
         self.calls.append(self._name_callee(node=node))
-        self.tokens.append(f"call{len(node.args)}")
+        self.add_operator(token=f"call{len(node.args)}")
         self.generic_visit(node)
 
     def _name_callee(self, *, node: ast.Call) -> str:

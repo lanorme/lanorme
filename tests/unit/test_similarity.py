@@ -165,6 +165,30 @@ def test_changed_callee_is_not_flagged(tmp_path: Path):
     assert not _flags(tmp_path, _pair(second))
 
 
+def test_changed_callee_inside_a_conditional_expression_is_not_flagged(tmp_path: Path):
+    # Arrange: the callee changes inside an ``x if c else y`` expression.
+    first = _FIRST.replace("    return total / (n - 1)\n", "    return len(xs) if n else total\n")
+    second = _BASE.format(name="second").replace(
+        "    return total / (n - 1)\n",
+        "    return sum(xs) if n else total\n",
+    )
+
+    # Act + Assert: a conditional expression is part of its statement.
+    assert not _flags(tmp_path, first + "\n\n" + second)
+
+
+def test_calls_replaced_by_subscripts_are_not_flagged(tmp_path: Path):
+    # Arrange: two statements keep their shape but call nothing any more.
+    second = (
+        _BASE.format(name="second")
+        .replace("    n = len(xs)\n", "    n = xs[0]\n")
+        .replace("    mean = fsum(xs) / n\n", "    mean = xs[1] / n\n")
+    )
+
+    # Act + Assert: a call is an operation of its statement.
+    assert not _flags(tmp_path, _pair(second))
+
+
 def test_changed_string_literals_are_not_flagged(tmp_path: Path):
     # Arrange: every string literal rewritten.
     second = (

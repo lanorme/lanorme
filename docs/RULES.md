@@ -354,7 +354,7 @@ Each function is fingerprinted as a sequence of statement lines (one per
 statement at every nesting depth: the depth, the statement kind, and the
 statement's own tokens with names, attributes, numbers and strings abstracted,
 operator kinds and call arities kept) and four multisets: operations (each
-statement's depth, kind and operators), called names (a call to a parameter or
+statement's depth, kind, operators and calls), called names (a call to a parameter or
 local variable is abstracted, as `DRY-001` abstracts it), string literals, and
 accessed attribute names. A pair flags only when every gate passes:
 `struct_ratio`, a `difflib` ratio over the statement lines that tolerates a
