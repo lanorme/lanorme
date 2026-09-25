@@ -154,7 +154,10 @@ def test_custom_layers_and_allowed(tmp_path, tmp_py_file):
     result = check.run(src_root=str(tmp_path))
 
     # Assert: adapters -> core is allowed, so no layer violation.
-    assert not any(code.startswith("LAYER-00") and code != "LAYER-000" for code in _collect_codes(result.violations))
+    assert not any(
+        code.startswith("LAYER-00") and code != "LAYER-000"
+        for code in _collect_codes(result.violations)
+    )
 
 
 def test_transport_layer_composition_root_may_import_infra(tmp_path, tmp_py_file):

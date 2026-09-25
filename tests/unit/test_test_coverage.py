@@ -57,7 +57,8 @@ def _build_endpoint_with_unit_partner(tmp_path: Path) -> Path:
     unit = tmp_path / "tests" / "unit"
     unit.mkdir(parents=True)
     (src / "api" / "v1" / "endpoints" / "users.py").write_text(
-        "def f(): ...\n", encoding="utf-8"
+        "def f(): ...\n",
+        encoding="utf-8",
     )
     (unit / "test_users.py").write_text("def test_u(): ...\n", encoding="utf-8")
     return src
@@ -67,7 +68,8 @@ def test_uncovered_service_fires_testfile001(tmp_path: Path):
     # Arrange: a service module with no partner test anywhere.
     src, _integration = _build_layout(tmp_path)
     (src / "application" / "services" / "billing.py").write_text(
-        "def charge(): ...\n", encoding="utf-8"
+        "def charge(): ...\n",
+        encoding="utf-8",
     )
 
     # Act.
@@ -90,10 +92,12 @@ def test_name_matching_test_file_is_silent(tmp_path: Path):
     # Arrange: a module beside its direct test_<module>.py partner.
     src, integration = _build_layout(tmp_path)
     (src / "application" / "services" / "payments.py").write_text(
-        "def pay(): ...\n", encoding="utf-8"
+        "def pay(): ...\n",
+        encoding="utf-8",
     )
     (integration / "test_payments.py").write_text(
-        "def test_pay(): ...\n", encoding="utf-8"
+        "def test_pay(): ...\n",
+        encoding="utf-8",
     )
 
     # Act.
@@ -110,19 +114,19 @@ def test_import_in_differently_named_test_file_covers_module(tmp_path: Path):
     # imported via `import ... as` to prove the alias form is also caught.
     src, integration = _build_layout(tmp_path)
     (src / "application" / "services" / "billing.py").write_text(
-        "def charge(): ...\n", encoding="utf-8"
+        "def charge(): ...\n",
+        encoding="utf-8",
     )
     (src / "application" / "services" / "refunds.py").write_text(
-        "def refund(): ...\n", encoding="utf-8"
+        "def refund(): ...\n",
+        encoding="utf-8",
     )
     (integration / "test_billing_scenarios.py").write_text(
-        "from app.application.services.billing import charge\n\n"
-        "def test_charge(): ...\n",
+        "from app.application.services.billing import charge\n\ndef test_charge(): ...\n",
         encoding="utf-8",
     )
     (integration / "test_refunds_alias.py").write_text(
-        "import app.application.services.refunds as r\n\n"
-        "def test_refund(): ...\n",
+        "import app.application.services.refunds as r\n\ndef test_refund(): ...\n",
         encoding="utf-8",
     )
 
@@ -140,10 +144,12 @@ def test_shortened_name_partner_covers_module(tmp_path: Path):
     # segment (user_account -> test_user.py).
     src, integration = _build_layout(tmp_path)
     (src / "application" / "services" / "user_account.py").write_text(
-        "def f(): ...\n", encoding="utf-8"
+        "def f(): ...\n",
+        encoding="utf-8",
     )
     (integration / "test_user.py").write_text(
-        "def test_user(): ...\n", encoding="utf-8"
+        "def test_user(): ...\n",
+        encoding="utf-8",
     )
 
     # Act.
@@ -196,10 +202,7 @@ def test_partner_in_tests_unit_does_not_count(tmp_path: Path):
 
     # Assert: only tests/integration/ is scanned, so the module still fires.
     assert result.status == Status.WARN
-    assert any(
-        w.rule.startswith("TESTFILE-001") and "users" in w.message
-        for w in result.warnings
-    )
+    assert any(w.rule.startswith("TESTFILE-001") and "users" in w.message for w in result.warnings)
 
 
 def test_configured_test_roots_credit_a_unit_partner(tmp_path: Path):
@@ -222,10 +225,12 @@ def test_empty_test_roots_falls_back_to_default(tmp_path: Path):
     # (an empty list) that must not blank out the default root.
     src, integration = _build_layout(tmp_path)
     (src / "application" / "services" / "billing.py").write_text(
-        "def charge(): ...\n", encoding="utf-8"
+        "def charge(): ...\n",
+        encoding="utf-8",
     )
     (integration / "test_billing.py").write_text(
-        "def test_charge(): ...\n", encoding="utf-8"
+        "def test_charge(): ...\n",
+        encoding="utf-8",
     )
 
     # Act: an empty test_roots is ignored, keeping tests/integration/.
@@ -250,7 +255,8 @@ def _project_with_uncovered_module(tmp_path: Path, *, config: str) -> Path:
     (src / "application" / "services").mkdir(parents=True)
     (tmp_path / "tests" / "integration").mkdir(parents=True)
     (src / "application" / "services" / "billing.py").write_text(
-        "def charge(): ...\n", encoding="utf-8"
+        "def charge(): ...\n",
+        encoding="utf-8",
     )
     return src
 
@@ -258,12 +264,7 @@ def _project_with_uncovered_module(tmp_path: Path, *, config: str) -> Path:
 def _parse_testfile_findings(capsys) -> list[dict]:
     """Parse the captured ``--json`` output and return TESTFILE-001 warnings."""
     payload = json.loads(capsys.readouterr().out)
-    return [
-        w
-        for result in payload
-        for w in result["warnings"]
-        if w["code"] == "TESTFILE-001"
-    ]
+    return [w for result in payload for w in result["warnings"] if w["code"] == "TESTFILE-001"]
 
 
 def test_cli_reports_single_src_path_not_doubled(tmp_path: Path, capsys):
@@ -288,10 +289,7 @@ def test_cli_per_file_ignores_now_suppresses_the_finding(tmp_path: Path, capsys)
     # per-file-ignores mechanism against the (now correct) src/ path.
     src = _project_with_uncovered_module(
         tmp_path,
-        config=(
-            "[tool.lanorme.per-file-ignores]\n"
-            '"src/application/*" = ["TESTFILE-001"]\n'
-        ),
+        config=('[tool.lanorme.per-file-ignores]\n"src/application/*" = ["TESTFILE-001"]\n'),
     )
 
     # Act.
@@ -309,7 +307,8 @@ def test_missing_integration_dir_still_flags_modules(tmp_path: Path):
     src = tmp_path / "src"
     (src / "application" / "commands").mkdir(parents=True)
     (src / "application" / "commands" / "create_order.py").write_text(
-        "def f(): ...\n", encoding="utf-8"
+        "def f(): ...\n",
+        encoding="utf-8",
     )
 
     # Act.
@@ -325,10 +324,12 @@ def test_string_literal_substring_should_not_count_as_coverage(tmp_path: Path):
     # module path inside a string literal.
     src, integration = _build_layout(tmp_path)
     (src / "application" / "services" / "order.py").write_text(
-        "def f(): ...\n", encoding="utf-8"
+        "def f(): ...\n",
+        encoding="utf-8",
     )
     (integration / "test_blah.py").write_text(
-        "x = 'services.order is great'\n", encoding="utf-8"
+        "x = 'services.order is great'\n",
+        encoding="utf-8",
     )
 
     # Act.

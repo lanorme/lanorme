@@ -8,7 +8,12 @@ import pytest
 
 from lanorme.cli import _load_builtin_checks, main
 from lanorme.errors import UsageError
-from lanorme.reference import _collect_headings, _find_section_bounds, describe_rule
+from lanorme.reference import (
+    _collect_headings,
+    _find_section_bounds,
+    describe_rule,
+    print_rule_detail,
+)
 
 
 def _run(argv: list[str]) -> int:
@@ -93,11 +98,15 @@ def test_rules_json_lists_every_check(capsys):
 
 
 def test_unknown_rule_is_a_usage_error():
-    # Act / Assert: the library raises, the CLI maps it to exit 2.
+    # Arrange.
     _load_builtin_checks()
-    with pytest.raises(UsageError, match="NOPE-999"):
-        from lanorme.reference import print_rule_detail
 
+    # Act.
+    detail = describe_rule(code="NOPE-999")
+    exit_code = _run(["rule", "NOPE-999"])
+
+    # Assert: the lookup is None, the printer raises, the CLI maps that to exit 2.
+    assert detail is None
+    with pytest.raises(UsageError, match="NOPE-999"):
         print_rule_detail(code="NOPE-999")
-    assert describe_rule(code="NOPE-999") is None
-    assert _run(["rule", "NOPE-999"]) == 2
+    assert exit_code == 2

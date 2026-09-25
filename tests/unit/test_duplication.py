@@ -27,7 +27,8 @@ def test_deeply_nested_file_is_skipped_not_crashed(tmp_path: Path):
     # (depth 250: above the deepcopy limit, below the parser limit), beside a
     # genuine duplicate pair.
     (tmp_path / "deep.py").write_text(
-        "def f():\n    return " + "[" * 250 + "]" * 250 + "\n", encoding="utf-8"
+        "def f():\n    return " + "[" * 250 + "]" * 250 + "\n",
+        encoding="utf-8",
     )
     (tmp_path / "a.py").write_text(_DUP_BODY.format(name="alpha"), encoding="utf-8")
     (tmp_path / "b.py").write_text(_DUP_BODY.format(name="beta"), encoding="utf-8")
@@ -46,7 +47,8 @@ def test_clean_tree_has_no_findings(tmp_path: Path):
     # Arrange: two distinct functions, no duplication.
     (tmp_path / "a.py").write_text(_DUP_BODY.format(name="alpha"), encoding="utf-8")
     (tmp_path / "b.py").write_text(
-        "def beta(x):\n    return x * 2\n", encoding="utf-8"
+        "def beta(x):\n    return x * 2\n",
+        encoding="utf-8",
     )
 
     # Act.

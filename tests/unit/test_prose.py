@@ -111,7 +111,8 @@ def test_prose002_respects_word_boundaries(check: ProseCheck, tmp_path: Path):
 
 
 def test_prose002_is_case_insensitive_but_fix_keeps_canonical_form(
-    check: ProseCheck, tmp_path: Path
+    check: ProseCheck,
+    tmp_path: Path,
 ):
     # Arrange: a title-cased US spelling.
     _write(root=tmp_path, name="doc.md", body="Color is nice.\n")
@@ -237,7 +238,8 @@ def test_fenced_code_block_is_skipped(check: ProseCheck, tmp_path: Path):
 
 
 def test_tilde_fence_is_skipped_but_outside_prose_still_scanned(
-    check: ProseCheck, tmp_path: Path
+    check: ProseCheck,
+    tmp_path: Path,
 ):
     # Arrange: US spelling inside a ~~~ fence, plus a US spelling after it.
     body = "Intro colour ok.\n~~~\ncolor analyze\n~~~\nOutro behavior here.\n"

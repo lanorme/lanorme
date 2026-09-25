@@ -183,12 +183,18 @@ def collect_results(
     if filters.single:
         only, implicit_select = resolve_single(selector=filters.single)
     regions = discover_regions(
-        scan_root=scan_root, root_config=config, resolve_extends=_resolve_extends
+        scan_root=scan_root,
+        root_config=config,
+        resolve_extends=_resolve_extends,
     )
     if len(regions) > 1:
         results = run_regions(
-            regions=regions, root_config=config, scan_root=scan_root,
-            exclude=filters.exclude, pristine=pristine, only=only,
+            regions=regions,
+            root_config=config,
+            scan_root=scan_root,
+            exclude=filters.exclude,
+            pristine=pristine,
+            only=only,
         )
     elif only is not None:
         results = [run_check(check, src_root=src_root) for check in only]
@@ -213,5 +219,7 @@ def collect_results(
     before = count_findings(results)
     results = _apply_inline_ignores(results=results, project_root=project_root)
     return CollectedResults(
-        results=results, suppressed_per_file=per_file, suppressed_inline=before - count_findings(results)
+        results=results,
+        suppressed_per_file=per_file,
+        suppressed_inline=before - count_findings(results),
     )

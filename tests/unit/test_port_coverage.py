@@ -74,8 +74,7 @@ def test_adapter_without_ports_import_triggers_port001(tmp_path: Path):
     # the ports directory (beside a properly-wired adapter so the layout is real).
     _write(
         tmp_path / "application/ports/registry.py",
-        "from typing import Protocol\n\n"
-        "class Registry(Protocol):\n    def get(self) -> str: ...\n",
+        "from typing import Protocol\n\nclass Registry(Protocol):\n    def get(self) -> str: ...\n",
     )
     _write(
         tmp_path / "infrastructure/services/redis_registry.py",
@@ -103,8 +102,7 @@ def test_unimplemented_protocol_triggers_port002(tmp_path: Path):
     # so the lone Protocol in notifier.py has no implementation.
     _write(
         tmp_path / "application/ports/registry.py",
-        "from typing import Protocol\n\n"
-        "class Registry(Protocol):\n    def get(self) -> str: ...\n",
+        "from typing import Protocol\n\nclass Registry(Protocol):\n    def get(self) -> str: ...\n",
     )
     _write(
         tmp_path / "application/ports/notifier.py",
@@ -133,8 +131,7 @@ def test_direct_instantiation_in_api_triggers_port003(tmp_path: Path):
     # it directly, outside any composition root.
     _write(
         tmp_path / "application/ports/registry.py",
-        "from typing import Protocol\n\n"
-        "class Registry(Protocol):\n    def get(self) -> str: ...\n",
+        "from typing import Protocol\n\nclass Registry(Protocol):\n    def get(self) -> str: ...\n",
     )
     _write(
         tmp_path / "infrastructure/services/redis_registry.py",
@@ -164,8 +161,7 @@ def test_direct_import_only_in_api_triggers_port003_import_variant(tmp_path: Pat
     # type annotation (no instantiation) - the import-variant of PORT-003.
     _write(
         tmp_path / "application/ports/registry.py",
-        "from typing import Protocol\n\n"
-        "class Registry(Protocol):\n    def get(self) -> str: ...\n",
+        "from typing import Protocol\n\nclass Registry(Protocol):\n    def get(self) -> str: ...\n",
     )
     _write(
         tmp_path / "infrastructure/services/redis_registry.py",
@@ -197,8 +193,7 @@ def test_composition_root_is_exempt_from_port003(tmp_path: Path):
     # the default composition_root glob "*dependencies/*".
     _write(
         tmp_path / "application/ports/registry.py",
-        "from typing import Protocol\n\n"
-        "class Registry(Protocol):\n    def get(self) -> str: ...\n",
+        "from typing import Protocol\n\nclass Registry(Protocol):\n    def get(self) -> str: ...\n",
     )
     _write(
         tmp_path / "infrastructure/services/redis_registry.py",
@@ -225,8 +220,7 @@ def test_adapter_name_inside_string_literal_does_not_fire(tmp_path: Path):
     # is the port Protocol. Violation-like prose in strings must not fire.
     _write(
         tmp_path / "application/ports/registry.py",
-        "from typing import Protocol\n\n"
-        "class Registry(Protocol):\n    def get(self) -> str: ...\n",
+        "from typing import Protocol\n\nclass Registry(Protocol):\n    def get(self) -> str: ...\n",
     )
     _write(
         tmp_path / "infrastructure/services/redis_registry.py",
@@ -255,8 +249,7 @@ def test_init_file_in_adapter_root_is_skipped(tmp_path: Path):
     # nothing from ports; it must be exempt from PORT-001 (default skip_files).
     _write(
         tmp_path / "application/ports/registry.py",
-        "from typing import Protocol\n\n"
-        "class Registry(Protocol):\n    def get(self) -> str: ...\n",
+        "from typing import Protocol\n\nclass Registry(Protocol):\n    def get(self) -> str: ...\n",
     )
     _write(
         tmp_path / "infrastructure/services/__init__.py",
@@ -284,8 +277,7 @@ def test_module_form_import_should_not_trigger_port002(tmp_path: Path):
     # subclasses Registry via the module attribute (idiomatic Python).
     _write(
         tmp_path / "application/ports/registry.py",
-        "from typing import Protocol\n\n"
-        "class Registry(Protocol):\n    def get(self) -> str: ...\n",
+        "from typing import Protocol\n\nclass Registry(Protocol):\n    def get(self) -> str: ...\n",
     )
     _write(
         tmp_path / "infrastructure/services/redis_registry.py",
@@ -306,8 +298,7 @@ def test_attribute_form_instantiation_in_api_should_trigger_port003(tmp_path: Pa
     # class via attribute access, outside the composition root.
     _write(
         tmp_path / "application/ports/registry.py",
-        "from typing import Protocol\n\n"
-        "class Registry(Protocol):\n    def get(self) -> str: ...\n",
+        "from typing import Protocol\n\nclass Registry(Protocol):\n    def get(self) -> str: ...\n",
     )
     _write(
         tmp_path / "infrastructure/services/redis_registry.py",

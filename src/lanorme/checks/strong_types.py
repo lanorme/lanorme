@@ -55,7 +55,7 @@ from lanorme.sources import (
 )
 
 _BARE_CONTAINERS = frozenset(
-    {"dict", "list", "tuple", "set", "frozenset", "Dict", "List", "Tuple", "Set", "FrozenSet"}
+    {"dict", "list", "tuple", "set", "frozenset", "Dict", "List", "Tuple", "Set", "FrozenSet"},
 )
 # `Any` is "I don't know the type", always a hard fail at signature boundaries.
 _HARD_WEAK_TYPES = frozenset({"Any"})
@@ -68,7 +68,7 @@ _EXEMPT_DECORATORS = frozenset(
     {
         # Add boundary-marker decorators here as the codebase introduces them.
         # e.g. "boundary_dict", "raw_json", "external_payload"
-    }
+    },
 )
 _EXEMPT_PATH_FRAGMENTS = ("tests/", "migrations/")
 
@@ -281,7 +281,7 @@ def _collect_param_findings(*, func: ast.FunctionDef | ast.AsyncFunctionDef) -> 
                             "and annotate with it"
                         ),
                     ),
-                )
+                ),
             )
     return findings
 
@@ -307,7 +307,7 @@ def _collect_kwarg_findings(*, func: ast.FunctionDef | ast.AsyncFunctionDef) -> 
             kw,
             f"'**{kw.arg}' in '{func.name}' is weakly typed ('{ann_text}') — use Unpack[TypedDict]",
             "Define a TypedDict for the kwargs shape and annotate as 'Unpack[YourTypedDict]'",
-        )
+        ),
     ]
 
 
@@ -324,8 +324,11 @@ def _return_findings(*, func: ast.FunctionDef | ast.AsyncFunctionDef) -> list[_F
                 rule,
                 func,
                 f"Return type of '{func.name}': {message}",
-                _fix_for(rule=rule, default="Introduce a domain type and annotate the return with it"),
-            )
+                _fix_for(
+                    rule=rule,
+                    default="Introduce a domain type and annotate the return with it",
+                ),
+            ),
         ]
     # TYPE-004: a complete-enough signature (annotated params, a real value
     # escaping the function's own scope, not a generator) should also declare
@@ -345,7 +348,7 @@ def _return_findings(*, func: ast.FunctionDef | ast.AsyncFunctionDef) -> list[_F
                 f"'{func.name}' has annotated parameters and returns a value but no "
                 "return annotation. Declare the return type so the signature is complete.",
                 "Add a return annotation (for example '-> ResultType') to the signature",
-            )
+            ),
         ]
     return []
 
@@ -367,7 +370,12 @@ def _check_function(
         *_return_findings(func=func),
     ):
         finding = Violation(
-            file=relative_file, line=node.lineno, rule=rule, message=message, fix=fix, **locate(node)
+            file=relative_file,
+            line=node.lineno,
+            rule=rule,
+            message=message,
+            fix=fix,
+            **locate(node),
         )
         (violations if severity == "fail" else warnings).append(finding)
     return violations, warnings
@@ -396,7 +404,7 @@ class StrongTypesCheck:
             "TYPE-002: No bare 'dict' / 'list' / 'tuple' / 'set' without type parameters",
             "TYPE-003: '**kwargs' must be annotated with a concrete type or 'Unpack[TypedDict]'",
             "TYPE-004: A function with annotated parameters that returns a value should declare a return type (advisory warning)",
-        ]
+        ],
     )
 
     def run(self, *, src_root: str) -> CheckResult:
@@ -417,8 +425,11 @@ class StrongTypesCheck:
                 # rather than crash the whole run.
                 warnings.append(
                     build_skip_notice(
-                        prefix="TYPE", file=module.relative, name=module.path.name, reason=TOO_DEEP
-                    )
+                        prefix="TYPE",
+                        file=module.relative,
+                        name=module.path.name,
+                        reason=TOO_DEEP,
+                    ),
                 )
                 continue
             violations.extend(found)

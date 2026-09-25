@@ -71,7 +71,7 @@ _TIME_LOCAL_FORMAT = "%d/%b/%Y:%H:%M:%S %z"
 
 _NUMERIC_SEGMENT_RE = re.compile(r"^\d+$")
 _UUID_SEGMENT_RE = re.compile(
-    r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
 )
 
 _GZIP_MAGIC = b"\x1f\x8b"
@@ -109,9 +109,7 @@ def normalise_route(path: str) -> str:
         return "/"
     segments = path.split("/")
     normalised = [
-        ":id"
-        if seg and (_NUMERIC_SEGMENT_RE.match(seg) or _UUID_SEGMENT_RE.match(seg))
-        else seg
+        ":id" if seg and (_NUMERIC_SEGMENT_RE.match(seg) or _UUID_SEGMENT_RE.match(seg)) else seg
         for seg in segments
     ]
     result = "/".join(normalised)
@@ -419,9 +417,7 @@ class AccessLogAnalyzer:
 
     @staticmethod
     def _floor_to_window(timestamp: datetime) -> datetime:
-        seconds_into_day = (
-            timestamp.hour * 3600 + timestamp.minute * 60 + timestamp.second
-        )
+        seconds_into_day = timestamp.hour * 3600 + timestamp.minute * 60 + timestamp.second
         floored = seconds_into_day - (seconds_into_day % WINDOW_SECONDS)
         return timestamp.replace(
             hour=floored // 3600,
@@ -441,12 +437,10 @@ class AccessLogAnalyzer:
 
         window_start = self._floor_to_window(record.timestamp)
         self._max_window = (
-            window_start
-            if self._max_window is None
-            else max(self._max_window, window_start)
+            window_start if self._max_window is None else max(self._max_window, window_start)
         )
         self._open_windows.setdefault(window_start, _WindowAccumulator(window_start)).add(
-            record
+            record,
         )
         self._finalize_ready_windows()
 
@@ -470,9 +464,7 @@ class AccessLogAnalyzer:
         p99 = percentile(sorted_latencies, 99)
 
         reasons = self._anomaly_reasons(error_rate, p99)
-        route_stats = [
-            _route_stats(route, route_acc) for route, route_acc in acc.routes.items()
-        ]
+        route_stats = [_route_stats(route, route_acc) for route, route_acc in acc.routes.items()]
         top_offenders: list[RouteStats] = []
         if reasons:
             route_stats.sort(key=lambda r: (r.errors, r.p99), reverse=True)
@@ -508,7 +500,7 @@ class AccessLogAnalyzer:
                 reasons.append(
                     f"error_rate={error_rate:.4f} exceeds trailing-hour mean "
                     f"{mean_error:.4f} + {ERROR_STD_THRESHOLD:g} sigma "
-                    f"({std_error:.4f})"
+                    f"({std_error:.4f})",
                 )
 
         if len(self._trailing_latencies) >= self.min_history:
@@ -517,7 +509,7 @@ class AccessLogAnalyzer:
             if trailing_p99 > 0 and p99 > LATENCY_MULTIPLIER * trailing_p99:
                 reasons.append(
                     f"p99={p99:.4f}s exceeds {LATENCY_MULTIPLIER:g}x trailing-hour "
-                    f"p99 ({trailing_p99:.4f}s)"
+                    f"p99 ({trailing_p99:.4f}s)",
                 )
 
         return reasons
@@ -529,7 +521,9 @@ class AccessLogAnalyzer:
         p50, p95, p99 = self._latency_sample.percentiles()
 
         top_by_count = sorted(
-            self.global_routes.items(), key=lambda kv: kv[1].count, reverse=True
+            self.global_routes.items(),
+            key=lambda kv: kv[1].count,
+            reverse=True,
         )[: self.top_n]
         top_by_errors = sorted(
             (kv for kv in self.global_routes.items() if kv[1].errors),
@@ -577,7 +571,7 @@ def print_report(analyzer: AccessLogAnalyzer) -> None:
         "Latency p50/p95/p99 (sampled estimate): "
         f"{summary['latency_p50_estimate']:.4f}s / "
         f"{summary['latency_p95_estimate']:.4f}s / "
-        f"{summary['latency_p99_estimate']:.4f}s"
+        f"{summary['latency_p99_estimate']:.4f}s",
     )
     print(f"One-minute windows:    {summary['windows_analyzed']}")
     print(f"Anomalous windows:     {summary['anomalous_windows']}")
@@ -598,7 +592,7 @@ def print_report(analyzer: AccessLogAnalyzer) -> None:
             print(f"\n  [{window.start.isoformat()}]")
             print(
                 f"    requests={window.count} errors={window.error_count} "
-                f"error_rate={window.error_rate:.4%} p99={window.p99:.4f}s"
+                f"error_rate={window.error_rate:.4%} p99={window.p99:.4f}s",
             )
             for reason in window.anomaly_reasons:
                 print(f"    - {reason}")
@@ -607,7 +601,7 @@ def print_report(analyzer: AccessLogAnalyzer) -> None:
                 for offender in window.top_offenders:
                     print(
                         f"      {offender.route}: count={offender.count} "
-                        f"errors={offender.errors} p99={offender.p99:.4f}s"
+                        f"errors={offender.errors} p99={offender.p99:.4f}s",
                     )
     else:
         print("\nNo anomalous windows detected.")
@@ -655,7 +649,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
             "Stream-parse a directory of nginx access logs (plain or gzip), "
             "bucket requests into one-minute windows per normalised route, "
             "and flag anomalous windows by error rate and p99 latency."
-        )
+        ),
     )
     parser.add_argument(
         "log_dir",

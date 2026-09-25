@@ -27,9 +27,11 @@ def test_short_test_function_is_exempt_from_aaa_markers(tmp_path, tmp_py_file):
 
 def test_long_test_without_markers_triggers_aaa_001(tmp_path, tmp_py_file):
     # Arrange
-    body = "def test_long():\n" + "".join(
-        f"    a{i} = {i}\n" for i in range(8)
-    ) + "    assert a0 == 0\n"
+    body = (
+        "def test_long():\n"
+        + "".join(f"    a{i} = {i}\n" for i in range(8))
+        + "    assert a0 == 0\n"
+    )
     tmp_py_file(name="test_long.py", body=body)
     check = TestStyleCheck(enabled=True, min_statements=3, required_markers=2)
 
@@ -111,9 +113,11 @@ def test_fixture_function_is_not_treated_as_a_test(tmp_path, tmp_py_file):
 
 def test_root_under_a_skip_named_ancestor_is_still_scanned(tmp_path, tmp_py_file):
     # Arrange
-    body = "def test_long():\n" + "".join(
-        f"    b{i} = {i}\n" for i in range(8)
-    ) + "    assert b0 == 0\n"
+    body = (
+        "def test_long():\n"
+        + "".join(f"    b{i} = {i}\n" for i in range(8))
+        + "    assert b0 == 0\n"
+    )
     tmp_py_file(name="build/project/test_long.py", body=body)
     check = TestStyleCheck(enabled=True, min_statements=3, required_markers=2)
 

@@ -39,7 +39,7 @@ _VENDOR_SEGMENTS = frozenset(
         "node_modules",
         ".git",
         "__pycache__",
-    }
+    },
 )
 
 
@@ -67,7 +67,7 @@ class ForbiddenPathsCheck:
     rules: list[str] = field(
         default_factory=lambda: [
             "PATH-001: Configured forbidden directories must not exist",
-        ]
+        ],
     )
 
     def configure(self, *, settings: dict[str, object]) -> None:
@@ -82,7 +82,9 @@ class ForbiddenPathsCheck:
 
         # Vendor trees are pruned during the walk, so a forbidden name inside
         # one is never seen; the user's excludes prune it the same way.
-        directories = [d.relative_to(root).as_posix() for d in iter_dirs(root, prune=_VENDOR_SEGMENTS)]
+        directories = [
+            d.relative_to(root).as_posix() for d in iter_dirs(root, prune=_VENDOR_SEGMENTS)
+        ]
         for forbidden in self.forbidden_dirs:
             for relative in directories:
                 if not _is_forbidden(relative=relative, pattern=forbidden):
@@ -94,7 +96,7 @@ class ForbiddenPathsCheck:
                         rule="PATH-001",
                         message=f"Forbidden directory '{relative}' exists",
                         fix=f"Delete '{relative}' or remove it from the forbidden list",
-                    )
+                    ),
                 )
 
         return CheckResult.from_findings(check=self.name, violations=violations)

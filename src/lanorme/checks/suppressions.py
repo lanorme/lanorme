@@ -98,13 +98,15 @@ def _collect_directives(*, source: str, relative: str) -> list[_Directive]:
         blanket = _classify(comment=token.string)
         if blanket is None:
             continue
-        found.append(_Directive(
-            file=relative,
-            line=token.start[0],
-            column=token.start[1],
-            text=token.string.strip(),
-            blanket=blanket,
-        ))
+        found.append(
+            _Directive(
+                file=relative,
+                line=token.start[0],
+                column=token.start[1],
+                text=token.string.strip(),
+                blanket=blanket,
+            ),
+        )
     return found
 
 
@@ -118,29 +120,35 @@ def _find_budget_violation(*, directives: list[_Directive], max_total: int) -> l
         per_file[directive.file] = per_file.get(directive.file, 0) + 1
     worst = sorted(per_file.items(), key=lambda item: (-item[1], item[0]))[:3]
     summary = ", ".join(f"{name} ({count})" for name, count in worst)
-    return [Violation(
-        file=anchor.file,
-        line=anchor.line,
-        column=anchor.column,
-        rule="SUPPRESS-001: Inline suppressions must stay within the project's budget",
-        message=(
-            f"{len(directives)} inline suppressions across {len(per_file)} files "
-            f"(budget: {max_total}). Most suppressed: {summary}"
+    return [
+        Violation(
+            file=anchor.file,
+            line=anchor.line,
+            column=anchor.column,
+            rule="SUPPRESS-001: Inline suppressions must stay within the project's budget",
+            message=(
+                f"{len(directives)} inline suppressions across {len(per_file)} files "
+                f"(budget: {max_total}). Most suppressed: {summary}"
+            ),
+            fix="Fix the findings, or raise max_total deliberately so the debt is recorded in config",
         ),
-        fix="Fix the findings, or raise max_total deliberately so the debt is recorded in config",
-    )]
+    ]
 
 
 def _find_blanket_violations(*, directives: list[_Directive]) -> list[Violation]:
     """SUPPRESS-002: one finding per directive that names no rule."""
-    return [Violation(
-        file=directive.file,
-        line=directive.line,
-        column=directive.column,
-        rule="SUPPRESS-002: A suppression must name the rule it silences",
-        message=f"Blanket directive '{directive.text}' silences every rule, including future ones",
-        fix="Name the codes it needs: '# noqa: TYPE-001' or '# lanorme: ignore[TYPE-001]'",
-    ) for directive in directives if directive.blanket]
+    return [
+        Violation(
+            file=directive.file,
+            line=directive.line,
+            column=directive.column,
+            rule="SUPPRESS-002: A suppression must name the rule it silences",
+            message=f"Blanket directive '{directive.text}' silences every rule, including future ones",
+            fix="Name the codes it needs: '# noqa: TYPE-001' or '# lanorme: ignore[TYPE-001]'",
+        )
+        for directive in directives
+        if directive.blanket
+    ]
 
 
 @dataclass
@@ -148,7 +156,9 @@ class SuppressionsCheck:
     """SUPPRESS-001 / SUPPRESS-002: inline suppressions stay budgeted and specific (opt-in)."""
 
     name: str = "suppressions"
-    description: str = "Inline suppression budget and blanket directives (SUPPRESS-001, SUPPRESS-002)"
+    description: str = (
+        "Inline suppression budget and blanket directives (SUPPRESS-001, SUPPRESS-002)"
+    )
     enabled: bool = False
     max_total: int = 0
     allow_blanket: bool = False
@@ -156,7 +166,7 @@ class SuppressionsCheck:
         default_factory=lambda: [
             "SUPPRESS-001: Inline suppressions must stay within the project's budget",
             "SUPPRESS-002: A suppression must name the rule it silences",
-        ]
+        ],
     )
     settings_keys: ClassVar[frozenset[str]] = frozenset({"enabled", "max_total", "allow_blanket"})
 
@@ -183,7 +193,6 @@ class SuppressionsCheck:
         if not self.allow_blanket:
             violations.extend(_find_blanket_violations(directives=directives))
         return CheckResult.from_findings(check=self.name, violations=violations)
-
 
 
 register(SuppressionsCheck())

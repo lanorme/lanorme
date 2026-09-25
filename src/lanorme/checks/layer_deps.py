@@ -125,7 +125,10 @@ _ImportNode = ast.Import | ast.ImportFrom
 
 
 def _extract_src_imports(
-    *, module: Module, layers: tuple[str, ...], package: str
+    *,
+    module: Module,
+    layers: tuple[str, ...],
+    package: str,
 ) -> list[tuple[str, _ImportNode]]:
     """Extract imports that reference architectural layers, as (target_layer, import node)."""
     imports: list[tuple[str, _ImportNode]] = []
@@ -133,11 +136,19 @@ def _extract_src_imports(
         if isinstance(node, ast.Import):
             for alias in node.names:
                 _record_layer_import(
-                    module=alias.name, node=node, imports=imports, layers=layers, package=package
+                    module=alias.name,
+                    node=node,
+                    imports=imports,
+                    layers=layers,
+                    package=package,
                 )
         elif isinstance(node, ast.ImportFrom) and node.module:
             _record_layer_import(
-                module=node.module, node=node, imports=imports, layers=layers, package=package
+                module=node.module,
+                node=node,
+                imports=imports,
+                layers=layers,
+                package=package,
             )
     return imports
 
@@ -176,11 +187,23 @@ def _suggest_fix(
     """Generate a human-readable fix suggestion for a layer violation."""
     suggestions = {
         ("domain", "application"): "Domain must be pure: move the needed type to domain/",
-        ("domain", "infrastructure"): "Domain must be pure: define a port in application/ports/ instead",
+        (
+            "domain",
+            "infrastructure",
+        ): "Domain must be pure: define a port in application/ports/ instead",
         ("domain", "api"): "Domain must be pure: this dependency is inverted",
-        ("application", "infrastructure"): "Depend on a port (Protocol) in application/ports/, not the concrete implementation",
-        ("application", "api"): "Application must not know about the API layer: invert the dependency",
-        ("api", "infrastructure"): "Use dependency injection via the composition root instead of direct imports",
+        (
+            "application",
+            "infrastructure",
+        ): "Depend on a port (Protocol) in application/ports/, not the concrete implementation",
+        (
+            "application",
+            "api",
+        ): "Application must not know about the API layer: invert the dependency",
+        (
+            "api",
+            "infrastructure",
+        ): "Use dependency injection via the composition root instead of direct imports",
     }
     allowed = ", ".join(f"{name}/" for name in sorted(allowed_imports.get(source_layer, set())))
     return suggestions.get(
@@ -195,7 +218,7 @@ class LayerDepsCheck:
     """Validates hexagonal layer dependency rules (configurable layout)."""
 
     settings_keys: ClassVar[frozenset[str]] = frozenset(
-        {"source_root", "composition_root", "layers", "transport_layers", "allowed"}
+        {"source_root", "composition_root", "layers", "transport_layers", "allowed"},
     )
 
     name: str = "layer_deps"
@@ -205,7 +228,7 @@ class LayerDepsCheck:
     layers: tuple[str, ...] = LAYERS
     transport_layers: tuple[str, ...] = TRANSPORT_LAYERS
     allowed_imports: dict[str, set[str]] = field(
-        default_factory=lambda: {layer: set(targets) for layer, targets in ALLOWED_IMPORTS.items()}
+        default_factory=lambda: {layer: set(targets) for layer, targets in ALLOWED_IMPORTS.items()},
     )
     composition_root: tuple[str, ...] = COMPOSITION_ROOT_GLOBS
     rules: list[str] = field(
@@ -217,7 +240,7 @@ class LayerDepsCheck:
             "LAYER-005: only the composition root may import from infrastructure/",
             "LAYER-006: a transport layer is not among the configured layers",
             "LAYER-007: a configured layer may only import the layers its 'allowed' entry lists",
-        ]
+        ],
     )
 
     # Not a dataclass field (no annotation): tracks whether the user explicitly
@@ -233,7 +256,9 @@ class LayerDepsCheck:
             .strip("/")
         )
         self.composition_root = read_str_list(
-            settings=settings, key="composition_root", default=self.composition_root
+            settings=settings,
+            key="composition_root",
+            default=self.composition_root,
         )
         layers = read_str_list(settings=settings, key="layers", default=self.layers)
         if layers:
@@ -255,12 +280,21 @@ class LayerDepsCheck:
     def _resolve_allowed_for_file(self, *, relative: str, layer: str) -> set[str]:
         """Allowed import targets for a file, adding the composition-root exception."""
         allowed = set(self.allowed_imports.get(layer, set()))
-        if layer in self.transport_layers and _matches_glob(relative=relative, patterns=self.composition_root):
+        if layer in self.transport_layers and _matches_glob(
+            relative=relative,
+            patterns=self.composition_root,
+        ):
             allowed.add("infrastructure")
         return allowed
 
     def _build_violation(
-        self, *, layer: str, target_layer: str, relative: str, node: _ImportNode, is_comp_root: bool
+        self,
+        *,
+        layer: str,
+        target_layer: str,
+        relative: str,
+        node: _ImportNode,
+        is_comp_root: bool,
     ) -> Violation:
         if target_layer == "infrastructure" and layer not in _INNER_LAYERS and not is_comp_root:
             rule = RULE_MAP["api_composition"]
@@ -270,7 +304,11 @@ class LayerDepsCheck:
             )
         else:
             rule = RULE_MAP.get(layer, RULE_MAP["custom"])
-            fix = _suggest_fix(source_layer=layer, target_layer=target_layer, allowed_imports=self.allowed_imports)
+            fix = _suggest_fix(
+                source_layer=layer,
+                target_layer=target_layer,
+                allowed_imports=self.allowed_imports,
+            )
         return Violation(
             file=relative,
             line=node.lineno,
@@ -307,7 +345,7 @@ class LayerDepsCheck:
         src_path = Path(src_root)
         # The architectural root. Layer classification and composition-root
         # globs are anchored here; Violation paths stay anchored at src_path so
-        # they line up with --exclude / per-file-ignores / # noqa.
+        # they line up with --exclude / per-file-ignores / inline noqa comments.
         base = src_path / self.source_root if self.source_root else src_path
         # The project's own top-level package: the final component of
         # source_root (mypkg for src/myapp). Empty when source_root is unset, in
@@ -332,7 +370,8 @@ class LayerDepsCheck:
             # A composition root only counts inside a transport layer, so a file
             # matching a glob in another layer is not silently treated as exempt.
             is_comp_root = layer in self.transport_layers and _matches_glob(
-                relative=classify_rel, patterns=self.composition_root
+                relative=classify_rel,
+                patterns=self.composition_root,
             )
 
             for target_layer, node in imports:
@@ -345,7 +384,7 @@ class LayerDepsCheck:
                         relative=relative,
                         node=node,
                         is_comp_root=is_comp_root,
-                    )
+                    ),
                 )
 
         return CheckResult.from_findings(check=self.name, violations=violations, warnings=warnings)

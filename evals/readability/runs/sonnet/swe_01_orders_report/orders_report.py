@@ -302,7 +302,7 @@ def _render_customer_section(customers: Mapping[str, CustomerSummary]) -> list[s
             f"net={_money(summary.net_revenue):>16} "
             f"avg={_money(summary.average_order_value):>16} "
             f"first={_date(summary.first_order)} last={_date(summary.last_order)} "
-            f"coupon={coupon}"
+            f"coupon={coupon}",
         )
         total_orders += summary.order_count
         total_net += summary.net_revenue
@@ -324,7 +324,7 @@ def _render_country_section(countries: Mapping[str, CountrySummary]) -> list[str
         )
         lines.append(
             f"{summary.country or '(unknown)':<20} orders={summary.order_count:<5} "
-            f"net={_money(summary.net_revenue):>16} top_customers=[{top}]"
+            f"net={_money(summary.net_revenue):>16} top_customers=[{top}]",
         )
         total_orders += summary.order_count
         total_net += summary.net_revenue

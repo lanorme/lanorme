@@ -94,7 +94,11 @@ def _scan_identifiers(*, module: Module, compiled: list[_RuleSpec]) -> list[Viol
     violations: list[Violation] = []
 
     for node in module.index.collect(
-        ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef, ast.Name, ast.Attribute
+        ast.ClassDef,
+        ast.FunctionDef,
+        ast.AsyncFunctionDef,
+        ast.Name,
+        ast.Attribute,
     ):
         for name, lineno, anchor in _names_from_node(node):
             for rule_id, canonical, pattern in compiled:
@@ -141,7 +145,12 @@ def _scan_comments_and_docstrings(*, module: Module, compiled: list[_RuleSpec]) 
         if comment:
             _scan_text(text=comment, line_number=lineno_0 + 1)
 
-    for node in module.index.collect(ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef):
+    for node in module.index.collect(
+        ast.Module,
+        ast.ClassDef,
+        ast.FunctionDef,
+        ast.AsyncFunctionDef,
+    ):
         if (
             node.body
             and isinstance(node.body[0], ast.Expr)
@@ -165,7 +174,7 @@ class DomainTermsCheck:
     rules: list[str] = field(
         default_factory=lambda: [
             "TERM-NNN: Use the canonical term instead of a configured forbidden synonym",
-        ]
+        ],
     )
     settings_keys: ClassVar[frozenset[str]] = frozenset({"rules"})
 
@@ -187,7 +196,9 @@ class DomainTermsCheck:
                     raise TypeError(f"'rules' entry {rule.get('id', '?')!r} needs a string '{key}'")
             forbidden = rule.get("forbidden", [])
             if not isinstance(forbidden, list) or not all(isinstance(t, str) for t in forbidden):
-                raise TypeError(f"'rules' entry {rule['id']!r}: 'forbidden' must be a list of strings")
+                raise TypeError(
+                    f"'rules' entry {rule['id']!r}: 'forbidden' must be a list of strings",
+                )
         self.term_rules = list(rules)
 
     def run(self, *, src_root: str) -> CheckResult:

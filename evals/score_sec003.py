@@ -24,11 +24,7 @@ from pathlib import Path
 from lanorme import get_check
 from lanorme.checks import secrets as _secrets  # noqa: F401  (self-register)
 
-_CORPUS = (
-    Path(__file__).resolve().parent
-    / "corpora"
-    / "security_hardcoded_secrets"
-)
+_CORPUS = Path(__file__).resolve().parent / "corpora" / "security_hardcoded_secrets"
 _LABELS = _CORPUS / "labels.json"
 
 # Label string that marks a genuine hardcoded secret (a positive).
@@ -93,7 +89,7 @@ def score() -> dict:
         site = f"{unlabeled[0][0]}:{unlabeled[0][1]}"
         raise ValueError(
             f"SECRETPY-001 flagged {len(unlabeled)} line(s) not in labels.json "
-            f"(first: {site}); update labels.json before scoring."
+            f"(first: {site}); update labels.json before scoring.",
         )
 
     tp = len(flagged & positives)
@@ -106,8 +102,13 @@ def score() -> dict:
     return {
         "rule": RULE,
         "corpus": _CORPUS.relative_to(_REPO_ROOT).as_posix(),
-        "tp": tp, "fp": fp, "fn": fn, "tn": tn,
-        "precision": precision, "recall": recall, "f1": f1,
+        "tp": tp,
+        "fp": fp,
+        "fn": fn,
+        "tn": tn,
+        "precision": precision,
+        "recall": recall,
+        "f1": f1,
     }
 
 
@@ -131,8 +132,7 @@ def main() -> int:
     print("SECRETPY-001 hardcoded-secret detector — evaluation against labeled corpus")
     print(f"corpus: {_CORPUS}")
     print(
-        f"labels: {len(labels)} lines "
-        f"({len(positives)} secret / {len(negatives)} ok)\n"
+        f"labels: {len(labels)} lines ({len(positives)} secret / {len(negatives)} ok)\n",
     )
 
     print("Confusion counts")

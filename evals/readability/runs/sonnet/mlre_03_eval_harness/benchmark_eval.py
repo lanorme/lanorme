@@ -99,14 +99,18 @@ class FewShotSampler:
     """
 
     def __init__(
-        self, pool: Sequence[Mapping[str, Any]], num_shots: int, seed: int
+        self,
+        pool: Sequence[Mapping[str, Any]],
+        num_shots: int,
+        seed: int,
     ) -> None:
         self.pool = list(pool)
         self.num_shots = max(num_shots, 0)
         self._rng = random.Random(seed)
 
     def sample(
-        self, exclude: Mapping[str, Any] | None = None
+        self,
+        exclude: Mapping[str, Any] | None = None,
     ) -> list[Mapping[str, Any]]:
         if self.num_shots <= 0 or not self.pool:
             return []
@@ -154,13 +158,16 @@ def normalize_answer(text: str) -> str:
 
 
 def score_multiple_choice(
-    model: Model, example: Mapping[str, Any], prompt: str
+    model: Model,
+    example: Mapping[str, Any],
+    prompt: str,
 ) -> dict[str, Any]:
     """Score every choice by log-likelihood; return both the raw and the
     length-normalised prediction and correctness."""
     choices: Sequence[str] = example["choices"]
     lls = np.array(
-        [model.loglikelihood(prompt, choice) for choice in choices], dtype=float
+        [model.loglikelihood(prompt, choice) for choice in choices],
+        dtype=float,
     )
     lengths = np.array([max(len(choice), 1) for choice in choices], dtype=float)
     normalized = lls / lengths
@@ -186,7 +193,10 @@ def score_multiple_choice(
 
 
 def score_exact_match(
-    model: Model, example: Mapping[str, Any], prompt: str, **gen_kwargs: Any
+    model: Model,
+    example: Mapping[str, Any],
+    prompt: str,
+    **gen_kwargs: Any,
 ) -> dict[str, Any]:
     prediction = model.generate(prompt, **gen_kwargs)
     gold_field = example.get("answers", example.get("answer"))
@@ -257,10 +267,7 @@ def score_pass_at_k(
     **gen_kwargs: Any,
 ) -> dict[str, Any]:
     completions = [model.generate(prompt, **gen_kwargs) for _ in range(n_samples)]
-    programs = [
-        f"{example['prompt']}{completion}\n{example['test']}"
-        for completion in completions
-    ]
+    programs = [f"{example['prompt']}{completion}\n{example['test']}" for completion in completions]
     outcomes = [_execute_candidate(program, timeout) for program in programs]
     num_correct = sum(outcomes)
 
@@ -329,8 +336,7 @@ def paired_bootstrap(
     b = np.asarray(scores_b, dtype=float)
     if a.shape != b.shape:
         raise ValueError(
-            "paired_bootstrap requires two equal-length, example-aligned "
-            "score arrays"
+            "paired_bootstrap requires two equal-length, example-aligned score arrays",
         )
 
     n = a.shape[0]
@@ -370,7 +376,8 @@ def paired_bootstrap(
 
 
 def subject_breakdown(
-    examples: Sequence[Mapping[str, Any]], scores: Sequence[float]
+    examples: Sequence[Mapping[str, Any]],
+    scores: Sequence[float],
 ) -> dict[str, Any]:
     """Group ``scores`` by each example's ``subject`` field (when present)
     and report the macro-average across subjects."""
@@ -381,12 +388,8 @@ def subject_breakdown(
             continue
         per_subject.setdefault(str(subject), []).append(score)
 
-    per_subject_mean = {
-        subject: float(np.mean(values)) for subject, values in per_subject.items()
-    }
-    macro_average = (
-        float(np.mean(list(per_subject_mean.values()))) if per_subject_mean else None
-    )
+    per_subject_mean = {subject: float(np.mean(values)) for subject, values in per_subject.items()}
+    macro_average = float(np.mean(list(per_subject_mean.values()))) if per_subject_mean else None
     return {"per_subject": per_subject_mean, "macro_average": macro_average}
 
 
@@ -418,7 +421,10 @@ class ResultCache:
         return self.cache_dir / f"{safe_model}__{safe_bench}__{config_hash}.json"
 
     def get(
-        self, model_name: str, benchmark_name: str, config: Mapping[str, Any]
+        self,
+        model_name: str,
+        benchmark_name: str,
+        config: Mapping[str, Any],
     ) -> dict[str, Any] | None:
         path = self._path(model_name, benchmark_name, config)
         if not path.exists():
@@ -479,7 +485,9 @@ class BenchmarkConfig:
 
 
 def _headline_scores_for_subjects(
-    task_type: TaskType, per_example: Sequence[Mapping[str, Any]], k_values: Sequence[int]
+    task_type: TaskType,
+    per_example: Sequence[Mapping[str, Any]],
+    k_values: Sequence[int],
 ) -> list[float]:
     """Pick the single per-example score array used for the subject
     breakdown, one per task type."""
@@ -518,7 +526,7 @@ def evaluate_benchmark(
             per_example.append(score_multiple_choice(model, example, prompt))
         elif config.task_type == "exact_match":
             per_example.append(
-                score_exact_match(model, example, prompt, **config.gen_kwargs)
+                score_exact_match(model, example, prompt, **config.gen_kwargs),
             )
         elif config.task_type == "pass_at_k":
             per_example.append(
@@ -530,14 +538,16 @@ def evaluate_benchmark(
                     config.k_values,
                     config.timeout,
                     **config.gen_kwargs,
-                )
+                ),
             )
         else:
             raise ValueError(f"unknown task_type: {config.task_type!r}")
 
     metrics, cis = _summarize_metrics(config, per_example)
     subject_scores = _headline_scores_for_subjects(
-        config.task_type, per_example, config.k_values
+        config.task_type,
+        per_example,
+        config.k_values,
     )
     subj = subject_breakdown(config.examples, subject_scores)
     headline = subj["macro_average"]
@@ -561,7 +571,8 @@ def evaluate_benchmark(
 
 
 def _summarize_metrics(
-    config: BenchmarkConfig, per_example: Sequence[Mapping[str, Any]]
+    config: BenchmarkConfig,
+    per_example: Sequence[Mapping[str, Any]],
 ) -> tuple[dict[str, float], dict[str, dict[str, float]]]:
     metrics: dict[str, float] = {}
     cis: dict[str, dict[str, float]] = {}
@@ -643,7 +654,7 @@ def write_markdown_table(path: str | Path, results: Mapping[str, Any]) -> None:
             ci = cis.get(metric_name)
             ci_str = f"[{ci['low']:.4f}, {ci['high']:.4f}]" if ci else "-"
             lines.append(
-                f"| {name} | {metric_name} | {value:.4f} | {ci_str} | {headline_str} |"
+                f"| {name} | {metric_name} | {value:.4f} | {ci_str} | {headline_str} |",
             )
 
     with open(path, "w", encoding="utf-8") as handle:

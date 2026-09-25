@@ -113,7 +113,8 @@ def test_empty_forbidden_list_is_inert(tmp_path: Path):
 
 
 def test_forbidden_term_inside_regular_string_literal_is_silent(
-    check: DomainTermsCheck, tmp_path: Path
+    check: DomainTermsCheck,
+    tmp_path: Path,
 ):
     # Arrange: the forbidden term appears only inside non-docstring string
     # literals (an assigned string and a non-first bare string).
@@ -178,7 +179,8 @@ def test_bare_identifier_class_name_fires_once(check: DomainTermsCheck, tmp_path
 
 
 def test_import_line_comment_skipped_normal_comment_fires(
-    check: DomainTermsCheck, tmp_path: Path
+    check: DomainTermsCheck,
+    tmp_path: Path,
 ):
     # Arrange: the forbidden term in an import-line comment and in a normal one.
     _write(
@@ -200,7 +202,7 @@ def test_regex_special_chars_in_forbidden_are_escaped(tmp_path: Path):
     # Arrange: a forbidden term containing a regex metacharacter ('.').
     instance = DomainTermsCheck()
     instance.configure(
-        settings={"rules": [{"id": "TERM-002", "canonical": "User", "forbidden": ["U.ser"]}]}
+        settings={"rules": [{"id": "TERM-002", "canonical": "User", "forbidden": ["U.ser"]}]},
     )
     _write(root=tmp_path, name="r.py", body="# U.ser here and User here\nx = 1\n")
 

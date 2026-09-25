@@ -21,7 +21,8 @@ from __future__ import annotations
 import re
 
 # Words that can be read as an imperative verb at the head of a function name.
-VERB_CAPABLE: frozenset[str] = frozenset("""
+VERB_CAPABLE: frozenset[str] = frozenset(
+    """
 abort accept access accumulate acquire activate adapt add adjust advance aggregate
 alert align allocate allow alter analyse analyze anchor announce annotate append
 apply approve archive are arrange assemble assert assign associate attach audit
@@ -103,11 +104,13 @@ splitext splitlines squash ssh startswith stat stimulate stipulate submit sunset
 symlink tabulate tail tee tick tolerate transcode transmit triage tunnel unpickle
 unplug unseal untar version violate vote wget writelines zero zoom
 checkin checkout del expunge reap roundtrip
-""".split())
+""".split(),
+)
 
 # Words that open a class name as an imperative and almost never as a noun
 # modifier. Precision-first: see the module docstring.
-VERB_ONLY: frozenset[str] = frozenset("""
+VERB_ONLY: frozenset[str] = frozenset(
+    """
 activate add allocate apply assign authenticate authorise authorize calculate
 collect combine compile configure connect convert create deactivate decode decrypt
 delete deserialise deserialize destroy disable disconnect discard do emit enable
@@ -118,7 +121,8 @@ put receive reduce register remove rename replace resize resolve retrieve rotate
 sanitise sanitize save send serialise serialize subscribe synchronise synchronize
 tokenise tokenize transform translate traverse truncate uninstall unregister
 unsubscribe validate verify
-""".split())
+""".split(),
+)
 
 # Verbs that say something happens without saying what (Code Complete, 7.3:
 # HandleCalculation, PerformServices, ProcessInput, DealWithOutput). ``do``
@@ -128,18 +132,28 @@ WEAK_VERBS: frozenset[str] = frozenset({"handle", "process", "perform", "do", "m
 # Class-name words that name a job title rather than a thing (Clean Code, ch. 2:
 # "Avoid words like Manager, Processor, Data, or Info in the name of a class"),
 # plus the junk-drawer pair.
-NOISE_WORDS: frozenset[str] = frozenset({"manager", "processor", "data", "info", "helper", "util", "utils"})
+NOISE_WORDS: frozenset[str] = frozenset(
+    {"manager", "processor", "data", "info", "helper", "util", "utils"},
+)
 
 # Module and package names that promise nothing about their contents (Go,
 # "Package names": avoid util, common, misc).
 JUNK_MODULES: frozenset[str] = frozenset(
-    {"util", "utils", "utilities", "helper", "helpers", "common", "misc", "stuff"}
+    {"util", "utils", "utilities", "helper", "helpers", "common", "misc", "stuff"},
 )
 
 # Suffixes that turn a verb-first class into a message object: a CQRS command
 # or query, an event, the handler for one, or a request and response pair.
 COMMAND_SUFFIXES: tuple[str, ...] = (
-    "Command", "Query", "Event", "Handler", "UseCase", "Request", "Response", "Job", "Task",
+    "Command",
+    "Query",
+    "Event",
+    "Handler",
+    "UseCase",
+    "Request",
+    "Response",
+    "Job",
+    "Task",
 )
 
 # A class whose last word is one of these is a noun phrase whatever its first
@@ -148,7 +162,8 @@ COMMAND_SUFFIXES: tuple[str, ...] = (
 # Words a verb acts on (``User``, ``Order``, ``Token``) stay off the list, or
 # ``CreateUser`` would pass; that is also why the agent nouns at the end are
 # listed by word and not by an ``-er`` ending that ``Order`` shares.
-THING_WORDS: frozenset[str] = frozenset("""
+THING_WORDS: frozenset[str] = frozenset(
+    """
 action adapter address args array base batch binding box button case check client
 command condition confirmation config context count data declaration decoding
 default definition dialog dict encoding engine error event exception factory
@@ -168,30 +183,73 @@ notifier observer parser populator processor producer publisher reader receiver
 registrar renderer resolver runner scheduler sender serialiser serializer subscriber
 tokeniser tokenizer tracker transformer translator validator verifier visitor watcher
 writer
-""".split())
+""".split(),
+)
 
 # Leading words that qualify the verb after them: ``bulk_insert``, ``safe_delete``,
 # ``re_apply``, ``atomic_write``. Skipped before the verb test.
-MODIFIERS: frozenset[str] = frozenset("""
+MODIFIERS: frozenset[str] = frozenset(
+    """
 always async atomic auto batch best blind bulk cold cross deep double dry eager
 fast first force full gently hard hot last lazy live manual mass maybe multi never
 non partial quick quiet raw re really safe self shallow silent slow soft softly
 strict sync try warm
-""".split())
+""".split(),
+)
 
 # Fused prefixes: ``reload``, ``unquote``, ``deregister``, ``preload``, ``autobegin``,
 # ``aclose``. The remainder must itself be a listed verb.
 FUSED_PREFIXES: tuple[str, ...] = (
-    "re", "un", "de", "pre", "post", "auto", "dis", "mis", "over", "under", "co",
-    "inter", "sub", "super", "out", "up", "down", "back", "fore", "self", "a",
+    "re",
+    "un",
+    "de",
+    "pre",
+    "post",
+    "auto",
+    "dis",
+    "mis",
+    "over",
+    "under",
+    "co",
+    "inter",
+    "sub",
+    "super",
+    "out",
+    "up",
+    "down",
+    "back",
+    "fore",
+    "self",
+    "a",
 )
 
 # Verbs Python idiom fuses onto the next word with no underscore: ``getheaders``,
 # ``setdefault``, ``isdigit``, ``iteritems``. Only these heads fuse; ``pass|word``,
 # ``end|point`` and ``check|sum`` are nouns that happen to open with a verb.
 FUSED_VERB_HEADS: frozenset[str] = frozenset(
-    {"get", "set", "is", "has", "add", "del", "iter", "send", "recv", "make", "mk", "rm",
-     "put", "load", "dump", "find", "fetch", "walk", "emit", "print", "parse"}
+    {
+        "get",
+        "set",
+        "is",
+        "has",
+        "add",
+        "del",
+        "iter",
+        "send",
+        "recv",
+        "make",
+        "mk",
+        "rm",
+        "put",
+        "load",
+        "dump",
+        "find",
+        "fetch",
+        "walk",
+        "emit",
+        "print",
+        "parse",
+    },
 )
 
 # Hooks are named for the moment they run, not for what they do.
@@ -208,7 +266,8 @@ ENTRY_POINTS: frozenset[str] = frozenset({"main", "async_main", "cli"})
 
 # Method names fixed by a standard-library protocol: a class that implements
 # one keeps the protocol's name, verb or not.
-PROTOCOL_NAMES: frozenset[str] = frozenset("""
+PROTOCOL_NAMES: frozenset[str] = frozenset(
+    """
 acquire callproc clear close commit copy critical cursor debug default
 difference_update dst emit error exception executemany fetchall fetchmany fetchone
 fileno filter flush format fromkeys fromutc get handle info intersection_update isatty
@@ -216,21 +275,24 @@ items join keys nextset notify pop popitem read readable readline readlines rele
 rollback run seek seekable send setdefault setinputsizes setoutputsize start stop
 symmetric_difference_update tell throw truncate tzname update utcoffset values wait
 warning writable write writelines
-""".split())
+""".split(),
+)
 
 # Framework hooks on plain classes: Django middleware and Scrapy pipelines are
 # ordinary classes whose method names the framework dictates.
-FRAMEWORK_HOOKS: frozenset[str] = frozenset("""
+FRAMEWORK_HOOKS: frozenset[str] = frozenset(
+    """
 handle_error handle_noargs process_exception process_item process_request
 process_response process_spider_input process_spider_output process_start_requests
 process_template_response process_view
-""".split())
+""".split(),
+)
 
 # A function carrying one of these reads as an assertion about its subject
 # (``line_has_noqa``, ``path_is_ancestor``), the predicate form every school
 # of naming accepts.
 PREDICATE_WORDS: frozenset[str] = frozenset(
-    {"is", "has", "can", "should", "does", "was", "were", "are", "must", "may", "will"}
+    {"is", "has", "can", "should", "does", "was", "were", "are", "must", "may", "will"},
 )
 
 _CAMEL_SPLIT = re.compile(r"[A-Z]+(?=[A-Z][a-z])|[A-Z]?[a-z]+|[A-Z]+|[0-9]+")
@@ -267,19 +329,42 @@ def _is_listed_verb(*, word: str, verbs: frozenset[str]) -> bool:
 # What is left after a verb in a gerund, an agent noun or a participle
 # (``find|ing``, ``log|ger``, ``sort|ed``): an inflection, not a fused word.
 _INFLECTIONS: frozenset[str] = frozenset(
-    {"ing", "ings", "er", "ers", "or", "ors", "ed", "es", "s", "ter", "ters", "ger",
-     "gers", "ting", "tings", "ling", "lings", "ping", "ning", "ding", "ies", "ied", "ier"}
+    {
+        "ing",
+        "ings",
+        "er",
+        "ers",
+        "or",
+        "ors",
+        "ed",
+        "es",
+        "s",
+        "ter",
+        "ters",
+        "ger",
+        "gers",
+        "ting",
+        "tings",
+        "ling",
+        "lings",
+        "ping",
+        "ning",
+        "ding",
+        "ies",
+        "ied",
+        "ier",
+    },
 )
 
 
 def _has_fused_prefix(*, word: str, verbs: frozenset[str]) -> bool:
     """A verb behind a fused prefix or head: ``reload``, ``unquote``, ``getheaders``."""
     for prefix in FUSED_PREFIXES:
-        rest = word[len(prefix):]
+        rest = word[len(prefix) :]
         if word.startswith(prefix) and len(rest) >= 3 and rest in verbs:
             return True
     for head in FUSED_VERB_HEADS:
-        rest = word[len(head):]
+        rest = word[len(head) :]
         if word.startswith(head) and len(rest) >= 2 and rest not in _INFLECTIONS:
             return True
     return False
@@ -340,7 +425,7 @@ def move_verb_first(*, name: str, tokens: list[str], index: int) -> str:
     """
     prefix = name[: len(name) - len(name.lstrip("_"))]
     start = count_modifiers(tokens=tokens)
-    order = [*tokens[:start], tokens[index], *tokens[start:index], *tokens[index + 1:]]
+    order = [*tokens[:start], tokens[index], *tokens[start:index], *tokens[index + 1 :]]
     joined = ""
     for token in order:
         joined += token if token.isdigit() or not joined else f"_{token}"

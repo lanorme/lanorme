@@ -76,7 +76,11 @@ def test_verb_echo_increment_fires(check: RestatingCheck, tmp_path: Path):
 
 def test_return_echo_fires(check: RestatingCheck, tmp_path: Path):
     # Arrange: a comment that restates a return statement.
-    _write(root=tmp_path, name="r.py", body="def f(result):\n    # return result\n    return result\n")
+    _write(
+        root=tmp_path,
+        name="r.py",
+        body="def f(result):\n    # return result\n    return result\n",
+    )
 
     # Act.
     result = check.run(src_root=str(tmp_path))
@@ -101,7 +105,11 @@ def test_call_echo_fires(check: RestatingCheck, tmp_path: Path):
 def test_control_echo_without_stray_words_fires(check: RestatingCheck, tmp_path: Path):
     # Arrange: "loop users" (no connective) over a for-loop. The verb "loop"
     # maps to For/While and "users" stems to the loop's "user" target.
-    _write(root=tmp_path, name="l.py", body="users = []\n# loop users\nfor user in users:\n    pass\n")
+    _write(
+        root=tmp_path,
+        name="l.py",
+        body="users = []\n# loop users\nfor user in users:\n    pass\n",
+    )
 
     # Act.
     result = check.run(src_root=str(tmp_path))
@@ -143,7 +151,11 @@ def test_trailing_comment_fires(check: RestatingCheck, tmp_path: Path):
 
 def test_why_explanation_is_not_flagged(check: RestatingCheck, tmp_path: Path):
     # Arrange: a comment that explains the *why* (highest-value comment kind).
-    _write(root=tmp_path, name="w.py", body="counter = 0\n# +1 because the header row is excluded\ncounter += 1\n")
+    _write(
+        root=tmp_path,
+        name="w.py",
+        body="counter = 0\n# +1 because the header row is excluded\ncounter += 1\n",
+    )
 
     # Act.
     result = check.run(src_root=str(tmp_path))
@@ -155,7 +167,11 @@ def test_why_explanation_is_not_flagged(check: RestatingCheck, tmp_path: Path):
 
 def test_caveat_over_call_is_not_flagged(check: RestatingCheck, tmp_path: Path):
     # Arrange: a WARNING caveat about an in-place mutation.
-    _write(root=tmp_path, name="cv.py", body="def g(url):\n    # WARNING: mutates input in place\n    normalize(url)\n")
+    _write(
+        root=tmp_path,
+        name="cv.py",
+        body="def g(url):\n    # WARNING: mutates input in place\n    normalize(url)\n",
+    )
 
     # Act.
     result = check.run(src_root=str(tmp_path))
@@ -195,7 +211,11 @@ def test_allowlist_tag_exempts_an_otherwise_firing_comment(check: RestatingCheck
 
 def test_allowlist_word_always_exempts(check: RestatingCheck, tmp_path: Path):
     # Arrange: the caveat word "always" is in the allowlist regex.
-    _write(root=tmp_path, name="al.py", body="counter = 0\n# always increment counter\ncounter += 1\n")
+    _write(
+        root=tmp_path,
+        name="al.py",
+        body="counter = 0\n# always increment counter\ncounter += 1\n",
+    )
 
     # Act.
     result = check.run(src_root=str(tmp_path))
@@ -231,7 +251,11 @@ def test_stem_asymmetry_id_does_not_match_identifier(check: RestatingCheck, tmp_
 
 def test_comment_over_def_is_not_flagged(check: RestatingCheck, tmp_path: Path):
     # Arrange: a comment directly above a def (an API/contract construct).
-    _write(root=tmp_path, name="d.py", body="# return result\ndef return_result(result):\n    return result\n")
+    _write(
+        root=tmp_path,
+        name="d.py",
+        body="# return result\ndef return_result(result):\n    return result\n",
+    )
 
     # Act.
     result = check.run(src_root=str(tmp_path))
@@ -243,7 +267,11 @@ def test_comment_over_def_is_not_flagged(check: RestatingCheck, tmp_path: Path):
 
 def test_comment_block_is_suppressed(check: RestatingCheck, tmp_path: Path):
     # Arrange: two adjacent standalone comments form a block (likely prose).
-    _write(root=tmp_path, name="blk.py", body="# increment counter\n# increment counter\ncounter += 1\n")
+    _write(
+        root=tmp_path,
+        name="blk.py",
+        body="# increment counter\n# increment counter\ncounter += 1\n",
+    )
 
     # Act.
     result = check.run(src_root=str(tmp_path))
@@ -256,8 +284,16 @@ def test_comment_block_is_suppressed(check: RestatingCheck, tmp_path: Path):
 def test_content_word_cap_silences_long_comments(check: RestatingCheck, tmp_path: Path):
     # Arrange: two files. The 4-word comment fires; the 5-word one exceeds the
     # cap and is silent, even though both are fully covered by the code.
-    _write(root=tmp_path, name="cap_ok.py", body="def g(alpha, beta, gamma):\n    # assign alpha beta gamma\n    alpha = beta = gamma\n")
-    _write(root=tmp_path, name="cap_over.py", body="def h(alpha, beta, gamma, delta):\n    # assign alpha beta gamma delta\n    alpha = beta = gamma = delta\n")
+    _write(
+        root=tmp_path,
+        name="cap_ok.py",
+        body="def g(alpha, beta, gamma):\n    # assign alpha beta gamma\n    alpha = beta = gamma\n",
+    )
+    _write(
+        root=tmp_path,
+        name="cap_over.py",
+        body="def h(alpha, beta, gamma, delta):\n    # assign alpha beta gamma delta\n    alpha = beta = gamma = delta\n",
+    )
 
     # Act.
     result = check.run(src_root=str(tmp_path))

@@ -120,14 +120,18 @@ class AttributeAccessCheck:
         default_factory=lambda: [
             "ATTR-001: Avoid hasattr() for type discrimination",
             "ATTR-002: Avoid getattr/setattr/delattr with a literal attribute name",
-        ]
+        ],
     )
     settings_keys: ClassVar[frozenset[str]] = frozenset({"enabled", "flag_dynamic"})
 
     def configure(self, *, settings: dict[str, object]) -> None:
         """Apply ``[tool.lanorme.attribute_access]`` configuration."""
         self.enabled = is_flag_set(settings=settings, key="enabled", default=self.enabled)
-        self.flag_dynamic = is_flag_set(settings=settings, key="flag_dynamic", default=self.flag_dynamic)
+        self.flag_dynamic = is_flag_set(
+            settings=settings,
+            key="flag_dynamic",
+            default=self.flag_dynamic,
+        )
 
     def _call_warning(self, *, call: ast.Call, relative: str) -> Violation | None:
         builtin = _extract_builtin_name(call=call)
@@ -146,7 +150,13 @@ class AttributeAccessCheck:
             return _check_attr001(builtin=builtin, name=name, relative=relative, call=call)
         return _check_attr002(builtin=builtin, name=name, relative=relative, call=call)
 
-    def _build_dynamic_warning(self, *, builtin: str, call: ast.Call, relative: str) -> Violation | None:
+    def _build_dynamic_warning(
+        self,
+        *,
+        builtin: str,
+        call: ast.Call,
+        relative: str,
+    ) -> Violation | None:
         """Flag a non-literal attribute name only when flag_dynamic is enabled."""
         if not self.flag_dynamic:
             return None

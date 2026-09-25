@@ -181,8 +181,7 @@ def _check_function_lengths(
                     line=node.lineno,
                     rule="SIZE-002: Function approaching the line limit",
                     message=(
-                        f"Function '{node.name}' is {length} effective lines "
-                        f"(warn: {bounds.warn})"
+                        f"Function '{node.name}' is {length} effective lines (warn: {bounds.warn})"
                     ),
                     fix="Consider extracting helper functions before it grows further",
                     **locate(node),
@@ -241,9 +240,7 @@ def _match_case_is_refutable(*, case: ast.match_case) -> bool:
     """
     pattern = case.pattern
     irrefutable = (
-        isinstance(pattern, ast.MatchAs)
-        and pattern.pattern is None
-        and case.guard is None
+        isinstance(pattern, ast.MatchAs) and pattern.pattern is None and case.guard is None
     )
     return not irrefutable
 

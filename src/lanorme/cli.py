@@ -73,7 +73,6 @@ def _load_plugin_modules(modules: list[str]) -> None:
         importlib.import_module(module)
 
 
-
 # --------------------------------------------------------------------------- #
 # Configuration discovery
 # --------------------------------------------------------------------------- #
@@ -101,7 +100,7 @@ def _resolve_single(*, selector: str) -> tuple[list[Check], list[str]]:
     raise UsageError(
         f"'{selector}' is not a known check name, rule code, or category.\n"
         f"  Checks: {names}\n"
-        f"  Run 'lanorme rules' to see every rule code and category."
+        f"  Run 'lanorme rules' to see every rule code and category.",
     )
 
 
@@ -159,20 +158,14 @@ def _read_config_list(value: object) -> list[str]:
 # --------------------------------------------------------------------------- #
 
 
-def _build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
-        prog="lanorme",
-        description="La norme — architecture & code-quality linter for Python.",
-    )
-    parser.add_argument("--version", action="version", version=f"lanorme {__version__}")
-    sub = parser.add_subparsers(dest="command")
-
+def _build_check_parser(*, sub: argparse._SubParsersAction) -> argparse.ArgumentParser:
+    """The ``check`` subcommand: targets and rule selection."""
     check = sub.add_parser(
         "check",
         help="Run checks against one or more paths.",
         epilog=(
             "Silence a finding on its line with '# lanorme: ignore[CODE]' (or '# noqa: CODE'), "
-            "a file pattern with [tool.lanorme.per-file-ignores] (\"tests/*\" = [\"CODE\"]), "
+            'a file pattern with [tool.lanorme.per-file-ignores] ("tests/*" = ["CODE"]), '
             "or record today's findings as debt with 'lanorme baseline write'. "
             "'lanorme rule CODE' explains a code."
         ),
@@ -184,20 +177,43 @@ def _build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Run a single check by name (e.g. duplication), or by rule code/category (e.g. DRY-001, SIZE).",
     )
-    check.add_argument("--select", default=None, help="Comma-separated rule codes/categories to run.")
-    check.add_argument("--ignore", default=None, help="Comma-separated rule codes/categories to skip.")
-    check.add_argument("--exclude", default=None, help="Comma-separated file-path globs to exclude.")
+    check.add_argument(
+        "--select",
+        default=None,
+        help="Comma-separated rule codes/categories to run.",
+    )
+    check.add_argument(
+        "--ignore",
+        default=None,
+        help="Comma-separated rule codes/categories to skip.",
+    )
+    check.add_argument(
+        "--exclude",
+        default=None,
+        help="Comma-separated file-path globs to exclude.",
+    )
     check.add_argument(
         "--promote",
         default=None,
         help="Comma-separated rule codes/categories whose warnings become build-failing errors (or ALL).",
     )
+    _add_check_output_arguments(check=check)
+    return check
+
+
+def _add_check_output_arguments(*, check: argparse.ArgumentParser) -> None:
+    """The ``check`` flags that shape what is printed, not what is checked."""
     check.add_argument(
         "--show-config",
         action="store_true",
         help="Print the discovered config and effective per-check settings, then exit.",
     )
-    check.add_argument("--plugin", action="append", default=[], help="Plugin module to load (repeatable).")
+    check.add_argument(
+        "--plugin",
+        action="append",
+        default=[],
+        help="Plugin module to load (repeatable).",
+    )
     check.add_argument(
         "--output-format",
         choices=["concise", "full", "json", "ndjson", "github", "summary"],
@@ -216,6 +232,17 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Ignore the configured baseline for this run (report the whole debt).",
     )
 
+
+def _build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog="lanorme",
+        description="La norme — architecture & code-quality linter for Python.",
+    )
+    parser.add_argument("--version", action="version", version=f"lanorme {__version__}")
+    sub = parser.add_subparsers(dest="command")
+
+    _build_check_parser(sub=sub)
+
     bl = sub.add_parser("baseline", help="Record or inspect the warning baseline.")
     bl.add_argument(
         "action",
@@ -229,7 +256,11 @@ def _build_parser() -> argparse.ArgumentParser:
 
     rule = sub.add_parser("rule", help="Print the reference section for a single rule code.")
     rule.add_argument("code", help="The rule code to look up (e.g. CMT-001, SQL-001).")
-    rule.add_argument("--json", action="store_true", help="Emit the declaration and section as JSON.")
+    rule.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit the declaration and section as JSON.",
+    )
 
     return parser
 
@@ -277,7 +308,10 @@ def _run_and_report(
     reject_unknown_selectors(selectors=promote, origin="'promote'")
 
     collected = collect_results(
-        config=config, scan_root=scan_root, project_root=project_root, targets=targets,
+        config=config,
+        scan_root=scan_root,
+        project_root=project_root,
+        targets=targets,
         pristine=pristine,
         filters=Filters(single=args.single, select=select, ignore=ignore, exclude=exclude),
         resolve_single=_resolve_single,
@@ -292,7 +326,11 @@ def _run_and_report(
     baselined = 0
     if not args.no_baseline:
         before = count_findings(results)
-        results, drifted = _apply_baseline(results=results, config=config, project_root=project_root)
+        results, drifted = _apply_baseline(
+            results=results,
+            config=config,
+            project_root=project_root,
+        )
         baselined = before - count_findings(results)
 
     results = _apply_promotions(results=results, promote=promote)
@@ -301,7 +339,8 @@ def _run_and_report(
         suppressed_inline=collected.suppressed_inline,
         suppressed_per_file=collected.suppressed_per_file,
         suppressed_baseline=baselined,
-        baseline_configured=_resolve_baseline_path(config=config, project_root=project_root) is not None,
+        baseline_configured=_resolve_baseline_path(config=config, project_root=project_root)
+        is not None,
     )
     failed = any(r.status == Status.FAIL for r in results)
     with reports.tolerate_closed_pipe():
@@ -312,7 +351,10 @@ def _run_and_report(
 
 
 def _apply_baseline(
-    *, results: list[CheckResult], config: dict[str, object], project_root: Path
+    *,
+    results: list[CheckResult],
+    config: dict[str, object],
+    project_root: Path,
 ) -> tuple[list[CheckResult], list[tuple[str, str]]]:
     """Suppress the configured baseline's findings; return the survivors and the drift."""
     baseline_path = _resolve_baseline_path(config=config, project_root=project_root)
@@ -320,15 +362,19 @@ def _apply_baseline(
         return results, []
     if not baseline_path.exists():
         raise UsageError(
-            f"baseline file '{baseline_path}' does not exist. Run 'lanorme baseline write' first."
+            f"baseline file '{baseline_path}' does not exist. Run 'lanorme baseline write' first.",
         )
     # Drift reads the raw findings: it has to see what the baseline did
     # match to tell a moved anchor from debt that is genuinely new.
     drifted = baseline.find_drifted_codes(
-        results=results, project_root=project_root, baseline_path=baseline_path
+        results=results,
+        project_root=project_root,
+        baseline_path=baseline_path,
     )
     suppressed = baseline.suppress(
-        results=results, project_root=project_root, baseline_path=baseline_path
+        results=results,
+        project_root=project_root,
+        baseline_path=baseline_path,
     )
     return suppressed, drifted
 
@@ -353,7 +399,10 @@ def _run_check_command(*, args: argparse.Namespace) -> None:
     if args.show_config:
         with reports.tolerate_closed_pipe():
             reports.print_config(
-                config=config, source=config_source, project_root=project_root, extends=found.extends
+                config=config,
+                source=config_source,
+                project_root=project_root,
+                extends=found.extends,
             )
         return
 
@@ -378,7 +427,7 @@ def _run_baseline_command(*, args: argparse.Namespace) -> None:
     if targets is not None or scan_root.resolve() != project_root.resolve():
         raise UsageError(
             "'baseline' must run over the whole project root, without file "
-            "targets or selection flags."
+            "targets or selection flags.",
         )
 
     _load_plugin_modules(config.get("plugins", []))
@@ -392,7 +441,10 @@ def _run_baseline_command(*, args: argparse.Namespace) -> None:
         baseline_path = project_root / "lanorme-baseline.json"
 
     collected = collect_results(
-        config=config, scan_root=scan_root, project_root=project_root, targets=None,
+        config=config,
+        scan_root=scan_root,
+        project_root=project_root,
+        targets=None,
         pristine=pristine,
         filters=Filters(
             single=None,
@@ -412,7 +464,9 @@ def _run_baseline_command(*, args: argparse.Namespace) -> None:
             baseline.write(results=results, project_root=project_root, baseline_path=baseline_path)
         else:
             baseline.print_status(
-                results=results, project_root=project_root, baseline_path=baseline_path
+                results=results,
+                project_root=project_root,
+                baseline_path=baseline_path,
             )
 
 

@@ -80,7 +80,7 @@ def score() -> dict:
             path.read_text(encoding="utf-8")
         except (OSError, UnicodeDecodeError) as exc:
             raise ValueError(
-                f"labelled document cannot be analysed: {_CORPUS_REL}/{name}:1 ({exc})"
+                f"labelled document cannot be analysed: {_CORPUS_REL}/{name}:1 ({exc})",
             ) from exc
 
     fired = _fired_documents()
@@ -92,7 +92,7 @@ def score() -> dict:
         offenders = ", ".join(f"{_CORPUS_REL}/{name}:1" for name in unlabelled)
         raise ValueError(
             f"PROSE-004 fired on file(s) not in labels.json: {offenders}. "
-            "Add them to labels.json (or remove the fixture) before scoring."
+            "Add them to labels.json (or remove the fixture) before scoring.",
         )
 
     positives = {name for name, should in labels.items() if should}
@@ -131,7 +131,7 @@ def _print_report(*, metrics: dict, labels: dict[str, bool], fired: set[str]) ->
     print(f"corpus: {_CORPUS}")
     print(
         f"labels: {len(labels)} documents "
-        f"({len(positives)} should-fire / {len(negatives)} should-not-fire)\n"
+        f"({len(positives)} should-fire / {len(negatives)} should-not-fire)\n",
     )
 
     print("Confusion counts")

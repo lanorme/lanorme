@@ -104,8 +104,7 @@ class WarehouseRetryExhaustedError(WarehouseError):
         self.attempts = attempts
         self.last_error = last_error
         super().__init__(
-            f"Warehouse request failed after {attempts} attempt(s); "
-            f"last error: {last_error!r}"
+            f"Warehouse request failed after {attempts} attempt(s); last error: {last_error!r}",
         )
 
 
@@ -297,7 +296,10 @@ class WarehouseClient:
     def update_item(self, item_id: str, patch: JSONDict) -> JSONDict:
         """``PATCH /v2/items/{id}``."""
         result = self.request(
-            "PATCH", self._item_path(item_id), json_body=patch, use_cache=False
+            "PATCH",
+            self._item_path(item_id),
+            json_body=patch,
+            use_cache=False,
         )
         self._cache.invalidate_prefix(self._items_prefix())
         return result
@@ -360,7 +362,10 @@ class WarehouseClient:
     # -- Internals: retry + auth loop ----------------------------------------
 
     def _request_with_retries(
-        self, method: str, url: str, json_body: Any
+        self,
+        method: str,
+        url: str,
+        json_body: Any,
     ) -> JSONDict:
         refreshed = False
         last_error: BaseException | None = None
@@ -415,7 +420,7 @@ class WarehouseClient:
                 raise _Unauthorized(body) from exc
             if exc.code in _RETRYABLE_STATUSES:
                 retry_after = _parse_retry_after(
-                    exc.headers.get("Retry-After") if exc.headers else None
+                    exc.headers.get("Retry-After") if exc.headers else None,
                 )
                 raise _RetryableHTTPError(exc.code, body, retry_after) from exc
             raise WarehouseAPIError(exc.code, body) from exc

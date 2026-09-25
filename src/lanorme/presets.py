@@ -46,7 +46,7 @@ def _load_profile(*, name: str, project_root: Path) -> dict[str, object]:
         available = ", ".join(_list_bundled_profiles()) or "(none)"
         raise UsageError(
             f"unknown profile '{name}'. Bundled profiles: {available}.\n"
-            f"  Use a name, or a path to a .toml file."
+            f"  Use a name, or a path to a .toml file.",
         )
     return _parse_profile_toml(text=resource.read_text(encoding="utf-8"), label=name)
 
@@ -69,7 +69,7 @@ def _resolve_extends(*, config: dict[str, object], project_root: Path) -> dict[s
     else:
         raise UsageError(
             "'extends' must be a profile name or a list of names/paths "
-            f"(got {type(raw).__name__})."
+            f"(got {type(raw).__name__}).",
         )
 
     base: dict[str, object] = {}

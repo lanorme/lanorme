@@ -58,7 +58,7 @@ def test_iter_definitions_yields_top_level_and_methods_but_not_closures() -> Non
         "            pass\n"
         "for _ in range(1):\n"
         "    def looped():\n"
-        "        pass\n"
+        "        pass\n",
     )
 
     # Act
@@ -112,7 +112,9 @@ def test_is_raiser_looks_at_the_last_statement() -> None:
 
 
 def test_decorator_leaves_resolve_calls_attributes_and_subscripts() -> None:
-    node = _find_function('@app.route("/")\n@x.setter\n@property\n@deco[0]\n@(lambda f: f)\ndef f():\n    pass\n')
+    node = _find_function(
+        '@app.route("/")\n@x.setter\n@property\n@deco[0]\n@(lambda f: f)\ndef f():\n    pass\n',
+    )
     assert resolve_decorator_leaves(node=node) == {"route", "setter", "property", "deco", ""}
 
 
@@ -128,9 +130,23 @@ def test_other_decorator_shapes_are_opaque(decorator: str) -> None:
 
 @pytest.mark.parametrize(
     "name",
-    ["__init__", "and_", "_repr_mimebundle_", "on_click", "_before_request", "pytest_configure",
-     "from_dict", "to_json", "as_tuple", "with_capacity", "dict_to_rows", "main", "cli",
-     "process_request", "_env_file_callback"],
+    [
+        "__init__",
+        "and_",
+        "_repr_mimebundle_",
+        "on_click",
+        "_before_request",
+        "pytest_configure",
+        "from_dict",
+        "to_json",
+        "as_tuple",
+        "with_capacity",
+        "dict_to_rows",
+        "main",
+        "cli",
+        "process_request",
+        "_env_file_callback",
+    ],
 )
 def test_reserved_function_names(name: str) -> None:
     assert is_framework_named(definition=_find_definition(f"def {name}():\n    pass\n"))
@@ -142,7 +158,9 @@ def test_ordinary_module_functions_are_the_authors(name: str) -> None:
 
 
 def test_protocol_names_are_reserved_on_methods_only() -> None:
-    method = list(iter_definitions(tree=ast.parse("class C:\n    def keys(self):\n        pass\n")))[1]
+    method = list(
+        iter_definitions(tree=ast.parse("class C:\n    def keys(self):\n        pass\n")),
+    )[1]
     assert is_framework_named(definition=method)
 
 

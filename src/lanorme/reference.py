@@ -45,7 +45,7 @@ def list_rules() -> list[dict[str, object]]:
                 "description": check.description,
                 "opt_in": _is_opt_in(check),
                 "rules": [{"code": extract_code(rule), "rule": rule} for rule in check.rules],
-            }
+            },
         )
     return listing
 
@@ -134,12 +134,20 @@ def _rate_token_match(*, token: str, code: str) -> int:
     return 0
 
 
-def _find_section_bounds(*, headings: list[_Heading], code: str, total: int) -> tuple[int, int] | None:
+def _find_section_bounds(
+    *,
+    headings: list[_Heading],
+    code: str,
+    total: int,
+) -> tuple[int, int] | None:
     """The line range of the best heading for *code*: exact beats family, deeper beats shallower."""
     best: tuple[int, int, int] | None = None  # (specificity, level, position)
     for position, heading in enumerate(headings):
         specificity = max(
-            (_rate_token_match(token=token, code=code) for token in _TOKEN_RE.findall(heading.text)),
+            (
+                _rate_token_match(token=token, code=code)
+                for token in _TOKEN_RE.findall(heading.text)
+            ),
             default=0,
         )
         if specificity == 0:
@@ -191,7 +199,7 @@ def print_rule_detail(*, code: str, as_json: bool = False) -> None:
     if detail is None:
         raise UsageError(
             f"no reference section found for {code!r}. Run 'lanorme rules' for the list "
-            "of emitted codes, or browse docs/RULES.md directly."
+            "of emitted codes, or browse docs/RULES.md directly.",
         )
     if as_json:
         print(json.dumps(detail, indent=2))

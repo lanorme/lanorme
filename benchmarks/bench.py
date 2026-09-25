@@ -75,7 +75,10 @@ def main(argv: list[str]) -> None:
         check.run(src_root=str(root))
 
     rows = sorted(
-        ((name, _time_check(check=check, root=str(root), runs=runs)) for name, check in checks.items()),
+        (
+            (name, _time_check(check=check, root=str(root), runs=runs))
+            for name, check in checks.items()
+        ),
         key=lambda row: row[1],
         reverse=True,
     )
@@ -83,7 +86,7 @@ def main(argv: list[str]) -> None:
 
     print(
         f"LaNorme benchmark — Python {platform.python_version()} "
-        f"on {platform.system()} {platform.machine()}"
+        f"on {platform.system()} {platform.machine()}",
     )
     print(f"corpus: {root}  ({n_files} .py files, {n_lines:,} lines)  runs={runs} (median)")
     print(f"single walk+parse pass: {parse * 1000:.1f} ms\n")
@@ -103,7 +106,7 @@ def main(argv: list[str]) -> None:
             f"\n~{parsing_checks} checks each parse the tree independently. A shared parse "
             f"cache could save ≈ {redundant * 1000:.0f} ms "
             f"({redundant / total_no_meta * 100:.0f}% of the non-meta cost) — "
-            f"the cost/benefit of giving up check independence."
+            f"the cost/benefit of giving up check independence.",
         )
 
 

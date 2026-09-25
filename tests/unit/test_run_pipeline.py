@@ -49,7 +49,11 @@ def _project(root: Path, config: str = "") -> Path:
 def test_run_all_runs_each_check_once_and_meta_audits_them(monkeypatch, tmp_path: Path):
     # Arrange: two counting checks around a real meta, in registry order.
     first, second = _Counting(name="first"), _Counting(name="second")
-    monkeypatch.setattr(lanorme, "_registry", {"first": first, "meta": MetaCheck(), "second": second})
+    monkeypatch.setattr(
+        lanorme,
+        "_registry",
+        {"first": first, "meta": MetaCheck(), "second": second},
+    )
 
     # Act.
     results = run_all(src_root=str(tmp_path))
@@ -60,7 +64,11 @@ def test_run_all_runs_each_check_once_and_meta_audits_them(monkeypatch, tmp_path
     assert results[1].status == Status.PASS
 
 
-def test_check_meta_under_nested_regions_still_audits_every_check(monkeypatch, tmp_path: Path, capsys):
+def test_check_meta_under_nested_regions_still_audits_every_check(
+    monkeypatch,
+    tmp_path: Path,
+    capsys,
+):
     """Selecting the auditor alone must still run the checks it judges."""
     # Arrange: a two-region tree and a check whose result carries the wrong name.
     _project(tmp_path)
@@ -375,7 +383,8 @@ def test_spans_reach_ndjson_and_github_annotations(tmp_path: Path, capsys):
     # Arrange: a function at the PARAM-001 limit, a finding anchored at its def node.
     _project(tmp_path)
     (tmp_path / "wide.py").write_text(
-        "def f(a, b, c, d, e, f, g, h):\n    return a\n", encoding="utf-8"
+        "def f(a, b, c, d, e, f, g, h):\n    return a\n",
+        encoding="utf-8",
     )
 
     # Act.
@@ -472,7 +481,10 @@ def test_summary_format_counts_by_code_and_directory(tmp_path: Path, capsys):
 def test_summary_notes_report_suppressions_and_disabled_opt_ins(tmp_path: Path, capsys):
     # Arrange: one eval call silenced inline, another by per-file-ignores.
     _project(tmp_path, '[per-file-ignores]\n"quiet.py" = ["EVAL-001"]\n')
-    (tmp_path / "loud.py").write_text("eval(input())  # lanorme: ignore[EVAL-001]\n", encoding="utf-8")
+    (tmp_path / "loud.py").write_text(
+        "eval(input())  # lanorme: ignore[EVAL-001]\n",
+        encoding="utf-8",
+    )
     (tmp_path / "quiet.py").write_text("eval(input())\n", encoding="utf-8")
 
     # Act.

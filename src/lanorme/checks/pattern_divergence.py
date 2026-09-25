@@ -268,7 +268,7 @@ class PatternDivergenceCheck:
                         file=module.relative,
                         name=module.path.name,
                         reason=TOO_DEEP,
-                    )
+                    ),
                 )
                 continue
 

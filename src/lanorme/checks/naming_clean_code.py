@@ -51,7 +51,9 @@ from lanorme.checks.naming_words import (
 )
 from lanorme.sources import locate
 
-RULE_009 = "NAMING-009: A class name carries no noise word (Manager, Processor, Data, Info, Helper, Util)"
+RULE_009 = (
+    "NAMING-009: A class name carries no noise word (Manager, Processor, Data, Info, Helper, Util)"
+)
 RULE_010 = "NAMING-010: A module is not a junk drawer (utils, helpers, common, misc)"
 RULE_011 = "NAMING-011: Every function starts with a verb"
 
@@ -64,7 +66,12 @@ class _Settings:
     exempt: frozenset[str]
 
 
-def _collect_noise_findings(*, definition: Definition, file: str, settings: _Settings) -> list[Violation]:
+def _collect_noise_findings(
+    *,
+    definition: Definition,
+    file: str,
+    settings: _Settings,
+) -> list[Violation]:
     """NAMING-009: a class whose last word is a job title or a shrug."""
     name = definition.name
     tokens = split_name(name=name)
@@ -74,14 +81,16 @@ def _collect_noise_findings(*, definition: Definition, file: str, settings: _Set
         return []
     if tokens[-2:] == ["meta", "data"] or name.endswith("ContextManager"):
         return []
-    return [Violation(
-        file=file,
-        line=definition.node.lineno,
-        rule=RULE_009,
-        message=f"Class '{name}' ends in '{tokens[-1]}', a noise word that names a job title, not a thing",
-        fix="Say what it is (a Registry, a Pool, a Cache, a Scheduler) or what it holds (an Order, a Profile)",
-        **locate(definition.node),
-    )]
+    return [
+        Violation(
+            file=file,
+            line=definition.node.lineno,
+            rule=RULE_009,
+            message=f"Class '{name}' ends in '{tokens[-1]}', a noise word that names a job title, not a thing",
+            fix="Say what it is (a Registry, a Pool, a Cache, a Scheduler) or what it holds (an Order, a Profile)",
+            **locate(definition.node),
+        ),
+    ]
 
 
 def _collect_junk_module_findings(*, file: str, settings: _Settings) -> list[Violation]:
@@ -91,16 +100,23 @@ def _collect_junk_module_findings(*, file: str, settings: _Settings) -> list[Vio
     if stem not in JUNK_MODULES or is_exempt(name=stem, exempt=settings.exempt):
         return []
     kind = "Package" if path.name == "__init__.py" else "Module"
-    return [Violation(
-        file=file,
-        line=0,
-        rule=RULE_010,
-        message=f"{kind} '{stem}' is a junk drawer: the name promises nothing about what is inside",
-        fix="Split it by responsibility and name each module for what it holds (paths.py, dates.py, ...)",
-    )]
+    return [
+        Violation(
+            file=file,
+            line=0,
+            rule=RULE_010,
+            message=f"{kind} '{stem}' is a junk drawer: the name promises nothing about what is inside",
+            fix="Split it by responsibility and name each module for what it holds (paths.py, dates.py, ...)",
+        ),
+    ]
 
 
-def _collect_verb_findings(*, definition: Definition, file: str, settings: _Settings) -> list[Violation]:
+def _collect_verb_findings(
+    *,
+    definition: Definition,
+    file: str,
+    settings: _Settings,
+) -> list[Violation]:
     """NAMING-011: a query that does not lead with a verb.
 
     Commands are NAMING-007's and a raiser exists to raise, so this rule takes
@@ -112,27 +128,37 @@ def _collect_verb_findings(*, definition: Definition, file: str, settings: _Sett
     if is_exempt(name=name, exempt=settings.exempt) or is_framework_named(definition=definition):
         return []
     node = definition.node
-    if "classmethod" in resolve_decorator_leaves(node=node) or is_command(node=node) or is_raiser(node=node):
+    if (
+        "classmethod" in resolve_decorator_leaves(node=node)
+        or is_command(node=node)
+        or is_raiser(node=node)
+    ):
         return []
     tokens = split_name(name=name)
-    if not tokens or find_leading_verb_index(tokens=tokens, extra=settings.verbs) >= 0 or is_predicate(tokens=tokens):
+    if (
+        not tokens
+        or find_leading_verb_index(tokens=tokens, extra=settings.verbs) >= 0
+        or is_predicate(tokens=tokens)
+    ):
         return []
-    return [Violation(
-        file=file,
-        line=node.lineno,
-        rule=RULE_011,
-        message=f"Function '{name}' does not start with a verb",
-        fix=suggest_verb_fix(
-            name=name,
-            tokens=tokens,
-            verbs=settings.verbs,
-            otherwise=(
-                "Lead with what it does to get the value (find_, build_, compute_, load_), "
-                "or is_/has_ for a predicate"
+    return [
+        Violation(
+            file=file,
+            line=node.lineno,
+            rule=RULE_011,
+            message=f"Function '{name}' does not start with a verb",
+            fix=suggest_verb_fix(
+                name=name,
+                tokens=tokens,
+                verbs=settings.verbs,
+                otherwise=(
+                    "Lead with what it does to get the value (find_, build_, compute_, load_), "
+                    "or is_/has_ for a predicate"
+                ),
             ),
+            **locate(node),
         ),
-        **locate(node),
-    )]
+    ]
 
 
 def _collect_findings(*, definition: Definition, file: str, settings: _Settings) -> list[Violation]:
@@ -176,10 +202,11 @@ class NamingCleanCodeCheck:
         for relative, tree in iter_modules(root=Path(src_root)):
             warnings.extend(_collect_junk_module_findings(file=relative, settings=settings))
             for definition in iter_definitions(tree=tree):
-                warnings.extend(_collect_findings(definition=definition, file=relative, settings=settings))
+                warnings.extend(
+                    _collect_findings(definition=definition, file=relative, settings=settings),
+                )
         warnings.sort(key=lambda warning: (warning.file, warning.line))
         return CheckResult.from_findings(check=self.name, warnings=warnings)
-
 
 
 register(NamingCleanCodeCheck())

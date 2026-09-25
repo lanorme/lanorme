@@ -121,7 +121,9 @@ def test_validate_violation_fields_reports_each_missing_string_field():
 
     # Act
     problems = _validate_violation_fields(
-        check_name="c", violation=bad, source="violation"
+        check_name="c",
+        violation=bad,
+        source="violation",
     )
 
     # Assert: one META-005 finding per missing field, line never counts.
@@ -136,7 +138,9 @@ def test_validate_violation_fields_accepts_zero_line():
 
     # Act
     problems = _validate_violation_fields(
-        check_name="c", violation=good, source="violation"
+        check_name="c",
+        violation=good,
+        source="violation",
     )
 
     # Assert: line is not a required field, so a zero line is fine.

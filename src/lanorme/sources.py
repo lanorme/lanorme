@@ -148,7 +148,13 @@ def _parse(path: Path, *, signature: _Signature) -> _CacheEntry:
         return _CacheEntry(signature=signature, source="", tree=None, reason=PARSE_ERROR)
     except (RecursionError, MemoryError):
         return _CacheEntry(signature=signature, source="", tree=None, reason=TOO_DEEP)
-    return _CacheEntry(signature=signature, source=source, tree=tree, reason="", index=NodeIndex(tree))
+    return _CacheEntry(
+        signature=signature,
+        source=source,
+        tree=tree,
+        reason="",
+        index=NodeIndex(tree),
+    )
 
 
 def _read_signature(path: Path) -> _Signature:
@@ -180,7 +186,11 @@ def parse_module(path: Path, *, root: Path) -> Module | UnparseableFile:
     if entry.tree is None or entry.index is None:
         return UnparseableFile(path=path, relative=relative, reason=entry.reason)
     return Module(
-        path=path, relative=relative, source=entry.source, tree=entry.tree, index=entry.index
+        path=path,
+        relative=relative,
+        source=entry.source,
+        tree=entry.tree,
+        index=entry.index,
     )
 
 
@@ -237,7 +247,10 @@ def build_skip_notice(*, prefix: str, file: str, name: str, reason: str) -> Viol
 def build_unparseable_notice(*, prefix: str, failure: UnparseableFile) -> Violation:
     """:func:`build_skip_notice` for a file :func:`iter_modules` could not parse."""
     return build_skip_notice(
-        prefix=prefix, file=failure.relative, name=failure.path.name, reason=failure.reason
+        prefix=prefix,
+        file=failure.relative,
+        name=failure.path.name,
+        reason=failure.reason,
     )
 
 

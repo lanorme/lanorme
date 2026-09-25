@@ -62,7 +62,9 @@ def _score_sample(*, sample: Path) -> dict[str, object]:
     return {
         "task": sample.name,
         "lanorme": lint,
-        "readability": [measure(path=f, root=sample).as_dict() for f in sorted(sample.rglob("*.py"))],
+        "readability": [
+            measure(path=f, root=sample).as_dict() for f in sorted(sample.rglob("*.py"))
+        ],
     }
 
 

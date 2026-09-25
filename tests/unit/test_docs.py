@@ -211,11 +211,7 @@ def test_docs003_clean_canonical_opener(tmp_path: Path, check: DocsCheck):
 
 def test_docs004_fires_on_empty_markdown_alt(tmp_path: Path, check: DocsCheck):
     # Arrange: a Markdown image with empty alt and an <img> with no alt.
-    body = (
-        "# Title\n\nThis page shows a diagram.\n\n"
-        "![](diagram.svg)\n\n"
-        "<img src='other.svg'>\n"
-    )
+    body = "# Title\n\nThis page shows a diagram.\n\n![](diagram.svg)\n\n<img src='other.svg'>\n"
     _write(root=tmp_path, name="docs/index.md", body=body)
 
     # Act.
@@ -373,7 +369,8 @@ def test_enabled_via_cli_config(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
     # Arrange: a broken page plus pyproject enabling the check.
     _write(root=tmp_path, name="docs/how-to/configure.md", body="## no h1\n")
     (tmp_path / "pyproject.toml").write_text(
-        "[tool.lanorme.docs]\nenabled = true\n", encoding="utf-8"
+        "[tool.lanorme.docs]\nenabled = true\n",
+        encoding="utf-8",
     )
     from lanorme.cli import main
 

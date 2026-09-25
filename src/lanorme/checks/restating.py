@@ -42,31 +42,123 @@ COVERAGE_FLOOR = 1.0
 ALLOW_TRAILING = True
 
 _PRAGMA_PREFIXES = (
-    "noqa", "type:", "pragma", "pylint:", "mypy:", "ruff:", "isort:", "fmt:",
-    "!", "-*-", "region", "endregion",
+    "noqa",
+    "type:",
+    "pragma",
+    "pylint:",
+    "mypy:",
+    "ruff:",
+    "isort:",
+    "fmt:",
+    "!",
+    "-*-",
+    "region",
+    "endregion",
 )
 
-_STOPWORDS = frozenset({
-    "the", "a", "an", "to", "of", "and", "or", "for", "in", "on", "is", "be",
-    "this", "that", "it", "with", "by", "as", "at", "from", "into", "are",
-    "was", "were", "we", "you", "they", "its", "any", "all", "some",
-})
+_STOPWORDS = frozenset(
+    {
+        "the",
+        "a",
+        "an",
+        "to",
+        "of",
+        "and",
+        "or",
+        "for",
+        "in",
+        "on",
+        "is",
+        "be",
+        "this",
+        "that",
+        "it",
+        "with",
+        "by",
+        "as",
+        "at",
+        "from",
+        "into",
+        "are",
+        "was",
+        "were",
+        "we",
+        "you",
+        "they",
+        "its",
+        "any",
+        "all",
+        "some",
+    },
+)
 
 _ALLOWLIST_TAGS = frozenset(
-    {"todo", "fixme", "xxx", "hack", "note", "bug", "review", "warning", "optimize", "deprecated"}
+    {"todo", "fixme", "xxx", "hack", "note", "bug", "review", "warning", "optimize", "deprecated"},
 )
 _ALLOWLIST_PHRASES: tuple[str, ...] = (
-    "so that", "so we", "in order to", "to avoid", "to prevent", "on purpose",
-    "due to", "caused by", "that's why", "which is why", "work around",
-    "do not", "don't", "must ", "must not", "not thread", "side effect", "in place",
-    "(c)", "all rights reserved", "mit license",
-    "http://", "https://", "www.", "see ", "see:", "cf.", "ref:", "ref ", "refs ",
-    "per ", "pep ", "pep-", "bug #", "issue #", "gh-",
-    "e.g.", "i.e.", "eg.", "for example", "for instance", "example:", "examples:", "such as",
-    ":param", ":type", ":returns", ":return:", ":rtype", ":raises",
-    "args:", "returns:", "raises:", "yields:", "params:", "usage:",
-    "public:", "internal:",
-    "0-based", "1-based", "zero-based", "one-based", "null-terminated",
+    "so that",
+    "so we",
+    "in order to",
+    "to avoid",
+    "to prevent",
+    "on purpose",
+    "due to",
+    "caused by",
+    "that's why",
+    "which is why",
+    "work around",
+    "do not",
+    "don't",
+    "must ",
+    "must not",
+    "not thread",
+    "side effect",
+    "in place",
+    "(c)",
+    "all rights reserved",
+    "mit license",
+    "http://",
+    "https://",
+    "www.",
+    "see ",
+    "see:",
+    "cf.",
+    "ref:",
+    "ref ",
+    "refs ",
+    "per ",
+    "pep ",
+    "pep-",
+    "bug #",
+    "issue #",
+    "gh-",
+    "e.g.",
+    "i.e.",
+    "eg.",
+    "for example",
+    "for instance",
+    "example:",
+    "examples:",
+    "such as",
+    ":param",
+    ":type",
+    ":returns",
+    ":return:",
+    ":rtype",
+    ":raises",
+    "args:",
+    "returns:",
+    "raises:",
+    "yields:",
+    "params:",
+    "usage:",
+    "public:",
+    "internal:",
+    "0-based",
+    "1-based",
+    "zero-based",
+    "one-based",
+    "null-terminated",
 )
 _ALLOWLIST_WORD_RE = re.compile(
     r"\b(?:"
@@ -84,10 +176,17 @@ _CAMEL_SPLIT = re.compile(r"[A-Z]+(?=[A-Z][a-z])|[A-Z]?[a-z]+|[A-Z]+|[0-9]+")
 _WORD = re.compile(r"[A-Za-z]+")
 
 _STMT_KEYWORD: dict[type, str] = {
-    ast.Return: "return", ast.Delete: "del", ast.Assert: "assert", ast.Raise: "raise",
-    ast.Import: "import", ast.ImportFrom: "import",
-    ast.For: "for", ast.AsyncFor: "for", ast.While: "while",
+    ast.Return: "return",
+    ast.Delete: "del",
+    ast.Assert: "assert",
+    ast.Raise: "raise",
+    ast.Import: "import",
+    ast.ImportFrom: "import",
+    ast.For: "for",
+    ast.AsyncFor: "for",
+    ast.While: "while",
 }
+
 
 def _split_identifier(*, name: str) -> list[str]:
     out: list[str] = []
@@ -123,7 +222,11 @@ def _is_print_like(s: ast.stmt) -> bool:
     if not isinstance(s, ast.Expr) or not isinstance(s.value, ast.Call):
         return False
     func = s.value.func
-    name = func.id if isinstance(func, ast.Name) else (func.attr if isinstance(func, ast.Attribute) else "")
+    name = (
+        func.id
+        if isinstance(func, ast.Name)
+        else (func.attr if isinstance(func, ast.Attribute) else "")
+    )
     return name == "print" or name.startswith("log")
 
 
@@ -134,7 +237,10 @@ _VERB_TABLE: dict[str, Callable[[ast.stmt], bool]] = {
     **dict.fromkeys(("yield", "yields"), _contains_yield),
     **dict.fromkeys(("raise", "throw", "throws"), _is_node_type(types=(ast.Raise,))),
     **dict.fromkeys(("import", "imports"), _is_node_type(types=(ast.Import, ast.ImportFrom))),
-    **dict.fromkeys(("loop", "iterate", "iterates", "iterating"), _is_node_type(types=(ast.For, ast.AsyncFor, ast.While))),
+    **dict.fromkeys(
+        ("loop", "iterate", "iterates", "iterating"),
+        _is_node_type(types=(ast.For, ast.AsyncFor, ast.While)),
+    ),
     **dict.fromkeys(("assign", "set", "store"), _is_node_type(types=(ast.Assign, ast.AnnAssign))),
     **dict.fromkeys(("delete", "del", "remove"), _is_node_type(types=(ast.Delete,))),
     **dict.fromkeys(("assert", "check", "verify"), _is_node_type(types=(ast.Assert,))),
@@ -182,9 +288,19 @@ def _is_simple_statement(*, s: ast.stmt) -> bool:
     return isinstance(
         s,
         (
-            ast.Assign, ast.AnnAssign, ast.AugAssign, ast.Return, ast.Delete,
-            ast.Raise, ast.Assert, ast.Import, ast.ImportFrom,
-            ast.For, ast.AsyncFor, ast.While, ast.Expr,
+            ast.Assign,
+            ast.AnnAssign,
+            ast.AugAssign,
+            ast.Return,
+            ast.Delete,
+            ast.Raise,
+            ast.Assert,
+            ast.Import,
+            ast.ImportFrom,
+            ast.For,
+            ast.AsyncFor,
+            ast.While,
+            ast.Expr,
         ),
     )
 
@@ -261,14 +377,19 @@ def _collect_comments(*, source: str, source_lines: list[str]) -> list[_Comment]
                     column=col,
                     text=token.string.lstrip("#").strip(),
                     standalone=not before.strip(),
-                )
+                ),
             )
     except (tokenize.TokenError, IndentationError, SyntaxError):
         pass
     return comments
 
 
-def _find_restating_violations(*, tree: ast.Module, comments: list[_Comment], file: str) -> list[Violation]:
+def _find_restating_violations(
+    *,
+    tree: ast.Module,
+    comments: list[_Comment],
+    file: str,
+) -> list[Violation]:
     stmt_index = _build_stmt_index(tree=tree)
     ctx = _Context(
         stmt_index=stmt_index,
@@ -295,7 +416,7 @@ def _find_restating_violations(*, tree: ast.Module, comments: list[_Comment], fi
                     message=f"Comment restates the code: {comment.text[:50]}",
                     fix="Remove it, or explain the why rather than the what",
                     column=comment.column,
-                )
+                ),
             )
     return found
 
@@ -310,7 +431,7 @@ class RestatingCheck:
     rules: list[str] = field(
         default_factory=lambda: [
             "CMT-005: No comments that restate the next line of code (experimental)",
-        ]
+        ],
     )
     settings_keys: ClassVar[frozenset[str]] = frozenset({"enabled"})
 
@@ -326,7 +447,11 @@ class RestatingCheck:
             source_lines = module.lines
             comments = _collect_comments(source=module.source, source_lines=source_lines)
             violations.extend(
-                _find_restating_violations(tree=module.tree, comments=comments, file=module.relative)
+                _find_restating_violations(
+                    tree=module.tree,
+                    comments=comments,
+                    file=module.relative,
+                ),
             )
         return CheckResult.from_findings(check=self.name, violations=violations)
 

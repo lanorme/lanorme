@@ -50,7 +50,10 @@ def test_promote_by_category_matches():
 
 def test_promote_all_escalates_every_warning():
     # Arrange.
-    result = _build_result(violations=[], warnings=[_build_finding("TYPE-004"), _build_finding("SIMILAR-001")])
+    result = _build_result(
+        violations=[],
+        warnings=[_build_finding("TYPE-004"), _build_finding("SIMILAR-001")],
+    )
 
     # Act.
     promoted = _apply_promotions(results=[result], promote=["ALL"])
@@ -81,7 +84,10 @@ def test_empty_promote_is_a_noop():
 
 def test_promoted_warning_joins_existing_violations():
     # Arrange: a real violation already present alongside the warning.
-    result = _build_result(violations=[_build_finding("SQL-001")], warnings=[_build_finding("TYPE-004")])
+    result = _build_result(
+        violations=[_build_finding("SQL-001")],
+        warnings=[_build_finding("TYPE-004")],
+    )
 
     # Act.
     promoted = _apply_promotions(results=[result], promote=["TYPE-004"])
@@ -109,7 +115,8 @@ def test_default_warning_does_not_fail_the_build(tmp_path: Path, capsys):
 def test_config_promote_makes_the_build_fail(tmp_path: Path, capsys):
     # Arrange: the project promotes TYPE-004 via pyproject.
     (tmp_path / "pyproject.toml").write_text(
-        '[tool.lanorme]\npromote = ["TYPE-004"]\n', encoding="utf-8"
+        '[tool.lanorme]\npromote = ["TYPE-004"]\n',
+        encoding="utf-8",
     )
     (tmp_path / "svc.py").write_text(_POSITIVE, encoding="utf-8")
 
@@ -176,7 +183,8 @@ def test_bare_string_promote_in_config_fails_the_build(tmp_path: Path, capsys):
 def test_ignored_warning_is_not_promoted(tmp_path: Path, capsys):
     # Arrange: the same code is both ignored and promoted; ignore drops it first.
     (tmp_path / "pyproject.toml").write_text(
-        '[tool.lanorme]\nignore = ["TYPE-004"]\npromote = ["TYPE-004"]\n', encoding="utf-8"
+        '[tool.lanorme]\nignore = ["TYPE-004"]\npromote = ["TYPE-004"]\n',
+        encoding="utf-8",
     )
     (tmp_path / "svc.py").write_text(_POSITIVE, encoding="utf-8")
 
@@ -186,7 +194,10 @@ def test_ignored_warning_is_not_promoted(tmp_path: Path, capsys):
 
 def test_show_config_surfaces_promote(tmp_path: Path, capsys):
     # Arrange.
-    (tmp_path / "pyproject.toml").write_text('[tool.lanorme]\npromote = ["TYPE-004"]\n', encoding="utf-8")
+    (tmp_path / "pyproject.toml").write_text(
+        '[tool.lanorme]\npromote = ["TYPE-004"]\n',
+        encoding="utf-8",
+    )
     (tmp_path / "svc.py").write_text(_POSITIVE, encoding="utf-8")
 
     # Act.

@@ -178,7 +178,9 @@ def test_configured_file_warn_band_reports_a_warning_not_a_violation(run_with) -
     [(99, False), (100, True)],
 )
 def test_configured_file_limit_fires_at_the_boundary(
-    run_with, effective: int, expected_violation: bool
+    run_with,
+    effective: int,
+    expected_violation: bool,
 ) -> None:
     # The comparison stays >=, so the limit itself is a violation.
     result = run_with(_build_module_of(effective), file_warn_lines=10, file_error_lines=100)

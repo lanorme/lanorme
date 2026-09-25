@@ -43,7 +43,7 @@ def test_source_root_injected_only_into_layout_checks():
                 "source_root": "src/pkg",
                 "layer_deps": {"composition_root": ["api/dependencies.py"]},
                 "spy_check": {"some_key": 1},
-            }
+            },
         )
 
         # Assert: the layout-aware checks receive it; the spy does not.
@@ -60,7 +60,8 @@ def test_authn_fires_on_a_src_layout_project_through_the_cli(tmp_path: Path, cap
     # Arrange: the reported repro. A src-layout project whose only endpoint is
     # an unauthenticated mutation, declaring source_root the way the docs say.
     (tmp_path / "pyproject.toml").write_text(
-        '[tool.lanorme]\nsource_root = "src/mypkg"\n', encoding="utf-8"
+        '[tool.lanorme]\nsource_root = "src/mypkg"\n',
+        encoding="utf-8",
     )
     routers = tmp_path / "src" / "mypkg" / "api" / "routers"
     routers.mkdir(parents=True)
@@ -78,16 +79,15 @@ def test_authn_fires_on_a_src_layout_project_through_the_cli(tmp_path: Path, cap
     # Assert.
     assert exc.value.code == 1
     results = json.loads(capsys.readouterr().out)
-    codes = [
-        v["rule"].split(":", 1)[0] for result in results for v in result["violations"]
-    ]
+    codes = [v["rule"].split(":", 1)[0] for result in results for v in result["violations"]]
     assert "AUTHN-001" in codes
 
 
 def test_main_publishes_configured_excludes_to_discovery(tmp_path: Path, capsys):
     # Arrange: a project that configures an exclude glob.
     (tmp_path / "pyproject.toml").write_text(
-        '[tool.lanorme]\nexclude = ["vendor/*"]\n', encoding="utf-8"
+        '[tool.lanorme]\nexclude = ["vendor/*"]\n',
+        encoding="utf-8",
     )
     (tmp_path / "mod.py").write_text("x = 1\n", encoding="utf-8")
 
@@ -119,9 +119,15 @@ def test_show_config_reports_source_and_opt_in_state(tmp_path: Path, capsys):
 # GitHub annotations output format
 # --------------------------------------------------------------------------- #
 
+
 def _make_result(*, violations=(), warnings=()):
     status = Status.FAIL if violations else (Status.WARN if warnings else Status.PASS)
-    return CheckResult(check="test_check", status=status, violations=list(violations), warnings=list(warnings))
+    return CheckResult(
+        check="test_check",
+        status=status,
+        violations=list(violations),
+        warnings=list(warnings),
+    )
 
 
 def test_github_format_violations(capsys):
@@ -171,7 +177,13 @@ def test_github_format_escapes_newlines_in_message(capsys):
 
 def test_github_format_warnings(capsys):
     # Arrange: a single warning.
-    w = Violation(file="src/bar.py", line=7, rule="CMT-001", message="missing docstring", fix="add one")
+    w = Violation(
+        file="src/bar.py",
+        line=7,
+        rule="CMT-001",
+        message="missing docstring",
+        fix="add one",
+    )
 
     # Act.
     _emit_github(results=[_make_result(warnings=[w])])

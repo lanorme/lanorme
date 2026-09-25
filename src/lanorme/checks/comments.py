@@ -52,7 +52,7 @@ _EMOJI = re.compile(
     "\U00002b00-\U00002bff"
     "\U0000fe0f"
     "\U0000200d"
-    "]"
+    "]",
 )
 
 # Comment text starting with one of these is tooling, not prose or code.
@@ -95,6 +95,7 @@ _CODE_NODES = (
     ast.Return,
 )
 
+
 @dataclass(frozen=True)
 class _Comment:
     line: int
@@ -118,7 +119,7 @@ def _collect_comments(*, source: str, source_lines: list[str]) -> list[_Comment]
                     column=col,
                     text=token.string.lstrip("#").strip(),
                     standalone=not before.strip(),
-                )
+                ),
             )
     except (tokenize.TokenError, IndentationError, SyntaxError):
         pass
@@ -128,7 +129,12 @@ def _collect_comments(*, source: str, source_lines: list[str]) -> list[_Comment]
 def _collect_docstring_lines(*, module: Module) -> list[tuple[int, str]]:
     """Return (line, text) for each line of every module/class/function docstring."""
     out: list[tuple[int, str]] = []
-    for node in module.index.collect(ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef):
+    for node in module.index.collect(
+        ast.Module,
+        ast.ClassDef,
+        ast.FunctionDef,
+        ast.AsyncFunctionDef,
+    ):
         doc = ast.get_docstring(node, clean=False)
         if doc is None or not node.body:
             continue
@@ -156,8 +162,20 @@ def _is_code_statement(node: ast.stmt) -> bool:
 # Block-header keywords whose comments don't parse standalone (they require a
 # body). We try wrapping with ``pass`` to make them syntactically complete.
 _BLOCK_HEADER_KEYWORDS = (
-    "if ", "elif ", "else:", "for ", "while ", "try:", "except", "finally:",
-    "with ", "match ", "case ", "def ", "async def ", "class ",
+    "if ",
+    "elif ",
+    "else:",
+    "for ",
+    "while ",
+    "try:",
+    "except",
+    "finally:",
+    "with ",
+    "match ",
+    "case ",
+    "def ",
+    "async def ",
+    "class ",
 )
 # Bare keyword statements that need an enclosing function to parse.
 _SCOPE_BOUND_KEYWORDS = ("return", "yield", "raise", "await ")
@@ -244,7 +262,12 @@ def _build_violation(
     column: int | None = None,
 ) -> Violation:
     return Violation(
-        file=relative_file, line=line, rule=code, message=message, fix=fix, column=column
+        file=relative_file,
+        line=line,
+        rule=code,
+        message=message,
+        fix=fix,
+        column=column,
     )
 
 
@@ -271,9 +294,13 @@ def _collect_function_spans(*, module: Module) -> list[_Span]:
     spans: list[_Span] = []
     for node in module.index.functions:
         end = getattr(node, "end_lineno", node.lineno)
-        spans.append(_Span(
-            start=node.lineno, end=end, complexity=_measure_cyclomatic_complexity(func_node=node)
-        ))
+        spans.append(
+            _Span(
+                start=node.lineno,
+                end=end,
+                complexity=_measure_cyclomatic_complexity(func_node=node),
+            ),
+        )
     return spans
 
 
@@ -310,7 +337,7 @@ class CommentsCheck:
             "CMT-002: No verbose comments (block or line too long)",
             "PROSE-001: No em dashes in comments or docstrings (opt-in)",
             "PROSE-003: No emoji in comments or docstrings (opt-in)",
-        ]
+        ],
     )
     settings_keys: ClassVar[frozenset[str]] = frozenset(
         {
@@ -321,29 +348,42 @@ class CommentsCheck:
             "max_block_lines",
             "max_comment_chars",
             "block_lines_per_branch",
-        }
+        },
     )
 
     def configure(self, *, settings: dict[str, object]) -> None:
         """Apply ``[tool.lanorme.comments]`` configuration."""
         self.flag_commented_code = is_flag_set(
-            settings=settings, key="commented_code", default=self.flag_commented_code
+            settings=settings,
+            key="commented_code",
+            default=self.flag_commented_code,
         )
         self.flag_verbose = is_flag_set(settings=settings, key="verbose", default=self.flag_verbose)
         self.flag_em_dash = is_flag_set(settings=settings, key="em_dash", default=self.flag_em_dash)
         self.flag_emoji = is_flag_set(settings=settings, key="emoji", default=self.flag_emoji)
         self.max_block_lines = read_int(
-            settings=settings, key="max_block_lines", default=self.max_block_lines
+            settings=settings,
+            key="max_block_lines",
+            default=self.max_block_lines,
         )
         self.max_comment_chars = read_int(
-            settings=settings, key="max_comment_chars", default=self.max_comment_chars
+            settings=settings,
+            key="max_comment_chars",
+            default=self.max_comment_chars,
         )
         self.block_lines_per_branch = read_int(
-            settings=settings, key="block_lines_per_branch", default=self.block_lines_per_branch
+            settings=settings,
+            key="block_lines_per_branch",
+            default=self.block_lines_per_branch,
         )
 
     def _find_style_violations(
-        self, *, text: str, line: int, relative_file: str, column: int | None = None
+        self,
+        *,
+        text: str,
+        line: int,
+        relative_file: str,
+        column: int | None = None,
     ) -> list[Violation]:
         found: list[Violation] = []
         if self.flag_em_dash and _EM_DASH in text:
@@ -355,7 +395,7 @@ class CommentsCheck:
                     message="Em dash in comment/docstring",
                     fix="Rewrite with a comma, parentheses, or a full stop",
                     column=column,
-                )
+                ),
             )
         if self.flag_emoji and _EMOJI.search(text):
             found.append(
@@ -366,11 +406,16 @@ class CommentsCheck:
                     message="Emoji in comment/docstring",
                     fix="Remove the emoji",
                     column=column,
-                )
+                ),
             )
         return found
 
-    def _find_verbose_violations(self, *, comments: list[_Comment], module: Module) -> list[Violation]:
+    def _find_verbose_violations(
+        self,
+        *,
+        comments: list[_Comment],
+        module: Module,
+    ) -> list[Violation]:
         found: list[Violation] = []
         for comment in comments:
             if len(comment.text) > self.max_comment_chars:
@@ -382,7 +427,7 @@ class CommentsCheck:
                         message=f"Comment line is {len(comment.text)} chars (limit {self.max_comment_chars})",
                         fix="Tighten it, or move the detail into a docstring",
                         column=comment.column,
-                    )
+                    ),
                 )
         found.extend(self._block_violations(comments=comments, module=module))
         return found
@@ -397,7 +442,9 @@ class CommentsCheck:
         index = 0
         while index < len(standalone):
             end = index
-            while end + 1 < len(standalone) and standalone[end + 1].line == standalone[end].line + 1:
+            while (
+                end + 1 < len(standalone) and standalone[end + 1].line == standalone[end].line + 1
+            ):
                 end += 1
             length = end - index + 1
             if length <= self.max_block_lines:
@@ -406,7 +453,9 @@ class CommentsCheck:
             if spans is None:
                 spans = _collect_function_spans(module=module)
             complexity = _measure_complexity_near(
-                spans=spans, start=standalone[index].line, end=standalone[end].line
+                spans=spans,
+                start=standalone[index].line,
+                end=standalone[end].line,
             )
             allowance = self.max_block_lines + (complexity - 1) * self.block_lines_per_branch
             if length > allowance:
@@ -421,7 +470,7 @@ class CommentsCheck:
                         ),
                         fix="Tighten it, or move the detail into a docstring",
                         column=standalone[index].column,
-                    )
+                    ),
                 )
             index = end + 1
         return found
@@ -447,14 +496,18 @@ class CommentsCheck:
             found.extend(self._find_verbose_violations(comments=comments, module=module))
         if self.flag_em_dash or self.flag_emoji:
             for comment in comments:
-                found.extend(self._find_style_violations(
-                    text=comment.text,
-                    line=comment.line,
-                    relative_file=relative_file,
-                    column=comment.column,
-                ))
+                found.extend(
+                    self._find_style_violations(
+                        text=comment.text,
+                        line=comment.line,
+                        relative_file=relative_file,
+                        column=comment.column,
+                    ),
+                )
             for line, text in _collect_docstring_lines(module=module):
-                found.extend(self._find_style_violations(text=text, line=line, relative_file=relative_file))
+                found.extend(
+                    self._find_style_violations(text=text, line=line, relative_file=relative_file),
+                )
         return found
 
     def run(self, *, src_root: str) -> CheckResult:
@@ -464,7 +517,7 @@ class CommentsCheck:
                 self._scan_file(
                     module=module,
                     comments=_collect_comments(source=module.source, source_lines=module.lines),
-                )
+                ),
             )
 
         return CheckResult.from_findings(check=self.name, violations=violations)

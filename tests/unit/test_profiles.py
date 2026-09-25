@@ -91,10 +91,11 @@ def test_every_strict_table_names_a_registered_check():
 
 
 def test_strict_prices_a_blanket_suppression(tmp_path: Path, capsys):
-    # Arrange: a project on strict with one bare ``# noqa``, which the
+    # Arrange: a project on strict with one bare ``noqa`` comment, which the
     # suppressions check (default-off, on under strict) flags as SUPPRESS-002.
     (tmp_path / "pyproject.toml").write_text(
-        '[tool.lanorme]\nextends = ["strict"]\n', encoding="utf-8"
+        '[tool.lanorme]\nextends = ["strict"]\n',
+        encoding="utf-8",
     )
     (tmp_path / "m.py").write_text("x = 1  # noqa\n", encoding="utf-8")
 
@@ -208,7 +209,8 @@ def test_hexagonal_exempts_a_package_form_composition_root(tmp_path: Path, capsy
     (tmp_path / "domain" / "m.py").write_text("class M:\n    pass\n", encoding="utf-8")
     (tmp_path / "infrastructure" / "repo.py").write_text("class R:\n    pass\n", encoding="utf-8")
     (tmp_path / "api" / "dependencies" / "__init__.py").write_text(
-        "from infrastructure.repo import R\n\nr = R()\n", encoding="utf-8"
+        "from infrastructure.repo import R\n\nr = R()\n",
+        encoding="utf-8",
     )
 
     # Act: a clean run means no SystemExit (no LAYER-005 false positive).
@@ -221,7 +223,8 @@ def test_nested_region_extends_enables_a_file_level_check(tmp_path: Path, capsys
     (tmp_path / "sub").mkdir()
     (tmp_path / "sub" / "lanorme.toml").write_text('extends = ["strict"]\n', encoding="utf-8")
     (tmp_path / "sub" / "m.py").write_text(
-        'def f(o):\n    return hasattr(o, "x")\n', encoding="utf-8"
+        'def f(o):\n    return hasattr(o, "x")\n',
+        encoding="utf-8",
     )
 
     # Act.

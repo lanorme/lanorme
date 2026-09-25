@@ -207,10 +207,7 @@ def _check_module_coverage(
                     line=1,
                     rule="TESTFILE-001: Every production module must have a corresponding test",
                     message=f"No test file found for module '{name}'",
-                    fix=(
-                        f"Create {primary_root}/test_{name}.py with at least one "
-                        f"test for {name}"
-                    ),
+                    fix=(f"Create {primary_root}/test_{name}.py with at least one test for {name}"),
                 ),
             )
 
@@ -250,10 +247,11 @@ class TestCoverageCheck:
         """Run the coverage check and return advisory warnings."""
         backend_root = Path(src_root).parent
         coverage_warnings = _check_module_coverage(
-            src_root=src_root, backend_root=backend_root, test_roots=self.test_roots
+            src_root=src_root,
+            backend_root=backend_root,
+            test_roots=self.test_roots,
         )
         return CheckResult.from_findings(check=self.name, warnings=coverage_warnings)
-
 
 
 register(TestCoverageCheck())

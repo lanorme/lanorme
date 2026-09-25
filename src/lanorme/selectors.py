@@ -32,7 +32,9 @@ def _collect_known_selectors() -> tuple[set[str], set[str]]:
     A check whose codes are user-defined declares a ``CAT-NNN`` placeholder
     (``domain_terms``); every code in such a category is accepted.
     """
-    codes = {extract_code(rule).upper() for check in get_all_checks().values() for rule in check.rules}
+    codes = {
+        extract_code(rule).upper() for check in get_all_checks().values() for rule in check.rules
+    }
     categories = {code.partition("-")[0] for code in codes} | {"RUN"}
     return codes, categories
 
@@ -57,7 +59,8 @@ def reject_unknown_selectors(*, selectors: list[str], origin: str) -> None:
     """
     codes, categories = _collect_known_selectors()
     unknown = [
-        s for s in selectors
+        s
+        for s in selectors
         if s.strip() and not _selector_is_known(selector=s, codes=codes, categories=categories)
     ]
     if not unknown:
@@ -65,5 +68,5 @@ def reject_unknown_selectors(*, selectors: list[str], origin: str) -> None:
     listed = ", ".join(repr(s.strip()) for s in unknown)
     raise UsageError(
         f"{origin} names no known rule code or category: {listed}.\n"
-        f"  Run 'lanorme rules' to list every code and category."
+        f"  Run 'lanorme rules' to list every code and category.",
     )

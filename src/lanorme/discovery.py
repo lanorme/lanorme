@@ -37,7 +37,7 @@ DEFAULT_PRUNE_DIRS: frozenset[str] = frozenset(
         ".ruff_cache",
         ".pytest_cache",
         ".mypy_cache",
-    }
+    },
 )
 
 # Exclude globs published by the CLI for this run. Matched against the path
@@ -64,11 +64,7 @@ def get_active_scope() -> str:
 
 def _on_scope_path(*, relative: str, scope: str) -> bool:
     """True if a directory is the scope, lies under it, or leads down to it."""
-    return (
-        relative == scope
-        or relative.startswith(scope + "/")
-        or scope.startswith(relative + "/")
-    )
+    return relative == scope or relative.startswith(scope + "/") or scope.startswith(relative + "/")
 
 
 def set_excludes(patterns: tuple[str, ...] | list[str]) -> None:
@@ -118,7 +114,10 @@ def _walk(root: Path, *, prune: frozenset[str]) -> Iterator[tuple[Path, str, lis
 
 
 def iter_files(
-    root: Path, *, suffix: str | None = None, prune: frozenset[str] = DEFAULT_PRUNE_DIRS
+    root: Path,
+    *,
+    suffix: str | None = None,
+    prune: frozenset[str] = DEFAULT_PRUNE_DIRS,
 ) -> list[Path]:
     """Walk *root*, pruning default and excluded directories, sorted by path.
 

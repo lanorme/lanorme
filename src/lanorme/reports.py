@@ -35,7 +35,8 @@ class RunNotes:
     def opt_in_disabled(self) -> int:
         """Registered checks that ship off and were not enabled for this run."""
         return sum(
-            1 for check in get_all_checks().values()
+            1
+            for check in get_all_checks().values()
             if hasattr(check, "enabled") and not check.enabled
         )
 
@@ -68,16 +69,25 @@ def tolerate_closed_pipe() -> Iterator[None]:
 
 
 def _build_finding_records(
-    *, result: CheckResult, project_root: Path | None, cache: dict[str, list[str]]
+    *,
+    result: CheckResult,
+    project_root: Path | None,
+    cache: dict[str, list[str]],
 ) -> list[dict[str, object]]:
     """Flatten a check result into one record per finding (violations + warnings)."""
     records: list[dict[str, object]] = []
     for severity, items in (("error", result.violations), ("warning", result.warnings)):
         for finding in items:
-            record: dict[str, object] = {"check": result.check, "severity": severity, **finding.to_dict()}
+            record: dict[str, object] = {
+                "check": result.check,
+                "severity": severity,
+                **finding.to_dict(),
+            }
             if project_root is not None:
                 record["fingerprint"] = compute_fingerprint(
-                    project_root=project_root, finding=finding, cache=cache
+                    project_root=project_root,
+                    finding=finding,
+                    cache=cache,
                 )
             records.append(record)
     return records
@@ -103,7 +113,7 @@ def _emit_json(*, results: list[CheckResult], project_root: Path | None) -> None
                 "status": result.status.value,
                 "violations": [r for r in records if r["severity"] == "error"],
                 "warnings": [r for r in records if r["severity"] == "warning"],
-            }
+            },
         )
     print(json.dumps(payload, indent=2))
 
@@ -121,7 +131,10 @@ def _emit_summary(*, results: list[CheckResult]) -> None:
     _print_totals(results=results)
     if by_code:
         print("By code:")
-        for (code, severity), count in sorted(by_code.items(), key=lambda item: (-item[1], item[0])):
+        for (code, severity), count in sorted(
+            by_code.items(),
+            key=lambda item: (-item[1], item[0]),
+        ):
             print(f"  {code:<16} {severity:<8} {count}")
         print("By directory:")
         for directory, count in sorted(by_dir.items(), key=lambda item: (-item[1], item[0])):
@@ -162,7 +175,7 @@ def _print_totals(*, results: list[CheckResult]) -> None:
     advisories = sum(len(r.warnings) for r in results)
     print(
         f"Findings: {errors} {_pluralise(count=errors, noun='error')} to fix, "
-        f"{advisories} advisory {_pluralise(count=advisories, noun='warning')}."
+        f"{advisories} advisory {_pluralise(count=advisories, noun='warning')}.",
     )
 
 
@@ -176,18 +189,18 @@ def _print_notes(*, results: list[CheckResult], notes: RunNotes) -> None:
     if any(suppressed):
         print(
             f"Suppressed: {suppressed[0]} by inline ignores, {suppressed[1]} by per-file-ignores, "
-            f"{suppressed[2]} by the baseline."
+            f"{suppressed[2]} by the baseline.",
         )
     if notes.opt_in_disabled:
         print(
             f"Opt-in checks not enabled: {notes.opt_in_disabled} "
-            "('lanorme check --show-config' lists them)."
+            "('lanorme check --show-config' lists them).",
         )
     errors = sum(len(r.violations) for r in results)
     if errors >= _BASELINE_TIP_THRESHOLD and not notes.baseline_configured:
         print(
             "Tip: 'lanorme baseline write' records today's findings as debt so that only "
-            "new ones report (see the adoption tutorial)."
+            "new ones report (see the adoption tutorial).",
         )
 
 
@@ -210,9 +223,13 @@ def _emit_github(*, results: list[CheckResult]) -> None:
     """
     for result in results:
         for v in result.violations:
-            print(f"::error {_format_github_location(v)},title={v.code}::{_escape_for_github(v.message)}")
+            print(
+                f"::error {_format_github_location(v)},title={v.code}::{_escape_for_github(v.message)}",
+            )
         for w in result.warnings:
-            print(f"::warning {_format_github_location(w)},title={w.code}::{_escape_for_github(w.message)}")
+            print(
+                f"::warning {_format_github_location(w)},title={w.code}::{_escape_for_github(w.message)}",
+            )
 
 
 def _format_github_location(finding: Violation) -> str:
@@ -257,7 +274,7 @@ def print_baseline_drift(*, drifted: list[tuple[str, str]], output_format: str) 
     count = len(drifted)
     print(
         f"\nNote: {count} finding{'' if count == 1 else 's'} above "
-        f"{'has' if count == 1 else 'have'} a baseline entry that no longer matches:"
+        f"{'has' if count == 1 else 'have'} a baseline entry that no longer matches:",
     )
     for file, code in drifted:
         print(f"  {file}  {code}")
@@ -265,7 +282,7 @@ def print_baseline_drift(*, drifted: list[tuple[str, str]], output_format: str) 
         "  The baseline records these already, so this is existing debt rather "
         "than new.\n"
         "  Run 'lanorme baseline status' to confirm, then 'lanorme baseline "
-        "write' to re-anchor."
+        "write' to re-anchor.",
     )
 
 
@@ -318,11 +335,24 @@ def _summarise_settings(check: object) -> str:
     return summary
 
 
-_TOP_LEVEL_KEYS = ("extends", "select", "ignore", "promote", "exclude", "baseline", "source_root", "plugins")
+_TOP_LEVEL_KEYS = (
+    "extends",
+    "select",
+    "ignore",
+    "promote",
+    "exclude",
+    "baseline",
+    "source_root",
+    "plugins",
+)
 
 
 def print_config(
-    *, config: dict[str, object], source: str | None, project_root: Path, extends: object = None
+    *,
+    config: dict[str, object],
+    source: str | None,
+    project_root: Path,
+    extends: object = None,
 ) -> None:
     """Print the discovered config file and the effective settings for every check.
 
@@ -333,7 +363,7 @@ def print_config(
     if source is None:
         print(
             "config file:  none, built-in defaults (looked for lanorme.toml, .lanorme.toml "
-            f"and a [tool.lanorme] table in pyproject.toml from {project_root} upwards)"
+            f"and a [tool.lanorme] table in pyproject.toml from {project_root} upwards)",
         )
     else:
         print(f"config file:  {source}")

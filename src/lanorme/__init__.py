@@ -161,7 +161,7 @@ class CheckResult:
         for w in self.warnings:
             lines.append(w.format_human(label="WARNING"))
         lines.append(
-            f"--- {self.check}: {len(self.violations)} violations, {len(self.warnings)} warnings ---"
+            f"--- {self.check}: {len(self.violations)} violations, {len(self.warnings)} warnings ---",
         )
         return "\n".join(lines)
 

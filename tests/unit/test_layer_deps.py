@@ -287,7 +287,7 @@ def _build_transport_check() -> LayerDepsCheck:
                 "api": ["domain", "application"],
                 "mcp": ["domain", "application"],
             },
-        }
+        },
     )
     return check
 
@@ -404,8 +404,8 @@ def test_layer004_fires_when_application_stripped_from_api_allowed(tmp_path: Pat
                 "api": ["domain"],
                 "application": ["domain"],
                 "infrastructure": ["domain", "application"],
-            }
-        }
+            },
+        },
     )
 
     # Act.
@@ -450,9 +450,7 @@ def test_substring_layer_names_do_not_fire(tmp_path: Path):
         tmp_path,
         {
             "domain/m.py": (
-                "import apiclient\n"
-                "from infrastructure_utils import helper\n"
-                "import domainlib\n"
+                "import apiclient\nfrom infrastructure_utils import helper\nimport domainlib\n"
             ),
         },
     )

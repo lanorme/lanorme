@@ -51,11 +51,7 @@ def _flagged_cmt001() -> set[tuple[str, int]]:
     """Run the check; return the set of (file, line) flagged as CMT-001."""
     check = CommentsCheck()
     result = check.run(src_root=str(_CORPUS))
-    return {
-        (v.file.replace("\\", "/"), v.line)
-        for v in result.violations
-        if v.rule == "CMT-001"
-    }
+    return {(v.file.replace("\\", "/"), v.line) for v in result.violations if v.rule == "CMT-001"}
 
 
 def _ratio(*, numerator: float, denominator: float) -> float:
@@ -84,7 +80,7 @@ def score() -> dict:
         site = f"{unlabeled[0][0]}:{unlabeled[0][1]}"
         raise ValueError(
             f"CMT-001 flagged {len(unlabeled)} line(s) not in labels.json "
-            f"(first: {site}); update labels.json before scoring."
+            f"(first: {site}); update labels.json before scoring.",
         )
 
     tp = len(flagged & positives)
@@ -97,8 +93,13 @@ def score() -> dict:
     return {
         "rule": RULE,
         "corpus": _CORPUS.relative_to(_REPO_ROOT).as_posix(),
-        "tp": tp, "fp": fp, "fn": fn, "tn": tn,
-        "precision": precision, "recall": recall, "f1": f1,
+        "tp": tp,
+        "fp": fp,
+        "fn": fn,
+        "tn": tn,
+        "precision": precision,
+        "recall": recall,
+        "f1": f1,
     }
 
 
@@ -122,8 +123,7 @@ def main() -> int:
     print("CMT-001 commented-out-code detector — evaluation against labeled corpus")
     print(f"corpus: {_CORPUS}")
     print(
-        f"labels: {len(labels)} comments "
-        f"({len(positives)} commented_code / {len(negatives)} ok)\n"
+        f"labels: {len(labels)} comments ({len(positives)} commented_code / {len(negatives)} ok)\n",
     )
 
     print("Confusion counts")

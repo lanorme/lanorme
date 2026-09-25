@@ -20,7 +20,10 @@ def _write_ports_and_adapter(write) -> None:
     )
 
 
-def test_port003_module_file_comp_root_missed_by_default_but_caught_when_configured(tmp_path, tmp_py_file):
+def test_port003_module_file_comp_root_missed_by_default_but_caught_when_configured(
+    tmp_path,
+    tmp_py_file,
+):
     # Arrange
     _write_ports_and_adapter(tmp_py_file)
     # An api module-file composition root that imports + instantiates the adapter.

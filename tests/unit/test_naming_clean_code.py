@@ -43,7 +43,11 @@ def _collect_codes(result) -> list[str]:
 
 
 def test_disabled_by_default(tmp_path: Path) -> None:
-    result = _run(root=tmp_path, body="class UserManager:\n    pass\n", check=NamingCleanCodeCheck())
+    result = _run(
+        root=tmp_path,
+        body="class UserManager:\n    pass\n",
+        check=NamingCleanCodeCheck(),
+    )
     assert result.status is Status.PASS and result.warnings == []
 
 
@@ -53,7 +57,11 @@ def test_disabled_by_default(tmp_path: Path) -> None:
 
 
 def test_noise_word_classes_are_flagged(tmp_path: Path, check: NamingCleanCodeCheck) -> None:
-    result = _run(root=tmp_path, body="class UserManager:\n    pass\nclass ConfigData:\n    pass\n", check=check)
+    result = _run(
+        root=tmp_path,
+        body="class UserManager:\n    pass\nclass ConfigData:\n    pass\n",
+        check=check,
+    )
     assert _collect_codes(result) == ["NAMING-009", "NAMING-009"]
     assert result.violations == [] and result.status is Status.WARN
 
@@ -61,7 +69,14 @@ def test_noise_word_classes_are_flagged(tmp_path: Path, check: NamingCleanCodeCh
 def test_noise_word_exemptions(tmp_path: Path, check: NamingCleanCodeCheck) -> None:
     body = "".join(
         f"class {name}:\n    pass\n"
-        for name in ("MetaData", "ResultMetaData", "FileContextManager", "Manager", "CONSOLE_INFO", "MetaInfo")
+        for name in (
+            "MetaData",
+            "ResultMetaData",
+            "FileContextManager",
+            "Manager",
+            "CONSOLE_INFO",
+            "MetaInfo",
+        )
     )
     result = _run(root=tmp_path, body=body, check=check)
     assert [(w.code, w.line) for w in result.warnings] == [("NAMING-009", 11)]
@@ -73,7 +88,12 @@ def test_exempt_covers_noise_words_and_junk_modules(tmp_path: Path) -> None:
     check.configure(settings={"enabled": True, "exempt": ["UserManager", "utils"]})
 
     # Act
-    result = _run(root=tmp_path, body="class UserManager:\n    pass\n", check=check, name="utils.py")
+    result = _run(
+        root=tmp_path,
+        body="class UserManager:\n    pass\n",
+        check=check,
+        name="utils.py",
+    )
 
     # Assert
     assert _collect_codes(result) == []
@@ -116,7 +136,10 @@ def test_query_without_a_verb_is_flagged(tmp_path: Path, check: NamingCleanCodeC
     assert "find_" in result.warnings[0].fix
 
 
-def test_queries_with_a_verb_or_a_predicate_pass(tmp_path: Path, check: NamingCleanCodeCheck) -> None:
+def test_queries_with_a_verb_or_a_predicate_pass(
+    tmp_path: Path,
+    check: NamingCleanCodeCheck,
+) -> None:
     # Arrange: verb-first, predicates, a constructor, a property, conversions, a protocol method.
     body = (
         "def find_shell_violations(tree):\n    return []\n"
@@ -146,7 +169,11 @@ def test_commands_and_raisers_are_not_queries(tmp_path: Path, check: NamingClean
 
 
 def test_query_fix_puts_a_later_verb_first(tmp_path: Path, check: NamingCleanCodeCheck) -> None:
-    result = _run(root=tmp_path, body="def _cert_verify_result(conn):\n    return conn\n", check=check)
+    result = _run(
+        root=tmp_path,
+        body="def _cert_verify_result(conn):\n    return conn\n",
+        check=check,
+    )
     assert "'_verify_cert_result'" in result.warnings[0].fix
 
 

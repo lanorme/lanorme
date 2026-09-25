@@ -196,7 +196,12 @@ def _resolve_merged(*, region: Region, regions: list[Region]) -> Config:
     return merged
 
 
-def build_child_exclude_globs(*, region: Region, regions: list[Region], scan_root: Path) -> list[str]:
+def build_child_exclude_globs(
+    *,
+    region: Region,
+    regions: list[Region],
+    scan_root: Path,
+) -> list[str]:
     """Globs (relative to *scan_root*) that prune every nested region below *region*.
 
     Running a region's file-level pass with these excludes scopes it to the files
@@ -264,7 +269,10 @@ def discover_config(*, start: Path, resolve_extends: Callable[..., Config]) -> D
     labels = [_label_config(directory) for directory, _config in reversed(chain)]
     source = labels[0] + (f" (+ nested: {', '.join(labels[1:])})" if len(labels) > 1 else "")
     return DiscoveredConfig(
-        config=merged, project_root=outer_dir, source=source, extends=outer_config.get("extends")
+        config=merged,
+        project_root=outer_dir,
+        source=source,
+        extends=outer_config.get("extends"),
     )
 
 
@@ -327,7 +335,10 @@ def combine_results(*, existing: CheckResult | None, addition: CheckResult) -> C
 
 
 def reanchor_results(
-    *, results: list[CheckResult], from_root: Path, to_root: Path
+    *,
+    results: list[CheckResult],
+    from_root: Path,
+    to_root: Path,
 ) -> list[CheckResult]:
     """Re-express finding paths from *from_root*-relative to *to_root*-relative.
 
@@ -358,6 +369,6 @@ def reanchor_results(
                 status=result.status,
                 violations=[relocate(v) for v in result.violations],
                 warnings=[relocate(w) for w in result.warnings],
-            )
+            ),
         )
     return rebuilt

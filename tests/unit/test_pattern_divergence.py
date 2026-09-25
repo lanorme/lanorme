@@ -19,22 +19,10 @@ _ENDPOINTS_DIR = "api/v1/endpoints"
 
 # A module-level import plus an inline import inside a function body. The inline
 # import is the IMPORT-001 violation; the module-level one must not be flagged.
-_INLINE_IMPORT_SRC = (
-    "import os\n"
-    "\n"
-    "def handler():\n"
-    "    import json\n"
-    "    return json.dumps({})\n"
-)
+_INLINE_IMPORT_SRC = "import os\n\ndef handler():\n    import json\n    return json.dumps({})\n"
 
 # Same shape but with the import hoisted to module level: no IMPORT-001.
-_MODULE_IMPORT_SRC = (
-    "import os\n"
-    "import json\n"
-    "\n"
-    "def handler():\n"
-    "    return json.dumps({})\n"
-)
+_MODULE_IMPORT_SRC = "import os\nimport json\n\ndef handler():\n    return json.dumps({})\n"
 
 
 def _build_nested_endpoint(*, depth: int) -> str:
@@ -62,7 +50,8 @@ def test_deeply_nested_endpoint_is_skipped_not_crashed(
     # recursive depth walk, beside a genuine IMPORT-001 violation elsewhere.
     chain = "a" + ".b" * 4000
     (endpoints_dir / "deep.py").write_text(
-        f"def endpoint():\n    return {chain}\n", encoding="utf-8"
+        f"def endpoint():\n    return {chain}\n",
+        encoding="utf-8",
     )
     (tmp_path / "service.py").write_text(_INLINE_IMPORT_SRC, encoding="utf-8")
 
@@ -106,7 +95,8 @@ def test_module_level_imports_are_clean(tmp_path: Path):
 def test_endpoint_nesting_at_threshold_is_clean(endpoints_dir: Path, tmp_path: Path):
     # Arrange (boundary): nesting depth exactly 4 sits on the threshold.
     (endpoints_dir / "ok.py").write_text(
-        _build_nested_endpoint(depth=4), encoding="utf-8"
+        _build_nested_endpoint(depth=4),
+        encoding="utf-8",
     )
 
     # Act.
@@ -119,7 +109,8 @@ def test_endpoint_nesting_at_threshold_is_clean(endpoints_dir: Path, tmp_path: P
 def test_deeply_nested_endpoint_is_flagged(endpoints_dir: Path, tmp_path: Path):
     # Arrange: nesting depth 5 exceeds the threshold of 4.
     (endpoints_dir / "deep_nest.py").write_text(
-        _build_nested_endpoint(depth=5), encoding="utf-8"
+        _build_nested_endpoint(depth=5),
+        encoding="utf-8",
     )
 
     # Act.

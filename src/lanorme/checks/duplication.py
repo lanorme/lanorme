@@ -214,8 +214,11 @@ class DuplicationCheck:
                 # body. Skip the file rather than crash the whole run.
                 warnings.append(
                     build_skip_notice(
-                        prefix="DRY", file=relative_file, name=module.path.name, reason=TOO_DEEP
-                    )
+                        prefix="DRY",
+                        file=relative_file,
+                        name=module.path.name,
+                        reason=TOO_DEEP,
+                    ),
                 )
                 continue
 

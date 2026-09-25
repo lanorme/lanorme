@@ -90,7 +90,7 @@ def score() -> dict:
         site = f"{unlabeled[0][0]}:{unlabeled[0][1]}"
         raise ValueError(
             f"SQL-001 flagged {len(unlabeled)} line(s) not in labels.json "
-            f"(first: {site}); update labels.json before scoring."
+            f"(first: {site}); update labels.json before scoring.",
         )
 
     tp = len(flagged & positives)
@@ -103,8 +103,13 @@ def score() -> dict:
     return {
         "rule": RULE,
         "corpus": _CORPUS.relative_to(_REPO_ROOT).as_posix(),
-        "tp": tp, "fp": fp, "fn": fn, "tn": tn,
-        "precision": precision, "recall": recall, "f1": f1,
+        "tp": tp,
+        "fp": fp,
+        "fn": fn,
+        "tn": tn,
+        "precision": precision,
+        "recall": recall,
+        "f1": f1,
     }
 
 
@@ -128,8 +133,7 @@ def main() -> int:
     print("SQL-001 raw-SQL detector -- evaluation against labeled corpus")
     print(f"corpus: {_CORPUS}")
     print(
-        f"labels: {len(labels)} sites "
-        f"({len(positives)} raw_sql / {len(negatives)} ok)\n"
+        f"labels: {len(labels)} sites ({len(positives)} raw_sql / {len(negatives)} ok)\n",
     )
 
     print("Confusion counts")

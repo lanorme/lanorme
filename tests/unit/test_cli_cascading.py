@@ -17,14 +17,7 @@ from lanorme.cli import main
 
 _REPO_METHOD = "class Repo:\n    def fetch_thing(self):\n        return 1\n"
 
-_DUP_FUNCTION = (
-    "def compute():\n"
-    "    a = 1\n"
-    "    b = 2\n"
-    "    c = a + b\n"
-    "    d = c * 2\n"
-    "    return d\n"
-)
+_DUP_FUNCTION = "def compute():\n    a = 1\n    b = 2\n    c = a + b\n    d = c * 2\n    return d\n"
 
 
 def _write_repo_file(directory: Path) -> None:
@@ -69,7 +62,7 @@ def test_nested_config_enables_check_only_in_its_subtree(tmp_path: Path, capsys)
 
     # Assert
     assert _collect_violation_files(results["naming_consistency"]) == {
-        "strict/infrastructure/repositories/store.py"
+        "strict/infrastructure/repositories/store.py",
     }
 
 
@@ -77,13 +70,15 @@ def test_nested_config_inherits_parent_setting(tmp_path: Path, capsys):
     """A nested region that sets only service_crud still inherits repo_crud."""
     # Arrange
     (tmp_path / "lanorme.toml").write_text(
-        "[naming_consistency]\nrepo_crud = true\n", encoding="utf-8"
+        "[naming_consistency]\nrepo_crud = true\n",
+        encoding="utf-8",
     )
     _write_repo_file(tmp_path)
     strict = tmp_path / "strict"
     strict.mkdir()
     (strict / "lanorme.toml").write_text(
-        "[naming_consistency]\nservice_crud = true\n", encoding="utf-8"
+        "[naming_consistency]\nservice_crud = true\n",
+        encoding="utf-8",
     )
     _write_repo_file(strict)
 
@@ -101,7 +96,8 @@ def test_root_true_stops_inheritance(tmp_path: Path, capsys):
     """``root = true`` in the nested region drops the inherited repo_crud."""
     # Arrange
     (tmp_path / "lanorme.toml").write_text(
-        "[naming_consistency]\nrepo_crud = true\n", encoding="utf-8"
+        "[naming_consistency]\nrepo_crud = true\n",
+        encoding="utf-8",
     )
     _write_repo_file(tmp_path)
     standalone = tmp_path / "standalone"
@@ -114,7 +110,7 @@ def test_root_true_stops_inheritance(tmp_path: Path, capsys):
 
     # Assert
     assert _collect_violation_files(results["naming_consistency"]) == {
-        "infrastructure/repositories/store.py"
+        "infrastructure/repositories/store.py",
     }
 
 
@@ -126,7 +122,8 @@ def test_whole_tree_check_spans_regions(tmp_path: Path, capsys):
     strict = tmp_path / "strict"
     strict.mkdir()
     (strict / "lanorme.toml").write_text(
-        "[similarity]\nenabled = false\n", encoding="utf-8"
+        "[similarity]\nenabled = false\n",
+        encoding="utf-8",
     )
     (strict / "second.py").write_text(_DUP_FUNCTION, encoding="utf-8")
 
@@ -143,7 +140,8 @@ def test_user_exclude_drops_nested_region_findings(tmp_path: Path, capsys):
     """A user --exclude over a nested region still drops that region's findings."""
     # Arrange
     (tmp_path / "lanorme.toml").write_text(
-        "[naming_consistency]\nrepo_crud = true\n", encoding="utf-8"
+        "[naming_consistency]\nrepo_crud = true\n",
+        encoding="utf-8",
     )
     _write_repo_file(tmp_path)
     sub = tmp_path / "sub"
@@ -156,7 +154,7 @@ def test_user_exclude_drops_nested_region_findings(tmp_path: Path, capsys):
 
     # Assert: only the root region's finding survives the exclude.
     assert _collect_violation_files(results["naming_consistency"]) == {
-        "infrastructure/repositories/store.py"
+        "infrastructure/repositories/store.py",
     }
 
 
@@ -166,7 +164,8 @@ def test_config_does_not_leak_between_invocations(tmp_path: Path, capsys):
     enabled = tmp_path / "enabled"
     enabled.mkdir()
     (enabled / "lanorme.toml").write_text(
-        "[naming_consistency]\nrepo_crud = true\n", encoding="utf-8"
+        "[naming_consistency]\nrepo_crud = true\n",
+        encoding="utf-8",
     )
     _write_repo_file(enabled)
     plain = tmp_path / "plain"
@@ -195,5 +194,7 @@ def test_single_check_selector_honours_nested_regions(tmp_path: Path, capsys):
     results = _run_full(tmp_path, capsys, "--check", "naming_consistency")
 
     # Assert: the nested repo_crud is honoured, and only the selected check ran.
-    assert _collect_violation_files(results["naming_consistency"]) == {"strict/infrastructure/repositories/store.py"}
+    assert _collect_violation_files(results["naming_consistency"]) == {
+        "strict/infrastructure/repositories/store.py",
+    }
     assert set(results) == {"naming_consistency"}

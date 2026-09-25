@@ -117,7 +117,10 @@ def test_max_span_is_configurable(tmp_path: Path) -> None:
 # --------------------------------------------------------------------------- #
 
 
-def test_conventional_counter_survives_any_distance(tmp_path: Path, check: NamingScopeCheck) -> None:
+def test_conventional_counter_survives_any_distance(
+    tmp_path: Path,
+    check: NamingScopeCheck,
+) -> None:
     _write(root=tmp_path, body=_build_module(name="i", gap=60))
 
     result = check.run(src_root=str(tmp_path))
@@ -182,7 +185,10 @@ def test_test_files_are_skipped(tmp_path: Path, check: NamingScopeCheck) -> None
 # --------------------------------------------------------------------------- #
 
 
-def test_root_under_a_skip_named_ancestor_is_still_scanned(tmp_path: Path, check: NamingScopeCheck) -> None:
+def test_root_under_a_skip_named_ancestor_is_still_scanned(
+    tmp_path: Path,
+    check: NamingScopeCheck,
+) -> None:
     # Arrange
     root = tmp_path / "migrations" / "project"
     root.mkdir(parents=True)
@@ -195,7 +201,10 @@ def test_root_under_a_skip_named_ancestor_is_still_scanned(tmp_path: Path, check
     assert _collect_codes(result=result) == ["NAMING-005"]
 
 
-def test_skip_named_subdirectory_inside_the_root_is_skipped(tmp_path: Path, check: NamingScopeCheck) -> None:
+def test_skip_named_subdirectory_inside_the_root_is_skipped(
+    tmp_path: Path,
+    check: NamingScopeCheck,
+) -> None:
     # Arrange
     nested = tmp_path / "migrations"
     nested.mkdir()

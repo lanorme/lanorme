@@ -48,7 +48,12 @@ def _normalise_path(file: str) -> str:
 
 
 def _anchor(
-    *, project_root: Path, file: str, line: int, rule: str, cache: dict[str, list[str]]
+    *,
+    project_root: Path,
+    file: str,
+    line: int,
+    rule: str,
+    cache: dict[str, list[str]],
 ) -> str:
     """A stable, content-derived key for a finding.
 
@@ -82,7 +87,10 @@ def _describe(rule: str) -> str:
 
 
 def _build_finding_key(
-    *, project_root: Path, finding: Violation, cache: dict[str, list[str]]
+    *,
+    project_root: Path,
+    finding: Violation,
+    cache: dict[str, list[str]],
 ) -> tuple[str, str, str]:
     """The ``(path, code, anchor)`` identity used to match against the baseline."""
     return (
@@ -98,7 +106,12 @@ def _build_finding_key(
     )
 
 
-def compute_fingerprint(*, project_root: Path, finding: Violation, cache: dict[str, list[str]]) -> str:
+def compute_fingerprint(
+    *,
+    project_root: Path,
+    finding: Violation,
+    cache: dict[str, list[str]],
+) -> str:
     """A short stable identity for a finding, the baseline's key hashed.
 
     It survives edits elsewhere in the file (the anchor is the finding's own
@@ -199,7 +212,9 @@ def _accumulate(
 
 
 def _entries_from_results(
-    *, results: list[CheckResult], project_root: Path
+    *,
+    results: list[CheckResult],
+    project_root: Path,
 ) -> list[dict[str, object]]:
     """Build the full entry list for the current findings of a clean run."""
     counts: dict[tuple[str, str, str], dict[str, object]] = {}
@@ -207,11 +222,19 @@ def _entries_from_results(
     for result in results:
         for violation in result.violations:
             _accumulate(
-                counts=counts, project_root=project_root, finding=violation, severity=_ERROR, cache=cache
+                counts=counts,
+                project_root=project_root,
+                finding=violation,
+                severity=_ERROR,
+                cache=cache,
             )
         for warning in result.warnings:
             _accumulate(
-                counts=counts, project_root=project_root, finding=warning, severity=_WARNING, cache=cache
+                counts=counts,
+                project_root=project_root,
+                finding=warning,
+                severity=_WARNING,
+                cache=cache,
             )
     return list(counts.values())
 
@@ -251,7 +274,10 @@ def _is_suppressed(
 
 
 def suppress(
-    *, results: list[CheckResult], project_root: Path, baseline_path: Path
+    *,
+    results: list[CheckResult],
+    project_root: Path,
+    baseline_path: Path,
 ) -> list[CheckResult]:
     """Return results with baselined findings removed and statuses recomputed."""
     index = load_index(baseline_path)
@@ -260,7 +286,12 @@ def suppress(
 
     def is_kept(*, finding: Violation, tier: str) -> bool:
         return not _is_suppressed(
-            index=index, consumed=consumed, project_root=project_root, finding=finding, tier=tier, cache=cache
+            index=index,
+            consumed=consumed,
+            project_root=project_root,
+            finding=finding,
+            tier=tier,
+            cache=cache,
         )
 
     return [
@@ -274,7 +305,10 @@ def suppress(
 
 
 def find_drifted_codes(
-    *, results: list[CheckResult], project_root: Path, baseline_path: Path
+    *,
+    results: list[CheckResult],
+    project_root: Path,
+    baseline_path: Path,
 ) -> list[tuple[str, str]]:
     """``(file, code)`` pairs whose baseline entry stopped matching its finding.
 
@@ -334,13 +368,13 @@ def write(*, results: list[CheckResult], project_root: Path, baseline_path: Path
     finding_word = "finding" if total == 1 else "findings"
     print(
         f"Wrote {len(entries)} baseline {entry_word} ({total} {finding_word}): "
-        f"+{added} new, -{pruned} pruned (was {len(old_keys)})."
+        f"+{added} new, -{pruned} pruned (was {len(old_keys)}).",
     )
     if first_write:
         print(
             "\nAdd this to your configuration and commit the file like a lockfile:\n\n"
             "    [tool.lanorme]\n"
-            f'    baseline = "{_display_path(baseline_path=baseline_path, project_root=project_root)}"\n'
+            f'    baseline = "{_display_path(baseline_path=baseline_path, project_root=project_root)}"\n',
         )
 
 
@@ -369,7 +403,9 @@ def print_status(*, results: list[CheckResult], project_root: Path, baseline_pat
     if not stale:
         print(f"Baseline is current: all {len(index)} entries still match a finding.")
         return
-    print(f"{len(stale)} stale baseline {'entry' if len(stale) == 1 else 'entries'} (matched nothing this run):")
+    print(
+        f"{len(stale)} stale baseline {'entry' if len(stale) == 1 else 'entries'} (matched nothing this run):",
+    )
     grouped: dict[tuple[str, str], int] = {}
     for file, code, _anchor_hash in stale:
         grouped[(file, code)] = grouped.get((file, code), 0) + 1

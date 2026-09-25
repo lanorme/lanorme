@@ -75,7 +75,7 @@ def test_composition_root_glob_is_source_root_relative(tmp_path: Path):
     _write(tmp_path, "src/pkg/api/router.py", "from infrastructure.db import X\n")
     check = LayerDepsCheck()
     check.configure(
-        settings={"source_root": "src/pkg", "composition_root": ["api/dependencies.py"]}
+        settings={"source_root": "src/pkg", "composition_root": ["api/dependencies.py"]},
     )
 
     # Act.

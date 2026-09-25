@@ -25,7 +25,8 @@ def deep_union_source() -> str:
 
 
 def test_deeply_nested_annotation_is_skipped_not_crashed(
-    tmp_path: Path, deep_union_source: str
+    tmp_path: Path,
+    deep_union_source: str,
 ):
     # Arrange: a deep-union file that overflows _collect_value_names, beside a
     # genuine TYPE-001 violation that must still be reported.

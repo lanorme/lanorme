@@ -54,7 +54,7 @@ _VENDOR_DIRS = frozenset(
         ".eggs",
         "dist",
         "build",
-    }
+    },
 )
 
 # Directories where images/binaries are expected and therefore not JUNK-002.
@@ -107,7 +107,7 @@ class StrayArtifactsCheck:
     """Flags stray clutter files (screenshots, scratch, OS junk, stray binaries)."""
 
     settings_keys: ClassVar[frozenset[str]] = frozenset(
-        {"patterns", "extensions", "assets", "allow", "exclude"}
+        {"patterns", "extensions", "assets", "allow", "exclude"},
     )
 
     name: str = "stray_artifacts"
@@ -121,7 +121,7 @@ class StrayArtifactsCheck:
         default_factory=lambda: [
             "JUNK-001: Scratch/temp/screenshot/OS/build artifacts must not pollute the tree",
             "JUNK-002: Images/binaries outside an asset directory are flagged as stray",
-        ]
+        ],
     )
 
     def configure(self, *, settings: dict[str, object]) -> None:
@@ -133,7 +133,10 @@ class StrayArtifactsCheck:
         self.allow = read_str_list(settings=settings, key="allow")
         self.extra_excludes = read_str_list(settings=settings, key="exclude")
         if "assets" in settings:
-            self.asset_dirs = (*_DEFAULT_ASSET_DIRS, *read_str_list(settings=settings, key="assets"))
+            self.asset_dirs = (
+                *_DEFAULT_ASSET_DIRS,
+                *read_str_list(settings=settings, key="assets"),
+            )
 
     def _classify(self, *, rel: Path) -> str | None:
         """Return the rule code a file violates, or None if it is fine."""

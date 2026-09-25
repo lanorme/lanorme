@@ -90,10 +90,7 @@ def test_cmt001_ignores_prose(check: CommentsCheck, tmp_path: Path):
 
 
 _PEP723_BLOCK = (
-    "# /// script\n"
-    '# requires-python = ">=3.13"\n'
-    '# dependencies = ["requests", "rich"]\n'
-    "# ///\n"
+    '# /// script\n# requires-python = ">=3.13"\n# dependencies = ["requests", "rich"]\n# ///\n'
 )
 
 
@@ -112,7 +109,11 @@ def test_cmt001_skips_pep723_inline_metadata(check: CommentsCheck, tmp_path: Pat
 def test_cmt001_still_flags_dead_code_outside_pep723_block(check: CommentsCheck, tmp_path: Path):
     # Arrange: real commented-out code follows a valid PEP 723 block; the skip
     # must be scoped to the block, not the rest of the file.
-    _write(root=tmp_path, name="script.py", body=f"{_PEP723_BLOCK}import sys\n\n# y = sys.argv[0]\n")
+    _write(
+        root=tmp_path,
+        name="script.py",
+        body=f"{_PEP723_BLOCK}import sys\n\n# y = sys.argv[0]\n",
+    )
 
     # Act.
     result = check.run(src_root=str(tmp_path))
@@ -125,7 +126,7 @@ def test_cmt001_still_flags_dead_code_outside_pep723_block(check: CommentsCheck,
 
 def test_pep723_metadata_lines_requires_a_closing_fence():
     # Arrange: an opener with no `# ///` close is not a metadata block.
-    lines = ['# /// script', '# dependencies = ["rich"]', "import sys"]
+    lines = ["# /// script", '# dependencies = ["rich"]', "import sys"]
 
     # Act.
     metadata = comments_module._find_pep723_metadata_lines(lines)
@@ -200,7 +201,10 @@ def test_cmt002_long_block_allowed_in_front_of_complex_code(check: CommentsCheck
     assert not any(v.rule == "CMT-002" for v in result.violations)
 
 
-def test_cmt002_same_block_still_flagged_in_front_of_trivial_code(check: CommentsCheck, tmp_path: Path):
+def test_cmt002_same_block_still_flagged_in_front_of_trivial_code(
+    check: CommentsCheck,
+    tmp_path: Path,
+):
     # Arrange: the identical block, this time introducing a one-line function.
     block = "".join(f"# explanation line {i}\n" for i in range(10))
     body = f"{block}def easy(value):\n    return value\n"
@@ -248,7 +252,11 @@ def test_cmt002_scaling_is_configurable(tmp_path: Path):
     instance = CommentsCheck()
     instance.configure(settings={"block_lines_per_branch": 0})
     block = "".join(f"# explanation line {i}\n" for i in range(10))
-    _write(root=tmp_path, name="flat.py", body=f"{block}def hard(value):\n{_build_branchy_body(arms=12)}    return 0\n")
+    _write(
+        root=tmp_path,
+        name="flat.py",
+        body=f"{block}def hard(value):\n{_build_branchy_body(arms=12)}    return 0\n",
+    )
 
     # Act.
     result = instance.run(src_root=str(tmp_path))

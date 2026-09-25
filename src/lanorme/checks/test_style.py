@@ -70,7 +70,11 @@ def _is_test_function(*, node: ast.AST) -> bool:
     for dec in node.decorator_list:
         if isinstance(dec, ast.Attribute) and dec.attr == "fixture":
             return False
-        if isinstance(dec, ast.Call) and isinstance(dec.func, ast.Attribute) and dec.func.attr == "fixture":
+        if (
+            isinstance(dec, ast.Call)
+            and isinstance(dec.func, ast.Attribute)
+            and dec.func.attr == "fixture"
+        ):
             return False
     return True
 
@@ -78,7 +82,12 @@ def _is_test_function(*, node: ast.AST) -> bool:
 def _list_statements(*, node: ast.FunctionDef | ast.AsyncFunctionDef) -> list[ast.stmt]:
     """Body statements minus a leading docstring (which is documentation, not setup)."""
     body = list(node.body)
-    if body and isinstance(body[0], ast.Expr) and isinstance(body[0].value, ast.Constant) and isinstance(body[0].value.value, str):
+    if (
+        body
+        and isinstance(body[0], ast.Expr)
+        and isinstance(body[0].value, ast.Constant)
+        and isinstance(body[0].value.value, str)
+    ):
         body = body[1:]
     return body
 
@@ -121,7 +130,7 @@ class TestStyleCheck:
     __test__ = False
 
     settings_keys: ClassVar[frozenset[str]] = frozenset(
-        {"enabled", "min_statements", "required_markers", "dry_prefix_statements", "synonyms"}
+        {"enabled", "min_statements", "required_markers", "dry_prefix_statements", "synonyms"},
     )
 
     name: str = "test_style"
@@ -138,23 +147,31 @@ class TestStyleCheck:
         default_factory=lambda: [
             "AAA-001: Test functions must carry AAA (or Given/When/Then) section comments",
             "AAA-002: Test functions in the same file must not share an identical arrange prefix",
-        ]
+        ],
     )
 
     def configure(self, *, settings: dict[str, object]) -> None:
         """Apply ``[tool.lanorme.test_style]`` configuration."""
         self.enabled = is_flag_set(settings=settings, key="enabled", default=self.enabled)
         self.min_statements = read_int(
-            settings=settings, key="min_statements", default=self.min_statements
+            settings=settings,
+            key="min_statements",
+            default=self.min_statements,
         )
         markers = read_int(settings=settings, key="required_markers", default=self.required_markers)
         self.required_markers = max(1, min(3, markers))
         self.dry_prefix_statements = read_int(
-            settings=settings, key="dry_prefix_statements", default=self.dry_prefix_statements
+            settings=settings,
+            key="dry_prefix_statements",
+            default=self.dry_prefix_statements,
         )
         self.extra_synonyms = tuple(
             synonym.lower()
-            for synonym in read_str_list(settings=settings, key="synonyms", default=self.extra_synonyms)
+            for synonym in read_str_list(
+                settings=settings,
+                key="synonyms",
+                default=self.extra_synonyms,
+            )
         )
 
     def _build_alias_map(self) -> tuple[re.Pattern[str], dict[str, str]]:
@@ -214,7 +231,7 @@ class TestStyleCheck:
                     ),
                     fix="Add inline '# Arrange', '# Act', '# Assert' (or Given/When/Then) markers",
                     **locate(node),
-                )
+                ),
             )
         return found
 
@@ -226,7 +243,8 @@ class TestStyleCheck:
                 continue
             statements = _list_statements(node=node)
             digest = _normalize_prefix(
-                statements=statements, prefix_len=self.dry_prefix_statements
+                statements=statements,
+                prefix_len=self.dry_prefix_statements,
             )
             if digest is None:
                 continue
@@ -248,7 +266,7 @@ class TestStyleCheck:
                         ),
                         fix="Extract the repeated arrange block into a pytest fixture or helper",
                         **locate(node),
-                    )
+                    ),
                 )
         return found
 
@@ -262,12 +280,13 @@ class TestStyleCheck:
                 continue
             violations.extend(
                 self._find_aaa_violations(
-                    module=module, marker_re=marker_re, alias_to_section=alias_to_section
-                )
+                    module=module,
+                    marker_re=marker_re,
+                    alias_to_section=alias_to_section,
+                ),
             )
             violations.extend(self._find_dry_violations(module=module))
         return CheckResult.from_findings(check=self.name, violations=violations)
-
 
 
 register(TestStyleCheck())

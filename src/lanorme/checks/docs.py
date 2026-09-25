@@ -44,7 +44,7 @@ from lanorme.discovery import iter_files
 
 # Vendored or generated directories that are never part of a docs tree.
 _SKIP_PARTS = frozenset(
-    {".git", ".venv", "venv", "node_modules", "__pycache__", "dist", "build"}
+    {".git", ".venv", "venv", "node_modules", "__pycache__", "dist", "build"},
 )
 
 # An ATX heading: one to six leading hashes, a space, then a non-empty title.
@@ -97,7 +97,12 @@ class _Heading:
     line: int
 
 
-def _resolve_str_list(*, settings: dict[str, object], key: str, fallback: tuple[str, ...]) -> tuple[str, ...]:
+def _resolve_str_list(
+    *,
+    settings: dict[str, object],
+    key: str,
+    fallback: tuple[str, ...],
+) -> tuple[str, ...]:
     """The list of strings under *key*; an absent or empty list keeps the fallback."""
     items = read_str_list(settings=settings, key=key, default=fallback)
     return items if items else fallback
@@ -125,7 +130,7 @@ def _parse_headings(*, lines: list[str]) -> list[_Heading]:
         atx = _ATX_RE.match(raw)
         if atx is not None:
             headings.append(
-                _Heading(level=len(atx.group(1)), text=atx.group(2).strip(), line=index + 1)
+                _Heading(level=len(atx.group(1)), text=atx.group(2).strip(), line=index + 1),
             )
             previous = raw
             continue
@@ -196,7 +201,7 @@ def _check_numbering(*, headings: list[_Heading], file: str) -> list[Violation]:
                     rule="DOCS-008",
                     message=f"Heading '{head.text}' starts with manual numbering",
                     fix="Drop the leading number; renderers number sections for you",
-                )
+                ),
             )
     return found
 
@@ -291,7 +296,11 @@ def _is_allowed(*, target: str, allow: tuple[str, ...]) -> bool:
 
 
 def _check_rasters(
-    *, lines: list[str], file: str, rasters: tuple[str, ...], allow: tuple[str, ...]
+    *,
+    lines: list[str],
+    file: str,
+    rasters: tuple[str, ...],
+    allow: tuple[str, ...],
 ) -> list[Violation]:
     """DOCS-005: a local raster image should be an SVG or a Mermaid diagram."""
     found: list[Violation] = []
@@ -306,7 +315,8 @@ def _check_rasters(
         for match in _MD_IMAGE_RE.finditer(raw):
             target = match.group(2)
             if _is_local_raster(target=target, rasters=rasters) and not _is_allowed(
-                target=target, allow=allow
+                target=target,
+                allow=allow,
             ):
                 found.append(
                     _build_violation(
@@ -315,7 +325,7 @@ def _check_rasters(
                         rule="DOCS-005",
                         message=f"Local raster image '{target}' (prefer a vector format)",
                         fix="Export the diagram to SVG, or draw it inline with Mermaid",
-                    )
+                    ),
                 )
     return found
 
@@ -344,10 +354,10 @@ class DocsCheck:
             "DOCS-006: A known section directory carries an index page",
             "DOCS-007: Every page has a home in the architecture",
             "DOCS-008: Headings are not numbered by hand",
-        ]
+        ],
     )
     settings_keys: ClassVar[frozenset[str]] = frozenset(
-        {"enabled", "docs_root", "sections", "known_top_level", "raster_extensions", "allow"}
+        {"enabled", "docs_root", "sections", "known_top_level", "raster_extensions", "allow"},
     )
 
     def configure(self, *, settings: dict[str, object]) -> None:
@@ -356,18 +366,26 @@ class DocsCheck:
         self.docs_root = read_str(settings=settings, key="docs_root", default=self.docs_root)
         self.sections = _resolve_str_list(settings=settings, key="sections", fallback=self.sections)
         self.known_top_level = _resolve_str_list(
-            settings=settings, key="known_top_level", fallback=self.known_top_level
+            settings=settings,
+            key="known_top_level",
+            fallback=self.known_top_level,
         )
         self.raster_extensions = tuple(
             ext.lower()
             for ext in _resolve_str_list(
-                settings=settings, key="raster_extensions", fallback=self.raster_extensions
+                settings=settings,
+                key="raster_extensions",
+                fallback=self.raster_extensions,
             )
         )
         self.allow = _resolve_str_list(settings=settings, key="allow", fallback=self.allow)
 
     def _page_findings(
-        self, *, lines: list[str], file: str, is_content: bool
+        self,
+        *,
+        lines: list[str],
+        file: str,
+        is_content: bool,
     ) -> tuple[list[Violation], list[Violation]]:
         """Per-page violations and warnings (everything except tree-level rules)."""
         headings = _parse_headings(lines=lines)
@@ -391,7 +409,7 @@ class DocsCheck:
                 file=file,
                 rasters=self.raster_extensions,
                 allow=self.allow,
-            )
+            ),
         )
         return violations, warnings
 
@@ -425,7 +443,7 @@ class DocsCheck:
                         rule="DOCS-006",
                         message=f"Section '{section}' has pages but no index.md",
                         fix=f"Add {self.docs_root}/{section}/index.md as the section landing page",
-                    )
+                    ),
                 )
         return found
 
@@ -468,7 +486,6 @@ class DocsCheck:
         warnings.extend(self._check_section_indexes(docs_dir=docs_dir, pages=pages))
 
         return CheckResult.from_findings(check=self.name, violations=violations, warnings=warnings)
-
 
 
 register(DocsCheck())

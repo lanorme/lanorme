@@ -54,10 +54,29 @@ DEFAULT_MAX_SHORT_LENGTH = 2
 # meaning: loop counters, throwaway targets, maths axes, and a few two-letter
 # conventions. Projects extend this through the ``allow`` setting rather than
 # raising the span, so the exemption stays visible in config.
-DEFAULT_ALLOW = frozenset({
-    "_", "i", "j", "k", "n", "x", "y", "z",
-    "db", "id", "fd", "fh", "ok", "lo", "hi", "lr", "ax", "df", "ts",
-})
+DEFAULT_ALLOW = frozenset(
+    {
+        "_",
+        "i",
+        "j",
+        "k",
+        "n",
+        "x",
+        "y",
+        "z",
+        "db",
+        "id",
+        "fd",
+        "fh",
+        "ok",
+        "lo",
+        "hi",
+        "lr",
+        "ax",
+        "df",
+        "ts",
+    },
+)
 
 _SKIP_DIRS = frozenset({"alembic", "migrations"})
 
@@ -124,24 +143,35 @@ def _collect_local_extents(*, func: ast.AST) -> dict[str, _Extent]:
     return {name: extent for name, extent in extents.items() if name in bound}
 
 
-def _collect_function_violations(*, func: ast.AST, file: str, settings: _Settings) -> list[Violation]:
+def _collect_function_violations(
+    *,
+    func: ast.AST,
+    file: str,
+    settings: _Settings,
+) -> list[Violation]:
     """Flag every short name in *func* held over more than the allowed span."""
     violations: list[Violation] = []
     for name, extent in sorted(_collect_local_extents(func=func).items()):
-        short = _is_short(name=name, max_short_length=settings.max_short_length, allow=settings.allow)
+        short = _is_short(
+            name=name,
+            max_short_length=settings.max_short_length,
+            allow=settings.allow,
+        )
         if not short or extent.span <= settings.max_span:
             continue
-        violations.append(Violation(
-            file=file,
-            line=extent.first,
-            rule="NAMING-005: A short name must not be carried across a long span",
-            message=(
-                f"Name '{name}' is bound here and still in use {extent.span} lines later "
-                f"in '{getattr(func, 'name', '?')}' (limit: {settings.max_span})"
+        violations.append(
+            Violation(
+                file=file,
+                line=extent.first,
+                rule="NAMING-005: A short name must not be carried across a long span",
+                message=(
+                    f"Name '{name}' is bound here and still in use {extent.span} lines later "
+                    f"in '{getattr(func, 'name', '?')}' (limit: {settings.max_span})"
+                ),
+                fix="Give it a name that reads at the point of use, or shorten the span it lives across",
+                **locate(extent.node),
             ),
-            fix="Give it a name that reads at the point of use, or shorten the span it lives across",
-            **locate(extent.node),
-        ))
+        )
     return violations
 
 
@@ -167,7 +197,7 @@ class NamingScopeCheck:
     rules: list[str] = field(
         default_factory=lambda: [
             "NAMING-005: A short name must not be carried across a long span",
-        ]
+        ],
     )
     settings_keys: ClassVar[frozenset[str]] = frozenset(
         {"enabled", "max_span", "max_short_length", "allow"},
@@ -199,11 +229,15 @@ class NamingScopeCheck:
         for module in iter_parsed_modules(Path(src_root)):
             # Match skip directories inside the root only: the absolute path's
             # ancestors are the user's filesystem, not the project layout.
-            if any(part in _SKIP_DIRS for part in module.relative.split("/")) or module.path.name.startswith("test_"):
+            if any(
+                part in _SKIP_DIRS for part in module.relative.split("/")
+            ) or module.path.name.startswith("test_"):
                 continue
             file = module.relative
             for node in module.index.functions:
-                violations.extend(_collect_function_violations(func=node, file=file, settings=resolved))
+                violations.extend(
+                    _collect_function_violations(func=node, file=file, settings=resolved),
+                )
         return CheckResult.from_findings(check=self.name, violations=violations)
 
 

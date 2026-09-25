@@ -112,8 +112,7 @@ class PipelineConfig:
     def rows_per_band(self) -> int:
         if self.num_perm % self.num_bands != 0:
             raise ValueError(
-                f"num_perm ({self.num_perm}) must be divisible by "
-                f"num_bands ({self.num_bands})"
+                f"num_perm ({self.num_perm}) must be divisible by num_bands ({self.num_bands})",
             )
         return self.num_perm // self.num_bands
 
@@ -174,22 +173,129 @@ def quality_filter_reason(text: str, config: PipelineConfig) -> str | None:
 # or token soup does not.
 ENGLISH_STOPWORDS = frozenset(
     {
-        "a", "about", "after", "again", "all", "also", "an", "and", "any",
-        "are", "as", "at", "be", "because", "been", "before", "being",
-        "between", "both", "but", "by", "can", "could", "did", "do", "does",
-        "down", "during", "each", "few", "for", "from", "further", "had",
-        "has", "have", "having", "he", "her", "here", "hers", "herself",
-        "him", "himself", "his", "how", "i", "if", "in", "into", "is", "it",
-        "its", "itself", "just", "me", "more", "most", "my", "myself", "no",
-        "nor", "not", "now", "of", "off", "on", "once", "only", "or", "other",
-        "our", "ours", "ourselves", "out", "over", "own", "same", "she",
-        "should", "so", "some", "such", "than", "that", "the", "their",
-        "theirs", "them", "themselves", "then", "there", "these", "they",
-        "this", "those", "through", "to", "too", "under", "until", "up",
-        "very", "was", "we", "were", "what", "when", "where", "which",
-        "while", "who", "whom", "why", "will", "with", "would", "you",
-        "your", "yours", "yourself", "yourselves",
-    }
+        "a",
+        "about",
+        "after",
+        "again",
+        "all",
+        "also",
+        "an",
+        "and",
+        "any",
+        "are",
+        "as",
+        "at",
+        "be",
+        "because",
+        "been",
+        "before",
+        "being",
+        "between",
+        "both",
+        "but",
+        "by",
+        "can",
+        "could",
+        "did",
+        "do",
+        "does",
+        "down",
+        "during",
+        "each",
+        "few",
+        "for",
+        "from",
+        "further",
+        "had",
+        "has",
+        "have",
+        "having",
+        "he",
+        "her",
+        "here",
+        "hers",
+        "herself",
+        "him",
+        "himself",
+        "his",
+        "how",
+        "i",
+        "if",
+        "in",
+        "into",
+        "is",
+        "it",
+        "its",
+        "itself",
+        "just",
+        "me",
+        "more",
+        "most",
+        "my",
+        "myself",
+        "no",
+        "nor",
+        "not",
+        "now",
+        "of",
+        "off",
+        "on",
+        "once",
+        "only",
+        "or",
+        "other",
+        "our",
+        "ours",
+        "ourselves",
+        "out",
+        "over",
+        "own",
+        "same",
+        "she",
+        "should",
+        "so",
+        "some",
+        "such",
+        "than",
+        "that",
+        "the",
+        "their",
+        "theirs",
+        "them",
+        "themselves",
+        "then",
+        "there",
+        "these",
+        "they",
+        "this",
+        "those",
+        "through",
+        "to",
+        "too",
+        "under",
+        "until",
+        "up",
+        "very",
+        "was",
+        "we",
+        "were",
+        "what",
+        "when",
+        "where",
+        "which",
+        "while",
+        "who",
+        "whom",
+        "why",
+        "will",
+        "with",
+        "would",
+        "you",
+        "your",
+        "yours",
+        "yourself",
+        "yourselves",
+    },
 )
 
 
@@ -427,7 +533,7 @@ def _filter_and_hash_shard(shard_path: Path, config: PipelineConfig) -> ShardFil
                 text=text,
                 signature=signature,
                 shard_path=shard_path,
-            )
+            ),
         )
 
     return ShardFilterResult(
@@ -438,7 +544,9 @@ def _filter_and_hash_shard(shard_path: Path, config: PipelineConfig) -> ShardFil
     )
 
 
-def _flatten_phase1(results: list[ShardFilterResult]) -> tuple[list[DocRecord], dict[str, int], int]:
+def _flatten_phase1(
+    results: list[ShardFilterResult],
+) -> tuple[list[DocRecord], dict[str, int], int]:
     docs: list[DocRecord] = []
     drop_counts: dict[str, int] = {}
     total_lines = 0
@@ -486,7 +594,8 @@ def _token_stream_for_split(
 
 
 def pack_sequences(
-    token_stream: Iterable[int], sequence_length: int
+    token_stream: Iterable[int],
+    sequence_length: int,
 ) -> tuple[list[np.ndarray], np.ndarray | None]:
     """Pack a flat token stream into fixed-length sequences.
 
@@ -614,7 +723,13 @@ def prepare_pretrain_corpus(
     for split in ("train", "val"):
         stream = _token_stream_for_split(ordered, token_map, split, config.eos_token_id)
         full_sequences, tail = pack_sequences(stream, config.sequence_length)
-        output_files = _write_split(output_dir, split, full_sequences, tail, config.sequences_per_file)
+        output_files = _write_split(
+            output_dir,
+            split,
+            full_sequences,
+            tail,
+            config.sequences_per_file,
+        )
         manifest_splits[split] = {
             "documents": sum(1 for _, s in ordered if s == split),
             "full_sequences": len(full_sequences),
@@ -662,7 +777,7 @@ def _load_tokenizer(spec: str) -> Tokenizer:
     if not attr_path:
         raise ValueError(
             f"invalid --tokenizer spec {spec!r}; expected 'module:attribute' "
-            "(e.g. 'mypkg.tokenizer:build_tokenizer')"
+            "(e.g. 'mypkg.tokenizer:build_tokenizer')",
         )
     obj: Any = importlib.import_module(module_name)
     for part in attr_path.split("."):
@@ -676,7 +791,7 @@ def _load_tokenizer(spec: str) -> Tokenizer:
 
 def _build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Prepare a packed, tokenised pretraining corpus from JSONL shards."
+        description="Prepare a packed, tokenised pretraining corpus from JSONL shards.",
     )
     parser.add_argument("--input-dir", required=True, type=Path)
     parser.add_argument("--output-dir", required=True, type=Path)
@@ -725,7 +840,7 @@ def main(argv: list[str] | None = None) -> int:
                 },
             },
             indent=2,
-        )
+        ),
     )
     return 0
 

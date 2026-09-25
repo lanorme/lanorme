@@ -20,7 +20,10 @@ def test_native_directive_silences_matching_code():
 
 
 def test_native_directive_ignores_other_code():
-    assert not _is_silenced_inline(line="x = 1  # lanorme: ignore[TYPE-001]", rule="PARAM-001: detail")
+    assert not _is_silenced_inline(
+        line="x = 1  # lanorme: ignore[TYPE-001]",
+        rule="PARAM-001: detail",
+    )
 
 
 def test_native_directive_bare_silences_any_rule():
@@ -46,7 +49,7 @@ def test_native_directive_is_case_insensitive():
 
 
 def test_noqa_still_silences():
-    # Regression: the existing shared ``# noqa`` path is untouched.
+    # Regression: the existing shared ``noqa`` comment path is untouched.
     assert _is_silenced_inline(line="x = 1  # noqa: TYPE-001", rule="TYPE-001: d")
     assert _is_silenced_inline(line="x = 1  # noqa", rule="ANY-001: d")
     assert not _is_silenced_inline(line="x = 1  # noqa: SQL-001", rule="TYPE-001: d")
@@ -72,7 +75,8 @@ def test_apply_drops_native_ignored_finding_and_clears_status(tmp_path: Path):
     # Arrange: two findings, one carrying a covering native directive.
     src = tmp_path / "m.py"
     src.write_text(
-        "a = eval(x)  # lanorme: ignore[EVAL-001]\nb = eval(y)\n", encoding="utf-8"
+        "a = eval(x)  # lanorme: ignore[EVAL-001]\nb = eval(y)\n",
+        encoding="utf-8",
     )
     result = CheckResult(
         check="c",

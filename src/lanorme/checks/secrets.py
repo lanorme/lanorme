@@ -41,40 +41,123 @@ from lanorme.sources import Module, iter_parsed_modules, locate
 # A name suggests a credential when (i) it matches one of these multi-segment
 # phrases as the whole name or as a ``_``-anchored suffix, OR (ii) one of its
 # ``_``-separated segments is a bare credential token.
-_CRED_NAME_PHRASES = frozenset({
-    "api_key", "apikey",
-    "access_key", "access_key_id",
-    "secret_key", "secret_access_key",
-    "private_key", "ssh_private_key", "signing_key", "encryption_key",
-    "client_secret", "oauth_secret", "jwt_secret", "auth_secret", "signing_secret",
-    "aws_access_key", "aws_access_key_id",
-    "aws_secret_key", "aws_secret_access_key", "aws_session_token",
-    "session_token", "access_token", "refresh_token", "bearer_token", "auth_token",
-    "github_token", "github_pat", "slack_token",
-})
-_CRED_TOKEN_SEGMENTS = frozenset({
-    "password", "passwd", "pwd",
-    "secret", "token", "jwt", "passphrase", "apikey",
-})
-_NON_CRED_NAME_PREFIXES = (
-    "help_", "hint_", "msg_", "prompt_", "description_", "example_", "usage_",
-    "label_", "docs_", "info_", "title_", "placeholder_", "tooltip_",
+_CRED_NAME_PHRASES = frozenset(
+    {
+        "api_key",
+        "apikey",
+        "access_key",
+        "access_key_id",
+        "secret_key",
+        "secret_access_key",
+        "private_key",
+        "ssh_private_key",
+        "signing_key",
+        "encryption_key",
+        "client_secret",
+        "oauth_secret",
+        "jwt_secret",
+        "auth_secret",
+        "signing_secret",
+        "aws_access_key",
+        "aws_access_key_id",
+        "aws_secret_key",
+        "aws_secret_access_key",
+        "aws_session_token",
+        "session_token",
+        "access_token",
+        "refresh_token",
+        "bearer_token",
+        "auth_token",
+        "github_token",
+        "github_pat",
+        "slack_token",
+    },
 )
-_NON_CRED_LAST_SEGMENTS = frozenset({
-    "help", "hint", "msg", "prompt", "description", "example", "usage",
-    "label", "docs", "info", "title", "placeholder", "tooltip",
-    "pattern", "regex", "re", "pat",
-    "endpoint", "header", "name", "path", "url", "uri",
-    "format", "kind", "type", "len", "length", "max", "min", "fmt",
-    "field", "column", "default", "alias",
-})
+_CRED_TOKEN_SEGMENTS = frozenset(
+    {
+        "password",
+        "passwd",
+        "pwd",
+        "secret",
+        "token",
+        "jwt",
+        "passphrase",
+        "apikey",
+    },
+)
+_NON_CRED_NAME_PREFIXES = (
+    "help_",
+    "hint_",
+    "msg_",
+    "prompt_",
+    "description_",
+    "example_",
+    "usage_",
+    "label_",
+    "docs_",
+    "info_",
+    "title_",
+    "placeholder_",
+    "tooltip_",
+)
+_NON_CRED_LAST_SEGMENTS = frozenset(
+    {
+        "help",
+        "hint",
+        "msg",
+        "prompt",
+        "description",
+        "example",
+        "usage",
+        "label",
+        "docs",
+        "info",
+        "title",
+        "placeholder",
+        "tooltip",
+        "pattern",
+        "regex",
+        "re",
+        "pat",
+        "endpoint",
+        "header",
+        "name",
+        "path",
+        "url",
+        "uri",
+        "format",
+        "kind",
+        "type",
+        "len",
+        "length",
+        "max",
+        "min",
+        "fmt",
+        "field",
+        "column",
+        "default",
+        "alias",
+    },
+)
 # Substrings in the value that mark a placeholder rather than a real secret.
 # Excludes ``fake`` / ``dummy``: an attacker labelling a high-entropy literal
 # ``fake-token-xyz`` is not a reason to skip it.
 _PLACEHOLDER_MARKERS = (
-    "<", "your-", "your_", "replace", "change", "example",
-    "placeholder", "xxxxx", "*****", "tbd", "todo", "_here", "fixme",
-    "redacted", "sample",
+    "<",
+    "your-",
+    "your_",
+    "replace",
+    "change",
+    "example",
+    "placeholder",
+    "xxxxx",
+    "*****",
+    "tbd",
+    "todo",
+    "_here",
+    "fixme",
+    "redacted",
+    "sample",
 )
 
 _SCAN_EXCLUDES = {"conftest.py", "seed_dev.py"}
@@ -83,7 +166,7 @@ _PEM_BLOCK_RE = re.compile(r"-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----")
 _JWT_RE = re.compile(r"\beyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b")
 _URL_WITH_CREDS_RE = re.compile(
     r"\b(postgres(?:ql)?|mysql|mariadb|mongodb(?:\+srv)?|redis|rediss|amqp|amqps)"
-    r"://[^:/?#@]*:[^@/?#]+@"
+    r"://[^:/?#@]*:[^@/?#]+@",
 )
 _BEARER_RE = re.compile(r"\bBearer\s+[A-Za-z0-9\-._~+/]{20,}=*")
 # Vendor-prefixed credential shapes. Length thresholds keep them past common
@@ -102,6 +185,7 @@ _HIGH_ENTROPY_LEN = 32
 
 _RULE = "SECRETPY-001: No hardcoded secrets in source code"
 _FIX = "Read the value from an environment variable, secrets manager, or settings module"
+
 
 def _normalise_name(name: str) -> str:
     return name.lower().replace("-", "_")
@@ -147,18 +231,33 @@ def _value_is_real_secret(value: ast.expr) -> str | None:
 
 def _build_violation(*, file: str, node: ast.AST, message: str) -> Violation:
     """The SECRETPY-001 finding anchored at *node*."""
-    return Violation(file=file, line=node.lineno, rule=_RULE, message=message, fix=_FIX, **locate(node))
+    return Violation(
+        file=file,
+        line=node.lineno,
+        rule=_RULE,
+        message=message,
+        fix=_FIX,
+        **locate(node),
+    )
 
 
 def _flag_assignment(
-    *, name: str, value: ast.expr, node: ast.AST, file: str
+    *,
+    name: str,
+    value: ast.expr,
+    node: ast.AST,
+    file: str,
 ) -> Violation | None:
     """Flag ``<credname> = "<literal>"`` style bindings, reported at *node*."""
     if not _name_is_credential(name):
         return None
     if _value_is_real_secret(value) is None:
         return None
-    return _build_violation(file=file, node=node, message=f"Hardcoded credential value bound to '{name}'")
+    return _build_violation(
+        file=file,
+        node=node,
+        message=f"Hardcoded credential value bound to '{name}'",
+    )
 
 
 def _shape_violation(*, value: str, node: ast.Constant, file: str) -> Violation | None:
@@ -168,7 +267,11 @@ def _shape_violation(*, value: str, node: ast.Constant, file: str) -> Violation 
     if _JWT_RE.search(value):
         return _build_violation(file=file, node=node, message="JWT-shaped token literal in source")
     if _URL_WITH_CREDS_RE.search(value):
-        return _build_violation(file=file, node=node, message="Database / cache URL with embedded credentials")
+        return _build_violation(
+            file=file,
+            node=node,
+            message="Database / cache URL with embedded credentials",
+        )
     if _BEARER_RE.search(value):
         return _build_violation(file=file, node=node, message="Bearer-token literal in source")
     for pattern, description in _VENDOR_TOKEN_PATTERNS:
@@ -253,7 +356,7 @@ class SecretsCheck:
     rules: list[str] = field(
         default_factory=lambda: [
             "SECRETPY-001: No hardcoded secrets in source code",
-        ]
+        ],
     )
 
     def run(self, *, src_root: str) -> CheckResult:

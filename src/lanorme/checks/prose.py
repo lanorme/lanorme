@@ -56,7 +56,8 @@ _EM_DASH = "—"
 # extensions list, and the spellings / density sub-tables. Spelled as a union of
 # concrete leaves (no bare ``object``) so it reads as the real config shape.
 ProseSettings = dict[
-    str, bool | int | float | list[str] | dict[str, str] | dict[str, float]
+    str,
+    bool | int | float | list[str] | dict[str, str] | dict[str, float],
 ]
 
 # Common emoji code-point ranges. Deliberately excludes plain arrows (←→) and
@@ -70,7 +71,7 @@ _EMOJI = re.compile(
     "\U00002b00-\U00002bff"  # stars and misc symbols
     "\U0000fe0f"  # emoji variation selector
     "\U0000200d"  # zero-width joiner
-    "]"
+    "]",
 )
 
 # High-confidence American → British spellings. Part-of-speech-ambiguous pairs
@@ -146,7 +147,7 @@ _DENSITY_DEFAULTS: dict[str, float] = {
 
 # Vendored / generated directories never scanned for prose.
 _SKIP_PARTS = frozenset(
-    {".git", ".venv", "venv", "node_modules", "__pycache__", "dist", "build"}
+    {".git", ".venv", "venv", "node_modules", "__pycache__", "dist", "build"},
 )
 
 
@@ -184,7 +185,7 @@ class ProseCheck:
     """Opt-in prose style for docs: em dashes, US spelling, emoji."""
 
     settings_keys: ClassVar[frozenset[str]] = frozenset(
-        {"enabled", "extensions", "em_dash", "emoji", "em_dash_density", "spellings", "density"}
+        {"enabled", "extensions", "em_dash", "emoji", "em_dash_density", "spellings", "density"},
     )
 
     name: str = "prose"
@@ -202,7 +203,7 @@ class ProseCheck:
             "PROSE-002: Use British spelling (no American spellings)",
             "PROSE-003: No emoji in prose",
             "PROSE-004: Em-dash density above natural English",
-        ]
+        ],
     )
 
     def configure(self, *, settings: ProseSettings) -> None:
@@ -211,7 +212,9 @@ class ProseCheck:
         self.flag_em_dash = is_flag_set(settings=settings, key="em_dash", default=self.flag_em_dash)
         self.flag_emoji = is_flag_set(settings=settings, key="emoji", default=self.flag_emoji)
         self.flag_em_dash_density = is_flag_set(
-            settings=settings, key="em_dash_density", default=self.flag_em_dash_density
+            settings=settings,
+            key="em_dash_density",
+            default=self.flag_em_dash_density,
         )
         self.extensions = tuple(
             ext.lower()
@@ -247,7 +250,7 @@ class ProseCheck:
                     rule="PROSE-001",
                     message="Em dash (—) found in prose",
                     fix="Rewrite with a comma, parentheses, or a full stop",
-                )
+                ),
             )
         if self.flag_emoji:
             match = _EMOJI.search(line)
@@ -259,7 +262,7 @@ class ProseCheck:
                         rule="PROSE-003",
                         message=f"Emoji {match.group(0)!r} found in prose",
                         fix="Remove the emoji",
-                    )
+                    ),
                 )
         if spell_re is not None:
             for match in spell_re.finditer(line):
@@ -271,7 +274,7 @@ class ProseCheck:
                         rule="PROSE-002",
                         message=f"American spelling '{word}' found",
                         fix=f"Use British spelling '{self.spellings[word.lower()]}'",
-                    )
+                    ),
                 )
         return found
 
@@ -310,7 +313,7 @@ class ProseCheck:
                     lineno=lineno,
                     relative_file=relative_file,
                     spell_re=spell_re,
-                )
+                ),
             )
         return violations
 
@@ -397,13 +400,14 @@ class ProseCheck:
             if not self._is_doc(path=path, relative=relative):
                 continue
             file_violations, file_warnings = self._scan_file(
-                path=path, relative_file=relative.as_posix(), spell_re=spell_re
+                path=path,
+                relative_file=relative.as_posix(),
+                spell_re=spell_re,
             )
             violations.extend(file_violations)
             warnings.extend(file_warnings)
 
         return CheckResult.from_findings(check=self.name, violations=violations, warnings=warnings)
-
 
 
 register(ProseCheck())

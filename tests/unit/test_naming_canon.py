@@ -54,8 +54,18 @@ def test_verb_first_class_is_a_warning(tmp_path: Path) -> None:
 def test_noun_phrase_classes_pass(tmp_path: Path) -> None:
     body = "".join(
         f"class {name}:\n    pass\n"
-        for name in ("UserFetcher", "FetchOptions", "ConnectTimeout", "CompileError", "DeleteView",
-                     "SaveTest2", "ConfigurableCheck", "BuildResult", "CONSOLE_INFO", "Fetch")
+        for name in (
+            "UserFetcher",
+            "FetchOptions",
+            "ConnectTimeout",
+            "CompileError",
+            "DeleteView",
+            "SaveTest2",
+            "ConfigurableCheck",
+            "BuildResult",
+            "CONSOLE_INFO",
+            "Fetch",
+        )
     )
     result = _run(root=tmp_path, body=body)
     assert _collect_codes(result) == []
@@ -67,7 +77,11 @@ def test_command_object_suffixes_are_exempt_and_extensible(tmp_path: Path) -> No
 
     # Act
     default = _run(root=tmp_path, body=body)
-    extended = _run(root=tmp_path, body=body, check=_configure_check(command_suffixes=["Interactor"]))
+    extended = _run(
+        root=tmp_path,
+        body=body,
+        check=_configure_check(command_suffixes=["Interactor"]),
+    )
 
     # Assert: the bundled suffix survives the extension.
     assert [w.line for w in default.warnings] == [3]
@@ -76,7 +90,11 @@ def test_command_object_suffixes_are_exempt_and_extensible(tmp_path: Path) -> No
 
 @pytest.mark.parametrize(
     ("name", "suggested"),
-    [("ValidateOrder", "OrderValidator"), ("_Send2Users", "_UsersSender2"), ("EmitMetrics", "MetricsEmitter")],
+    [
+        ("ValidateOrder", "OrderValidator"),
+        ("_Send2Users", "_UsersSender2"),
+        ("EmitMetrics", "MetricsEmitter"),
+    ],
 )
 def test_class_fix_names_the_thing(tmp_path: Path, name: str, suggested: str) -> None:
     result = _run(root=tmp_path, body=f"class {name}:\n    pass\n")
@@ -85,8 +103,15 @@ def test_class_fix_names_the_thing(tmp_path: Path, name: str, suggested: str) ->
 
 @pytest.mark.parametrize(
     ("verb", "noun"),
-    [("validate", "validator"), ("parse", "parser"), ("get", "getter"), ("notify", "notifier"),
-     ("execute", "executor"), ("collect", "collector"), ("send", "sender")],
+    [
+        ("validate", "validator"),
+        ("parse", "parser"),
+        ("get", "getter"),
+        ("notify", "notifier"),
+        ("execute", "executor"),
+        ("collect", "collector"),
+        ("send", "sender"),
+    ],
 )
 def test_agent_noun(verb: str, noun: str) -> None:
     assert derive_agent_noun(verb=verb) == noun
@@ -127,9 +152,17 @@ def test_queries_named_for_their_value_pass(tmp_path: Path) -> None:
 
 @pytest.mark.parametrize(
     ("name", "suggested"),
-    [("_cert_verify", "_verify_cert"), ("user_count_update", "update_user_count"), ("bulk_cert_verify", "bulk_verify_cert")],
+    [
+        ("_cert_verify", "_verify_cert"),
+        ("user_count_update", "update_user_count"),
+        ("bulk_cert_verify", "bulk_verify_cert"),
+    ],
 )
-def test_command_fix_puts_the_trailing_verb_first(tmp_path: Path, name: str, suggested: str) -> None:
+def test_command_fix_puts_the_trailing_verb_first(
+    tmp_path: Path,
+    name: str,
+    suggested: str,
+) -> None:
     result = _run(root=tmp_path, body=f"def {name}(conn):\n    conn.clear()\n")
     assert f"'{suggested}'" in result.warnings[0].fix
 
@@ -140,7 +173,10 @@ def test_command_message_names_the_judged_word_not_the_modifier(tmp_path: Path) 
 
 
 def test_non_ascii_names_are_not_judged(tmp_path: Path) -> None:
-    result = _run(root=tmp_path, body="def résumé_thing(x):\n    x.clear()\nclass Envoyé:\n    pass\n")
+    result = _run(
+        root=tmp_path,
+        body="def résumé_thing(x):\n    x.clear()\nclass Envoyé:\n    pass\n",
+    )
     assert _collect_codes(result) == []
 
 
@@ -178,7 +214,11 @@ def test_closures_stubs_and_raisers_pass(tmp_path: Path) -> None:
 
 
 def test_generated_migration_trees_are_skipped(tmp_path: Path) -> None:
-    result = _run(root=tmp_path, body="def schema_step(op):\n    op.clear()\n", name="migrations/0001.py")
+    result = _run(
+        root=tmp_path,
+        body="def schema_step(op):\n    op.clear()\n",
+        name="migrations/0001.py",
+    )
     assert _collect_codes(result) == []
 
 
@@ -225,12 +265,20 @@ def test_verbs_config_extends_the_vocabulary(tmp_path: Path) -> None:
 
 
 def test_exempt_config_silences_a_name_with_or_without_underscores(tmp_path: Path) -> None:
-    result = _run(root=tmp_path, body="def _layout(root):\n    root.clear()\n", check=_configure_check(exempt=["layout"]))
+    result = _run(
+        root=tmp_path,
+        body="def _layout(root):\n    root.clear()\n",
+        check=_configure_check(exempt=["layout"]),
+    )
     assert _collect_codes(result) == []
 
 
 def test_findings_carry_a_root_relative_posix_path(tmp_path: Path) -> None:
-    result = _run(root=tmp_path, body="def layout(root):\n    root.clear()\n", name="pkg/sub/mod.py")
+    result = _run(
+        root=tmp_path,
+        body="def layout(root):\n    root.clear()\n",
+        name="pkg/sub/mod.py",
+    )
     assert result.warnings[0].file == "pkg/sub/mod.py" and result.warnings[0].line == 1
 
 

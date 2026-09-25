@@ -51,9 +51,27 @@ def test_split_name(name: str, expected: list[str]) -> None:
 
 @pytest.mark.parametrize(
     "word",
-    ["parse", "matches", "applies", "simplify", "normalise", "validate", "reload",
-     "unquote", "deregister", "getheaders", "setdefault", "startswith", "aclose", "autobegin",
-     "mkdir", "rmtree", "chmod", "iteritems", "isdigit"],
+    [
+        "parse",
+        "matches",
+        "applies",
+        "simplify",
+        "normalise",
+        "validate",
+        "reload",
+        "unquote",
+        "deregister",
+        "getheaders",
+        "setdefault",
+        "startswith",
+        "aclose",
+        "autobegin",
+        "mkdir",
+        "rmtree",
+        "chmod",
+        "iteritems",
+        "isdigit",
+    ],
 )
 def test_words_that_read_as_verbs(word: str) -> None:
     assert is_verb_capable(word=word)
@@ -61,8 +79,25 @@ def test_words_that_read_as_verbs(word: str) -> None:
 
 @pytest.mark.parametrize(
     "word",
-    ["shell", "finding", "logger", "sorted", "violations", "cert", "layout", "user", "h1",
-     "password", "endpoint", "checksum", "template", "state", "noise", "settings", "getter"],
+    [
+        "shell",
+        "finding",
+        "logger",
+        "sorted",
+        "violations",
+        "cert",
+        "layout",
+        "user",
+        "h1",
+        "password",
+        "endpoint",
+        "checksum",
+        "template",
+        "state",
+        "noise",
+        "settings",
+        "getter",
+    ],
 )
 def test_words_that_do_not_read_as_verbs(word: str) -> None:
     assert not is_verb_capable(word=word)

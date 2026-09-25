@@ -189,7 +189,10 @@ def test_suppress_codes_cannot_be_silenced_inline() -> None:
     line = "value = 1  # noqa: SUPPRESS-001, SUPPRESS-002"
 
     # Act
-    budget = _is_silenced_inline(line=line, rule="SUPPRESS-001: Inline suppressions must stay in budget")
+    budget = _is_silenced_inline(
+        line=line,
+        rule="SUPPRESS-001: Inline suppressions must stay in budget",
+    )
     blanket = _is_silenced_inline(line=line, rule="SUPPRESS-002: A suppression must name the rule")
 
     # Assert
@@ -213,7 +216,10 @@ def test_a_bare_directive_still_silences_other_rules() -> None:
 # --------------------------------------------------------------------------- #
 
 
-def test_root_under_a_skip_named_ancestor_is_still_scanned(tmp_path: Path, check: SuppressionsCheck) -> None:
+def test_root_under_a_skip_named_ancestor_is_still_scanned(
+    tmp_path: Path,
+    check: SuppressionsCheck,
+) -> None:
     # Arrange
     root = tmp_path / "build" / "project"
     root.mkdir(parents=True)

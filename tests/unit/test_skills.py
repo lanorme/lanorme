@@ -32,7 +32,12 @@ def _collect_codes(result) -> set[str]:
     return {v.rule for v in result.violations} | {w.rule for w in result.warnings}
 
 
-def _build_frontmatter(*, name: str, description: str = "A valid description.", extra: str = "") -> str:
+def _build_frontmatter(
+    *,
+    name: str,
+    description: str = "A valid description.",
+    extra: str = "",
+) -> str:
     block = f"---\nname: {name}\ndescription: {description}\n{extra}---\n\n# Body\n"
     return block
 
@@ -63,7 +68,9 @@ def test_invalid_fixtures_fire_expected_rule():
         # Act
         result = SkillsCheck().run(src_root=str(_CORPUS / case))
         # Assert: the expected rule is present.
-        assert code in _collect_codes(result), f"{case} should fire {code}, got {_collect_codes(result)}"
+        assert code in _collect_codes(result), (
+            f"{case} should fire {code}, got {_collect_codes(result)}"
+        )
 
 
 # --- name (SKILL-001) ------------------------------------------------------- #
@@ -81,8 +88,12 @@ def test_name_length_boundary(tmp_path: Path):
     ok = "a" * 64
     bad = "a" * 65
     # Act + Assert
-    assert "SKILL-001" not in _collect_codes(_run(tmp_path, dirname=ok, content=_build_frontmatter(name=ok)))
-    assert "SKILL-001" in _collect_codes(_run(tmp_path, dirname=bad, content=_build_frontmatter(name=bad)))
+    assert "SKILL-001" not in _collect_codes(
+        _run(tmp_path, dirname=ok, content=_build_frontmatter(name=ok)),
+    )
+    assert "SKILL-001" in _collect_codes(
+        _run(tmp_path, dirname=bad, content=_build_frontmatter(name=bad)),
+    )
 
 
 def test_name_illegal_characters(tmp_path: Path):
@@ -121,8 +132,12 @@ def test_description_too_long(tmp_path: Path):
     ok = "x" * 1024
     bad = "x" * 1025
     # Act + Assert
-    assert "SKILL-002" not in _collect_codes(_run(tmp_path, dirname="d", content=_build_frontmatter(name="d", description=ok)))
-    assert "SKILL-002" in _collect_codes(_run(tmp_path, dirname="d", content=_build_frontmatter(name="d", description=bad)))
+    assert "SKILL-002" not in _collect_codes(
+        _run(tmp_path, dirname="d", content=_build_frontmatter(name="d", description=ok)),
+    )
+    assert "SKILL-002" in _collect_codes(
+        _run(tmp_path, dirname="d", content=_build_frontmatter(name="d", description=bad)),
+    )
 
 
 def test_folded_description_is_valid(tmp_path: Path):
@@ -147,14 +162,18 @@ def test_compatibility_too_long(tmp_path: Path):
 
 def test_metadata_scalar_is_invalid(tmp_path: Path):
     # Act
-    result = _run(tmp_path, dirname="d", content=_build_frontmatter(name="d", extra="metadata: not-a-map\n"))
+    result = _run(
+        tmp_path,
+        dirname="d",
+        content=_build_frontmatter(name="d", extra="metadata: not-a-map\n"),
+    )
     # Assert
     assert "SKILL-003" in _collect_codes(result)
 
 
 def test_metadata_map_is_valid(tmp_path: Path):
     # Arrange: a real nested map is fine.
-    extra = "metadata:\n  author: me\n  version: \"1.0\"\n"
+    extra = 'metadata:\n  author: me\n  version: "1.0"\n'
     # Act
     result = _run(tmp_path, dirname="d", content=_build_frontmatter(name="d", extra=extra))
     # Assert
@@ -238,7 +257,9 @@ def test_flow_mapping_metadata_is_accepted(tmp_path: Path):
 
 def test_separator_inside_block_scalar_does_not_close_frontmatter(tmp_path: Path):
     # Arrange: an indented '---' inside a literal description is content, not the fence.
-    content = "---\nname: d\ndescription: |\n  A separator looks like:\n  ---\n  end.\n---\n\n# Body\n"
+    content = (
+        "---\nname: d\ndescription: |\n  A separator looks like:\n  ---\n  end.\n---\n\n# Body\n"
+    )
     # Act
     result = _run(tmp_path, dirname="d", content=content)
     # Assert: name is seen and description is non-empty.

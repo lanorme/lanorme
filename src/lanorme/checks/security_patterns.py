@@ -55,8 +55,19 @@ _SQL_READ_SINKS = frozenset({"read_sql", "read_sql_query"})
 
 # Receiver names that mark an ``.execute`` call as non-DB and so out of scope.
 _NON_DB_RECEIVER_HINTS = (
-    "subprocess", "client", "http", "runner", "job", "task", "command",
-    "shell", "process", "executor", "worker", "queue", "pool",
+    "subprocess",
+    "client",
+    "http",
+    "runner",
+    "job",
+    "task",
+    "command",
+    "shell",
+    "process",
+    "executor",
+    "worker",
+    "queue",
+    "pool",
 )
 
 # A string looks like SQL when one of these keyword shapes appears.
@@ -69,6 +80,7 @@ _SQL_KEYWORDS_RE = re.compile(
 
 # Placeholder shapes a driver binds; SQL with a placeholder + a params arg is safe.
 _SQL_PLACEHOLDER_RE = re.compile(r":[A-Za-z_]\w*|%s|%\([A-Za-z_]\w*\)s|\?")
+
 
 def _is_mutation_endpoint(node: ast.FunctionDef | ast.AsyncFunctionDef) -> str | None:
     """Check if a function is a mutation endpoint. Return the HTTP method or None."""
@@ -130,7 +142,7 @@ def _check_auth_on_mutations(*, module: Module) -> list[Violation]:
                         "current_user: Annotated[AuthenticatedUser, Depends(get_current_user)]"
                     ),
                     **locate(node),
-                )
+                ),
             )
 
     return violations
@@ -140,9 +152,8 @@ def _is_text_constructor(node: ast.expr) -> bool:
     """True if *node* is a ``text(...)`` / ``sa.text(...)`` SQL constructor call."""
     if not isinstance(node, ast.Call):
         return False
-    return (
-        (isinstance(node.func, ast.Name) and node.func.id == "text")
-        or (isinstance(node.func, ast.Attribute) and node.func.attr == "text")
+    return (isinstance(node.func, ast.Name) and node.func.id == "text") or (
+        isinstance(node.func, ast.Attribute) and node.func.attr == "text"
     )
 
 
@@ -164,7 +175,9 @@ def _find_literal_node(node: ast.expr) -> ast.expr | None:
 
 
 def _find_literal_lineno(
-    node: ast.expr, *, constants: dict[str, "_SqlConst"] | None = None
+    node: ast.expr,
+    *,
+    constants: dict[str, "_SqlConst"] | None = None,
 ) -> int | None:
     """Return the source line of the SQL-bearing literal at *node*, or ``None``.
 
@@ -186,7 +199,9 @@ def _find_literal_lineno(
 
 
 def _sql_from_binop(
-    node: ast.BinOp, *, constants: dict[str, "_SqlConst"] | None
+    node: ast.BinOp,
+    *,
+    constants: dict[str, "_SqlConst"] | None,
 ) -> tuple[str | None, bool]:
     """Resolve ``"..." + x`` and ``"..." % x`` SQL-bearing BinOps."""
     if isinstance(node.op, ast.Add):
@@ -203,7 +218,9 @@ def _sql_from_binop(
 
 
 def _sql_from_call(
-    node: ast.Call, *, constants: dict[str, "_SqlConst"] | None
+    node: ast.Call,
+    *,
+    constants: dict[str, "_SqlConst"] | None,
 ) -> tuple[str | None, bool]:
     """Resolve ``text(...)`` wrappers and ``"...".format(...)`` SQL-bearing calls."""
     if _is_text_constructor(node) and node.args:
@@ -216,7 +233,9 @@ def _sql_from_call(
 
 
 def _extract_sql_string(
-    node: ast.expr, *, constants: dict[str, "_SqlConst"] | None = None
+    node: ast.expr,
+    *,
+    constants: dict[str, "_SqlConst"] | None = None,
 ) -> tuple[str | None, bool]:
     """Return ``(text, interpolated)`` for an SQL-argument AST node, or ``(None, False)``.
 
@@ -324,7 +343,12 @@ def _is_safely_parameterised(*, call: ast.Call, sql: str, kind: str) -> bool:
     return False
 
 
-def _build_finding_span(*, first: ast.expr, call: ast.Call, report_lineno: int) -> dict[str, int | None]:
+def _build_finding_span(
+    *,
+    first: ast.expr,
+    call: ast.Call,
+    report_lineno: int,
+) -> dict[str, int | None]:
     """The span of an SQL-001 finding reported at *report_lineno*.
 
     The literal when it sits inside the call, the call itself when the line
@@ -368,7 +392,7 @@ def _check_raw_sql(*, module: Module) -> list[Violation]:
                     message="f-string interpolation into SQL is an injection vector",
                     fix="Bind the value as a parameter instead of interpolating it into the SQL text",
                     **anchor_span,
-                )
+                ),
             )
             continue
         if _is_safely_parameterised(call=node, sql=sql, kind=kind):
@@ -382,7 +406,7 @@ def _check_raw_sql(*, module: Module) -> list[Violation]:
                 message=f"Raw SQL passed to a database sink: {snippet}",
                 fix="Use an ORM expression, or bind values via parameters instead of inlining them",
                 **anchor_span,
-            )
+            ),
         )
     return violations
 
@@ -398,7 +422,7 @@ class SecurityPatternsCheck:
         default_factory=lambda: [
             "AUTHN-001: Mutation endpoints must have auth dependency",
             "SQL-001: No raw SQL — use an ORM or parameterized queries",
-        ]
+        ],
     )
     settings_keys: ClassVar[frozenset[str]] = frozenset({"source_root"})
 
@@ -447,15 +471,17 @@ class SecurityPatternsCheck:
                 # overflows. Skip the file rather than crash the whole run.
                 warnings.append(
                     build_skip_notice(
-                        prefix="SQL", file=relative_file, name=module.path.name, reason=TOO_DEEP
-                    )
+                        prefix="SQL",
+                        file=relative_file,
+                        name=module.path.name,
+                        reason=TOO_DEEP,
+                    ),
                 )
                 continue
 
             violations.extend(file_violations)
 
         return CheckResult.from_findings(check=self.name, violations=violations, warnings=warnings)
-
 
 
 # Self-register on import.

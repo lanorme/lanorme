@@ -25,7 +25,9 @@ from pathlib import Path
 
 # Single letters that are conventional and readable in their idiom: loop
 # counters, throwaway targets, and the maths-style axes used in numeric code.
-CONVENTIONAL_SHORT_NAMES = frozenset({"_", "i", "j", "k", "n", "x", "y", "z", "db", "id", "fh", "op", "lr", "pk"})
+CONVENTIONAL_SHORT_NAMES = frozenset(
+    {"_", "i", "j", "k", "n", "x", "y", "z", "db", "id", "fh", "op", "lr", "pk"},
+)
 
 # A comment that instructs tooling rather than a reader.
 PRAGMA = re.compile(r"^#\s*(noqa|type:|pragma|pylint|mypy|ruff|fmt:|lanorme:|!)")
@@ -71,10 +73,16 @@ class FileMetrics:
         return {
             "path": self.path,
             "effective_lines": self.effective_lines,
-            "short_name_rate": _compute_ratio(subset=self.short_identifiers, total=self.identifiers),
+            "short_name_rate": _compute_ratio(
+                subset=self.short_identifiers,
+                total=self.identifiers,
+            ),
             "short_names": sorted(set(self.short_identifiers)),
             "comments_per_100_lines": round(self.explanatory_comments * per_hundred, 2),
-            "docstring_coverage": _compute_count_ratio(part=self.documented_definitions, total=self.definitions),
+            "docstring_coverage": _compute_count_ratio(
+                part=self.documented_definitions,
+                total=self.definitions,
+            ),
             "undocumented_definitions": self.undocumented_definitions,
             "trivial_docstrings": self.trivial_docstrings,
             "heavy_comprehensions": len(self.heavy_comprehensions),
@@ -174,7 +182,13 @@ def _collect_comments(*, source: str, into: FileMetrics) -> None:
         if token.type == tokenize.COMMENT:
             if not PRAGMA.match(token.string.strip()):
                 into.explanatory_comments += 1
-        elif token.type not in (tokenize.NL, tokenize.NEWLINE, tokenize.INDENT, tokenize.DEDENT, tokenize.ENDMARKER):
+        elif token.type not in (
+            tokenize.NL,
+            tokenize.NEWLINE,
+            tokenize.INDENT,
+            tokenize.DEDENT,
+            tokenize.ENDMARKER,
+        ):
             code_lines.add(token.start[0])
     into.effective_lines = len(code_lines)
 

@@ -71,7 +71,7 @@ def _scan_docstring(
                         message=f"Stale path reference '{match.group(0)}'",
                         fix=f"Update '{match.group(0)}' to the current path",
                         **locate(const),
-                    )
+                    ),
                 )
     return findings
 
@@ -110,11 +110,16 @@ def _scan_file(*, module: Module, patterns: list[re.Pattern[str]]) -> list[Viola
                         message=f"Stale path reference '{match.group(0)}' in comment",
                         fix=f"Update '{match.group(0)}' to the current path",
                         column=column,
-                    )
+                    ),
                 )
 
     # Docstrings, module, class, function.
-    for node in module.index.collect(ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef):
+    for node in module.index.collect(
+        ast.Module,
+        ast.ClassDef,
+        ast.FunctionDef,
+        ast.AsyncFunctionDef,
+    ):
         if (
             node.body
             and isinstance(node.body[0], ast.Expr)
@@ -123,8 +128,10 @@ def _scan_file(*, module: Module, patterns: list[re.Pattern[str]]) -> list[Viola
         ):
             violations.extend(
                 _scan_docstring(
-                    const=node.body[0].value, relative_file=relative_file, patterns=patterns
-                )
+                    const=node.body[0].value,
+                    relative_file=relative_file,
+                    patterns=patterns,
+                ),
             )
 
     return violations
@@ -142,7 +149,7 @@ class StalePathsCheck:
     rules: list[str] = field(
         default_factory=lambda: [
             "STALE-001: No references to configured stale path tokens in docstrings or comments",
-        ]
+        ],
     )
 
     def configure(self, *, settings: dict[str, object]) -> None:
@@ -161,7 +168,6 @@ class StalePathsCheck:
             violations.extend(_scan_file(module=module, patterns=patterns))
 
         return CheckResult.from_findings(check=self.name, violations=violations)
-
 
 
 register(StalePathsCheck())

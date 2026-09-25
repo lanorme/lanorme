@@ -182,77 +182,100 @@ def _build_violation(*, file: str, rule: str, message: str, fix: str) -> Violati
 def _name_findings(*, name: _Field | None, parent_dir: str, file: str) -> list[Violation]:
     """Validate the required ``name`` field against the spec and the directory."""
     if name is None:
-        return [_build_violation(
-            file=file,
-            rule="SKILL-001",
-            message="Required frontmatter key 'name' is missing",
-            fix="Add 'name: <skill-name>' matching the skill's directory name",
-        )]
+        return [
+            _build_violation(
+                file=file,
+                rule="SKILL-001",
+                message="Required frontmatter key 'name' is missing",
+                fix="Add 'name: <skill-name>' matching the skill's directory name",
+            ),
+        ]
     if name.kind == "empty":
-        return [_build_violation(
-            file=file,
-            rule="SKILL-001",
-            message="Frontmatter key 'name' is present but empty",
-            fix="Set name to the skill's directory name",
-        )]
+        return [
+            _build_violation(
+                file=file,
+                rule="SKILL-001",
+                message="Frontmatter key 'name' is present but empty",
+                fix="Set name to the skill's directory name",
+            ),
+        ]
     if name.kind != "scalar":
         return []  # block or map: unreadable as a name, SKILL-006 covers it
     value = name.value
     problems: list[tuple[str, str]] = []
     if len(value) > NAME_MAX:
-        problems.append((
-            f"name '{value}' is {len(value)} characters (max {NAME_MAX})",
-            "Shorten the name to 64 characters or fewer",
-        ))
+        problems.append(
+            (
+                f"name '{value}' is {len(value)} characters (max {NAME_MAX})",
+                "Shorten the name to 64 characters or fewer",
+            ),
+        )
     if not _NAME_CHARS_RE.match(value):
-        problems.append((
-            f"name '{value}' has characters other than lowercase letters, digits and hyphens",
-            "Use only a-z, 0-9 and hyphens",
-        ))
+        problems.append(
+            (
+                f"name '{value}' has characters other than lowercase letters, digits and hyphens",
+                "Use only a-z, 0-9 and hyphens",
+            ),
+        )
     elif value.startswith("-") or value.endswith("-"):
-        problems.append((
-            f"name '{value}' starts or ends with a hyphen",
-            "Remove the leading or trailing hyphen",
-        ))
+        problems.append(
+            (
+                f"name '{value}' starts or ends with a hyphen",
+                "Remove the leading or trailing hyphen",
+            ),
+        )
     elif "--" in value:
-        problems.append((
-            f"name '{value}' contains consecutive hyphens",
-            "Use single hyphens between segments",
-        ))
+        problems.append(
+            (
+                f"name '{value}' contains consecutive hyphens",
+                "Use single hyphens between segments",
+            ),
+        )
     if _NAME_RE.match(value) and value != parent_dir:
-        problems.append((
-            f"name '{value}' does not match its directory '{parent_dir}'",
-            f"Rename the directory to '{value}' or set name to '{parent_dir}'",
-        ))
-    return [_build_violation(file=file, rule="SKILL-001", message=message, fix=fix) for message, fix in problems]
+        problems.append(
+            (
+                f"name '{value}' does not match its directory '{parent_dir}'",
+                f"Rename the directory to '{value}' or set name to '{parent_dir}'",
+            ),
+        )
+    return [
+        _build_violation(file=file, rule="SKILL-001", message=message, fix=fix)
+        for message, fix in problems
+    ]
 
 
 def _check_description(*, description: _Field | None, file: str) -> list[Violation]:
     """Validate the required ``description`` field."""
     if description is None:
-        return [_build_violation(
-            file=file,
-            rule="SKILL-002",
-            message="Required frontmatter key 'description' is missing",
-            fix="Add a 'description' that says what the skill does and when to use it",
-        )]
+        return [
+            _build_violation(
+                file=file,
+                rule="SKILL-002",
+                message="Required frontmatter key 'description' is missing",
+                fix="Add a 'description' that says what the skill does and when to use it",
+            ),
+        ]
     if description.kind == "map":
         return []  # unreadable as text: SKILL-006 covers it
     text = description.value.strip()
     if not text:
-        return [_build_violation(
-            file=file,
-            rule="SKILL-002",
-            message="Frontmatter key 'description' is empty",
-            fix="Describe what the skill does and when to use it",
-        )]
+        return [
+            _build_violation(
+                file=file,
+                rule="SKILL-002",
+                message="Frontmatter key 'description' is empty",
+                fix="Describe what the skill does and when to use it",
+            ),
+        ]
     if len(text) > DESCRIPTION_MAX:
-        return [_build_violation(
-            file=file,
-            rule="SKILL-002",
-            message=f"description is {len(text)} characters (max {DESCRIPTION_MAX})",
-            fix="Shorten the description to 1024 characters or fewer",
-        )]
+        return [
+            _build_violation(
+                file=file,
+                rule="SKILL-002",
+                message=f"description is {len(text)} characters (max {DESCRIPTION_MAX})",
+                fix="Shorten the description to 1024 characters or fewer",
+            ),
+        ]
     return []
 
 
@@ -262,28 +285,34 @@ def _check_optional_fields(*, fields: dict[str, _Field], file: str) -> list[Viol
     compatibility = fields.get("compatibility")
     if compatibility is not None and compatibility.kind in ("scalar", "block"):
         if len(compatibility.value.strip()) > COMPATIBILITY_MAX:
-            found.append(_build_violation(
-                file=file,
-                rule="SKILL-003",
-                message=f"compatibility is over {COMPATIBILITY_MAX} characters",
-                fix="Shorten compatibility, or move detail into the body",
-            ))
+            found.append(
+                _build_violation(
+                    file=file,
+                    rule="SKILL-003",
+                    message=f"compatibility is over {COMPATIBILITY_MAX} characters",
+                    fix="Shorten compatibility, or move detail into the body",
+                ),
+            )
     metadata = fields.get("metadata")
     if metadata is not None and metadata.kind == "scalar" and metadata.value:
-        found.append(_build_violation(
-            file=file,
-            rule="SKILL-003",
-            message="metadata must be a map of string keys to string values, not a single value",
-            fix="Write metadata as indented 'key: value' pairs",
-        ))
+        found.append(
+            _build_violation(
+                file=file,
+                rule="SKILL-003",
+                message="metadata must be a map of string keys to string values, not a single value",
+                fix="Write metadata as indented 'key: value' pairs",
+            ),
+        )
     tools = fields.get("allowed-tools")
     if tools is not None and tools.kind == "map":
-        found.append(_build_violation(
-            file=file,
-            rule="SKILL-003",
-            message="allowed-tools must be a space-separated string, not a list or map",
-            fix="Write allowed-tools as a single string, e.g. 'Bash(git:*) Read'",
-        ))
+        found.append(
+            _build_violation(
+                file=file,
+                rule="SKILL-003",
+                message="allowed-tools must be a space-separated string, not a list or map",
+                fix="Write allowed-tools as a single string, e.g. 'Bash(git:*) Read'",
+            ),
+        )
     return found
 
 
@@ -292,33 +321,39 @@ def _check_uncertain_fields(*, fields: dict[str, _Field], file: str) -> list[Vio
     found: list[Violation] = []
     name = fields.get("name")
     if name is not None and name.kind in ("block", "map", "flow"):
-        found.append(_build_violation(
-            file=file,
-            rule="SKILL-006",
-            message="Frontmatter key 'name' could not be read as a simple value",
-            fix="Write name as a plain 'name: value' line so it can be validated",
-        ))
+        found.append(
+            _build_violation(
+                file=file,
+                rule="SKILL-006",
+                message="Frontmatter key 'name' could not be read as a simple value",
+                fix="Write name as a plain 'name: value' line so it can be validated",
+            ),
+        )
     description = fields.get("description")
     if description is not None and description.kind == "map":
-        found.append(_build_violation(
-            file=file,
-            rule="SKILL-006",
-            message="Frontmatter key 'description' could not be read as text",
-            fix="Write description as a plain or folded value",
-        ))
+        found.append(
+            _build_violation(
+                file=file,
+                rule="SKILL-006",
+                message="Frontmatter key 'description' could not be read as text",
+                fix="Write description as a plain or folded value",
+            ),
+        )
     return found
 
 
 def _check_body_size(*, body_lines: int, file: str) -> list[Violation]:
     if body_lines <= BODY_MAX_LINES:
         return []
-    return [Violation(
-        file=file,
-        line=1,
-        rule="SKILL-004",
-        message=f"SKILL.md body is {body_lines} lines (keep under {BODY_MAX_LINES})",
-        fix="Move detailed reference material into references/ files loaded on demand",
-    )]
+    return [
+        Violation(
+            file=file,
+            line=1,
+            rule="SKILL-004",
+            message=f"SKILL.md body is {body_lines} lines (keep under {BODY_MAX_LINES})",
+            fix="Move detailed reference material into references/ files loaded on demand",
+        ),
+    ]
 
 
 def _is_local_link(target: str) -> bool:
@@ -330,7 +365,13 @@ def _is_local_link(target: str) -> bool:
     return not re.match(r"^[a-z][a-z0-9+.-]*:", target, re.IGNORECASE)
 
 
-def _link_findings(*, body: list[str], body_offset: int, skill_dir: Path, file: str) -> list[Violation]:
+def _link_findings(
+    *,
+    body: list[str],
+    body_offset: int,
+    skill_dir: Path,
+    file: str,
+) -> list[Violation]:
     """Flag relative Markdown links whose target file does not exist."""
     found: list[Violation] = []
     fence: str | None = None
@@ -352,13 +393,15 @@ def _link_findings(*, body: list[str], body_offset: int, skill_dir: Path, file: 
                 continue
             path = target.strip().split()[0].strip("<>").split("#", 1)[0]
             if not (skill_dir / path).exists():
-                found.append(Violation(
-                    file=file,
-                    line=body_offset + offset,
-                    rule="SKILL-005",
-                    message=f"Markdown link target '{path}' does not exist",
-                    fix="Fix the path, or add the referenced file",
-                ))
+                found.append(
+                    Violation(
+                        file=file,
+                        line=body_offset + offset,
+                        rule="SKILL-005",
+                        message=f"Markdown link target '{path}' does not exist",
+                        fix="Fix the path, or add the referenced file",
+                    ),
+                )
     return found
 
 
@@ -378,7 +421,7 @@ class SkillsCheck:
             "SKILL-004: SKILL.md body kept under 500 lines",
             "SKILL-005: relative Markdown links resolve",
             "SKILL-006: frontmatter parses cleanly",
-        ]
+        ],
     )
     settings_keys: ClassVar[frozenset[str]] = frozenset({"enabled", "check_links"})
 
@@ -420,7 +463,11 @@ class SkillsCheck:
 
         fields = _parse_top_level(fm_lines)
         violations: list[Violation] = []
-        violations += _name_findings(name=fields.get("name"), parent_dir=path.parent.name, file=file)
+        violations += _name_findings(
+            name=fields.get("name"),
+            parent_dir=path.parent.name,
+            file=file,
+        )
         violations += _check_description(description=fields.get("description"), file=file)
         violations += _check_optional_fields(fields=fields, file=file)
 
@@ -429,7 +476,12 @@ class SkillsCheck:
         return violations, warnings
 
     def _collect_warnings(
-        self, *, text: str, fm_lines: list[str], path: Path, file: str
+        self,
+        *,
+        text: str,
+        fm_lines: list[str],
+        path: Path,
+        file: str,
     ) -> list[Violation]:
         """Advisory warnings: body size and relative-link resolution."""
         all_lines = _strip_bom(text).splitlines()
@@ -438,7 +490,10 @@ class SkillsCheck:
         warnings = _check_body_size(body_lines=len(body), file=file)
         if self.check_links:
             warnings += _link_findings(
-                body=body, body_offset=body_offset, skill_dir=path.parent, file=file
+                body=body,
+                body_offset=body_offset,
+                skill_dir=path.parent,
+                file=file,
             )
         return warnings
 
@@ -463,7 +518,6 @@ class SkillsCheck:
             warnings.extend(file_warnings)
 
         return CheckResult.from_findings(check=self.name, violations=violations, warnings=warnings)
-
 
 
 register(SkillsCheck())

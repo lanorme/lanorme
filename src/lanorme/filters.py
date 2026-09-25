@@ -52,19 +52,27 @@ def _keep(*, rule: str, select: list[str], ignore: list[str]) -> bool:
 
 
 def _apply_filters(
-    *, results: list[CheckResult], select: list[str], ignore: list[str]
+    *,
+    results: list[CheckResult],
+    select: list[str],
+    ignore: list[str],
 ) -> list[CheckResult]:
     """Drop violations/warnings whose rule code is deselected, recompute status."""
     if not select and not ignore:
         return results
     return [
-        result.filter_findings(lambda finding: _keep(rule=finding.rule, select=select, ignore=ignore))
+        result.filter_findings(
+            lambda finding: _keep(rule=finding.rule, select=select, ignore=ignore),
+        )
         for result in results
     ]
 
 
 def _apply_target_filter(
-    *, results: list[CheckResult], scan_root: Path, targets: list[Path] | None
+    *,
+    results: list[CheckResult],
+    scan_root: Path,
+    targets: list[Path] | None,
 ) -> list[CheckResult]:
     """Keep only findings for the explicitly requested files/dirs.
 
@@ -98,7 +106,9 @@ def _apply_excludes(*, results: list[CheckResult], exclude: list[str]) -> list[C
     if not exclude:
         return results
     return [
-        result.filter_findings(lambda finding: not _is_path_excluded(path=finding.file, patterns=exclude))
+        result.filter_findings(
+            lambda finding: not _is_path_excluded(path=finding.file, patterns=exclude),
+        )
         for result in results
     ]
 
@@ -114,20 +124,29 @@ def _is_silenced_per_file(*, file: str, rule: str, table: dict[str, list[str]]) 
 
 
 def _apply_per_file_ignores(
-    *, results: list[CheckResult], table: dict[str, list[str]]
+    *,
+    results: list[CheckResult],
+    table: dict[str, list[str]],
 ) -> list[CheckResult]:
     """Drop findings whose ``(file, rule)`` pair is silenced by the per-file-ignores table."""
     if not table:
         return results
     return [
         result.filter_findings(
-            lambda finding: not _is_silenced_per_file(file=finding.file, rule=finding.rule, table=table)
+            lambda finding: (
+                not _is_silenced_per_file(file=finding.file, rule=finding.rule, table=table)
+            ),
         )
         for result in results
     ]
 
 
-def note_excluded_targets(*, targets: list[Path] | None, project_root: Path, exclude: list[str]) -> None:
+def note_excluded_targets(
+    *,
+    targets: list[Path] | None,
+    project_root: Path,
+    exclude: list[str],
+) -> None:
     """Say so on stderr when every requested path falls under an exclude glob.
 
     A file target inside an excluded tree otherwise reports a clean run with
@@ -142,26 +161,28 @@ def note_excluded_targets(*, targets: list[Path] | None, project_root: Path, exc
         except ValueError:
             return
         covered = _is_path_excluded(path=relative, patterns=exclude) or _is_path_excluded(
-            path=relative + "/", patterns=exclude
+            path=relative + "/",
+            patterns=exclude,
         )
         if not covered:
             return
     logger.warning(
         "every requested path matches an exclude glob, so nothing was checked. "
-        "Pass --exclude with another glob to override the configured excludes for one run."
+        "Pass --exclude with another glob to override the configured excludes for one run.",
     )
 
 
 # --------------------------------------------------------------------------- #
-# Inline suppression: ``# noqa`` and ``# lanorme: ignore[...]``
+# Inline suppression: the ``noqa`` and ``lanorme: ignore[...]`` comments
 # --------------------------------------------------------------------------- #
 
 _NOQA_RE = re.compile(r"#\s*noqa(?:\s*:\s*([A-Za-z0-9_,\-\s]+))?", re.IGNORECASE)
 # A LaNorme-native directive ruff and other linters never read, so a project
-# running both can silence a finding without ruff reporting an invalid `# noqa`
+# running both can silence a finding without ruff reporting an invalid `noqa`
 # (ruff's parser cannot tokenise the hyphen in our codes, e.g. ``TYPE-001``).
 _IGNORE_RE = re.compile(
-    r"#\s*lanorme\s*:\s*ignore(?:\s*\[([A-Za-z0-9_,\-\s]+)\])?", re.IGNORECASE
+    r"#\s*lanorme\s*:\s*ignore(?:\s*\[([A-Za-z0-9_,\-\s]+)\])?",
+    re.IGNORECASE,
 )
 
 
@@ -191,8 +212,14 @@ def _is_silenced_inline(*, line: str, rule: str) -> bool:
     """True if a ``# noqa`` or ``# lanorme: ignore`` on *line* covers *rule*."""
     if _extract_category(extract_code(rule)) in _UNSUPPRESSABLE:
         return False
-    return _is_silenced_by_directive(pattern=_NOQA_RE, line=line, rule=rule) or _is_silenced_by_directive(
-        pattern=_IGNORE_RE, line=line, rule=rule
+    return _is_silenced_by_directive(
+        pattern=_NOQA_RE,
+        line=line,
+        rule=rule,
+    ) or _is_silenced_by_directive(
+        pattern=_IGNORE_RE,
+        line=line,
+        rule=rule,
     )
 
 
@@ -218,7 +245,10 @@ def _apply_inline_ignores(*, results: list[CheckResult], project_root: Path) -> 
 
     def should_keep(violation: Violation) -> bool:
         line = _read_line(
-            project_root=project_root, file=violation.file, line=violation.line, cache=cache
+            project_root=project_root,
+            file=violation.file,
+            line=violation.line,
+            cache=cache,
         )
         return not _is_silenced_inline(line=line, rule=violation.rule)
 
@@ -257,7 +287,9 @@ def _apply_promotions(*, results: list[CheckResult], promote: list[str]) -> list
                 kept.append(warning)
         promoted_results.append(
             CheckResult.from_findings(
-                check=result.check, violations=[*result.violations, *escalated], warnings=kept
-            )
+                check=result.check,
+                violations=[*result.violations, *escalated],
+                warnings=kept,
+            ),
         )
     return promoted_results

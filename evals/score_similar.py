@@ -76,8 +76,13 @@ def score() -> dict:
     return {
         "rule": RULE,
         "corpus": _CORPUS.relative_to(_REPO_ROOT).as_posix(),
-        "tp": tp, "fp": fp, "fn": fn, "tn": tn,
-        "precision": precision, "recall": recall, "f1": f1,
+        "tp": tp,
+        "fp": fp,
+        "fn": fn,
+        "tn": tn,
+        "precision": precision,
+        "recall": recall,
+        "f1": f1,
     }
 
 

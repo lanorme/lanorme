@@ -172,7 +172,7 @@ def _collect_result_violations(*, check_name: str, result: CheckResult) -> list[
     for source, findings in (("violation", result.violations), ("warning", result.warnings)):
         for finding in findings:
             found.extend(
-                _validate_violation_fields(check_name=check_name, violation=finding, source=source)
+                _validate_violation_fields(check_name=check_name, violation=finding, source=source),
             )
     return found
 

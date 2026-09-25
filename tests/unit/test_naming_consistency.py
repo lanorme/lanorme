@@ -44,10 +44,7 @@ def test_naming003_flags_get_handler_without_get_or_list_prefix(tmp_path: Path):
         root=tmp_path,
         rel="api/v1/endpoints/users.py",
         body=(
-            "router = object()\n"
-            '@router.get("/users")\n'
-            "async def fetch_users():\n"
-            "    return []\n"
+            'router = object()\n@router.get("/users")\nasync def fetch_users():\n    return []\n'
         ),
     )
     check = NamingConsistencyCheck()
@@ -100,12 +97,7 @@ def test_naming003_bare_decorator_attribute_does_not_fire(tmp_path: Path):
     _write(
         root=tmp_path,
         rel="api/v1/endpoints/bare.py",
-        body=(
-            "router = object()\n"
-            "@router.get\n"
-            "async def fetch_bare():\n"
-            "    return []\n"
-        ),
+        body=("router = object()\n@router.get\nasync def fetch_bare():\n    return []\n"),
     )
     check = NamingConsistencyCheck()
 
@@ -122,12 +114,7 @@ def test_naming003_ignored_for_files_outside_endpoint_dir(tmp_path: Path):
     _write(
         root=tmp_path,
         rel="services/handlers.py",
-        body=(
-            "router = object()\n"
-            '@router.get("/x")\n'
-            "async def fetch_x():\n"
-            "    return []\n"
-        ),
+        body=('router = object()\n@router.get("/x")\nasync def fetch_x():\n    return []\n'),
     )
     check = NamingConsistencyCheck()
 

@@ -32,14 +32,22 @@ FUNCTION_TYPES = (ast.FunctionDef, ast.AsyncFunctionDef)
 # function to a framework (a route, a fixture, a property, a signal, a CLI
 # command) that reads the name as a contract.
 TRANSPARENT_DECORATORS: frozenset[str] = frozenset(
-    {"staticmethod", "classmethod", "abstractmethod", "override", "final"}
+    {"staticmethod", "classmethod", "abstractmethod", "override", "final"},
 )
 
 # Generated migration trees carry names the tool chose.
 _SKIP_DIRS = frozenset({"alembic", "migrations"})
 
 _BLOCKS = (
-    ast.If, ast.For, ast.AsyncFor, ast.While, ast.Try, ast.TryStar, ast.With, ast.AsyncWith, ast.Match,
+    ast.If,
+    ast.For,
+    ast.AsyncFor,
+    ast.While,
+    ast.Try,
+    ast.TryStar,
+    ast.With,
+    ast.AsyncWith,
+    ast.Match,
 )
 
 
@@ -154,7 +162,8 @@ def has_return_value(*, node: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
 def _list_real_statements(*, node: ast.FunctionDef | ast.AsyncFunctionDef) -> list[ast.stmt]:
     """The body minus its docstring and bare constants (``...``)."""
     return [
-        statement for statement in node.body
+        statement
+        for statement in node.body
         if not (isinstance(statement, ast.Expr) and isinstance(statement.value, ast.Constant))
     ]
 
@@ -209,7 +218,9 @@ def is_framework_named(*, definition: Definition) -> bool:
         return True
     if definition.is_method and definition.name.lstrip("_") in PROTOCOL_NAMES:
         return True
-    return isinstance(definition.node, FUNCTION_TYPES) and has_opaque_decorator(node=definition.node)
+    return isinstance(definition.node, FUNCTION_TYPES) and has_opaque_decorator(
+        node=definition.node,
+    )
 
 
 def name_setting(*, settings: dict[str, bool | list[str]], key: str) -> list[str] | None:

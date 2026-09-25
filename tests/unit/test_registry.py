@@ -64,7 +64,11 @@ def test_get_check_returns_none_for_unknown_name():
 def test_violation_to_dict_round_trips_through_check_result():
     # Arrange
     violation = Violation(
-        file="a.py", line=42, rule="STUB-001", message="m", fix="f"
+        file="a.py",
+        line=42,
+        rule="STUB-001",
+        message="m",
+        fix="f",
     )
     result = CheckResult(check="stub", status=Status.FAIL, violations=[violation])
 

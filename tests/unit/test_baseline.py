@@ -160,7 +160,12 @@ def test_count_budget_never_suppresses_one_more_than_recorded():
         v
         for v in findings
         if not bl._is_suppressed(
-            index=index, consumed=consumed, project_root=root, finding=v, tier="error", cache={}
+            index=index,
+            consumed=consumed,
+            project_root=root,
+            finding=v,
+            tier="error",
+            cache={},
         )
     ]
 
@@ -180,7 +185,12 @@ def test_error_entry_suppresses_its_improved_warning_form():
 
     # Act: the finding reappears as a warning (improved tier).
     suppressed = bl._is_suppressed(
-        index=index, consumed={}, project_root=root, finding=finding, tier="warning", cache={}
+        index=index,
+        consumed={},
+        project_root=root,
+        finding=finding,
+        tier="warning",
+        cache={},
     )
 
     # Assert: a recorded error still covers its improved warning form.
@@ -328,7 +338,9 @@ def test_same_tier_file_size_growth_stays_suppressed(tmp_path: Path):
     # Arrange: a SIZE-001 warning baselined, then the file grows but stays in the
     # same warning tier (its message line-count changes, the tier does not).
     root = _project(
-        tmp_path, {"big.py": "".join(f"v{i} = {i}\n" for i in range(330))}, config=_BASELINE_CONFIG
+        tmp_path,
+        {"big.py": "".join(f"v{i} = {i}\n" for i in range(330))},
+        config=_BASELINE_CONFIG,
     )
     _run(["baseline", "write", str(root)])
     (root / "big.py").write_text("".join(f"v{i} = {i}\n" for i in range(360)), encoding="utf-8")
@@ -352,7 +364,12 @@ def test_warning_entry_never_suppresses_an_error_finding():
 
     # Act: the finding reappears as an error (escalated tier).
     suppressed = bl._is_suppressed(
-        index=index, consumed={}, project_root=root, finding=finding, tier="error", cache={}
+        index=index,
+        consumed={},
+        project_root=root,
+        finding=finding,
+        tier="error",
+        cache={},
     )
 
     # Assert: the severity gate refuses to let a warning hide an error.
@@ -363,7 +380,8 @@ def test_malformed_baseline_entry_exits_two(tmp_path: Path):
     # Arrange: valid JSON, valid version, but an entry missing a required key.
     root = _project(tmp_path, {"a.py": _EVAL}, config=_BASELINE_CONFIG)
     (root / "lanorme-baseline.json").write_text(
-        '{"version": 1, "entries": [{"code": "EVAL-001", "anchor": "sha:x"}]}', encoding="utf-8"
+        '{"version": 1, "entries": [{"code": "EVAL-001", "anchor": "sha:x"}]}',
+        encoding="utf-8",
     )
 
     # Act.

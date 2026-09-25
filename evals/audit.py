@@ -250,8 +250,7 @@ def _print_summary(*, report: Report, output: Path, perf_enabled: bool) -> None:
             print(f"{rule}: ERROR {record['error']}")
             continue
         print(
-            f"{rule}: P={record['precision']:.3f} "
-            f"R={record['recall']:.3f} F1={record['f1']:.3f}"
+            f"{rule}: P={record['precision']:.3f} R={record['recall']:.3f} F1={record['f1']:.3f}",
         )
     perf = report["performance"]
     if not perf_enabled:
@@ -269,8 +268,7 @@ def _parse_args(*, argv: list[str]) -> argparse.Namespace:
         prog="audit.py",
         description="Record a per-release benchmark audit JSON.",
         epilog=(
-            "exit codes: 0 success; 1 a scorer reported a stale corpus or "
-            "error; 2 usage error."
+            "exit codes: 0 success; 1 a scorer reported a stale corpus or error; 2 usage error."
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )

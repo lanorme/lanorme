@@ -60,7 +60,7 @@ VERB_EXEMPT_ENDPOINTS = frozenset(
         "health_check",
         "ready",
         "readiness_check",
-    }
+    },
 )
 
 # Boolean-appropriate prefixes (NAMING-004).
@@ -345,7 +345,10 @@ class NamingConsistencyCheck:
             relative_file = module.relative
 
             # NAMING-001: Repository method naming (opt-in; conflicts with DDD ubiquitous-language).
-            if self.repo_crud and _file_is_under(relative_path=relative_file, directories=REPO_DIRS):
+            if self.repo_crud and _file_is_under(
+                relative_path=relative_file,
+                directories=REPO_DIRS,
+            ):
                 violations.extend(
                     _check_repo_and_service_naming(
                         module=module,
@@ -355,7 +358,10 @@ class NamingConsistencyCheck:
                 )
 
             # NAMING-002: Service method naming (opt-in; conflicts with DDD ubiquitous-language).
-            if self.service_crud and _file_is_under(relative_path=relative_file, directories=SERVICE_DIRS):
+            if self.service_crud and _file_is_under(
+                relative_path=relative_file,
+                directories=SERVICE_DIRS,
+            ):
                 violations.extend(
                     _check_repo_and_service_naming(
                         module=module,

@@ -48,7 +48,12 @@ def read_str(*, settings: Settings, key: str, default: str) -> str:
     return value
 
 
-def read_str_list(*, settings: Settings, key: str, default: tuple[str, ...] = ()) -> tuple[str, ...]:
+def read_str_list(
+    *,
+    settings: Settings,
+    key: str,
+    default: tuple[str, ...] = (),
+) -> tuple[str, ...]:
     """A list of strings; a bare string is refused so it is never iterated by character."""
     value = settings.get(key, default)
     if isinstance(value, tuple):
@@ -56,6 +61,7 @@ def read_str_list(*, settings: Settings, key: str, default: tuple[str, ...] = ()
     if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
         raise _reject(key=key, expected="a list of strings", value=value)
     return tuple(value)
+
 
 # Top-level ``source_root`` is injected into these layout-aware checks only;
 # every other check scans the full target tree.
@@ -81,7 +87,12 @@ def _find_offending_key(*, check: ConfigurableCheck, settings: dict[str, object]
     return None
 
 
-def _reject_unknown_keys(*, check: ConfigurableCheck, name: str, settings: dict[str, object]) -> None:
+def _reject_unknown_keys(
+    *,
+    check: ConfigurableCheck,
+    name: str,
+    settings: dict[str, object],
+) -> None:
     """Refuse a table that names a key the check does not declare.
 
     A check that declares ``settings_keys`` (the TOML keys its ``configure()``
@@ -98,7 +109,7 @@ def _reject_unknown_keys(*, check: ConfigurableCheck, name: str, settings: dict[
     listed = ", ".join(repr(key) for key in unknown)
     raise UsageError(
         f"unknown key in [tool.lanorme.{name}]: {listed}.\n"
-        f"  Keys this check reads: {', '.join(sorted(declared))}."
+        f"  Keys this check reads: {', '.join(sorted(declared))}.",
     )
 
 
@@ -119,7 +130,7 @@ def _configure_or_fail(*, check: ConfigurableCheck, name: str, settings: dict[st
         raise UsageError(
             f"invalid value for {location}: {error}\n"
             f"  Run 'lanorme check . --show-config' to see the effective settings "
-            f"for every check."
+            f"for every check.",
         ) from error
 
 

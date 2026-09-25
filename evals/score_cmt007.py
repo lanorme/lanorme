@@ -37,8 +37,11 @@ def score() -> dict:
     Raises ValueError if the corpus is stale: a finding on a definition that
     labels.json does not cover, naming the offending file:line.
     """
-    labels = {k: v for k, v in json.loads((CORPUS / "labels.json").read_text()).items()
-              if not k.startswith("_")}
+    labels = {
+        k: v
+        for k, v in json.loads((CORPUS / "labels.json").read_text()).items()
+        if not k.startswith("_")
+    }
     flagged = _findings()
 
     unknown = sorted(flagged - labels.keys())
@@ -54,14 +57,22 @@ def score() -> dict:
     recall = tp / (tp + fn) if tp + fn else 0.0
     f1 = 2 * precision * recall / (precision + recall) if precision + recall else 0.0
     return {
-        "rule": RULE, "corpus": CORPUS.name,
-        "tp": tp, "fp": fp, "fn": fn, "tn": tn,
-        "precision": round(precision, 3), "recall": round(recall, 3), "f1": round(f1, 3),
+        "rule": RULE,
+        "corpus": CORPUS.name,
+        "tp": tp,
+        "fp": fp,
+        "fn": fn,
+        "tn": tn,
+        "precision": round(precision, 3),
+        "recall": round(recall, 3),
+        "f1": round(f1, 3),
     }
 
 
 if __name__ == "__main__":
     report = score()
-    print(f"{RULE} on {report['corpus']}: "
-          f"P = {report['precision']:.3f} / R = {report['recall']:.3f} / F1 = {report['f1']:.3f}")
+    print(
+        f"{RULE} on {report['corpus']}: "
+        f"P = {report['precision']:.3f} / R = {report['recall']:.3f} / F1 = {report['f1']:.3f}",
+    )
     print(f"  TP = {report['tp']}, FP = {report['fp']}, FN = {report['fn']}, TN = {report['tn']}")

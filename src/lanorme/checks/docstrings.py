@@ -59,14 +59,60 @@ _SKIP_DIRS = frozenset({"alembic", "migrations"})
 
 # Words carrying no information about what a definition does, beyond the
 # grammar needed to make a sentence of the name.
-_FILLER = frozenset({
-    "return", "returns", "get", "gets", "set", "sets", "the", "a", "an", "to",
-    "of", "and", "or", "for", "in", "on", "is", "be", "this", "that", "it",
-    "with", "by", "as", "at", "from", "into", "are", "was", "were", "its",
-    "given", "value", "values", "object", "objects", "function", "method",
-    "class", "helper", "wrapper", "handle", "handles", "do", "does", "perform",
-    "performs", "simple", "new", "one",
-})
+_FILLER = frozenset(
+    {
+        "return",
+        "returns",
+        "get",
+        "gets",
+        "set",
+        "sets",
+        "the",
+        "a",
+        "an",
+        "to",
+        "of",
+        "and",
+        "or",
+        "for",
+        "in",
+        "on",
+        "is",
+        "be",
+        "this",
+        "that",
+        "it",
+        "with",
+        "by",
+        "as",
+        "at",
+        "from",
+        "into",
+        "are",
+        "was",
+        "were",
+        "its",
+        "given",
+        "value",
+        "values",
+        "object",
+        "objects",
+        "function",
+        "method",
+        "class",
+        "helper",
+        "wrapper",
+        "handle",
+        "handles",
+        "do",
+        "does",
+        "perform",
+        "performs",
+        "simple",
+        "new",
+        "one",
+    },
+)
 
 _DEF_TYPES = (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)
 
@@ -138,7 +184,9 @@ def _is_vacuous(*, doc: str, node: ast.AST, owner: str = "") -> bool:
         return True
     if _is_allowlisted(text=text, low=text.lower()):
         return False
-    signature = _collect_signature_stems(node=node) | {_strip_suffix(word=w) for w in _split_identifier(name=owner)}
+    signature = _collect_signature_stems(node=node) | {
+        _strip_suffix(word=w) for w in _split_identifier(name=owner)
+    }
     return all(_covers(signature=signature, word=word) for word in content)
 
 
@@ -171,7 +219,12 @@ def _map_owners(*, module: Module) -> dict[int, str]:
     return owned
 
 
-def _find_definition_violations(*, module: Module, min_lines: int, require_private: bool) -> list[Violation]:
+def _find_definition_violations(
+    *,
+    module: Module,
+    min_lines: int,
+    require_private: bool,
+) -> list[Violation]:
     """Check every in-scope definition in one module for CMT-006 and CMT-007."""
     violations: list[Violation] = []
     file = module.relative
@@ -181,23 +234,27 @@ def _find_definition_violations(*, module: Module, min_lines: int, require_priva
             continue
         doc = ast.get_docstring(node)
         if doc is None:
-            violations.append(Violation(
-                file=file,
-                line=node.lineno,
-                rule="CMT-006: Public definitions past the size floor need a docstring",
-                message=f"{_describe_node(node=node)} '{node.name}' has no docstring",
-                fix="Say what it is for, or what a caller needs to know that the signature does not show",
-                **locate(node),
-            ))
+            violations.append(
+                Violation(
+                    file=file,
+                    line=node.lineno,
+                    rule="CMT-006: Public definitions past the size floor need a docstring",
+                    message=f"{_describe_node(node=node)} '{node.name}' has no docstring",
+                    fix="Say what it is for, or what a caller needs to know that the signature does not show",
+                    **locate(node),
+                ),
+            )
         elif _is_vacuous(doc=doc, node=node, owner=owned.get(id(node), "")):
-            violations.append(Violation(
-                file=file,
-                line=node.lineno,
-                rule="CMT-007: A docstring must say more than the signature",
-                message=f"Docstring of '{node.name}' only restates its name and parameters",
-                fix="Add what the signature cannot show: the why, a caveat, a unit, or a reference",
-                **locate(node),
-            ))
+            violations.append(
+                Violation(
+                    file=file,
+                    line=node.lineno,
+                    rule="CMT-007: A docstring must say more than the signature",
+                    message=f"Docstring of '{node.name}' only restates its name and parameters",
+                    fix="Add what the signature cannot show: the why, a caveat, a unit, or a reference",
+                    **locate(node),
+                ),
+            )
     return violations
 
 
@@ -214,7 +271,7 @@ class DocstringsCheck:
         default_factory=lambda: [
             "CMT-006: Public definitions past the size floor need a docstring",
             "CMT-007: A docstring must say more than the signature",
-        ]
+        ],
     )
     settings_keys: ClassVar[frozenset[str]] = frozenset({"enabled", "min_lines", "require_private"})
 
@@ -223,7 +280,9 @@ class DocstringsCheck:
         self.enabled = is_flag_set(settings=settings, key="enabled", default=self.enabled)
         self.min_lines = read_int(settings=settings, key="min_lines", default=self.min_lines)
         self.require_private = is_flag_set(
-            settings=settings, key="require_private", default=self.require_private
+            settings=settings,
+            key="require_private",
+            default=self.require_private,
         )
 
     def run(self, *, src_root: str) -> CheckResult:
@@ -235,15 +294,20 @@ class DocstringsCheck:
             # Match skip directories inside the root only: the absolute path's
             # ancestors are the user's filesystem, not the project layout.
             name = module.path.name
-            if any(part in _SKIP_DIRS for part in module.relative.split("/")) or name in _SKIP_FILES:
+            if (
+                any(part in _SKIP_DIRS for part in module.relative.split("/"))
+                or name in _SKIP_FILES
+            ):
                 continue
             if name.startswith("test_"):
                 continue
-            violations.extend(_find_definition_violations(
-                module=module,
-                min_lines=self.min_lines,
-                require_private=self.require_private,
-            ))
+            violations.extend(
+                _find_definition_violations(
+                    module=module,
+                    min_lines=self.min_lines,
+                    require_private=self.require_private,
+                ),
+            )
         return CheckResult.from_findings(check=self.name, violations=violations)
 
 

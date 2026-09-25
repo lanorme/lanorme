@@ -170,7 +170,11 @@ def _extract_top_level_class_names(*, tree: ast.AST) -> list[str]:
     return [node.name for node in ast.iter_child_nodes(tree) if isinstance(node, ast.ClassDef)]
 
 
-def _imports_from_ports(*, import_modules: list[tuple[str, _ImportNode]], ports_dotted: str) -> bool:
+def _imports_from_ports(
+    *,
+    import_modules: list[tuple[str, _ImportNode]],
+    ports_dotted: str,
+) -> bool:
     """True if any import comes from the ports package (``application.ports`` by default)."""
     return any(ports_dotted in module for module, _node in import_modules)
 
@@ -291,7 +295,7 @@ def _check_port001(
                     f"Import and implement the corresponding Protocol from {ports_dir}/, "
                     "or add the file to skip_files if it is a pure utility"
                 ),
-            )
+            ),
         )
     return violations
 
@@ -309,7 +313,10 @@ def _check_port002(
             stem = _extract_port_module_stem(module=module, ports_parts=ports_parts)
             if stem is not None:
                 referenced_port_stems.add(stem)
-        referenced_port_stems |= _collect_ports_package_import_stems(parsed=parsed, ports_parts=ports_parts)
+        referenced_port_stems |= _collect_ports_package_import_stems(
+            parsed=parsed,
+            ports_parts=ports_parts,
+        )
 
     violations: list[Violation] = []
     for proto_name, (relative_file, node, port_stem) in sorted(port_protocols.items()):
@@ -329,7 +336,7 @@ def _check_port002(
                     "or add the port file to ports_without_impl"
                 ),
                 **locate(node),
-            )
+            ),
         )
     return violations
 
@@ -382,7 +389,7 @@ def _find_instantiation_violations(
                     message=f"'{call_name}(...)' instantiated directly — use dependency injection",
                     fix="Move the construction to the composition root and inject it",
                     **locate(call),
-                )
+                ),
             )
     # Module-attribute form: ``from ...services import redis_registry`` then
     # ``redis_registry.RedisRegistry()``, where the receiver is an adapter module.
@@ -396,7 +403,7 @@ def _find_instantiation_violations(
                     message=f"'{value_name}.{attr}(...)' instantiated directly — use dependency injection",
                     fix="Move the construction to the composition root and inject it",
                     **locate(call),
-                )
+                ),
             )
     return found
 
@@ -428,7 +435,9 @@ def _check_port003(
             continue
 
         import_modules = _extract_import_modules(parsed=parsed)
-        if not any(dotted in module for module, _node in import_modules for dotted in adapter_dotted):
+        if not any(
+            dotted in module for module, _node in import_modules for dotted in adapter_dotted
+        ):
             continue
 
         imported_infra = _extract_imported_names(parsed=parsed) & infra_class_names
@@ -473,7 +482,7 @@ class PortCoverageCheck:
             "composition_root",
             "skip_files",
             "ports_without_impl",
-        }
+        },
     )
 
     name: str = "port_coverage"
@@ -485,7 +494,7 @@ class PortCoverageCheck:
     composition_root: tuple[str, ...] = DEFAULT_COMPOSITION_ROOT
     skip_files: frozenset[str] = field(default_factory=lambda: frozenset(INFRA_SERVICE_SKIP_FILES))
     ports_without_impl: frozenset[str] = field(
-        default_factory=lambda: frozenset(PORT_FILES_WITHOUT_SERVICE_IMPL)
+        default_factory=lambda: frozenset(PORT_FILES_WITHOUT_SERVICE_IMPL),
     )
     rules: list[str] = field(
         default_factory=lambda: [
@@ -497,7 +506,9 @@ class PortCoverageCheck:
 
     def configure(self, *, settings: dict[str, object]) -> None:
         """Apply ``[tool.lanorme.port_coverage]`` configuration."""
-        self.source_root = _normalise_posix_dir(read_str(settings=settings, key="source_root", default=self.source_root))
+        self.source_root = _normalise_posix_dir(
+            read_str(settings=settings, key="source_root", default=self.source_root),
+        )
         ports_dir = read_str(settings=settings, key="ports_dir", default="")
         if ports_dir:
             self.ports_dir = _normalise_posix_dir(ports_dir)
@@ -507,7 +518,11 @@ class PortCoverageCheck:
                 setattr(self, key, value)
         for key in ("skip_files", "ports_without_impl"):
             current = tuple(getattr(self, key))
-            setattr(self, key, frozenset(read_str_list(settings=settings, key=key, default=current)))
+            setattr(
+                self,
+                key,
+                frozenset(read_str_list(settings=settings, key=key, default=current)),
+            )
 
     def run(self, *, src_root: str) -> CheckResult:
         """Scan ports and adapters and validate coverage."""
@@ -535,12 +550,18 @@ class PortCoverageCheck:
         )
 
         violations.extend(
-            _check_port001(adapter_files=adapter_files, ports_dotted=ports_dotted, ports_dir=self.ports_dir)
+            _check_port001(
+                adapter_files=adapter_files,
+                ports_dotted=ports_dotted,
+                ports_dir=self.ports_dir,
+            ),
         )
         violations.extend(
             _check_port002(
-                port_protocols=port_protocols, adapter_files=adapter_files, ports_parts=ports_parts
-            )
+                port_protocols=port_protocols,
+                adapter_files=adapter_files,
+                ports_parts=ports_parts,
+            ),
         )
 
         infra_class_names: set[str] = set()
@@ -554,7 +575,7 @@ class PortCoverageCheck:
                 infra_class_names=infra_class_names,
                 adapter_dotted=adapter_dotted,
                 composition_root=self.composition_root,
-            )
+            ),
         )
 
         return CheckResult.from_findings(check=self.name, violations=violations)

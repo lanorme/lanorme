@@ -73,6 +73,7 @@ def _should_skip(*, relative: Path) -> bool:
         return True
     return any(part in _EXCLUDED_DIR_PARTS for part in relative.parts)
 
+
 # Defaults. Each function body must clear this floor (mirrors DRY-001) so short
 # coincidental matches cannot fire.
 DEFAULT_MIN_STATEMENTS = 5
@@ -204,7 +205,7 @@ class _StructVisitor(ast.NodeVisitor):
 # not meaning-bearing content. Their drift (a reworded log line) must not block
 # a real clone, so these string arguments are excluded from the ``strs`` anchor.
 _LOG_METHODS = frozenset(
-    {"debug", "info", "warning", "warn", "error", "exception", "critical", "log"}
+    {"debug", "info", "warning", "warn", "error", "exception", "critical", "log"},
 )
 
 
@@ -246,7 +247,8 @@ def _call_name(node: ast.Call) -> str | None:
 
 
 def _build_anchors(
-    *, func: _FuncDef
+    *,
+    func: _FuncDef,
 ) -> tuple[Counter[str], Counter[str], Counter[str], Counter[str]]:
     """Return (calls, strs, ops, attrs) multisets over the whole function body.
 
@@ -399,7 +401,11 @@ def _pair_matches(
     # no attributes are not punished; the gate only rejects pairs whose
     # attribute sets are (near) disjoint, i.e. parallel mappers over different
     # source objects.
-    attr_jaccard = _measure_weighted_jaccard(left=left.attrs, right=right.attrs, empty_is_agreement=True)
+    attr_jaccard = _measure_weighted_jaccard(
+        left=left.attrs,
+        right=right.attrs,
+        empty_is_agreement=True,
+    )
     if attr_jaccard < thresholds.attr_jaccard:
         return False
     matcher = difflib.SequenceMatcher(None, left.struct, right.struct)
@@ -443,7 +449,7 @@ def _scan_file(
                     ),
                     fix="Extract the shared logic into a common helper function",
                     **locate(first.node),
-                )
+                ),
             )
     return warnings
 
@@ -467,7 +473,7 @@ class SimilarityCheck:
             "after abstracting variable names, attribute names and numbers) and agree on "
             "their string literals, called names and operators, so they should likely "
             "share a helper (advisory; default-off)",
-        ]
+        ],
     )
     settings_keys: ClassVar[frozenset[str]] = frozenset(
         {"enabled", "min_statements", *_THRESHOLD_KEYS},
@@ -512,12 +518,11 @@ class SimilarityCheck:
                         module=module,
                         min_statements=self.min_statements,
                         thresholds=thresholds,
-                    )
+                    ),
                 )
             except RecursionError:
                 continue
         return CheckResult.from_findings(check=self.name, warnings=warnings)
-
 
 
 # Self-register on import.
