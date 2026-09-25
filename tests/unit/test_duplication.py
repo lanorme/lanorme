@@ -159,6 +159,81 @@ def test_renamed_variables_around_the_same_callee_still_clone(tmp_path: Path):
     assert all(v.rule.startswith("DRY-001") for v in result.violations)
 
 
+_LOCAL_CALLEE_BODY = (
+    "def {name}(values, {callee}):\n"
+    "    picked = {callee}(values)\n"
+    "    picked = {callee}(picked, 1)\n"
+    "    result = picked * 2\n"
+    "    result = result + 1\n"
+    "    return result\n"
+)
+
+
+def test_renamed_local_callee_still_clones(tmp_path: Path):
+    # Arrange: the callee is a parameter, named differently on each side.
+    _write_pair(
+        tmp_path,
+        first=_LOCAL_CALLEE_BODY.format(name="reduce_a", callee="pick"),
+        second=_LOCAL_CALLEE_BODY.format(name="reduce_b", callee="choose"),
+    )
+
+    # Act.
+    result = DuplicationCheck().run(src_root=str(tmp_path))
+
+    # Assert: a call through a parameter is data, so the pair is a clone.
+    assert [(v.file, v.line) for v in result.violations] == [("a.py", 1), ("b.py", 1)]
+
+
+def test_imported_callees_stay_literal(tmp_path: Path):
+    # Arrange: the same skeleton calling two different imported functions.
+    _write_pair(
+        tmp_path,
+        first="from statistics import mean\n\n"
+        + _CALLEE_BODY.format(name="centre_a", callee="mean"),
+        second="from statistics import median\n\n"
+        + _CALLEE_BODY.format(name="centre_b", callee="median"),
+    )
+
+    # Act.
+    result = DuplicationCheck().run(src_root=str(tmp_path))
+
+    # Assert: an imported name is a fixed operation, kept literal.
+    assert result.status == Status.PASS
+    assert not result.violations
+
+
+_SHADOWED_BODY = (
+    "def {name}(values, {param}):\n"
+    "    sorter = lambda {lambda_arg}: {lambda_arg}\n"
+    "    picked = {callee}(values)\n"
+    "    picked = {callee}(picked, 1)\n"
+    "    result = picked * 2\n"
+    "    return sorter(result)\n"
+)
+
+
+def test_lambda_parameter_does_not_make_a_builtin_callee_local(tmp_path: Path):
+    # Arrange: one function calls its parameter, the other calls the builtin
+    # ``len``; each has a lambda whose own parameter is named like its callee.
+    _write_pair(
+        tmp_path,
+        first=_SHADOWED_BODY.format(name="apply", param="fn", lambda_arg="fn", callee="fn"),
+        second=_SHADOWED_BODY.format(
+            name="count_all",
+            param="unused",
+            lambda_arg="len",
+            callee="len",
+        ),
+    )
+
+    # Act.
+    result = DuplicationCheck().run(src_root=str(tmp_path))
+
+    # Assert: the lambda's scope is its own, so ``len`` stays the builtin.
+    assert result.status == Status.PASS
+    assert not result.violations
+
+
 _FOUR_WITH_DOCSTRING = (
     "def {name}(a, b):\n"
     '    """{doc}"""\n'

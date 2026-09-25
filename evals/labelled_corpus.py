@@ -59,7 +59,7 @@ class FileEntry(TypedDict, total=False):
     labelled_before_rule: bool | str
     added_in: str
     seed: str
-    flag: bool
+    flag: bool | dict[str, bool]
     note: str
     labels: list[SiteLabel]
 
@@ -190,15 +190,21 @@ def find_corpus_files(*, corpus: Path) -> list[str]:
     return sorted(found)
 
 
-def build_expected(*, document: LabelsDocument) -> dict[Site, bool]:
-    """Map every labelled site to whether the rule should flag it."""
+def read_file_flag(*, entry: FileEntry, rule: str) -> bool:
+    """A file-unit entry's label for *rule*: one flag, or one per rule when they differ."""
+    flag = entry["flag"]
+    return bool(flag[rule]) if isinstance(flag, dict) else bool(flag)
+
+
+def build_expected(*, document: LabelsDocument, rule: str) -> dict[Site, bool]:
+    """Map every labelled site to whether *rule* should flag it."""
     expected: dict[Site, bool] = {}
     for path, entry in document["files"].items():
         if "labels" in entry:
             for label in entry["labels"]:
                 expected[(path, int(label["line"]))] = bool(label["flag"])
         else:
-            expected[(path, 0)] = bool(entry["flag"])
+            expected[(path, 0)] = read_file_flag(entry=entry, rule=rule)
     return expected
 
 
@@ -296,7 +302,7 @@ def evaluate_corpus(
     if not (corpus / "labels.json").is_file():
         raise ValueError(f"labels file not found at {corpus / 'labels.json'}")
     document = read_labels(corpus=corpus)
-    expected = build_expected(document=document)
+    expected = build_expected(document=document, rule=rule)
     flagged = collect_flagged(corpus=corpus, unit=document["unit"], find_flagged=find_flagged)
     unlabelled = sorted(flagged - set(expected))
     if unlabelled:
@@ -326,7 +332,7 @@ def build_record(
     flagged: set[Site],
 ) -> ScoreRecord:
     """Assemble the combined, dev, holdout and generated metrics and the gap."""
-    expected = build_expected(document=document)
+    expected = build_expected(document=document, rule=rule)
     dev = measure(expected=select_sites(expected=expected, prefix="dev/"), flagged=flagged)
     held = select_sites(expected=expected, prefix="holdout/")
     holdout = measure(expected=held, flagged=flagged) if held else None

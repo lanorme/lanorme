@@ -4,10 +4,14 @@ Each transform copies a seed function and changes the copy in one controlled
 way. The transform, not any rule, decides the label of the resulting pair:
 
 - label-preserving (the pair is still a duplicate): rename every local
-  identifier, swap two adjacent independent statements, change the string
-  literals;
+  identifier, swap two adjacent independent statements;
 - label-breaking (the pair is no longer a duplicate): flip one operator, wrap
-  an assignment in a new branch, change one called name.
+  an assignment in a new branch, change one called name;
+- per rule: change the string literals. DRY-001 abstracts string literals, so
+  the pair is still an exact clone; SIMILAR-001 reads them as the content a
+  body is about (keys, column names, messages), so a pair that shares no
+  string is parallel code, not a near-duplicate. Each rule's label follows its
+  documented definition (``docs/RULES.md``).
 
 Every choice comes from the ``random.Random`` passed in, so a fixed seed gives
 the same edit on every run.
@@ -20,8 +24,13 @@ import copy
 import random
 from collections.abc import Callable, Iterator
 
-PRESERVING = ("rename_identifiers", "reorder_statements", "change_string_literals")
+PRESERVING = ("rename_identifiers", "reorder_statements")
 BREAKING = ("flip_operator", "add_branch", "change_called_name")
+# A transform whose label depends on the rule's definition of a duplicate.
+PER_RULE: dict[str, dict[str, bool]] = {
+    "change_string_literals": {"DRY-001": True, "SIMILAR-001": False},
+}
+TRANSFORMS = (*PRESERVING, *PER_RULE, *BREAKING)
 
 _WORDS = (
     "alder", "amber", "basil", "birch", "cedar", "clover", "dune", "elm", "ember",

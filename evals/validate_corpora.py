@@ -82,7 +82,7 @@ def find_corpus_problems(*, corpus: Path) -> list[str]:
         entry = document["files"][path]
         problems.extend(find_entry_problems(path=path, entry=entry))
         problems.extend(
-            find_site_problems(path=path, entry=entry, unit=document["unit"], corpus=corpus),
+            find_site_problems(path=path, entry=entry, document=document, corpus=corpus),
         )
     return [f"{corpus.name}: {problem}" for problem in problems]
 
@@ -140,6 +140,9 @@ def find_polarity_problems(*, path: str, entry: FileEntry) -> list[str]:
     parts = path.split("/")
     if "labels" in entry:
         flags = [label.get("flag") is True for label in entry["labels"]]
+    elif isinstance(entry.get("flag"), dict):
+        # A per-rule flag: the file is positive when any rule of the corpus flags it.
+        flags = [value is True for value in entry["flag"].values()]
     else:
         flags = [entry.get("flag") is True]
     if "negatives" in parts and any(flags):
@@ -149,12 +152,17 @@ def find_polarity_problems(*, path: str, entry: FileEntry) -> list[str]:
     return []
 
 
-def find_site_problems(*, path: str, entry: FileEntry, unit: str, corpus: Path) -> list[str]:
+def find_site_problems(
+    *,
+    path: str,
+    entry: FileEntry,
+    document: LabelsDocument,
+    corpus: Path,
+) -> list[str]:
     """Check the labels of one file fit the corpus unit and the file's content."""
+    unit = document["unit"]
     if unit == "file":
-        if "labels" in entry or not isinstance(entry.get("flag"), bool):
-            return [f'{path}: a file-unit entry needs a boolean "flag" and no "labels"']
-        return []
+        return find_file_flag_problems(path=path, entry=entry, rules=document["rules"])
     labels = entry.get("labels")
     if not labels or "flag" in entry:
         return [f'{path}: a {unit}-unit entry needs a non-empty "labels" list']
@@ -196,6 +204,18 @@ def find_drift_problems(*, path: str, text: str, labels: list[SiteLabel]) -> lis
                 f"{path}:{line}: the labelled line's text changed since it was labelled{where}",
             )
     return problems
+
+
+def find_file_flag_problems(*, path: str, entry: FileEntry, rules: list[str]) -> list[str]:
+    """Check a file-unit entry's flag: one boolean, or one boolean per scored rule."""
+    flag = entry.get("flag")
+    if "labels" in entry or not isinstance(flag, (bool, dict)):
+        return [f'{path}: a file-unit entry needs a boolean "flag" and no "labels"']
+    if isinstance(flag, dict) and (
+        set(flag) != set(rules) or not all(isinstance(value, bool) for value in flag.values())
+    ):
+        return [f'{path}: a per-rule "flag" needs one boolean for each of {sorted(rules)}']
+    return []
 
 
 def find_line_problems(*, path: str, text: str, unit: str, lines: set[int]) -> list[str]:
