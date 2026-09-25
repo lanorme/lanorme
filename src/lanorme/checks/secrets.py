@@ -12,13 +12,16 @@ priority for security rules: do not produce a false sense of security):
    ``Bearer`` header literals, DB / cache URLs with embedded
    ``user:pass@host`` credentials, and vendor-prefixed credentials (AWS AKIA
    / ASIA, GitHub ``ghp_`` / ``gho_`` / ``github_pat_``, Slack ``xox*``,
-   Stripe ``sk_live_`` / ``sk_test_``). These betray themselves regardless of
-   where they sit.
+   Stripe ``sk_live_`` / ``sk_test_``, Django ``django-insecure-``). These
+   betray themselves regardless of where they sit, including as the fallback
+   default of an ``os.environ.get(...)`` call.
 3. **Implicit exclusions**: files matching ``conftest.py``, ``seed_dev.py``,
    or starting with ``test_`` are skipped wholesale; names whose first segment
    is ``help_`` / ``hint_`` / ``msg_`` / etc. are documentation; names whose
    last segment is structural (``pattern``, ``endpoint``, ``header``,
-   ``name``, ``len``, ...) are not credentials.
+   ``name``, ``len``, ``env``, ``id``, ``file``, ``algorithm``, ...) are not
+   credentials unless the whole name is a credential phrase
+   (``access_key_id``).
 
 Scope is Python source only; ``.env`` / ``*.yaml`` / ``*.ipynb`` / ``*.tf``
 are out of scope until a separate non-Python rule lands. The rule code is
@@ -137,6 +140,32 @@ _NON_CRED_LAST_SEGMENTS = frozenset(
         "column",
         "default",
         "alias",
+        # The variable, file or service that holds the secret, or the scheme
+        # that protects it, not the secret itself.
+        "env",
+        "envvar",
+        "var",
+        "variable",
+        "setting",
+        "option",
+        "arg",
+        "flag",
+        "param",
+        "id",
+        "file",
+        "filename",
+        "dir",
+        "algorithm",
+        "algo",
+        "hasher",
+        "scheme",
+        "method",
+        "backend",
+        "provider",
+        "handler",
+        "store",
+        "manager",
+        "service",
     },
 )
 # Substrings in the value that mark a placeholder rather than a real secret.
@@ -178,6 +207,10 @@ _VENDOR_TOKEN_PATTERNS = (
     (re.compile(r"\bgithub_pat_[A-Za-z0-9_]{40,}\b"), "GitHub fine-grained PAT literal"),
     (re.compile(r"\bxox[abps]-[A-Za-z0-9-]{20,}\b"), "Slack token literal (xox...)"),
     (re.compile(r"\bsk_(?:live|test)_[A-Za-z0-9]{24,}\b"), "Stripe API key literal"),
+    (
+        re.compile(r"\bdjango-insecure-[A-Za-z0-9!@#$%^&*()_=+\-]{40,}"),
+        "Django-generated SECRET_KEY literal (django-insecure-...)",
+    ),
 )
 
 _MIN_CRED_LITERAL_LEN = 8
@@ -196,12 +229,13 @@ def _name_is_credential(name: str) -> bool:
     norm = _normalise_name(name)
     if norm.startswith(_NON_CRED_NAME_PREFIXES):
         return False
+    # A whole phrase wins over its last segment: ``access_key_id`` is the
+    # credential, ``secret_id`` the Secrets Manager reference to one.
+    if any(norm == phrase or norm.endswith("_" + phrase) for phrase in _CRED_NAME_PHRASES):
+        return True
     segments = norm.split("_")
-    if not segments or segments[-1] in _NON_CRED_LAST_SEGMENTS:
+    if segments[-1] in _NON_CRED_LAST_SEGMENTS:
         return False
-    for phrase in _CRED_NAME_PHRASES:
-        if norm == phrase or norm.endswith("_" + phrase):
-            return True
     return any(seg in _CRED_TOKEN_SEGMENTS for seg in segments)
 
 
@@ -216,10 +250,19 @@ def _is_high_entropy_value(text: str) -> bool:
 
 
 def _value_is_real_secret(value: ast.expr) -> str | None:
-    """Return the string content of *value* if it looks like a real secret, else ``None``."""
-    if not (isinstance(value, ast.Constant) and isinstance(value.value, str)):
+    """Return the string content of *value* if it looks like a real secret, else ``None``.
+
+    A ``bytes`` literal (``hmac_secret = b"..."``) is read as latin-1 text so
+    the same length, marker and entropy tests apply.
+    """
+    if not isinstance(value, ast.Constant):
         return None
-    text = value.value
+    if isinstance(value.value, bytes):
+        text = value.value.decode("latin-1")
+    elif isinstance(value.value, str):
+        text = value.value
+    else:
+        return None
     if len(text) < _MIN_CRED_LITERAL_LEN:
         return None
     lowered = text.lower()

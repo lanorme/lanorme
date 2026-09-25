@@ -638,5 +638,34 @@
       "label": "ok",
       "note": "op.execute ALTER TABLE DROP in downgrade -- exempt"
     }
+    ],
+  "negatives/neg_static_concat_params.py": [
+    {
+      "line": 14,
+      "label": "ok",
+      "note": "two literals joined with +, %s placeholder, params tuple"
+    },
+    {
+      "line": 19,
+      "label": "ok",
+      "note": "module constant + literal, :name placeholder, params dict"
+    },
+    {
+      "line": 24,
+      "label": "ok",
+      "note": "three literals joined with + into a local, ? placeholder, params tuple at the sink"
+    }
+  ],
+  "positives/pos_static_concat_no_params.py": [
+    {
+      "line": 11,
+      "label": "raw_sql",
+      "note": "two literals joined with +, no params: static raw SELECT"
+    },
+    {
+      "line": 16,
+      "label": "raw_sql",
+      "note": "two literals joined with +, no params: static DROP TABLE"
+    }
   ]
 }

@@ -194,3 +194,179 @@ def test_root_under_a_skip_named_ancestor_is_still_scanned(tmp_path, tmp_py_file
 
     # Assert
     assert "SHELL-001" in _collect_codes(result.violations)
+
+
+# --- Import aliases and shadowing -----------------------------------------
+
+
+def _collect_sites(violations) -> set[tuple[str, int]]:
+    return {(v.rule, v.line) for v in violations}
+
+
+def test_shell_001_resolves_a_from_import_alias(tmp_path, tmp_py_file):
+    # Arrange: subprocess.run bound to another name.
+    tmp_py_file(
+        name="bad.py",
+        body="from subprocess import run as sh\nsh(cmd, shell=True)\n",
+    )
+
+    # Act
+    result = SecurityCallsCheck().run(src_root=str(tmp_path))
+
+    # Assert
+    assert _collect_sites(result.violations) == {("SHELL-001", 2)}
+
+
+def test_shell_001_resolves_a_module_alias(tmp_path, tmp_py_file):
+    # Arrange
+    tmp_py_file(
+        name="bad.py",
+        body="import subprocess as sp\nsp.Popen(cmd, shell=True)\n",
+    )
+
+    # Act
+    result = SecurityCallsCheck().run(src_root=str(tmp_path))
+
+    # Assert
+    assert _collect_sites(result.violations) == {("SHELL-001", 2)}
+
+
+def test_shell_001_ignores_a_local_def_that_shadows_the_import(tmp_path, tmp_py_file):
+    # Arrange: the module rebinds ``run`` itself, so the call is not subprocess.run.
+    tmp_py_file(
+        name="ok.py",
+        body=(
+            "from subprocess import run\n\n\n"
+            "def run(cmd, shell=False):\n    return (cmd, shell)\n\n\n"
+            "run('ls', shell=True)\n"
+        ),
+    )
+
+    # Act
+    result = SecurityCallsCheck().run(src_root=str(tmp_path))
+
+    # Assert
+    assert not result.violations
+
+
+def test_deserial_001_resolves_a_from_import(tmp_path, tmp_py_file):
+    # Arrange
+    tmp_py_file(name="bad.py", body="from pickle import loads\nloads(payload)\n")
+
+    # Act
+    result = SecurityCallsCheck().run(src_root=str(tmp_path))
+
+    # Assert
+    assert _collect_sites(result.violations) == {("DESERIAL-001", 2)}
+
+
+def test_deserial_001_accepts_a_positional_safe_loader(tmp_path, tmp_py_file):
+    # Arrange: the Loader passed positionally, the second signature PyYAML documents.
+    tmp_py_file(name="ok.py", body="import yaml\nyaml.load(payload, yaml.SafeLoader)\n")
+
+    # Act
+    result = SecurityCallsCheck().run(src_root=str(tmp_path))
+
+    # Assert
+    assert not result.violations
+
+
+def test_eval_001_ignores_a_shadowed_eval(tmp_path, tmp_py_file):
+    # Arrange: ``eval`` is a parameter, not the builtin.
+    tmp_py_file(name="ok.py", body="def apply(eval, value):\n    return eval(value)\n")
+
+    # Act
+    result = SecurityCallsCheck().run(src_root=str(tmp_path))
+
+    # Assert
+    assert not result.violations
+
+
+def test_eval_001_fires_on_builtins_exec(tmp_path, tmp_py_file):
+    # Arrange
+    tmp_py_file(name="bad.py", body="import builtins\nbuiltins.exec(code)\n")
+
+    # Act
+    result = SecurityCallsCheck().run(src_root=str(tmp_path))
+
+    # Assert
+    assert _collect_sites(result.violations) == {("EVAL-001", 2)}
+
+
+def test_crypto_001_accepts_hashlib_new_for_non_security_use(tmp_path, tmp_py_file):
+    # Arrange
+    tmp_py_file(
+        name="ok.py",
+        body="import hashlib\nhashlib.new('md5', payload, usedforsecurity=False)\n",
+    )
+
+    # Act
+    result = SecurityCallsCheck().run(src_root=str(tmp_path))
+
+    # Assert
+    assert not result.violations
+
+
+def test_crypto_001_stays_quiet_when_usedforsecurity_is_not_a_literal(tmp_path, tmp_py_file):
+    # Arrange: the flag comes from a variable; the shape is ambiguous.
+    tmp_py_file(name="ok.py", body="import hashlib\nhashlib.md5(payload, usedforsecurity=flag)\n")
+
+    # Act
+    result = SecurityCallsCheck().run(src_root=str(tmp_path))
+
+    # Assert
+    assert not result.violations
+
+
+def test_crypto_001_ignores_a_protocol_constant_that_is_only_compared(tmp_path, tmp_py_file):
+    # Arrange: line 2 rejects the protocol, line 3 uses it.
+    tmp_py_file(
+        name="mixed.py",
+        body=(
+            "import ssl\n"
+            "if proto in (ssl.PROTOCOL_TLSv1, ssl.PROTOCOL_SSLv3):\n"
+            "    ctx = ssl.SSLContext(ssl.PROTOCOL_TLSv1)\n"
+        ),
+    )
+
+    # Act
+    result = SecurityCallsCheck().run(src_root=str(tmp_path))
+
+    # Assert
+    assert _collect_sites(result.violations) == {("CRYPTO-001", 3)}
+
+
+def test_tls_001_ignores_cert_none_that_is_only_compared(tmp_path, tmp_py_file):
+    # Arrange
+    tmp_py_file(
+        name="ok.py",
+        body="import ssl\nif ctx.verify_mode == ssl.CERT_NONE:\n    raise RuntimeError('off')\n",
+    )
+
+    # Act
+    result = SecurityCallsCheck().run(src_root=str(tmp_path))
+
+    # Assert
+    assert not result.violations
+
+
+def test_tls_001_fires_on_aiohttp_ssl_false(tmp_path, tmp_py_file):
+    # Arrange: aiohttp spells the switch ``ssl=False``.
+    tmp_py_file(name="bad.py", body="import aiohttp\naiohttp.TCPConnector(ssl=False)\n")
+
+    # Act
+    result = SecurityCallsCheck().run(src_root=str(tmp_path))
+
+    # Assert
+    assert _collect_sites(result.violations) == {("TLS-001", 2)}
+
+
+def test_debug_001_resolves_a_constructor_alias(tmp_path, tmp_py_file):
+    # Arrange
+    tmp_py_file(name="bad.py", body="from fastapi import FastAPI as API\napp = API(debug=True)\n")
+
+    # Act
+    result = SecurityCallsCheck().run(src_root=str(tmp_path))
+
+    # Assert
+    assert _collect_sites(result.violations) == {("DEBUG-001", 2)}

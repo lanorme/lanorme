@@ -155,3 +155,72 @@ def test_root_under_a_skip_named_ancestor_is_still_scanned(tmp_path: Path):
     assert result.status == Status.FAIL
     assert [v.code for v in result.violations] == ["SECRETPY-001"]
     assert result.violations[0].file == "config.py"
+
+
+# --- Names that point at a secret rather than hold one ---------------------
+
+
+def test_environment_variable_name_binding_is_not_flagged(write):
+    # Arrange: the *name* of the env var, bound under an ``_env`` / ``_var`` name.
+    result = write(
+        "settings.py",
+        'PASSWORD_ENV = "APP_DB_PASSWORD"\ntoken_var = "GITHUB_TOKEN_VALUE"\n',
+    )
+
+    # Act / Assert: a reference to where the secret lives is not the secret.
+    assert result.status == Status.PASS
+    assert not result.violations
+
+
+def test_secret_reference_names_are_not_flagged(write):
+    # Arrange: a Secrets Manager id, a secrets file path, a hashing algorithm.
+    result = write(
+        "config.py",
+        'secret_id = "arn:aws:secretsmanager:eu-west-1:123456789012:secret:prod/db"\n'
+        'password_file = "/run/secrets/db_password"\n'
+        'PASSWORD_ALGORITHM = "pbkdf2_sha256"\n',
+    )
+
+    # Act / Assert
+    assert result.status == Status.PASS
+    assert not result.violations
+
+
+def test_credential_phrase_wins_over_a_structural_last_segment(write):
+    # Arrange: ``access_key_id`` is a credential phrase even though it ends in ``id``.
+    result = write("aws.py", 'aws_access_key_id = "notanakiakeybutreal1"\n')
+
+    # Act / Assert
+    assert result.status == Status.FAIL
+    assert [(v.line, v.message) for v in result.violations] == [
+        (1, "Hardcoded credential value bound to 'aws_access_key_id'"),
+    ]
+
+
+# --- Bytes literals and generated keys -------------------------------------
+
+
+def test_bytes_literal_credential_is_flagged(write):
+    # Arrange: an HMAC key as a bytes literal.
+    result = write("sign.py", 'hmac_secret = b"k9Q2vX7mP4sT1wZ8"\n')
+
+    # Act / Assert
+    assert result.status == Status.FAIL
+    assert [(v.line, v.message) for v in result.violations] == [
+        (1, "Hardcoded credential value bound to 'hmac_secret'"),
+    ]
+
+
+def test_django_generated_key_as_an_env_fallback_is_flagged(write):
+    # Arrange: the ``django-insecure-`` dev key ships whenever the env var is unset.
+    key = "django-insecure-k9q2vx7mp4st1wz8r5n3b6c0d2f4g8h1j3l5m7n9p1r3t5v7x9"
+    result = write(
+        "settings.py",
+        f'import os\nSECRET_KEY = os.environ.get("SECRET_KEY", "{key}")\n',
+    )
+
+    # Act / Assert: the shape betrays it although the binding is a call.
+    assert result.status == Status.FAIL
+    assert [(v.line, v.message) for v in result.violations] == [
+        (2, "Django-generated SECRET_KEY literal (django-insecure-...)"),
+    ]

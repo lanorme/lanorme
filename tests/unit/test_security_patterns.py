@@ -248,3 +248,139 @@ def test_windows_style_source_root_is_normalised(
 
     # Assert.
     assert [v for v in result.violations if v.rule.startswith("AUTHN-001")]
+
+
+# --- Where FastAPI accepts a Depends(...) --------------------------------
+
+
+def _collect_authn(result) -> list:
+    return [v for v in result.violations if v.rule.startswith("AUTHN-001")]
+
+
+def test_auth_dependency_as_a_parameter_default_is_accepted(
+    check: SecurityPatternsCheck,
+    tmp_path: Path,
+):
+    # Arrange: the canonical FastAPI form, ``user: User = Depends(...)``.
+    _write_api_endpoint(
+        tmp_path,
+        source=(
+            '@router.post("/items")\n'
+            "async def make_item(payload: dict, user: User = Depends(get_current_user)):\n"
+            "    return payload\n"
+        ),
+    )
+
+    # Act
+    result = check.run(src_root=str(tmp_path))
+
+    # Assert
+    assert not _collect_authn(result)
+
+
+def test_keyword_only_auth_default_is_accepted(
+    check: SecurityPatternsCheck,
+    tmp_path: Path,
+):
+    # Arrange: the default sits after a bare ``*``.
+    _write_api_endpoint(
+        tmp_path,
+        source=(
+            '@router.put("/items/{id}")\n'
+            "async def edit_item(id: int, *, user: User = Depends(require_user)):\n"
+            "    return id\n"
+        ),
+    )
+
+    # Act
+    result = check.run(src_root=str(tmp_path))
+
+    # Assert
+    assert not _collect_authn(result)
+
+
+def test_auth_dependency_on_the_decorator_is_accepted(
+    check: SecurityPatternsCheck,
+    tmp_path: Path,
+):
+    # Arrange: the route guards itself through ``dependencies=[...]``.
+    _write_api_endpoint(
+        tmp_path,
+        source=(
+            '@router.post("/items", dependencies=[Depends(require_admin)])\n'
+            "async def make_item(payload: dict):\n"
+            "    return payload\n"
+        ),
+    )
+
+    # Act
+    result = check.run(src_root=str(tmp_path))
+
+    # Assert
+    assert not _collect_authn(result)
+
+
+# --- Static SQL joined with + is not interpolation -------------------------
+
+
+def _collect_sql(result) -> list:
+    return [v for v in result.violations if v.rule.startswith("SQL-001")]
+
+
+def test_static_literal_concat_with_params_is_not_flagged(
+    check: SecurityPatternsCheck,
+    tmp_path: Path,
+):
+    # Arrange: two literals and a module constant joined, with a params bag.
+    (tmp_path / "dao.py").write_text(
+        "BASE = 'SELECT id FROM users '\n\n\n"
+        "def fetch(cur, uid):\n"
+        "    cur.execute('SELECT id FROM users ' + 'WHERE id = %s', (uid,))\n"
+        "    cur.execute(BASE + 'WHERE id = %s', (uid,))\n",
+        encoding="utf-8",
+    )
+
+    # Act
+    result = check.run(src_root=str(tmp_path))
+
+    # Assert
+    assert not _collect_sql(result)
+
+
+def test_static_literal_concat_without_params_is_raw_sql(
+    check: SecurityPatternsCheck,
+    tmp_path: Path,
+):
+    # Arrange: the same join with nothing bound is still raw SQL, not injection.
+    (tmp_path / "dao.py").write_text(
+        "def count(cur):\n    cur.execute('SELECT COUNT(*) ' + 'FROM users')\n",
+        encoding="utf-8",
+    )
+
+    # Act
+    result = check.run(src_root=str(tmp_path))
+
+    # Assert
+    findings = _collect_sql(result)
+    assert [(v.line, v.message[:8]) for v in findings] == [(2, "Raw SQL ")]
+
+
+def test_literal_joined_to_a_variable_is_interpolation(
+    check: SecurityPatternsCheck,
+    tmp_path: Path,
+):
+    # Arrange: one side of the join is a value.
+    (tmp_path / "dao.py").write_text(
+        "def fetch(cur, name):\n"
+        '    cur.execute("SELECT id FROM users WHERE name = \'" + name + "\'")\n',
+        encoding="utf-8",
+    )
+
+    # Act
+    result = check.run(src_root=str(tmp_path))
+
+    # Assert
+    findings = _collect_sql(result)
+    assert len(findings) == 1
+    assert findings[0].line == 2
+    assert "interpolation" in findings[0].message

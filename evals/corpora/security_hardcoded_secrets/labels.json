@@ -185,5 +185,23 @@
     {"line": 21, "label": "ok", "note": "test fixture JWT; filename signals test_*.py"},
     {"line": 27, "label": "ok", "note": "dict value test fixture password; filename signals test_*.py"},
     {"line": 28, "label": "ok", "note": "dict value test fixture api_key; filename signals test_*.py"}
+    ],
+  "negatives/neg_secret_references.py": [
+    {"line": 5, "label": "ok", "note": "PASSWORD_ENV names the env var"},
+    {"line": 6, "label": "ok", "note": "api_key_env_var names the env var"},
+    {"line": 7, "label": "ok", "note": "token_var names the env var"},
+    {"line": 8, "label": "ok", "note": "secret_id is a Secrets Manager ARN"},
+    {"line": 9, "label": "ok", "note": "password_file is a path to the secret"},
+    {"line": 10, "label": "ok", "note": "private_key_file is a path to the key"},
+    {"line": 11, "label": "ok", "note": "PASSWORD_ALGORITHM names a hashing scheme"},
+    {"line": 12, "label": "ok", "note": "TOKEN_BACKEND names a module"},
+    {"line": 13, "label": "ok", "note": "secret_store names the store"},
+    {"line": 14, "label": "ok", "note": "token_handler names a class path"}
+  ],
+  "positives/pos_bytes_and_generated_keys.py": [
+    {"line": 7, "label": "secret", "note": "hmac_secret bytes literal"},
+    {"line": 8, "label": "secret", "note": "signing_key raw bytes literal"},
+    {"line": 11, "label": "secret", "note": "django-insecure- generated key as os.environ.get fallback"},
+    {"line": 13, "label": "secret", "note": "django-insecure- generated key bound to SESSION_SECRET"}
   ]
 }

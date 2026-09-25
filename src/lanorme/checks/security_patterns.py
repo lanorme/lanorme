@@ -78,6 +78,9 @@ _SQL_KEYWORDS_RE = re.compile(
     re.IGNORECASE | re.DOTALL,
 )
 
+# The module's ``NAME = "<sql>"`` bindings, when a sink is handed a bare Name.
+_SqlConstants = dict[str, "_SqlConst"] | None
+
 # Placeholder shapes a driver binds; SQL with a placeholder + a params arg is safe.
 _SQL_PLACEHOLDER_RE = re.compile(r":[A-Za-z_]\w*|%s|%\([A-Za-z_]\w*\)s|\?")
 
@@ -98,22 +101,30 @@ def _is_auth_name(name: str) -> bool:
     return any(name.startswith(prefix) for prefix in AUTH_DEPENDENCY_PREFIXES)
 
 
+def _collect_dependency_sites(node: ast.FunctionDef | ast.AsyncFunctionDef) -> list[ast.expr]:
+    """Where FastAPI accepts a ``Depends(...)``: annotations, defaults, ``dependencies=``."""
+    arguments = node.args
+    params = (*arguments.posonlyargs, *arguments.args, *arguments.kwonlyargs)
+    sites: list[ast.expr] = [arg.annotation for arg in params if arg.annotation is not None]
+    sites.extend(d for d in (*arguments.defaults, *arguments.kw_defaults) if d is not None)
+    for decorator in node.decorator_list:
+        if isinstance(decorator, ast.Call):
+            sites.extend(kw.value for kw in decorator.keywords if kw.arg == "dependencies")
+    return sites
+
+
+def _is_auth_call(call: ast.Call) -> bool:
+    """True for ``Depends(require_*)`` / ``Security(get_current_user, ...)`` shapes."""
+    operands = (*call.args, *(kw.value for kw in call.keywords))
+    return any(isinstance(o, ast.Name) and _is_auth_name(o.id) for o in operands)
+
+
 def _has_auth_dependency(node: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
-    """Check if a function has an auth dependency in its parameters."""
-    # Check both positional args and keyword-only args (after bare * separator).
-    all_args = node.args.args + node.args.kwonlyargs
-    for arg in all_args:
-        if arg.annotation is None:
-            continue
-        # Walk the annotation AST looking for Depends(require_*) or Depends(get_current_user).
-        for child in ast.walk(arg.annotation):
-            if isinstance(child, ast.Call):
-                for call_arg in child.args:
-                    if isinstance(call_arg, ast.Name) and _is_auth_name(call_arg.id):
-                        return True
-                for kw in child.keywords:
-                    if isinstance(kw.value, ast.Name) and _is_auth_name(kw.value.id):
-                        return True
+    """Check if a function declares an auth dependency anywhere FastAPI accepts one."""
+    for site in _collect_dependency_sites(node):
+        for child in ast.walk(site):
+            if isinstance(child, ast.Call) and _is_auth_call(child):
+                return True
     return False
 
 
@@ -174,11 +185,7 @@ def _find_literal_node(node: ast.expr) -> ast.expr | None:
     return None
 
 
-def _find_literal_lineno(
-    node: ast.expr,
-    *,
-    constants: dict[str, "_SqlConst"] | None = None,
-) -> int | None:
+def _find_literal_lineno(node: ast.expr, *, constants: _SqlConstants = None) -> int | None:
     """Return the source line of the SQL-bearing literal at *node*, or ``None``.
 
     Knows the same shapes as :func:`_extract_sql_string`: literals, f-strings,
@@ -198,18 +205,20 @@ def _find_literal_lineno(
     return None
 
 
-def _sql_from_binop(
-    node: ast.BinOp,
-    *,
-    constants: dict[str, "_SqlConst"] | None,
-) -> tuple[str | None, bool]:
+def _sql_from_concat(node: ast.BinOp, *, constants: _SqlConstants) -> tuple[str | None, bool]:
+    """Resolve ``"..." + x``: static only when every piece is a literal or literal constant."""
+    left_text, left_interp = _extract_sql_string(node.left, constants=constants)
+    right_text, right_interp = _extract_sql_string(node.right, constants=constants)
+    if left_text is None and right_text is None:
+        return None, False
+    interpolated = left_interp or right_interp or None in (left_text, right_text)
+    return (left_text or "") + (right_text or ""), interpolated
+
+
+def _sql_from_binop(node: ast.BinOp, *, constants: _SqlConstants) -> tuple[str | None, bool]:
     """Resolve ``"..." + x`` and ``"..." % x`` SQL-bearing BinOps."""
     if isinstance(node.op, ast.Add):
-        left_text, _ = _extract_sql_string(node.left, constants=constants)
-        right_text, _ = _extract_sql_string(node.right, constants=constants)
-        if left_text is None and right_text is None:
-            return None, False
-        return (left_text or "") + (right_text or ""), True
+        return _sql_from_concat(node, constants=constants)
     if isinstance(node.op, ast.Mod):
         left_text, _ = _extract_sql_string(node.left, constants=constants)
         if left_text is not None:
@@ -217,11 +226,7 @@ def _sql_from_binop(
     return None, False
 
 
-def _sql_from_call(
-    node: ast.Call,
-    *,
-    constants: dict[str, "_SqlConst"] | None,
-) -> tuple[str | None, bool]:
+def _sql_from_call(node: ast.Call, *, constants: _SqlConstants) -> tuple[str | None, bool]:
     """Resolve ``text(...)`` wrappers and ``"...".format(...)`` SQL-bearing calls."""
     if _is_text_constructor(node) and node.args:
         return _extract_sql_string(node.args[0], constants=constants)
@@ -235,7 +240,7 @@ def _sql_from_call(
 def _extract_sql_string(
     node: ast.expr,
     *,
-    constants: dict[str, "_SqlConst"] | None = None,
+    constants: _SqlConstants = None,
 ) -> tuple[str | None, bool]:
     """Return ``(text, interpolated)`` for an SQL-argument AST node, or ``(None, False)``.
 
@@ -244,7 +249,7 @@ def _extract_sql_string(
     - ``"..."`` constant literal (``interpolated=False``).
     - ``f"... {x} ..."`` f-string (``interpolated=True`` when at least one
       ``FormattedValue`` is present).
-    - ``"..." + name + "..."`` ``BinOp(Add)`` (``interpolated=True``).
+    - ``"..." + name + "..."`` ``BinOp(Add)`` (``interpolated`` unless every piece is static).
     - ``"... %s ..." % name`` ``BinOp(Mod)`` (``interpolated=True``).
     - ``"...".format(name)`` (``interpolated=True``).
     - ``Name`` looked up in *constants* (preserving the constant's
