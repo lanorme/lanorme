@@ -61,7 +61,7 @@ def _install_registry(monkeypatch, checks: dict[str, object]) -> None:
     monkeypatch.setattr(meta_module, "get_all_checks", lambda: registry)
 
 
-def _good_violation() -> Violation:
+def _build_good_violation() -> Violation:
     """A fully-populated violation that must satisfy META-005."""
     return Violation(file="a.py", line=0, rule="X-001: r", message="m", fix="f")
 
@@ -132,7 +132,7 @@ def test_validate_violation_fields_reports_each_missing_string_field():
 
 def test_validate_violation_fields_accepts_zero_line():
     # Arrange: line is the integer 0 but every required string field is present.
-    good = _good_violation()
+    good = _build_good_violation()
 
     # Act
     problems = _validate_violation_fields(
@@ -151,8 +151,8 @@ def test_run_passes_when_all_checks_well_formed(monkeypatch):
     _install_registry(
         monkeypatch,
         {
-            "alpha": _FakeCheck(name="alpha", violations=[_good_violation()]),
-            "beta": _FakeCheck(name="beta", warnings=[_good_violation()]),
+            "alpha": _FakeCheck(name="alpha", violations=[_build_good_violation()]),
+            "beta": _FakeCheck(name="beta", warnings=[_build_good_violation()]),
         },
     )
 

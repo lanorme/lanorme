@@ -25,7 +25,7 @@ import pytest
 from lanorme.checks.file_limits import _measure_cyclomatic_complexity
 
 
-def _complexity_of(source: str) -> int:
+def _measure_complexity_of(source: str) -> int:
     """Cyclomatic complexity of the single function defined in ``source``."""
     func = ast.parse(source).body[0]
     assert isinstance(func, ast.FunctionDef | ast.AsyncFunctionDef)
@@ -68,6 +68,6 @@ def _complexity_of(source: str) -> int:
 def test_metric_increment_per_construct(source, expected):
     # Arrange: a function whose only branching is one construct under test.
     # Act.
-    value = _complexity_of(source)
+    value = _measure_complexity_of(source)
     # Assert: the construct contributes exactly the documented increment.
     assert value == expected

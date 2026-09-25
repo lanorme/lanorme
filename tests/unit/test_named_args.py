@@ -39,7 +39,7 @@ def _write(*, root: Path, name: str, body: str) -> None:
     (root / name).write_text(body, encoding="utf-8")
 
 
-def _kwarg_hits(result) -> list:
+def _collect_kwarg_hits(result) -> list:
     """Return the KWARG-001 violations from a check result."""
     return [v for v in result.violations if v.rule.startswith("KWARG-001")]
 
@@ -66,7 +66,7 @@ def test_true_positive_two_positional_params_fires(check: NamedArgsCheck, tmp_pa
 
     # Assert: fires, and the message reports the param count.
     assert result.status == Status.FAIL
-    hits = _kwarg_hits(result)
+    hits = _collect_kwarg_hits(result)
     assert len(hits) == 1
     assert "transfer" in hits[0].message
     assert "2 positional params" in hits[0].message
@@ -84,7 +84,7 @@ def test_true_positive_async_and_staticmethod_fire(check: NamedArgsCheck, tmp_pa
     result = check.run(src_root=str(tmp_path))
 
     # Assert: both are flagged.
-    names = {v.message.split("'")[1] for v in _kwarg_hits(result)}
+    names = {v.message.split("'")[1] for v in _collect_kwarg_hits(result)}
     assert {"fetch", "make"} <= names
 
 
@@ -97,7 +97,7 @@ def test_true_positive_nested_function_fires(check: NamedArgsCheck, tmp_path: Pa
     result = check.run(src_root=str(tmp_path))
 
     # Assert: the inner function is reached and flagged.
-    hits = _kwarg_hits(result)
+    hits = _collect_kwarg_hits(result)
     assert len(hits) == 1
     assert "inner" in hits[0].message
 
@@ -116,7 +116,7 @@ def test_bare_star_and_single_param_stay_silent(check: NamedArgsCheck, tmp_path:
 
     # Assert: none of these have >1 real positional param.
     assert result.status == Status.PASS
-    assert not _kwarg_hits(result)
+    assert not _collect_kwarg_hits(result)
 
 
 def test_depends_injected_params_are_exempt(check: NamedArgsCheck, tmp_path: Path):
@@ -133,7 +133,7 @@ def test_depends_injected_params_are_exempt(check: NamedArgsCheck, tmp_path: Pat
 
     # Assert: each leaves a single real param, so nothing fires.
     assert result.status == Status.PASS
-    assert not _kwarg_hits(result)
+    assert not _collect_kwarg_hits(result)
 
 
 def test_dunder_methods_are_skipped(check: NamedArgsCheck, tmp_path: Path):
@@ -153,7 +153,7 @@ def test_dunder_methods_are_skipped(check: NamedArgsCheck, tmp_path: Path):
 
     # Assert: dunders never fire.
     assert result.status == Status.PASS
-    assert not _kwarg_hits(result)
+    assert not _collect_kwarg_hits(result)
 
 
 def test_positional_only_params_not_counted(check: NamedArgsCheck, tmp_path: Path):
@@ -165,7 +165,7 @@ def test_positional_only_params_not_counted(check: NamedArgsCheck, tmp_path: Pat
 
     # Assert: positional-only params are excluded from the count.
     assert result.status == Status.PASS
-    assert not _kwarg_hits(result)
+    assert not _collect_kwarg_hits(result)
 
 
 def test_positional_only_plus_regular_counts_only_regular(check: NamedArgsCheck, tmp_path: Path):
@@ -176,7 +176,7 @@ def test_positional_only_plus_regular_counts_only_regular(check: NamedArgsCheck,
     result = check.run(src_root=str(tmp_path))
 
     # Assert: only c and d count, so it fires reporting 2.
-    hits = _kwarg_hits(result)
+    hits = _collect_kwarg_hits(result)
     assert len(hits) == 1
     assert "2 positional params" in hits[0].message
 
@@ -191,7 +191,7 @@ def test_noqa_on_def_line_suppresses(check: NamedArgsCheck, tmp_path: Path):
 
     # Assert: the def-line noqa silences the finding.
     assert result.status == Status.PASS
-    assert not _kwarg_hits(result)
+    assert not _collect_kwarg_hits(result)
 
 
 def test_noqa_on_continuation_line_does_not_suppress(check: NamedArgsCheck, tmp_path: Path):
@@ -204,7 +204,7 @@ def test_noqa_on_continuation_line_does_not_suppress(check: NamedArgsCheck, tmp_
 
     # Assert: only the def line is inspected for noqa, so it still fires.
     assert result.status == Status.FAIL
-    assert _kwarg_hits(result)
+    assert _collect_kwarg_hits(result)
 
 
 def test_kwargs_does_not_exempt_real_params(check: NamedArgsCheck, tmp_path: Path):
@@ -215,7 +215,7 @@ def test_kwargs_does_not_exempt_real_params(check: NamedArgsCheck, tmp_path: Pat
     result = check.run(src_root=str(tmp_path))
 
     # Assert: a and b are still counted (def g(*, a, b, **kwargs) would comply).
-    hits = _kwarg_hits(result)
+    hits = _collect_kwarg_hits(result)
     assert len(hits) == 1
     assert "2 positional params" in hits[0].message
 
@@ -229,7 +229,7 @@ def test_single_real_param_with_varargs_stays_silent(check: NamedArgsCheck, tmp_
 
     # Assert: only one real positional param, so nothing fires.
     assert result.status == Status.PASS
-    assert not _kwarg_hits(result)
+    assert not _collect_kwarg_hits(result)
 
 
 def test_test_prefixed_files_are_skipped(check: NamedArgsCheck, tmp_path: Path):
@@ -241,7 +241,7 @@ def test_test_prefixed_files_are_skipped(check: NamedArgsCheck, tmp_path: Path):
 
     # Assert: test files are exempt entirely.
     assert result.status == Status.PASS
-    assert not _kwarg_hits(result)
+    assert not _collect_kwarg_hits(result)
 
 
 def test_unparseable_file_warns_without_crashing(check: NamedArgsCheck, tmp_path: Path):

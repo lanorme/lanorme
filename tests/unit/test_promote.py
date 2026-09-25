@@ -17,18 +17,18 @@ from lanorme.cli import _read_config_list, main
 from lanorme.filters import _apply_promotions, _matches
 
 
-def _finding(code: str) -> Violation:
+def _build_finding(code: str) -> Violation:
     return Violation(file="m.py", line=1, rule=f"{code}: detail", message="m", fix="f")
 
 
-def _result(*, violations: list[Violation], warnings: list[Violation]) -> CheckResult:
+def _build_result(*, violations: list[Violation], warnings: list[Violation]) -> CheckResult:
     status = Status.FAIL if violations else (Status.WARN if warnings else Status.PASS)
     return CheckResult(check="c", status=status, violations=violations, warnings=warnings)
 
 
 def test_promote_by_exact_code_moves_warning_to_violation():
     # Arrange.
-    result = _result(violations=[], warnings=[_finding("TYPE-004")])
+    result = _build_result(violations=[], warnings=[_build_finding("TYPE-004")])
 
     # Act.
     promoted = _apply_promotions(results=[result], promote=["TYPE-004"])
@@ -41,7 +41,7 @@ def test_promote_by_exact_code_moves_warning_to_violation():
 
 def test_promote_by_category_matches():
     # Arrange / Act.
-    result = _result(violations=[], warnings=[_finding("TYPE-004")])
+    result = _build_result(violations=[], warnings=[_build_finding("TYPE-004")])
     promoted = _apply_promotions(results=[result], promote=["TYPE"])
 
     # Assert.
@@ -50,7 +50,7 @@ def test_promote_by_category_matches():
 
 def test_promote_all_escalates_every_warning():
     # Arrange.
-    result = _result(violations=[], warnings=[_finding("TYPE-004"), _finding("SIMILAR-001")])
+    result = _build_result(violations=[], warnings=[_build_finding("TYPE-004"), _build_finding("SIMILAR-001")])
 
     # Act.
     promoted = _apply_promotions(results=[result], promote=["ALL"])
@@ -62,7 +62,7 @@ def test_promote_all_escalates_every_warning():
 
 def test_unmatched_code_stays_a_warning():
     # Arrange / Act.
-    result = _result(violations=[], warnings=[_finding("TYPE-004")])
+    result = _build_result(violations=[], warnings=[_build_finding("TYPE-004")])
     promoted = _apply_promotions(results=[result], promote=["DRY-001"])
 
     # Assert.
@@ -72,7 +72,7 @@ def test_unmatched_code_stays_a_warning():
 
 def test_empty_promote_is_a_noop():
     # Arrange / Act.
-    result = _result(violations=[], warnings=[_finding("TYPE-004")])
+    result = _build_result(violations=[], warnings=[_build_finding("TYPE-004")])
     promoted = _apply_promotions(results=[result], promote=[])
 
     # Assert: same object, untouched.
@@ -81,7 +81,7 @@ def test_empty_promote_is_a_noop():
 
 def test_promoted_warning_joins_existing_violations():
     # Arrange: a real violation already present alongside the warning.
-    result = _result(violations=[_finding("SQL-001")], warnings=[_finding("TYPE-004")])
+    result = _build_result(violations=[_build_finding("SQL-001")], warnings=[_build_finding("TYPE-004")])
 
     # Act.
     promoted = _apply_promotions(results=[result], promote=["TYPE-004"])
@@ -152,7 +152,7 @@ def test_config_list_accepts_a_bare_string():
 
 def test_skip_notice_is_not_promoted_even_by_all():
     # Arrange: a `-000` skip/parse-error notice is not a finding.
-    result = _result(violations=[], warnings=[_finding("TYPE-000")])
+    result = _build_result(violations=[], warnings=[_build_finding("TYPE-000")])
 
     # Act.
     promoted = _apply_promotions(results=[result], promote=["ALL"])

@@ -25,12 +25,12 @@ def _run(*, root: Path, body: str, check: NamingCanonCheck | None = None, name: 
     return (check or NamingCanonCheck()).run(src_root=str(root))
 
 
-def _codes(result) -> list[str]:
+def _collect_codes(result) -> list[str]:
     """The rule codes of all warnings on *result*."""
     return [w.code for w in result.warnings]
 
 
-def _configured(**settings) -> NamingCanonCheck:
+def _configure_check(**settings) -> NamingCanonCheck:
     """A check with *settings* applied."""
     check = NamingCanonCheck()
     check.configure(settings=settings)
@@ -47,7 +47,7 @@ def test_verb_first_class_is_a_warning(tmp_path: Path) -> None:
     result = _run(root=tmp_path, body="class FetchUsers:\n    pass\n")
 
     # Assert: a warning, not a violation, and the check reports WARN.
-    assert _codes(result) == ["NAMING-006"]
+    assert _collect_codes(result) == ["NAMING-006"]
     assert result.violations == [] and result.status is Status.WARN
 
 
@@ -58,7 +58,7 @@ def test_noun_phrase_classes_pass(tmp_path: Path) -> None:
                      "SaveTest2", "ConfigurableCheck", "BuildResult", "CONSOLE_INFO", "Fetch")
     )
     result = _run(root=tmp_path, body=body)
-    assert _codes(result) == []
+    assert _collect_codes(result) == []
 
 
 def test_command_object_suffixes_are_exempt_and_extensible(tmp_path: Path) -> None:
@@ -67,11 +67,11 @@ def test_command_object_suffixes_are_exempt_and_extensible(tmp_path: Path) -> No
 
     # Act
     default = _run(root=tmp_path, body=body)
-    extended = _run(root=tmp_path, body=body, check=_configured(command_suffixes=["Interactor"]))
+    extended = _run(root=tmp_path, body=body, check=_configure_check(command_suffixes=["Interactor"]))
 
     # Assert: the bundled suffix survives the extension.
     assert [w.line for w in default.warnings] == [3]
-    assert _codes(extended) == []
+    assert _collect_codes(extended) == []
 
 
 @pytest.mark.parametrize(
@@ -99,7 +99,7 @@ def test_agent_noun(verb: str, noun: str) -> None:
 
 def test_noun_named_command_is_flagged(tmp_path: Path) -> None:
     result = _run(root=tmp_path, body="def layout(root):\n    root.write_text('x')\n")
-    assert _codes(result) == ["NAMING-007"]
+    assert _collect_codes(result) == ["NAMING-007"]
 
 
 def test_verb_first_commands_pass(tmp_path: Path) -> None:
@@ -112,7 +112,7 @@ def test_verb_first_commands_pass(tmp_path: Path) -> None:
         "def setUp(self):\n    self.x.clear()\n"
     )
     result = _run(root=tmp_path, body=body)
-    assert _codes(result) == []
+    assert _collect_codes(result) == []
 
 
 def test_queries_named_for_their_value_pass(tmp_path: Path) -> None:
@@ -122,7 +122,7 @@ def test_queries_named_for_their_value_pass(tmp_path: Path) -> None:
         "def rows():\n    yield 1\n"
     )
     result = _run(root=tmp_path, body=body)
-    assert _codes(result) == []
+    assert _collect_codes(result) == []
 
 
 @pytest.mark.parametrize(
@@ -141,7 +141,7 @@ def test_command_message_names_the_judged_word_not_the_modifier(tmp_path: Path) 
 
 def test_non_ascii_names_are_not_judged(tmp_path: Path) -> None:
     result = _run(root=tmp_path, body="def résumé_thing(x):\n    x.clear()\nclass Envoyé:\n    pass\n")
-    assert _codes(result) == []
+    assert _collect_codes(result) == []
 
 
 def test_framework_named_functions_pass(tmp_path: Path) -> None:
@@ -163,7 +163,7 @@ def test_framework_named_functions_pass(tmp_path: Path) -> None:
     result = _run(root=tmp_path, body=body)
 
     # Assert
-    assert _codes(result) == []
+    assert _collect_codes(result) == []
 
 
 def test_closures_stubs_and_raisers_pass(tmp_path: Path) -> None:
@@ -174,12 +174,12 @@ def test_closures_stubs_and_raisers_pass(tmp_path: Path) -> None:
         "def placeholder():\n    pass\n"
     )
     result = _run(root=tmp_path, body=body)
-    assert _codes(result) == []
+    assert _collect_codes(result) == []
 
 
 def test_generated_migration_trees_are_skipped(tmp_path: Path) -> None:
     result = _run(root=tmp_path, body="def schema_step(op):\n    op.clear()\n", name="migrations/0001.py")
-    assert _codes(result) == []
+    assert _collect_codes(result) == []
 
 
 def test_a_migrations_directory_above_the_root_does_not_silence_the_check(tmp_path: Path) -> None:
@@ -190,7 +190,7 @@ def test_a_migrations_directory_above_the_root_does_not_silence_the_check(tmp_pa
     result = _run(root=root, body="def schema_step(op):\n    op.clear()\n")
 
     # Assert
-    assert _codes(result) == ["NAMING-007"]
+    assert _collect_codes(result) == ["NAMING-007"]
 
 
 def test_unparseable_and_bom_files(tmp_path: Path) -> None:
@@ -217,16 +217,16 @@ def test_verbs_config_extends_the_vocabulary(tmp_path: Path) -> None:
 
     # Act
     default = _run(root=tmp_path, body=body)
-    extended = _run(root=tmp_path, body=body, check=_configured(verbs=["frob"]))
+    extended = _run(root=tmp_path, body=body, check=_configure_check(verbs=["frob"]))
 
     # Assert
-    assert _codes(default) == ["NAMING-007"]
-    assert _codes(extended) == []
+    assert _collect_codes(default) == ["NAMING-007"]
+    assert _collect_codes(extended) == []
 
 
 def test_exempt_config_silences_a_name_with_or_without_underscores(tmp_path: Path) -> None:
-    result = _run(root=tmp_path, body="def _layout(root):\n    root.clear()\n", check=_configured(exempt=["layout"]))
-    assert _codes(result) == []
+    result = _run(root=tmp_path, body="def _layout(root):\n    root.clear()\n", check=_configure_check(exempt=["layout"]))
+    assert _collect_codes(result) == []
 
 
 def test_findings_carry_a_root_relative_posix_path(tmp_path: Path) -> None:
@@ -247,7 +247,7 @@ def test_weak_verbs_are_flagged(tmp_path: Path) -> None:
     result = _run(root=tmp_path, body=body)
 
     # Assert: both fire, and the fix names the object after 'deal with'.
-    assert _codes(result) == ["NAMING-008", "NAMING-008"]
+    assert _collect_codes(result) == ["NAMING-008", "NAMING-008"]
     assert "parse_error" in result.warnings[1].fix
 
 
@@ -264,7 +264,7 @@ def test_weak_verb_exemptions(tmp_path: Path) -> None:
     result = _run(root=tmp_path, body=body)
 
     # Assert
-    assert _codes(result) == []
+    assert _collect_codes(result) == []
 
 
 def test_weak_verbs_config_replaces_the_default(tmp_path: Path) -> None:
@@ -272,7 +272,7 @@ def test_weak_verbs_config_replaces_the_default(tmp_path: Path) -> None:
     body = "def handle_data(d):\n    d.clear()\ndef frob_data(d):\n    d.clear()\n"
 
     # Act
-    result = _run(root=tmp_path, body=body, check=_configured(weak_verbs=["frob"]))
+    result = _run(root=tmp_path, body=body, check=_configure_check(weak_verbs=["frob"]))
 
     # Assert: only the configured verb fires, and as a weak verb rather than a missing one.
     assert [(w.code, w.line) for w in result.warnings] == [("NAMING-008", 3)]

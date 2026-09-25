@@ -31,7 +31,7 @@ def _write(path: Path, body: str) -> None:
     path.write_text(body, encoding="utf-8")
 
 
-def _codes(result) -> list[str]:
+def _collect_codes(result) -> list[str]:
     """Return the rule-code prefixes of every violation (e.g. 'PORT-001')."""
     return [v.rule.split(":", 1)[0] for v in result.violations]
 
@@ -216,7 +216,7 @@ def test_composition_root_is_exempt_from_port003(tmp_path: Path):
 
     # Assert: wiring at the composition root is allowed - no PORT-003.
     assert result.status == Status.PASS
-    assert _codes(result) == []
+    assert _collect_codes(result) == []
 
 
 def test_adapter_name_inside_string_literal_does_not_fire(tmp_path: Path):
@@ -247,7 +247,7 @@ def test_adapter_name_inside_string_literal_does_not_fire(tmp_path: Path):
 
     # Assert: no false positive from adapter mentions confined to string literals.
     assert result.status == Status.PASS
-    assert _codes(result) == []
+    assert _collect_codes(result) == []
 
 
 def test_init_file_in_adapter_root_is_skipped(tmp_path: Path):
@@ -273,7 +273,7 @@ def test_init_file_in_adapter_root_is_skipped(tmp_path: Path):
 
     # Assert: the __init__ re-export is not flagged; the layout is clean.
     assert result.status == Status.PASS
-    assert _codes(result) == []
+    assert _collect_codes(result) == []
 
 
 # --- Pinned known defects (xfail) --------------------------------------------
@@ -298,7 +298,7 @@ def test_module_form_import_should_not_trigger_port002(tmp_path: Path):
 
     # Assert (currently fails): the port is implemented, so nothing should fire.
     assert result.status == Status.PASS
-    assert _codes(result) == []
+    assert _collect_codes(result) == []
 
 
 def test_attribute_form_instantiation_in_api_should_trigger_port003(tmp_path: Path):
@@ -325,4 +325,4 @@ def test_attribute_form_instantiation_in_api_should_trigger_port003(tmp_path: Pa
 
     # Assert (currently fails): direct construction in api/ must raise PORT-003.
     assert result.status == Status.FAIL
-    assert any(c == "PORT-003" for c in _codes(result))
+    assert any(c == "PORT-003" for c in _collect_codes(result))

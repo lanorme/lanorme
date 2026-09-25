@@ -37,7 +37,7 @@ _MODULE_IMPORT_SRC = (
 )
 
 
-def _nested_endpoint(*, depth: int) -> str:
+def _build_nested_endpoint(*, depth: int) -> str:
     """Return an endpoint function with *depth* nested ``if`` blocks."""
     lines = ["def endpoint():"]
     for level in range(depth):
@@ -106,7 +106,7 @@ def test_module_level_imports_are_clean(tmp_path: Path):
 def test_endpoint_nesting_at_threshold_is_clean(endpoints_dir: Path, tmp_path: Path):
     # Arrange (boundary): nesting depth exactly 4 sits on the threshold.
     (endpoints_dir / "ok.py").write_text(
-        _nested_endpoint(depth=4), encoding="utf-8"
+        _build_nested_endpoint(depth=4), encoding="utf-8"
     )
 
     # Act.
@@ -119,7 +119,7 @@ def test_endpoint_nesting_at_threshold_is_clean(endpoints_dir: Path, tmp_path: P
 def test_deeply_nested_endpoint_is_flagged(endpoints_dir: Path, tmp_path: Path):
     # Arrange: nesting depth 5 exceeds the threshold of 4.
     (endpoints_dir / "deep_nest.py").write_text(
-        _nested_endpoint(depth=5), encoding="utf-8"
+        _build_nested_endpoint(depth=5), encoding="utf-8"
     )
 
     # Act.

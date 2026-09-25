@@ -75,7 +75,7 @@ def test_nested_region_inherits_then_overrides(tmp_path: Path):
         scan_root=tmp_path,
         root_config={"similarity": {"enabled": True}, "select": ["A"]},
     )
-    nested = _region_at(regions, strict)
+    nested = _find_region_at(regions, strict)
 
     # Assert: 'select' is overridden; 'similarity' is inherited untouched.
     assert nested.merged == {"similarity": {"enabled": True}, "select": ["B"]}
@@ -93,7 +93,7 @@ def test_root_true_stops_inheritance(tmp_path: Path):
         scan_root=tmp_path,
         root_config={"similarity": {"enabled": True}},
     )
-    nested = _region_at(regions, standalone)
+    nested = _find_region_at(regions, standalone)
 
     # Assert: the parent's similarity setting does not leak past the root
     # barrier, and the cascade-control key never reaches the merged config.
@@ -132,7 +132,7 @@ def test_snapshot_restore_resets_mutated_state():
     assert check.enabled is False
 
 
-def _region_at(regions: list[Region], directory: Path) -> Region:
+def _find_region_at(regions: list[Region], directory: Path) -> Region:
     """Return the resolved region whose directory matches *directory*."""
     target = directory.resolve()
     return next(region for region in regions if region.directory == target)

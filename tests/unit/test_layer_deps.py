@@ -274,7 +274,7 @@ def test_composition_root_may_import_multiple_inner_layers(tmp_path: Path):
 # --------------------------------------------------------------------------- #
 
 
-def _transport_check() -> LayerDepsCheck:
+def _build_transport_check() -> LayerDepsCheck:
     check = LayerDepsCheck()
     check.configure(
         settings={
@@ -304,7 +304,7 @@ def test_transport_peer_composition_root_is_exempt(tmp_path: Path):
     )
 
     # Act.
-    result = _transport_check().run(src_root=str(tmp_path))
+    result = _build_transport_check().run(src_root=str(tmp_path))
 
     # Assert: the peer's wiring file is exempt, just like api/dependencies/.
     assert result.status == Status.PASS
@@ -323,7 +323,7 @@ def test_transport_peer_outside_comp_root_still_fails_layer005(tmp_path: Path):
     )
 
     # Act.
-    result = _transport_check().run(src_root=str(tmp_path))
+    result = _build_transport_check().run(src_root=str(tmp_path))
 
     # Assert: a single LAYER-005 on the peer, proving the peer is not silently
     # exempted wholesale.

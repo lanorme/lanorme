@@ -42,7 +42,7 @@ def _load() -> tuple[dict[str, object], dict[str, object]]:
     return events, json.loads(VERDICTS.read_text(encoding="utf-8"))
 
 
-def _event_rows(*, events: dict[str, object], verdicts: dict[str, object]) -> list[dict[str, object]]:
+def _build_event_rows(*, events: dict[str, object], verdicts: dict[str, object]) -> list[dict[str, object]]:
     """Pair every planted event with its verdict, flattening task structure."""
     rows: list[dict[str, object]] = []
     for task, spec in events["tasks"].items():
@@ -70,7 +70,7 @@ def _tally(*, rows: list[dict[str, object]], key: str, value: str) -> dict[str, 
 def main() -> int:
     """Print the articulacy scorecard."""
     events, verdicts = _load()
-    rows = _event_rows(events=events, verdicts=verdicts)
+    rows = _build_event_rows(events=events, verdicts=verdicts)
 
     if not verdicts:
         print(f"UNSCORED: {VERDICTS.name} does not exist yet, so no verdict has been entered.")

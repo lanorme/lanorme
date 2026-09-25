@@ -27,7 +27,7 @@ def check() -> NamingScopeCheck:
     return instance
 
 
-def _module(*, name: str, gap: int) -> str:
+def _build_module(*, name: str, gap: int) -> str:
     """A function binding *name*, then using it again *gap* lines later."""
     filler = "\n".join(f"    total += {i} - {i}" for i in range(gap))
     return (
@@ -45,7 +45,7 @@ def _write(*, root: Path, body: str) -> None:
     (root / "sample.py").write_text(body, encoding="utf-8")
 
 
-def _codes(*, result) -> list[str]:
+def _collect_codes(*, result) -> list[str]:
     """The rule codes of all violations on *result*."""
     return [v.code for v in result.violations]
 
@@ -57,7 +57,7 @@ def _codes(*, result) -> list[str]:
 
 def test_disabled_by_default(tmp_path: Path) -> None:
     # Arrange
-    _write(root=tmp_path, body=_module(name="rc", gap=40))
+    _write(root=tmp_path, body=_build_module(name="rc", gap=40))
 
     # Act
     result = NamingScopeCheck().run(src_root=str(tmp_path))
@@ -73,16 +73,16 @@ def test_disabled_by_default(tmp_path: Path) -> None:
 
 
 def test_short_name_over_a_long_span_is_flagged(tmp_path: Path, check: NamingScopeCheck) -> None:
-    _write(root=tmp_path, body=_module(name="rc", gap=40))
+    _write(root=tmp_path, body=_build_module(name="rc", gap=40))
 
     result = check.run(src_root=str(tmp_path))
 
     # Assert
-    assert _codes(result=result) == ["NAMING-005"]
+    assert _collect_codes(result=result) == ["NAMING-005"]
 
 
 def test_same_name_over_a_short_span_is_kept(tmp_path: Path, check: NamingScopeCheck) -> None:
-    _write(root=tmp_path, body=_module(name="rc", gap=3))
+    _write(root=tmp_path, body=_build_module(name="rc", gap=3))
 
     result = check.run(src_root=str(tmp_path))
 
@@ -91,7 +91,7 @@ def test_same_name_over_a_short_span_is_kept(tmp_path: Path, check: NamingScopeC
 
 
 def test_long_name_over_a_long_span_is_kept(tmp_path: Path, check: NamingScopeCheck) -> None:
-    _write(root=tmp_path, body=_module(name="run_count", gap=40))
+    _write(root=tmp_path, body=_build_module(name="run_count", gap=40))
 
     result = check.run(src_root=str(tmp_path))
 
@@ -103,7 +103,7 @@ def test_max_span_is_configurable(tmp_path: Path) -> None:
     # Arrange
     check = NamingScopeCheck()
     check.configure(settings={"enabled": True, "max_span": 200})
-    _write(root=tmp_path, body=_module(name="rc", gap=40))
+    _write(root=tmp_path, body=_build_module(name="rc", gap=40))
 
     # Act
     result = check.run(src_root=str(tmp_path))
@@ -118,7 +118,7 @@ def test_max_span_is_configurable(tmp_path: Path) -> None:
 
 
 def test_conventional_counter_survives_any_distance(tmp_path: Path, check: NamingScopeCheck) -> None:
-    _write(root=tmp_path, body=_module(name="i", gap=60))
+    _write(root=tmp_path, body=_build_module(name="i", gap=60))
 
     result = check.run(src_root=str(tmp_path))
 
@@ -127,7 +127,7 @@ def test_conventional_counter_survives_any_distance(tmp_path: Path, check: Namin
 
 
 def test_allowlisted_idiom_survives_any_distance(tmp_path: Path, check: NamingScopeCheck) -> None:
-    _write(root=tmp_path, body=_module(name="lo", gap=60))
+    _write(root=tmp_path, body=_build_module(name="lo", gap=60))
 
     result = check.run(src_root=str(tmp_path))
 
@@ -139,7 +139,7 @@ def test_allow_setting_extends_the_default(tmp_path: Path) -> None:
     # Arrange
     check = NamingScopeCheck()
     check.configure(settings={"enabled": True, "allow": ["rc"]})
-    _write(root=tmp_path, body=_module(name="rc", gap=40))
+    _write(root=tmp_path, body=_build_module(name="rc", gap=40))
 
     # Act
     result = check.run(src_root=str(tmp_path))
@@ -169,7 +169,7 @@ def test_imported_module_alias_is_not_a_local(tmp_path: Path, check: NamingScope
 
 
 def test_test_files_are_skipped(tmp_path: Path, check: NamingScopeCheck) -> None:
-    (tmp_path / "test_thing.py").write_text(_module(name="rc", gap=40), encoding="utf-8")
+    (tmp_path / "test_thing.py").write_text(_build_module(name="rc", gap=40), encoding="utf-8")
 
     result = check.run(src_root=str(tmp_path))
 
@@ -186,20 +186,20 @@ def test_root_under_a_skip_named_ancestor_is_still_scanned(tmp_path: Path, check
     # Arrange
     root = tmp_path / "migrations" / "project"
     root.mkdir(parents=True)
-    _write(root=root, body=_module(name="rc", gap=40))
+    _write(root=root, body=_build_module(name="rc", gap=40))
 
     # Act
     result = check.run(src_root=str(root))
 
     # Assert
-    assert _codes(result=result) == ["NAMING-005"]
+    assert _collect_codes(result=result) == ["NAMING-005"]
 
 
 def test_skip_named_subdirectory_inside_the_root_is_skipped(tmp_path: Path, check: NamingScopeCheck) -> None:
     # Arrange
     nested = tmp_path / "migrations"
     nested.mkdir()
-    _write(root=nested, body=_module(name="rc", gap=40))
+    _write(root=nested, body=_build_module(name="rc", gap=40))
 
     # Act
     result = check.run(src_root=str(tmp_path))

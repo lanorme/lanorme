@@ -32,7 +32,7 @@ def _run(*, root: Path, body: str, check: NamingCleanCodeCheck, name: str = "sam
     return check.run(src_root=str(root))
 
 
-def _codes(result) -> list[str]:
+def _collect_codes(result) -> list[str]:
     """The rule codes of all warnings on *result*."""
     return [w.code for w in result.warnings]
 
@@ -54,7 +54,7 @@ def test_disabled_by_default(tmp_path: Path) -> None:
 
 def test_noise_word_classes_are_flagged(tmp_path: Path, check: NamingCleanCodeCheck) -> None:
     result = _run(root=tmp_path, body="class UserManager:\n    pass\nclass ConfigData:\n    pass\n", check=check)
-    assert _codes(result) == ["NAMING-009", "NAMING-009"]
+    assert _collect_codes(result) == ["NAMING-009", "NAMING-009"]
     assert result.violations == [] and result.status is Status.WARN
 
 
@@ -76,7 +76,7 @@ def test_exempt_covers_noise_words_and_junk_modules(tmp_path: Path) -> None:
     result = _run(root=tmp_path, body="class UserManager:\n    pass\n", check=check, name="utils.py")
 
     # Assert
-    assert _codes(result) == []
+    assert _collect_codes(result) == []
 
 
 # --------------------------------------------------------------------------- #
@@ -102,7 +102,7 @@ def test_junk_module_and_package_are_flagged(tmp_path: Path, check: NamingCleanC
 
 def test_named_module_passes(tmp_path: Path, check: NamingCleanCodeCheck) -> None:
     result = _run(root=tmp_path, body="", check=check, name="paths.py")
-    assert _codes(result) == []
+    assert _collect_codes(result) == []
 
 
 # --------------------------------------------------------------------------- #
@@ -112,7 +112,7 @@ def test_named_module_passes(tmp_path: Path, check: NamingCleanCodeCheck) -> Non
 
 def test_query_without_a_verb_is_flagged(tmp_path: Path, check: NamingCleanCodeCheck) -> None:
     result = _run(root=tmp_path, body="def _shell_violations(tree):\n    return []\n", check=check)
-    assert _codes(result) == ["NAMING-011"]
+    assert _collect_codes(result) == ["NAMING-011"]
     assert "find_" in result.warnings[0].fix
 
 
@@ -136,13 +136,13 @@ def test_queries_with_a_verb_or_a_predicate_pass(tmp_path: Path, check: NamingCl
     result = _run(root=tmp_path, body=body, check=check)
 
     # Assert
-    assert _codes(result) == []
+    assert _collect_codes(result) == []
 
 
 def test_commands_and_raisers_are_not_queries(tmp_path: Path, check: NamingCleanCodeCheck) -> None:
     body = "def layout(root):\n    root.write_text('x')\ndef key_not_found(key):\n    raise KeyError(key)\n"
     result = _run(root=tmp_path, body=body, check=check)
-    assert _codes(result) == []
+    assert _collect_codes(result) == []
 
 
 def test_query_fix_puts_a_later_verb_first(tmp_path: Path, check: NamingCleanCodeCheck) -> None:

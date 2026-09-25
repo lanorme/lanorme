@@ -25,7 +25,7 @@ _TESTS_DIR = Path(__file__).parent
 _MIN_TESTS_PER_CHECK = 3
 
 
-def _registered_check_names() -> list[str]:
+def _list_registered_check_names() -> list[str]:
     """All built-in checks, with discovery forced so the registry is populated."""
     _load_builtin_checks()
     return sorted(get_all_checks())
@@ -42,7 +42,7 @@ def _test_function_count(path: Path) -> int:
     )
 
 
-@pytest.mark.parametrize("name", _registered_check_names())
+@pytest.mark.parametrize("name", _list_registered_check_names())
 def test_every_check_has_a_dedicated_test_file(name: str):
     # Arrange: the test file a check is expected to own.
     expected = _TESTS_DIR / f"test_{name}.py"
@@ -54,7 +54,7 @@ def test_every_check_has_a_dedicated_test_file(name: str):
     )
 
 
-@pytest.mark.parametrize("name", _registered_check_names())
+@pytest.mark.parametrize("name", _list_registered_check_names())
 def test_each_check_test_file_is_not_a_stub(name: str):
     # Arrange.
     path = _TESTS_DIR / f"test_{name}.py"

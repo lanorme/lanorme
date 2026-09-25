@@ -48,7 +48,7 @@ def _write(*, root: Path, name: str, body: str) -> Path:
     return path
 
 
-def _term001(result) -> list:
+def _collect_term001(result) -> list:
     """All TERM-001 violations in *result*."""
     return [v for v in result.violations if v.rule.startswith("TERM-001")]
 
@@ -66,7 +66,7 @@ def test_true_positive_comment_and_docstring_fire(check: DomainTermsCheck, tmp_p
 
     # Assert: the check fails and both prose occurrences are flagged.
     assert result.status == Status.FAIL
-    prose = [v for v in _term001(result) if "comment/docstring" in v.message]
+    prose = [v for v in _collect_term001(result) if "comment/docstring" in v.message]
     assert len(prose) == 2
 
 
@@ -172,7 +172,7 @@ def test_bare_identifier_class_name_fires_once(check: DomainTermsCheck, tmp_path
 
     # Assert: exactly one identifier-level violation, naming the matched term.
     assert result.status == Status.FAIL
-    ident = [v for v in _term001(result) if "identifier" in v.message]
+    ident = [v for v in _collect_term001(result) if "identifier" in v.message]
     assert len(ident) == 1
     assert "Acct" in ident[0].rule
 
@@ -191,7 +191,7 @@ def test_import_line_comment_skipped_normal_comment_fires(
     result = check.run(src_root=str(tmp_path))
 
     # Assert: only the non-import comment (line 2) is flagged.
-    prose = [v for v in _term001(result) if "comment/docstring" in v.message]
+    prose = [v for v in _collect_term001(result) if "comment/docstring" in v.message]
     assert len(prose) == 1
     assert prose[0].line == 2
 
@@ -225,7 +225,7 @@ def test_test_prefixed_and_migrations_files_are_exempt(check: DomainTermsCheck, 
     result = check.run(src_root=str(tmp_path))
 
     # Assert: only the non-exempt file is flagged.
-    files = {v.file for v in _term001(result)}
+    files = {v.file for v in _collect_term001(result)}
     assert files == {"real.py"}
 
 
@@ -237,5 +237,5 @@ def test_bare_assignment_should_fire_exactly_once(check: DomainTermsCheck, tmp_p
     result = check.run(src_root=str(tmp_path))
 
     # Assert: exactly one violation per textual occurrence of the bare target.
-    ident = [v for v in _term001(result) if "identifier" in v.message]
+    ident = [v for v in _collect_term001(result) if "identifier" in v.message]
     assert len(ident) == 1

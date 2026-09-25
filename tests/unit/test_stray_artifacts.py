@@ -13,7 +13,7 @@ from lanorme import Status
 from lanorme.checks.stray_artifacts import StrayArtifactsCheck
 
 
-def _codes(tmp_path: Path) -> set[str]:
+def _collect_codes(tmp_path: Path) -> set[str]:
     result = StrayArtifactsCheck().run(src_root=str(tmp_path))
     return {(v.rule, v.file) for v in result.violations}
 
@@ -23,7 +23,7 @@ def test_scratch_temp_dir_files_are_flagged(tmp_path: Path):
     for name in (".pc_tmpdir", ".testdir", ".testdir2", "build.tmpdir", "scratchdir.out"):
         (tmp_path / name).write_text("/tmp/whatever\n", encoding="utf-8")
     # Act
-    flagged = {file for rule, file in _codes(tmp_path) if rule == "JUNK-001"}
+    flagged = {file for rule, file in _collect_codes(tmp_path) if rule == "JUNK-001"}
     # Assert
     assert flagged == {".pc_tmpdir", ".testdir", ".testdir2", "build.tmpdir", "scratchdir.out"}
 
@@ -52,7 +52,7 @@ def test_stray_image_at_root_is_flagged_but_asset_dir_image_is_not(tmp_path: Pat
     (tmp_path / "docs").mkdir()
     (tmp_path / "docs" / "diagram.png").write_text("x\n", encoding="utf-8")
     # Act
-    flagged = {file for rule, file in _codes(tmp_path) if rule == "JUNK-002"}
+    flagged = {file for rule, file in _collect_codes(tmp_path) if rule == "JUNK-002"}
     # Assert: only the stray root copy is flagged; the asset-dir copy is exempt.
     assert flagged == {"diagram.png"}
 

@@ -34,7 +34,7 @@ def _write(*, root: Path, body: str) -> None:
     (root / "sample.py").write_text(body, encoding="utf-8")
 
 
-def _codes(*, result) -> list[str]:
+def _collect_codes(*, result) -> list[str]:
     """The rule codes of all violations on *result*."""
     return [v.code for v in result.violations]
 
@@ -67,7 +67,7 @@ def test_over_budget_is_flagged_once(tmp_path: Path, check: SuppressionsCheck) -
     result = check.run(src_root=str(tmp_path))
 
     # Assert
-    assert _codes(result=result) == ["SUPPRESS-001"]
+    assert _collect_codes(result=result) == ["SUPPRESS-001"]
 
 
 def test_within_budget_passes(tmp_path: Path) -> None:
@@ -89,7 +89,7 @@ def test_lanorme_directive_counts_too(tmp_path: Path, check: SuppressionsCheck) 
     result = check.run(src_root=str(tmp_path))
 
     # Assert
-    assert _codes(result=result) == ["SUPPRESS-001"]
+    assert _collect_codes(result=result) == ["SUPPRESS-001"]
 
 
 def test_clean_file_passes(tmp_path: Path, check: SuppressionsCheck) -> None:
@@ -112,7 +112,7 @@ def test_bare_noqa_is_blanket(tmp_path: Path, check: SuppressionsCheck) -> None:
     result = check.run(src_root=str(tmp_path))
 
     # Assert
-    assert "SUPPRESS-002" in _codes(result=result)
+    assert "SUPPRESS-002" in _collect_codes(result=result)
 
 
 def test_all_code_is_blanket(tmp_path: Path, check: SuppressionsCheck) -> None:
@@ -121,7 +121,7 @@ def test_all_code_is_blanket(tmp_path: Path, check: SuppressionsCheck) -> None:
     result = check.run(src_root=str(tmp_path))
 
     # Assert
-    assert "SUPPRESS-002" in _codes(result=result)
+    assert "SUPPRESS-002" in _collect_codes(result=result)
 
 
 def test_targeted_directive_is_not_blanket(tmp_path: Path) -> None:
@@ -223,4 +223,4 @@ def test_root_under_a_skip_named_ancestor_is_still_scanned(tmp_path: Path, check
     result = check.run(src_root=str(root))
 
     # Assert
-    assert _codes(result=result) == ["SUPPRESS-001"]
+    assert _collect_codes(result=result) == ["SUPPRESS-001"]

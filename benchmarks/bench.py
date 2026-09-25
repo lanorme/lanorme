@@ -23,7 +23,7 @@ from lanorme import Check, get_all_checks
 from lanorme.cli import _load_builtin_checks
 
 
-def _corpus_stats(*, root: Path) -> tuple[int, int]:
+def _measure_corpus_size(*, root: Path) -> tuple[int, int]:
     """Return (file count, total line count) for *.py under root."""
     files = list(root.rglob("*.py"))
     lines = 0
@@ -67,7 +67,7 @@ def main(argv: list[str]) -> None:
     _load_builtin_checks()
     checks = get_all_checks()
 
-    n_files, n_lines = _corpus_stats(root=root)
+    n_files, n_lines = _measure_corpus_size(root=root)
     parse = _parse_pass(root=root)
 
     # Warm the filesystem cache before timing.

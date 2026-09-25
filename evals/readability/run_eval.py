@@ -44,7 +44,7 @@ def _lint(*, sample: Path, config: Path) -> list[dict[str, object]]:
     return [json.loads(line) for line in proc.stdout.splitlines() if line.startswith("{")]
 
 
-def _rule_codes(*, findings: list[dict[str, object]]) -> dict[str, int]:
+def _tally_rule_codes(*, findings: list[dict[str, object]]) -> dict[str, int]:
     """Tally findings by rule code, so runs are comparable at a glance."""
     tally: dict[str, int] = {}
     for finding in findings:
@@ -56,7 +56,7 @@ def _rule_codes(*, findings: list[dict[str, object]]) -> dict[str, int]:
 def _score_sample(*, sample: Path) -> dict[str, object]:
     """Lint one generated sample under both configs and measure its readability."""
     lint = {
-        name: _rule_codes(findings=_lint(sample=sample, config=path))
+        name: _tally_rule_codes(findings=_lint(sample=sample, config=path))
         for name, path in CONFIGS.items()
     }
     return {

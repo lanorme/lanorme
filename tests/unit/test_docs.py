@@ -35,7 +35,7 @@ def _write(*, root: Path, name: str, body: str) -> None:
     path.write_text(body, encoding="utf-8")
 
 
-def _codes(*, result) -> list[str]:
+def _collect_codes(*, result) -> list[str]:
     """All violation and warning rule codes in a result, in order."""
     return [v.code for v in result.violations] + [w.code for w in result.warnings]
 
@@ -79,7 +79,7 @@ def test_markdown_outside_docs_root_is_ignored(tmp_path: Path, check: DocsCheck)
 
     # Assert: nothing under docs/, so nothing is reported.
     assert result.status == Status.PASS
-    assert _codes(result=result) == []
+    assert _collect_codes(result=result) == []
 
 
 def test_clean_docs_tree_is_silent(tmp_path: Path, check: DocsCheck):
@@ -93,7 +93,7 @@ def test_clean_docs_tree_is_silent(tmp_path: Path, check: DocsCheck):
 
     # Assert.
     assert result.status == Status.PASS
-    assert _codes(result=result) == []
+    assert _collect_codes(result=result) == []
 
 
 # --------------------------------------------------------------------------- #
@@ -133,7 +133,7 @@ def test_docs001_clean_single_h1(tmp_path: Path, check: DocsCheck):
     result = check.run(src_root=str(tmp_path))
 
     # Assert.
-    assert "DOCS-001" not in _codes(result=result)
+    assert "DOCS-001" not in _collect_codes(result=result)
 
 
 # --------------------------------------------------------------------------- #
@@ -162,7 +162,7 @@ def test_docs002_clean_one_step_descent(tmp_path: Path, check: DocsCheck):
     result = check.run(src_root=str(tmp_path))
 
     # Assert.
-    assert "DOCS-002" not in _codes(result=result)
+    assert "DOCS-002" not in _collect_codes(result=result)
 
 
 # --------------------------------------------------------------------------- #
@@ -190,7 +190,7 @@ def test_docs003_index_page_is_exempt(tmp_path: Path, check: DocsCheck):
     result = check.run(src_root=str(tmp_path))
 
     # Assert.
-    assert "DOCS-003" not in _codes(result=result)
+    assert "DOCS-003" not in _collect_codes(result=result)
 
 
 def test_docs003_clean_canonical_opener(tmp_path: Path, check: DocsCheck):
@@ -201,7 +201,7 @@ def test_docs003_clean_canonical_opener(tmp_path: Path, check: DocsCheck):
     result = check.run(src_root=str(tmp_path))
 
     # Assert.
-    assert "DOCS-003" not in _codes(result=result)
+    assert "DOCS-003" not in _collect_codes(result=result)
 
 
 # --------------------------------------------------------------------------- #
@@ -238,7 +238,7 @@ def test_docs004_clean_with_alt_text(tmp_path: Path, check: DocsCheck):
     result = check.run(src_root=str(tmp_path))
 
     # Assert.
-    assert "DOCS-004" not in _codes(result=result)
+    assert "DOCS-004" not in _collect_codes(result=result)
 
 
 # --------------------------------------------------------------------------- #
@@ -273,7 +273,7 @@ def test_docs005_allow_list_exempts_raster(tmp_path: Path):
     result = check.run(src_root=str(tmp_path))
 
     # Assert.
-    assert "DOCS-005" not in _codes(result=result)
+    assert "DOCS-005" not in _collect_codes(result=result)
 
 
 # --------------------------------------------------------------------------- #
@@ -284,7 +284,7 @@ def test_docs005_allow_list_exempts_raster(tmp_path: Path):
 def test_docs006_warns_on_section_without_index(tmp_path: Path, check: DocsCheck):
     # Arrange: a known section with a page but no index.md.
     _write(root=tmp_path, name="docs/index.md", body="# Docs\n\nWelcome.\n")
-    _write(root=tmp_path, name="docs/tutorials/first.md", body=_tutorial())
+    _write(root=tmp_path, name="docs/tutorials/first.md", body=_build_tutorial())
 
     # Act.
     result = check.run(src_root=str(tmp_path))
@@ -297,13 +297,13 @@ def test_docs006_clean_section_with_index(tmp_path: Path, check: DocsCheck):
     # Arrange: the section carries its index page.
     _write(root=tmp_path, name="docs/index.md", body="# Docs\n\nWelcome.\n")
     _write(root=tmp_path, name="docs/tutorials/index.md", body="# Tutorials\n\nStart here.\n")
-    _write(root=tmp_path, name="docs/tutorials/first.md", body=_tutorial())
+    _write(root=tmp_path, name="docs/tutorials/first.md", body=_build_tutorial())
 
     # Act.
     result = check.run(src_root=str(tmp_path))
 
     # Assert.
-    assert "DOCS-006" not in _codes(result=result)
+    assert "DOCS-006" not in _collect_codes(result=result)
 
 
 # --------------------------------------------------------------------------- #
@@ -332,7 +332,7 @@ def test_docs007_clean_known_top_level_and_section(tmp_path: Path, check: DocsCh
     result = check.run(src_root=str(tmp_path))
 
     # Assert.
-    assert "DOCS-007" not in _codes(result=result)
+    assert "DOCS-007" not in _collect_codes(result=result)
 
 
 # --------------------------------------------------------------------------- #
@@ -361,7 +361,7 @@ def test_docs008_clean_unnumbered_heading(tmp_path: Path, check: DocsCheck):
     result = check.run(src_root=str(tmp_path))
 
     # Assert.
-    assert "DOCS-008" not in _codes(result=result)
+    assert "DOCS-008" not in _collect_codes(result=result)
 
 
 # --------------------------------------------------------------------------- #
@@ -387,7 +387,7 @@ def test_enabled_via_cli_config(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
     assert "DOCS-001" in capsys.readouterr().out
 
 
-def _tutorial() -> str:
+def _build_tutorial() -> str:
     """A minimal well-formed tutorial content page."""
     return "# First tutorial\n\nThis tutorial walks through the basics.\n"
 
@@ -406,4 +406,4 @@ def test_root_under_a_skip_named_ancestor_is_still_scanned(tmp_path: Path, check
     result = check.run(src_root=str(root))
 
     # Assert: the ancestor is the user's filesystem, not the project layout.
-    assert "DOCS-001" in _codes(result=result)
+    assert "DOCS-001" in _collect_codes(result=result)

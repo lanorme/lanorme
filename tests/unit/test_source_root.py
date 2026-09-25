@@ -21,7 +21,7 @@ def _write(root: Path, rel: str, body: str) -> None:
     path.write_text(body, encoding="utf-8")
 
 
-def _codes(result) -> list[str]:
+def _collect_codes(result) -> list[str]:
     return [v.rule.split(":", 1)[0] for v in result.violations]
 
 
@@ -50,7 +50,7 @@ def test_layer_violation_caught_with_source_root(tmp_path: Path):
     result = check.run(src_root=str(tmp_path))
 
     # Assert: classified as domain, and the reported path is scan-target-relative.
-    assert "LAYER-001" in _codes(result)
+    assert "LAYER-001" in _collect_codes(result)
     assert result.violations[0].file == "src/pkg/domain/thing.py"
 
 
@@ -84,7 +84,7 @@ def test_composition_root_glob_is_source_root_relative(tmp_path: Path):
     # Assert: only the non-comp-root file fires LAYER-005, reported full path.
     files = {v.file for v in result.violations}
     assert files == {"src/pkg/api/router.py"}
-    assert "LAYER-005" in _codes(result)
+    assert "LAYER-005" in _collect_codes(result)
 
 
 # --- port_coverage ---------------------------------------------------------- #
@@ -113,7 +113,7 @@ def test_port001_caught_with_source_root(tmp_path: Path):
     result = check.run(src_root=str(tmp_path))
 
     # Assert: the adapter is flagged, reported at its scan-target-relative path.
-    codes = _codes(result)
+    codes = _collect_codes(result)
     assert "PORT-001" in codes
     flagged = {v.file for v in result.violations if v.rule.startswith("PORT-001")}
     assert flagged == {"src/pkg/infrastructure/services/impl.py"}

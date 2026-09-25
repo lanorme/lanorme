@@ -394,7 +394,7 @@ def test_spans_reach_ndjson_and_github_annotations(tmp_path: Path, capsys):
 # --------------------------------------------------------------------------- #
 
 
-def _nested_project(tmp_path: Path) -> Path:
+def _build_nested_project(tmp_path: Path) -> Path:
     """A project whose tests/ subtree carries its own config and a TYPE-003 bait."""
     _project(tmp_path, "")
     tests = tmp_path / "tests"
@@ -407,7 +407,7 @@ def _nested_project(tmp_path: Path) -> Path:
 def test_nested_region_keeps_path_based_exemptions(tmp_path: Path, capsys):
     """A region pass sees ``tests/helpers.py``, so the tests/ exemption of TYPE-003 holds."""
     # Arrange.
-    _nested_project(tmp_path)
+    _build_nested_project(tmp_path)
 
     # Act.
     _run(["check", str(tmp_path), "--check", "strong_types", "--output-format", "ndjson"])
@@ -420,7 +420,7 @@ def test_nested_region_keeps_path_based_exemptions(tmp_path: Path, capsys):
 def test_checking_a_subtree_applies_the_enclosing_project_config(tmp_path: Path, capsys):
     """``lanorme check tests`` under tests/lanorme.toml is still the project's run."""
     # Arrange: the project ignores TYPE at the root; the subtree only tunes a threshold.
-    tests = _nested_project(tmp_path)
+    tests = _build_nested_project(tmp_path)
     (tmp_path / "lanorme.toml").write_text('ignore = ["TYPE"]\n', encoding="utf-8")
 
     # Act.

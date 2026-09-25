@@ -46,7 +46,7 @@ def _run(argv: list[str]) -> int:
     return 0
 
 
-def _dirty_dir(tmp_py_file) -> Path:
+def _build_dirty_dir(tmp_py_file) -> Path:
     return tmp_py_file(name="m.py", body=_DIRTY).parent
 
 
@@ -61,7 +61,7 @@ def _clean_dir(tmp_py_file) -> Path:
 
 def test_concise_default_on_dirty_hides_pass_and_prints_summary(tmp_py_file, capsys):
     # Arrange: a tree with two failing checks.
-    target = _dirty_dir(tmp_py_file)
+    target = _build_dirty_dir(tmp_py_file)
 
     # Act: no --output-format means concise (the new default).
     code = _run(["check", str(target)])
@@ -120,7 +120,7 @@ def test_full_lists_every_registered_check(tmp_py_file, capsys):
 
 def test_ndjson_emits_one_record_per_finding_with_all_fields(tmp_py_file, capsys):
     # Arrange.
-    target = _dirty_dir(tmp_py_file)
+    target = _build_dirty_dir(tmp_py_file)
 
     # Act.
     code = _run(["check", str(target), "--output-format", "ndjson"])
@@ -163,7 +163,7 @@ def test_ndjson_is_empty_when_clean(tmp_py_file, capsys):
 
 def test_json_findings_include_code_field(tmp_py_file, capsys):
     # Arrange.
-    target = _dirty_dir(tmp_py_file)
+    target = _build_dirty_dir(tmp_py_file)
 
     # Act.
     code = _run(["check", str(target), "--output-format", "json"])
@@ -185,7 +185,7 @@ def test_json_findings_include_code_field(tmp_py_file, capsys):
 
 def test_check_by_code_runs_only_owning_check(tmp_py_file, capsys):
     # Arrange: the dirty tree also has an EVAL-001 finding in security_calls.
-    target = _dirty_dir(tmp_py_file)
+    target = _build_dirty_dir(tmp_py_file)
 
     # Act: --check DRY-001 should run duplication only.
     code = _run(["check", str(target), "--check", "DRY-001"])
@@ -202,7 +202,7 @@ def test_check_by_code_runs_only_owning_check(tmp_py_file, capsys):
 
 def test_check_by_code_is_case_insensitive(tmp_py_file, capsys):
     # Arrange.
-    target = _dirty_dir(tmp_py_file)
+    target = _build_dirty_dir(tmp_py_file)
 
     # Act: lowercase form must resolve identically.
     code = _run(["check", str(target), "--check", "dry-001", "--output-format", "ndjson"])

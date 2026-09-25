@@ -64,7 +64,7 @@ def test_native_directive_is_invisible_to_ruff_grammar():
     assert _is_silenced_inline(line=line, rule="EVAL-001: avoid eval")
 
 
-def _violation(*, file: str, line: int, code: str) -> Violation:
+def _build_violation(*, file: str, line: int, code: str) -> Violation:
     return Violation(file=file, line=line, rule=f"{code}: detail", message="m", fix="f")
 
 
@@ -78,8 +78,8 @@ def test_apply_drops_native_ignored_finding_and_clears_status(tmp_path: Path):
         check="c",
         status=Status.FAIL,
         violations=[
-            _violation(file="m.py", line=1, code="EVAL-001"),
-            _violation(file="m.py", line=2, code="EVAL-001"),
+            _build_violation(file="m.py", line=1, code="EVAL-001"),
+            _build_violation(file="m.py", line=2, code="EVAL-001"),
         ],
         warnings=[],
     )
@@ -99,7 +99,7 @@ def test_apply_native_ignore_flips_status_to_pass(tmp_path: Path):
     result = CheckResult(
         check="c",
         status=Status.FAIL,
-        violations=[_violation(file="m.py", line=1, code="EVAL-001")],
+        violations=[_build_violation(file="m.py", line=1, code="EVAL-001")],
         warnings=[],
     )
 
@@ -119,7 +119,7 @@ def test_apply_native_ignore_silences_warning(tmp_path: Path):
         check="c",
         status=Status.WARN,
         violations=[],
-        warnings=[_violation(file="m.py", line=1, code="TYPE-004")],
+        warnings=[_build_violation(file="m.py", line=1, code="TYPE-004")],
     )
 
     # Act.

@@ -43,13 +43,13 @@ def _has_rule(findings, prefix: str) -> bool:
 # ("x = 0") yields exactly N effective lines.
 
 
-def _file_with_effective_lines(count: int) -> str:
+def _build_file_with_effective_lines(count: int) -> str:
     return "".join(f"x = {i}\n" for i in range(count))
 
 
 def test_size001_below_soft_is_clean(run_on):
     # Arrange: 299 effective lines, one below the 300 warn threshold.
-    source = _file_with_effective_lines(299)
+    source = _build_file_with_effective_lines(299)
 
     # Act.
     result = run_on(source)
@@ -62,7 +62,7 @@ def test_size001_below_soft_is_clean(run_on):
 
 def test_size001_at_soft_warns(run_on):
     # Arrange: exactly 300 effective lines, the warn boundary.
-    source = _file_with_effective_lines(300)
+    source = _build_file_with_effective_lines(300)
 
     # Act.
     result = run_on(source)
@@ -75,7 +75,7 @@ def test_size001_at_soft_warns(run_on):
 
 def test_size001_at_hard_fails(run_on):
     # Arrange: exactly 500 effective lines, the error boundary.
-    source = _file_with_effective_lines(500)
+    source = _build_file_with_effective_lines(500)
 
     # Act.
     result = run_on(source)
@@ -91,7 +91,7 @@ def test_size001_at_hard_fails(run_on):
 # 49 clean / 50 warn / 79 warn / 80 fail.
 
 
-def _function_with_effective_lines(count: int) -> str:
+def _build_function_with_effective_lines(count: int) -> str:
     # "def f():" is one effective line; the body supplies the remaining
     # (count - 1) effective lines as bare statements.
     body = "".join(f"    x = {i}\n" for i in range(count - 1))
@@ -100,7 +100,7 @@ def _function_with_effective_lines(count: int) -> str:
 
 def test_size002_below_soft_is_clean(run_on):
     # Arrange: a 49-effective-line function, one below the 50 warn threshold.
-    source = _function_with_effective_lines(49)
+    source = _build_function_with_effective_lines(49)
 
     # Act.
     result = run_on(source)
@@ -113,7 +113,7 @@ def test_size002_below_soft_is_clean(run_on):
 
 def test_size002_at_soft_warns(run_on):
     # Arrange: a function of exactly 50 effective lines, the warn boundary.
-    source = _function_with_effective_lines(50)
+    source = _build_function_with_effective_lines(50)
 
     # Act.
     result = run_on(source)
@@ -125,7 +125,7 @@ def test_size002_at_soft_warns(run_on):
 
 def test_size002_at_hard_fails(run_on):
     # Arrange: a function of exactly 80 effective lines, the error boundary.
-    source = _function_with_effective_lines(80)
+    source = _build_function_with_effective_lines(80)
 
     # Act.
     result = run_on(source)
@@ -202,7 +202,7 @@ def test_size002_docstring_lines_count_as_effective(run_on):
 
 def test_size002_message_states_effective_lines(run_on):
     # Arrange: a function exactly at the warn boundary.
-    source = _function_with_effective_lines(50)
+    source = _build_function_with_effective_lines(50)
 
     # Act.
     result = run_on(source)
@@ -216,14 +216,14 @@ def test_size002_message_states_effective_lines(run_on):
 # 10 clean / 11 warn.
 
 
-def _class_with_methods(count: int) -> str:
+def _build_class_with_methods(count: int) -> str:
     methods = "".join(f"    def m{i}(self):\n        pass\n" for i in range(count))
     return "class C:\n" + methods
 
 
 def test_size003_at_limit_is_clean(run_on):
     # Arrange: exactly 10 methods, at the limit but not over it (> is strict).
-    source = _class_with_methods(10)
+    source = _build_class_with_methods(10)
 
     # Act.
     result = run_on(source)
@@ -236,7 +236,7 @@ def test_size003_at_limit_is_clean(run_on):
 
 def test_size003_past_limit_warns(run_on):
     # Arrange: 11 methods, one past the limit.
-    source = _class_with_methods(11)
+    source = _build_class_with_methods(11)
 
     # Act.
     result = run_on(source)
@@ -252,7 +252,7 @@ def test_size003_past_limit_warns(run_on):
 # Single-variable conditions avoid BoolOp double-counting.
 
 
-def _function_of_complexity(complexity: int) -> str:
+def _build_function_of_complexity(complexity: int) -> str:
     # complexity = 1 + number of bare if statements.
     ifs = "".join(f"    if a == {i}:\n        pass\n" for i in range(complexity - 1))
     return "def f(a):\n" + ifs + "    return a\n"
@@ -260,7 +260,7 @@ def _function_of_complexity(complexity: int) -> str:
 
 def test_complexity001_below_soft_is_clean(run_on):
     # Arrange: complexity 9 (eight bare ifs), one below the 10 warn threshold.
-    source = _function_of_complexity(9)
+    source = _build_function_of_complexity(9)
 
     # Act.
     result = run_on(source)
@@ -273,7 +273,7 @@ def test_complexity001_below_soft_is_clean(run_on):
 
 def test_complexity001_at_soft_warns(run_on):
     # Arrange: complexity exactly 10, the warn boundary.
-    source = _function_of_complexity(10)
+    source = _build_function_of_complexity(10)
 
     # Act.
     result = run_on(source)
@@ -285,7 +285,7 @@ def test_complexity001_at_soft_warns(run_on):
 
 def test_complexity001_at_hard_fails(run_on):
     # Arrange: complexity exactly 15, the error boundary.
-    source = _function_of_complexity(15)
+    source = _build_function_of_complexity(15)
 
     # Act.
     result = run_on(source)
@@ -477,7 +477,7 @@ def test_root_under_a_skip_named_ancestor_is_still_scanned(tmp_path: Path):
     # under a migrations/ directory, which the exclusion rules name.
     root = tmp_path / "migrations" / "project"
     root.mkdir(parents=True)
-    (root / "sample.py").write_text(_file_with_effective_lines(300), encoding="utf-8")
+    (root / "sample.py").write_text(_build_file_with_effective_lines(300), encoding="utf-8")
 
     # Act.
     result = FileLimitsCheck().run(src_root=str(root))

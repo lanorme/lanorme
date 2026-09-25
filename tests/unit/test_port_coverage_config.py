@@ -5,7 +5,7 @@ from __future__ import annotations
 from lanorme.checks.port_coverage import PortCoverageCheck
 
 
-def _codes(violations) -> set[str]:
+def _collect_codes(violations) -> set[str]:
     return {v.rule.split(":", 1)[0] for v in violations}
 
 
@@ -37,8 +37,8 @@ def test_port003_module_file_comp_root_missed_by_default_but_caught_when_configu
     configured_result = configured.run(src_root=str(tmp_path))
 
     # Assert: default substring globs miss the module file; the config exempts it.
-    assert "PORT-003" in _codes(default_result.violations)
-    assert "PORT-003" not in _codes(configured_result.violations)
+    assert "PORT-003" in _collect_codes(default_result.violations)
+    assert "PORT-003" not in _collect_codes(configured_result.violations)
 
 
 def test_default_directory_comp_root_still_exempt(tmp_path, tmp_py_file):
@@ -53,7 +53,7 @@ def test_default_directory_comp_root_still_exempt(tmp_path, tmp_py_file):
     result = PortCoverageCheck().run(src_root=str(tmp_path))
 
     # Assert
-    assert "PORT-003" not in _codes(result.violations)
+    assert "PORT-003" not in _collect_codes(result.violations)
 
 
 def test_adapter_roots_widened_to_whole_infrastructure(tmp_path, tmp_py_file):
@@ -74,7 +74,7 @@ def test_adapter_roots_widened_to_whole_infrastructure(tmp_path, tmp_py_file):
 
     # Assert: the Clock port is implemented under infrastructure/signing/, so
     # PORT-002 (port has no implementation) must NOT fire once adapter_roots widens.
-    assert "PORT-002" not in _codes(result.violations)
+    assert "PORT-002" not in _collect_codes(result.violations)
 
 
 def test_adapter_without_ports_import_is_port_001(tmp_path, tmp_py_file):
@@ -93,7 +93,7 @@ def test_adapter_without_ports_import_is_port_001(tmp_path, tmp_py_file):
     result = PortCoverageCheck().run(src_root=str(tmp_path))
 
     # Assert
-    assert "PORT-001" in _codes(result.violations)
+    assert "PORT-001" in _collect_codes(result.violations)
 
 
 def test_default_adapter_roots_miss_non_services_subdir(tmp_path, tmp_py_file):
@@ -111,4 +111,4 @@ def test_default_adapter_roots_miss_non_services_subdir(tmp_path, tmp_py_file):
     result = PortCoverageCheck().run(src_root=str(tmp_path))
 
     # Assert: default only scans infrastructure/services/, so the port looks orphaned.
-    assert "PORT-002" in _codes(result.violations)
+    assert "PORT-002" in _collect_codes(result.violations)

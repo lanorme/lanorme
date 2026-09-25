@@ -15,7 +15,7 @@ from lanorme.checks.similarity import SimilarityCheck
 _CORPUS = Path(__file__).resolve().parents[2] / "evals" / "corpora" / "duplication_similar"
 
 
-def _enabled() -> SimilarityCheck:
+def _build_enabled_check() -> SimilarityCheck:
     check = SimilarityCheck()
     check.configure(settings={"enabled": True})
     return check
@@ -26,13 +26,13 @@ def _flags(tmp_path: Path, body: str) -> bool:
     # SIMILAR-001 fired (mirrors the corpus scoring methodology).
     path = tmp_path / "case.py"
     path.write_text(body, encoding="utf-8")
-    result = _enabled().run(src_root=str(tmp_path))
+    result = _build_enabled_check().run(src_root=str(tmp_path))
     return any(w.rule == "SIMILAR-001" for w in result.warnings)
 
 
 def test_corpus_precision_is_perfect_and_recall_is_high():
     # Arrange: each corpus file scored in isolation against its directory label.
-    check = _enabled()
+    check = _build_enabled_check()
     tp = fp = fn = tn = 0
     for label, folder in (("pos", "positives"), ("neg", "negatives")):
         for case in sorted((_CORPUS / folder).glob("*.py")):
@@ -104,7 +104,7 @@ def test_findings_are_warnings_not_violations(tmp_path: Path):
         "def b(s):\n x = s.gamma\n y = s.beta\n z = combine(x, y)\n w = z * 2\n return w\n"
     )
     (tmp_path / "m.py").write_text(body, encoding="utf-8")
-    result = _enabled().run(src_root=str(tmp_path))
+    result = _build_enabled_check().run(src_root=str(tmp_path))
 
     # Assert: advisory only, never fails the build.
     assert result.status == Status.WARN

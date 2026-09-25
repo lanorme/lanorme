@@ -28,7 +28,7 @@ def _write(*, root: Path, rel: str, body: str) -> None:
     target.write_text(body, encoding="utf-8")
 
 
-def _codes(violations) -> list[str]:
+def _collect_codes(violations) -> list[str]:
     """Bare rule codes (text before the first colon) for the given findings."""
     return [v.rule.split(":")[0] for v in violations]
 
@@ -272,7 +272,7 @@ def test_naming004_silent_on_protocol_members_but_flags_plain_class_method(tmp_p
     result = check.run(src_root=str(tmp_path))
 
     # Assert: Protocol members are exempt; the ordinary-class method still fires.
-    assert _codes(result.warnings) == ["NAMING-004"]
+    assert _collect_codes(result.warnings) == ["NAMING-004"]
     assert "stale" in result.warnings[0].message
 
 
@@ -296,7 +296,7 @@ def test_naming004_still_flags_plain_module_level_bool_function(tmp_path: Path):
 
     # Assert: exactly one NAMING-004 warning, for the module-level function.
     assert result.status == Status.WARN
-    assert _codes(result.warnings) == ["NAMING-004"]
+    assert _collect_codes(result.warnings) == ["NAMING-004"]
     assert "ready" in result.warnings[0].message
 
 
@@ -314,7 +314,7 @@ def test_naming004_fix_strips_leading_verb_instead_of_mangling(tmp_path: Path):
     result = check.run(src_root=str(tmp_path))
 
     # Assert: still flagged, but the suggestion drops the leading verb.
-    assert _codes(result.warnings) == ["NAMING-004"]
+    assert _collect_codes(result.warnings) == ["NAMING-004"]
     assert "is_check_auth_posture" not in result.warnings[0].fix
     assert "is_auth_posture" in result.warnings[0].fix
 
@@ -368,7 +368,7 @@ def test_naming001_opt_in_flags_forbidden_prefixes_but_not_domain_or_private(tmp
     # Assert: exactly the five forbidden-prefix methods fire as NAMING-001
     # violations (FAIL); approve_loan, get_user and _private_fetch stay silent.
     assert result.status == Status.FAIL
-    assert _codes(result.violations) == ["NAMING-001"] * 5
+    assert _collect_codes(result.violations) == ["NAMING-001"] * 5
     flagged = {v.message.split("'")[1] for v in result.violations}
     assert flagged == {
         "UserRepository.fetch_user",
@@ -414,4 +414,4 @@ def test_naming002_default_off_then_opt_in_flags_service_prefix(tmp_path: Path):
     # Assert: silent by default; one NAMING-002 violation once enabled.
     assert off.status == Status.PASS and not off.violations
     assert on.status == Status.FAIL
-    assert _codes(on.violations) == ["NAMING-002"]
+    assert _collect_codes(on.violations) == ["NAMING-002"]

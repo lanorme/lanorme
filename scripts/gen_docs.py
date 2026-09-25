@@ -188,7 +188,7 @@ def render_schema() -> str:
     return json.dumps(schema, indent=2) + "\n"
 
 
-def _per_directory_section() -> list[str]:
+def _render_per_directory_section() -> list[str]:
     """The configuration reference's section on cascading per-directory config."""
     return [
             "## Per-directory config",
@@ -256,7 +256,7 @@ def render_config_reference() -> str:
                 "",
             ]
         )
-    lines.extend(_per_directory_section())
+    lines.extend(_render_per_directory_section())
     lines.extend(
         [
             "## Per-check settings",

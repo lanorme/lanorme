@@ -12,7 +12,7 @@ from lanorme import Status
 from lanorme.checks.layer_deps import LayerDepsCheck
 
 
-def _codes(violations) -> set[str]:
+def _collect_codes(violations) -> set[str]:
     return {v.rule.split(":", 1)[0] for v in violations}
 
 
@@ -29,7 +29,7 @@ def _write_mcp_layout(write) -> None:
     write(name="mcp_server/dependencies.py", body="from infrastructure.db import Repo\n")
 
 
-def _core_adapters_check(write) -> LayerDepsCheck:
+def _build_core_adapters_check(write) -> LayerDepsCheck:
     # A renamed (core/adapters) layout with a configured check, shared by the
     # tests that probe behaviour on non-default layer names.
     write(name="core/entity.py", body="X = 1\n")
@@ -64,7 +64,7 @@ def test_api_file_importing_infra_outside_comp_root_is_flagged(tmp_path, tmp_py_
     result = check.run(src_root=str(tmp_path))
 
     # Assert
-    assert "LAYER-005" in _codes(result.violations)
+    assert "LAYER-005" in _collect_codes(result.violations)
 
 
 def test_default_directory_composition_root_is_allowed(tmp_path, tmp_py_file):
@@ -77,7 +77,7 @@ def test_default_directory_composition_root_is_allowed(tmp_path, tmp_py_file):
     result = check.run(src_root=str(tmp_path))
 
     # Assert
-    assert "LAYER-005" not in _codes(result.violations)
+    assert "LAYER-005" not in _collect_codes(result.violations)
 
 
 def test_module_file_comp_root_missed_by_default_but_caught_when_configured(tmp_path, tmp_py_file):
@@ -93,8 +93,8 @@ def test_module_file_comp_root_missed_by_default_but_caught_when_configured(tmp_
     configured_result = configured.run(src_root=str(tmp_path))
 
     # Assert: the one-line config fix is exactly what unblocks the module-file root.
-    assert "LAYER-005" in _codes(default_result.violations)
-    assert "LAYER-005" not in _codes(configured_result.violations)
+    assert "LAYER-005" in _collect_codes(default_result.violations)
+    assert "LAYER-005" not in _collect_codes(configured_result.violations)
 
 
 def test_domain_importing_infra_is_layer_001(tmp_path, tmp_py_file):
@@ -107,7 +107,7 @@ def test_domain_importing_infra_is_layer_001(tmp_path, tmp_py_file):
     result = check.run(src_root=str(tmp_path))
 
     # Assert
-    assert "LAYER-001" in _codes(result.violations)
+    assert "LAYER-001" in _collect_codes(result.violations)
 
 
 def test_application_importing_infra_is_layer_002(tmp_path, tmp_py_file):
@@ -120,7 +120,7 @@ def test_application_importing_infra_is_layer_002(tmp_path, tmp_py_file):
     result = check.run(src_root=str(tmp_path))
 
     # Assert
-    assert "LAYER-002" in _codes(result.violations)
+    assert "LAYER-002" in _collect_codes(result.violations)
 
 
 def test_pyproject_table_shape_reaches_configure(tmp_path):
@@ -148,13 +148,13 @@ api = ["domain", "application"]
 
 def test_custom_layers_and_allowed(tmp_path, tmp_py_file):
     # Arrange: a project that calls its layers core/ and adapters/.
-    check = _core_adapters_check(tmp_py_file)
+    check = _build_core_adapters_check(tmp_py_file)
 
     # Act
     result = check.run(src_root=str(tmp_path))
 
     # Assert: adapters -> core is allowed, so no layer violation.
-    assert not any(code.startswith("LAYER-00") and code != "LAYER-000" for code in _codes(result.violations))
+    assert not any(code.startswith("LAYER-00") and code != "LAYER-000" for code in _collect_codes(result.violations))
 
 
 def test_transport_layer_composition_root_may_import_infra(tmp_path, tmp_py_file):
@@ -182,7 +182,7 @@ def test_transport_composition_root_still_flagged_under_default(tmp_path, tmp_py
     result = check.run(src_root=str(tmp_path))
 
     # Assert: the default does not extend the exception to mcp_server.
-    assert "LAYER-005" in _codes(result.violations)
+    assert "LAYER-005" in _collect_codes(result.violations)
 
 
 def test_transport_non_comp_root_importing_infra_is_layer_005(tmp_path, tmp_py_file):
@@ -196,7 +196,7 @@ def test_transport_non_comp_root_importing_infra_is_layer_005(tmp_path, tmp_py_f
     result = check.run(src_root=str(tmp_path))
 
     # Assert: only the composition root is exempt; handlers.py is not.
-    assert "LAYER-005" in _codes(result.violations)
+    assert "LAYER-005" in _collect_codes(result.violations)
 
 
 def test_unknown_transport_layer_emits_layer_006_warning(tmp_path, tmp_py_file):
@@ -209,18 +209,18 @@ def test_unknown_transport_layer_emits_layer_006_warning(tmp_path, tmp_py_file):
     result = check.run(src_root=str(tmp_path))
 
     # Assert: a no-op transport layer is surfaced as an advisory warning.
-    assert "LAYER-006" in _codes(result.warnings)
+    assert "LAYER-006" in _collect_codes(result.warnings)
 
 
 def test_default_transport_layers_does_not_warn_on_renamed_layout(tmp_path, tmp_py_file):
     # Arrange: a core/adapters layout that never opts into transport_layers.
-    check = _core_adapters_check(tmp_py_file)
+    check = _build_core_adapters_check(tmp_py_file)
 
     # Act
     result = check.run(src_root=str(tmp_path))
 
     # Assert: the default api transport being absent is not the user's concern.
-    assert "LAYER-006" not in _codes(result.warnings)
+    assert "LAYER-006" not in _collect_codes(result.warnings)
 
 
 def test_transport_layers_reaches_configure():

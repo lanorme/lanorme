@@ -23,13 +23,13 @@ from lanorme.checks.naming_shapes import (
 )
 
 
-def _function(source: str) -> ast.FunctionDef:
+def _find_function(source: str) -> ast.FunctionDef:
     """The first function defined in *source*."""
     tree = ast.parse(source)
     return next(node for node in ast.walk(tree) if isinstance(node, ast.FunctionDef))
 
 
-def _definition(source: str) -> Definition:
+def _find_definition(source: str) -> Definition:
     """The first definition ``iter_definitions`` yields for *source*."""
     return next(iter_definitions(tree=ast.parse(source)))
 
@@ -71,8 +71,8 @@ def test_iter_definitions_yields_top_level_and_methods_but_not_closures() -> Non
 
 
 def test_may_override_needs_a_base_class() -> None:
-    plain = _definition("class A:\n    pass\n")
-    derived = _definition("class B(A):\n    pass\n")
+    plain = _find_definition("class A:\n    pass\n")
+    derived = _find_definition("class B(A):\n    pass\n")
     assert not plain.may_override and Definition(node=plain.node, owner=derived.node).may_override
 
 
@@ -98,12 +98,12 @@ def test_may_override_needs_a_base_class() -> None:
     ],
 )
 def test_is_command(body: str, expected: bool) -> None:
-    assert is_command(node=_function(f"def f(x):\n{body}")) is expected
+    assert is_command(node=_find_function(f"def f(x):\n{body}")) is expected
 
 
 def test_is_raiser_looks_at_the_last_statement() -> None:
-    assert is_raiser(node=_function("def f(x):\n    x.clear()\n    raise KeyError(x)\n"))
-    assert not is_raiser(node=_function("def f(x):\n    raise KeyError(x)\n    x.clear()\n"))
+    assert is_raiser(node=_find_function("def f(x):\n    x.clear()\n    raise KeyError(x)\n"))
+    assert not is_raiser(node=_find_function("def f(x):\n    raise KeyError(x)\n    x.clear()\n"))
 
 
 # --------------------------------------------------------------------------- #
@@ -112,18 +112,18 @@ def test_is_raiser_looks_at_the_last_statement() -> None:
 
 
 def test_decorator_leaves_resolve_calls_attributes_and_subscripts() -> None:
-    node = _function('@app.route("/")\n@x.setter\n@property\n@deco[0]\n@(lambda f: f)\ndef f():\n    pass\n')
+    node = _find_function('@app.route("/")\n@x.setter\n@property\n@deco[0]\n@(lambda f: f)\ndef f():\n    pass\n')
     assert resolve_decorator_leaves(node=node) == {"route", "setter", "property", "deco", ""}
 
 
 @pytest.mark.parametrize("decorator", ["@abc.abstractmethod", "@typing.override", "@staticmethod"])
 def test_transparent_decorators_are_transparent_when_dotted(decorator: str) -> None:
-    assert not has_opaque_decorator(node=_function(f"{decorator}\ndef f():\n    pass\n"))
+    assert not has_opaque_decorator(node=_find_function(f"{decorator}\ndef f():\n    pass\n"))
 
 
 @pytest.mark.parametrize("decorator", ["@deco[0]", "@(lambda f: f)", "@a.b(c)(d)", "@x.setter"])
 def test_other_decorator_shapes_are_opaque(decorator: str) -> None:
-    assert has_opaque_decorator(node=_function(f"{decorator}\ndef f():\n    pass\n"))
+    assert has_opaque_decorator(node=_find_function(f"{decorator}\ndef f():\n    pass\n"))
 
 
 @pytest.mark.parametrize(
@@ -133,12 +133,12 @@ def test_other_decorator_shapes_are_opaque(decorator: str) -> None:
      "process_request", "_env_file_callback"],
 )
 def test_reserved_function_names(name: str) -> None:
-    assert is_framework_named(definition=_definition(f"def {name}():\n    pass\n"))
+    assert is_framework_named(definition=_find_definition(f"def {name}():\n    pass\n"))
 
 
 @pytest.mark.parametrize("name", ["write_layout", "layout", "keys"])
 def test_ordinary_module_functions_are_the_authors(name: str) -> None:
-    assert not is_framework_named(definition=_definition(f"def {name}():\n    pass\n"))
+    assert not is_framework_named(definition=_find_definition(f"def {name}():\n    pass\n"))
 
 
 def test_protocol_names_are_reserved_on_methods_only() -> None:
@@ -147,8 +147,8 @@ def test_protocol_names_are_reserved_on_methods_only() -> None:
 
 
 def test_registering_decorators_reserve_the_name_but_transparent_ones_do_not() -> None:
-    routed = _definition('@app.route("/")\ndef index():\n    pass\n')
-    static = _definition("@staticmethod\ndef index():\n    pass\n")
+    routed = _find_definition('@app.route("/")\ndef index():\n    pass\n')
+    static = _find_definition("@staticmethod\ndef index():\n    pass\n")
     assert is_framework_named(definition=routed) and not is_framework_named(definition=static)
 
 

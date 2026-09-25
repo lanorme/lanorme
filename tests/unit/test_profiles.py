@@ -35,7 +35,7 @@ def _default_off_checks() -> set[str]:
     }
 
 
-def _switched_on_by_strict() -> set[str]:
+def _collect_switched_on_by_strict() -> set[str]:
     """Names of the tables the strict profile sets ``enabled = true`` on."""
     profile = _load_profile(name="strict", project_root=Path("/nonexistent"))
     return {
@@ -77,7 +77,7 @@ def test_strict_enables_every_default_off_check():
     # strict enables exactly the rest, so a new default-off check that is not
     # added to the profile (or to the exclusion list) fails here.
     assert _STRICT_LEAVES_OFF <= default_off
-    assert _switched_on_by_strict() == default_off - _STRICT_LEAVES_OFF
+    assert _collect_switched_on_by_strict() == default_off - _STRICT_LEAVES_OFF
 
 
 def test_every_strict_table_names_a_registered_check():

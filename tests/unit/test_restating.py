@@ -35,7 +35,7 @@ def _write(*, root: Path, name: str, body: str) -> None:
     (root / name).write_text(body, encoding="utf-8")
 
 
-def _codes(result) -> list[str]:
+def _collect_codes(result) -> list[str]:
     """The rule codes of all violations on *result*."""
     return [v.rule for v in result.violations]
 
@@ -71,7 +71,7 @@ def test_verb_echo_increment_fires(check: RestatingCheck, tmp_path: Path):
 
     # Assert: verb table maps "increment" -> AugAssign(Add), "counter" covered.
     assert result.status == Status.FAIL
-    assert "CMT-005" in _codes(result)
+    assert "CMT-005" in _collect_codes(result)
 
 
 def test_return_echo_fires(check: RestatingCheck, tmp_path: Path):
@@ -83,7 +83,7 @@ def test_return_echo_fires(check: RestatingCheck, tmp_path: Path):
 
     # Assert.
     assert result.status == Status.FAIL
-    assert "CMT-005" in _codes(result)
+    assert "CMT-005" in _collect_codes(result)
 
 
 def test_call_echo_fires(check: RestatingCheck, tmp_path: Path):
@@ -95,7 +95,7 @@ def test_call_echo_fires(check: RestatingCheck, tmp_path: Path):
 
     # Assert.
     assert result.status == Status.FAIL
-    assert "CMT-005" in _codes(result)
+    assert "CMT-005" in _collect_codes(result)
 
 
 def test_control_echo_without_stray_words_fires(check: RestatingCheck, tmp_path: Path):
@@ -108,7 +108,7 @@ def test_control_echo_without_stray_words_fires(check: RestatingCheck, tmp_path:
 
     # Assert.
     assert result.status == Status.FAIL
-    assert "CMT-005" in _codes(result)
+    assert "CMT-005" in _collect_codes(result)
 
 
 def test_blank_line_between_comment_and_code_still_fires(check: RestatingCheck, tmp_path: Path):
@@ -121,7 +121,7 @@ def test_blank_line_between_comment_and_code_still_fires(check: RestatingCheck, 
 
     # Assert.
     assert result.status == Status.FAIL
-    assert "CMT-005" in _codes(result)
+    assert "CMT-005" in _collect_codes(result)
 
 
 def test_trailing_comment_fires(check: RestatingCheck, tmp_path: Path):
@@ -133,7 +133,7 @@ def test_trailing_comment_fires(check: RestatingCheck, tmp_path: Path):
 
     # Assert.
     assert result.status == Status.FAIL
-    assert "CMT-005" in _codes(result)
+    assert "CMT-005" in _collect_codes(result)
 
 
 # --------------------------------------------------------------------------- #
@@ -150,7 +150,7 @@ def test_why_explanation_is_not_flagged(check: RestatingCheck, tmp_path: Path):
 
     # Assert: a valuable explanatory comment must never fire.
     assert result.status == Status.PASS
-    assert "CMT-005" not in _codes(result)
+    assert "CMT-005" not in _collect_codes(result)
 
 
 def test_caveat_over_call_is_not_flagged(check: RestatingCheck, tmp_path: Path):
@@ -162,7 +162,7 @@ def test_caveat_over_call_is_not_flagged(check: RestatingCheck, tmp_path: Path):
 
     # Assert.
     assert result.status == Status.PASS
-    assert "CMT-005" not in _codes(result)
+    assert "CMT-005" not in _collect_codes(result)
 
 
 def test_section_header_is_not_flagged(check: RestatingCheck, tmp_path: Path):
@@ -174,7 +174,7 @@ def test_section_header_is_not_flagged(check: RestatingCheck, tmp_path: Path):
 
     # Assert.
     assert result.status == Status.PASS
-    assert "CMT-005" not in _codes(result)
+    assert "CMT-005" not in _collect_codes(result)
 
 
 def test_allowlist_tag_exempts_an_otherwise_firing_comment(check: RestatingCheck, tmp_path: Path):
@@ -202,7 +202,7 @@ def test_allowlist_word_always_exempts(check: RestatingCheck, tmp_path: Path):
 
     # Assert.
     assert result.status == Status.PASS
-    assert "CMT-005" not in _codes(result)
+    assert "CMT-005" not in _collect_codes(result)
 
 
 def test_string_literal_hash_is_not_a_comment(check: RestatingCheck, tmp_path: Path):
@@ -214,7 +214,7 @@ def test_string_literal_hash_is_not_a_comment(check: RestatingCheck, tmp_path: P
 
     # Assert: tokenize never yields a COMMENT here; the cardinal FP trap holds.
     assert result.status == Status.PASS
-    assert "CMT-005" not in _codes(result)
+    assert "CMT-005" not in _collect_codes(result)
 
 
 def test_stem_asymmetry_id_does_not_match_identifier(check: RestatingCheck, tmp_path: Path):
@@ -226,7 +226,7 @@ def test_stem_asymmetry_id_does_not_match_identifier(check: RestatingCheck, tmp_
 
     # Assert: stem-equality, not substring, so this must not fire.
     assert result.status == Status.PASS
-    assert "CMT-005" not in _codes(result)
+    assert "CMT-005" not in _collect_codes(result)
 
 
 def test_comment_over_def_is_not_flagged(check: RestatingCheck, tmp_path: Path):
@@ -238,7 +238,7 @@ def test_comment_over_def_is_not_flagged(check: RestatingCheck, tmp_path: Path):
 
     # Assert: the statement-shape gate excludes def/class nodes.
     assert result.status == Status.PASS
-    assert "CMT-005" not in _codes(result)
+    assert "CMT-005" not in _collect_codes(result)
 
 
 def test_comment_block_is_suppressed(check: RestatingCheck, tmp_path: Path):
@@ -250,7 +250,7 @@ def test_comment_block_is_suppressed(check: RestatingCheck, tmp_path: Path):
 
     # Assert: a comment with an adjacent standalone comment is skipped.
     assert result.status == Status.PASS
-    assert "CMT-005" not in _codes(result)
+    assert "CMT-005" not in _collect_codes(result)
 
 
 def test_content_word_cap_silences_long_comments(check: RestatingCheck, tmp_path: Path):
@@ -302,4 +302,4 @@ def test_root_under_a_skip_named_ancestor_is_still_scanned(check: RestatingCheck
     result = check.run(src_root=str(root))
 
     # Assert: the ancestor is the user's filesystem, not the project layout.
-    assert _codes(result) == ["CMT-005"]
+    assert _collect_codes(result) == ["CMT-005"]

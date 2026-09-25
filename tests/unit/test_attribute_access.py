@@ -20,7 +20,7 @@ def _run(tmp_path: Path, body: str, *, name: str = "mod.py", **cfg: object):
     return check.run(src_root=str(root))
 
 
-def _codes(result) -> list[str]:
+def _collect_codes(result) -> list[str]:
     return [w.rule.split(":", 1)[0] for w in result.warnings]
 
 
@@ -29,7 +29,7 @@ def test_hasattr_literal_is_attr001_warning(tmp_path: Path):
     result = _run(tmp_path, "def f(x):\n    return hasattr(x, 'foo')\n")
 
     # Assert: advisory warning, not a failing violation.
-    assert _codes(result) == ["ATTR-001"]
+    assert _collect_codes(result) == ["ATTR-001"]
     assert result.violations == []
     assert result.status == Status.WARN
 
@@ -39,7 +39,7 @@ def test_getattr_two_arg_literal_is_attr002(tmp_path: Path):
     result = _run(tmp_path, "def f(x):\n    return getattr(x, 'foo')\n")
 
     # Assert.
-    assert _codes(result) == ["ATTR-002"]
+    assert _collect_codes(result) == ["ATTR-002"]
 
 
 def test_setattr_and_delattr_literal_are_attr002(tmp_path: Path):
@@ -47,7 +47,7 @@ def test_setattr_and_delattr_literal_are_attr002(tmp_path: Path):
     result = _run(tmp_path, "def f(x):\n    setattr(x, 'foo', 1)\n    delattr(x, 'bar')\n")
 
     # Assert.
-    assert _codes(result) == ["ATTR-002", "ATTR-002"]
+    assert _collect_codes(result) == ["ATTR-002", "ATTR-002"]
 
 
 def test_three_arg_getattr_is_exempt(tmp_path: Path):
@@ -80,7 +80,7 @@ def test_dynamic_name_exempt_by_default_flagged_when_enabled(tmp_path: Path):
 
     # Assert.
     assert default.warnings == []
-    assert _codes(dynamic) == ["ATTR-002"]
+    assert _collect_codes(dynamic) == ["ATTR-002"]
 
 
 def test_files_under_tests_are_exempt(tmp_path: Path):

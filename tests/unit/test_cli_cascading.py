@@ -54,7 +54,7 @@ def _run_full(root: Path, capsys, *extra: str) -> dict:
     return {result["check"]: result for result in payload}
 
 
-def _violation_files(result: dict) -> set[str]:
+def _collect_violation_files(result: dict) -> set[str]:
     """The set of file paths a check reported violations on."""
     return {violation["file"] for violation in result["violations"]}
 
@@ -68,7 +68,7 @@ def test_nested_config_enables_check_only_in_its_subtree(tmp_path: Path, capsys)
     results = _run_full(tmp_path, capsys)
 
     # Assert
-    assert _violation_files(results["naming_consistency"]) == {
+    assert _collect_violation_files(results["naming_consistency"]) == {
         "strict/infrastructure/repositories/store.py"
     }
 
@@ -91,7 +91,7 @@ def test_nested_config_inherits_parent_setting(tmp_path: Path, capsys):
     results = _run_full(tmp_path, capsys)
 
     # Assert
-    assert _violation_files(results["naming_consistency"]) == {
+    assert _collect_violation_files(results["naming_consistency"]) == {
         "infrastructure/repositories/store.py",
         "strict/infrastructure/repositories/store.py",
     }
@@ -113,7 +113,7 @@ def test_root_true_stops_inheritance(tmp_path: Path, capsys):
     results = _run_full(tmp_path, capsys)
 
     # Assert
-    assert _violation_files(results["naming_consistency"]) == {
+    assert _collect_violation_files(results["naming_consistency"]) == {
         "infrastructure/repositories/store.py"
     }
 
@@ -132,7 +132,7 @@ def test_whole_tree_check_spans_regions(tmp_path: Path, capsys):
 
     # Act
     results = _run_full(tmp_path, capsys)
-    reported = _violation_files(results["duplication"])
+    reported = _collect_violation_files(results["duplication"])
 
     # Assert
     assert "first.py" in reported
@@ -155,7 +155,7 @@ def test_user_exclude_drops_nested_region_findings(tmp_path: Path, capsys):
     results = _run_full(tmp_path, capsys, "--exclude", "sub/*")
 
     # Assert: only the root region's finding survives the exclude.
-    assert _violation_files(results["naming_consistency"]) == {
+    assert _collect_violation_files(results["naming_consistency"]) == {
         "infrastructure/repositories/store.py"
     }
 
@@ -178,8 +178,8 @@ def test_config_does_not_leak_between_invocations(tmp_path: Path, capsys):
     second = _run_full(plain, capsys)
 
     # Assert: the first fires NAMING-001; the second does not inherit it.
-    assert _violation_files(first["naming_consistency"])
-    assert _violation_files(second["naming_consistency"]) == set()
+    assert _collect_violation_files(first["naming_consistency"])
+    assert _collect_violation_files(second["naming_consistency"]) == set()
 
 
 def test_single_check_selector_honours_nested_regions(tmp_path: Path, capsys):
@@ -195,5 +195,5 @@ def test_single_check_selector_honours_nested_regions(tmp_path: Path, capsys):
     results = _run_full(tmp_path, capsys, "--check", "naming_consistency")
 
     # Assert: the nested repo_crud is honoured, and only the selected check ran.
-    assert _violation_files(results["naming_consistency"]) == {"strict/infrastructure/repositories/store.py"}
+    assert _collect_violation_files(results["naming_consistency"]) == {"strict/infrastructure/repositories/store.py"}
     assert set(results) == {"naming_consistency"}

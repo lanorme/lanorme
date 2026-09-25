@@ -17,7 +17,7 @@ from lanorme import Status
 from lanorme.checks.forbidden_paths import ForbiddenPathsCheck
 
 
-def _files(result) -> list[str]:
+def _collect_files(result) -> list[str]:
     return sorted(v.file for v in result.violations)
 
 
@@ -107,7 +107,7 @@ def test_nested_forbidden_dir_is_found(tmp_path: Path):
 
     # Assert: reported with its full relative path.
     assert result.status == Status.FAIL
-    assert _files(result) == ["a/b/legacy_src"]
+    assert _collect_files(result) == ["a/b/legacy_src"]
 
 
 def test_vendor_trees_are_ignored(tmp_path: Path):
@@ -156,7 +156,7 @@ def test_vendor_prefix_lookalike_dir_is_not_excluded(tmp_path: Path):
 
     # Assert: not treated as vendor, so the forbidden dir is reported.
     assert result.status == Status.FAIL
-    assert _files(result) == [".venvextra/legacy_src"]
+    assert _collect_files(result) == [".venvextra/legacy_src"]
 
 
 def test_multiple_forbidden_dirs_each_reported(tmp_path: Path):
@@ -171,7 +171,7 @@ def test_multiple_forbidden_dirs_each_reported(tmp_path: Path):
 
     # Assert: one violation per forbidden directory.
     assert result.status == Status.FAIL
-    assert _files(result) == ["build_artifacts", "legacy_src"]
+    assert _collect_files(result) == ["build_artifacts", "legacy_src"]
 
 
 def test_forbidding_a_vendor_name_is_a_noop(tmp_path: Path):
@@ -202,7 +202,7 @@ def test_forbidden_dir_under_dotgit_suffixed_project_dir_should_fire(tmp_path: P
     # Assert (correct behaviour): the forbidden dir is reported. Currently the
     # substring '.git/' match wrongly excludes it, so this xfails.
     assert result.status == Status.FAIL
-    assert _files(result) == ["proj.git/legacy_src"]
+    assert _collect_files(result) == ["proj.git/legacy_src"]
 
 
 def test_glob_matches_a_directory_name_not_its_descendants(tmp_path: Path):

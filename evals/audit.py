@@ -166,7 +166,7 @@ def _collect_performance() -> dict[str, CorpusTiming]:
         if root is None:
             corpora[name] = {"skipped": "corpus unavailable (offline?)"}
             continue
-        n_files, n_lines = bench._corpus_size(root=root)
+        n_files, n_lines = bench._measure_corpus_size(root=root)
         seconds = bench._time_end_to_end(root=root, runs=_PERF_RUNS)
         corpora[name] = {
             "files": n_files,
@@ -176,7 +176,7 @@ def _collect_performance() -> dict[str, CorpusTiming]:
     return corpora
 
 
-def _git_commit() -> str:
+def _read_git_commit() -> str:
     """Return the short git commit hash, or 'unknown' if git is unavailable."""
     try:
         out = subprocess.run(
@@ -191,7 +191,7 @@ def _git_commit() -> str:
     return out.stdout.strip() or "unknown"
 
 
-def _git_dirty() -> bool:
+def _is_git_dirty() -> bool:
     """Return True if the working tree has uncommitted changes.
 
     A dirty tree means the result was produced from code or corpora that no
@@ -210,7 +210,7 @@ def _git_dirty() -> bool:
     return bool(out.stdout.strip())
 
 
-def _lanorme_version() -> str:
+def _read_lanorme_version() -> str:
     """Read ``__version__`` from the installed lanorme package."""
     if lanorme is None:
         return "unknown"
@@ -221,9 +221,9 @@ def _build_metadata(*, audited_version: str) -> Metadata:
     """Assemble the version and hardware stamp for the run."""
     return {
         "audited_version": audited_version,
-        "lanorme_version": _lanorme_version(),
-        "git_commit": _git_commit(),
-        "git_dirty": _git_dirty(),
+        "lanorme_version": _read_lanorme_version(),
+        "git_commit": _read_git_commit(),
+        "git_dirty": _is_git_dirty(),
         "python_version": platform.python_version(),
         "platform": platform.platform(),
         "processor": platform.processor() or platform.machine(),

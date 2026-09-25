@@ -182,7 +182,7 @@ def test_cmt002_flags_overlong_line(check: CommentsCheck, tmp_path: Path):
 # --------------------------------------------------------------------------- #
 
 
-def _branchy(*, arms: int) -> str:
+def _build_branchy_body(*, arms: int) -> str:
     """A function body with *arms* decision points, to drive up complexity."""
     return "".join(f"    if value == {i} and value > 0:\n        return {i}\n" for i in range(arms))
 
@@ -190,7 +190,7 @@ def _branchy(*, arms: int) -> str:
 def test_cmt002_long_block_allowed_in_front_of_complex_code(check: CommentsCheck, tmp_path: Path):
     # Arrange: ten lines of explanation introducing a function COMPLEXITY-001 would warn about.
     block = "".join(f"# explanation line {i}\n" for i in range(10))
-    body = f"{block}def hard(value):\n{_branchy(arms=12)}    return 0\n"
+    body = f"{block}def hard(value):\n{_build_branchy_body(arms=12)}    return 0\n"
     _write(root=tmp_path, name="hard.py", body=body)
 
     # Act.
@@ -219,7 +219,7 @@ def test_cmt002_same_block_still_flagged_in_front_of_trivial_code(check: Comment
 def test_cmt002_block_inside_a_complex_function_is_allowed(check: CommentsCheck, tmp_path: Path):
     # Arrange: the explanation sits in the middle of the hard function, not above it.
     block = "".join(f"    # explanation line {i}\n" for i in range(10))
-    body = f"def hard(value):\n{_branchy(arms=12)}{block}    return 0\n"
+    body = f"def hard(value):\n{_build_branchy_body(arms=12)}{block}    return 0\n"
     _write(root=tmp_path, name="inside.py", body=body)
 
     # Act.
@@ -232,7 +232,7 @@ def test_cmt002_block_inside_a_complex_function_is_allowed(check: CommentsCheck,
 def test_cmt002_module_banner_keeps_the_base_allowance(check: CommentsCheck, tmp_path: Path):
     # Arrange: a block far from any definition must not inherit a function's allowance.
     block = "".join(f"# banner line {i}\n" for i in range(10))
-    body = f"def hard(value):\n{_branchy(arms=12)}    return 0\n\n\n{block}\n\n\nVALUE = 1\n"
+    body = f"def hard(value):\n{_build_branchy_body(arms=12)}    return 0\n\n\n{block}\n\n\nVALUE = 1\n"
     _write(root=tmp_path, name="banner.py", body=body)
 
     # Act.
@@ -248,7 +248,7 @@ def test_cmt002_scaling_is_configurable(tmp_path: Path):
     instance = CommentsCheck()
     instance.configure(settings={"block_lines_per_branch": 0})
     block = "".join(f"# explanation line {i}\n" for i in range(10))
-    _write(root=tmp_path, name="flat.py", body=f"{block}def hard(value):\n{_branchy(arms=12)}    return 0\n")
+    _write(root=tmp_path, name="flat.py", body=f"{block}def hard(value):\n{_build_branchy_body(arms=12)}    return 0\n")
 
     # Act.
     result = instance.run(src_root=str(tmp_path))

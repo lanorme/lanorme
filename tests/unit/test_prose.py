@@ -361,7 +361,7 @@ def test_double_backtick_inline_code_should_be_skipped(check: ProseCheck, tmp_pa
 # --------------------------------------------------------------------------- #
 
 
-def _density_check() -> ProseCheck:
+def _build_density_check() -> ProseCheck:
     """A prose check with PROSE-004 enabled and the PROSE-001 ban switched off.
 
     This models the task's ban -> density switch: with ``em_dash`` off, PROSE-001
@@ -372,7 +372,7 @@ def _density_check() -> ProseCheck:
     return check
 
 
-def _sentence(*, words: int, em_dashes: int) -> str:
+def _build_sentence(*, words: int, em_dashes: int) -> str:
     """Build one sentence with *words* words and *em_dashes* em dashes, full-stopped."""
     tokens = ["word"] * words
     for i in range(em_dashes):
@@ -385,11 +385,11 @@ def test_prose004_fires_on_llm_style_dense_doc(tmp_path: Path):
     # Arrange: 32 sentences, each 20 words with 2 em dashes. That is 640 words,
     # 64 em dashes (100 per 1000) and 32/32 sentences carrying one -> both axes
     # clear their thresholds, so the advisory must fire.
-    body = " ".join(_sentence(words=20, em_dashes=2) for _ in range(32)) + "\n"
+    body = " ".join(_build_sentence(words=20, em_dashes=2) for _ in range(32)) + "\n"
     _write(root=tmp_path, name="llm.md", body=body)
 
     # Act.
-    result = _density_check().run(src_root=str(tmp_path))
+    result = _build_density_check().run(src_root=str(tmp_path))
 
     # Assert: one PROSE-004 warning (not a violation), anchored at line 1.
     assert result.violations == []
@@ -402,13 +402,13 @@ def test_prose004_fires_on_llm_style_dense_doc(tmp_path: Path):
 def test_prose004_silent_on_natural_long_doc(tmp_path: Path):
     # Arrange: a long doc with only a handful of em dashes in a low fraction of
     # sentences. Words and sentences clear the floor, but neither fire axis does.
-    plain = [_sentence(words=20, em_dashes=0) for _ in range(36)]
-    dashed = [_sentence(words=20, em_dashes=1) for _ in range(4)]
+    plain = [_build_sentence(words=20, em_dashes=0) for _ in range(36)]
+    dashed = [_build_sentence(words=20, em_dashes=1) for _ in range(4)]
     body = " ".join(plain + dashed) + "\n"
     _write(root=tmp_path, name="natural.md", body=body)
 
     # Act.
-    result = _density_check().run(src_root=str(tmp_path))
+    result = _build_density_check().run(src_root=str(tmp_path))
 
     # Assert: natural prose stays silent.
     assert [w for w in result.warnings if w.code == "PROSE-004"] == []
@@ -420,13 +420,13 @@ def test_prose004_does_not_fire_when_only_one_axis_is_high(tmp_path: Path):
     # sentence fraction is only 5%. An OR bug would fire here; the spec's AND
     # must not. (The doc still clears the eligibility floor, so this exercises
     # the fire logic rather than the floor.)
-    heavy = [_sentence(words=40, em_dashes=13) for _ in range(2)]
-    plain = [_sentence(words=20, em_dashes=0) for _ in range(38)]
+    heavy = [_build_sentence(words=40, em_dashes=13) for _ in range(2)]
+    plain = [_build_sentence(words=20, em_dashes=0) for _ in range(38)]
     body = " ".join(heavy + plain) + "\n"
     _write(root=tmp_path, name="skewed.md", body=body)
 
     # Act.
-    result = _density_check().run(src_root=str(tmp_path))
+    result = _build_density_check().run(src_root=str(tmp_path))
 
     # Assert: high rate but low fraction -> no fire (AND, not OR).
     assert [w for w in result.warnings if w.code == "PROSE-004"] == []
@@ -442,7 +442,7 @@ def test_prose004_silent_below_eligibility_floor(tmp_path: Path):
     )
 
     # Act.
-    result = _density_check().run(src_root=str(tmp_path))
+    result = _build_density_check().run(src_root=str(tmp_path))
 
     # Assert: the floor keeps it silent.
     assert [w for w in result.warnings if w.code == "PROSE-004"] == []
@@ -451,7 +451,7 @@ def test_prose004_silent_below_eligibility_floor(tmp_path: Path):
 def test_prose004_silent_by_default_when_not_enabled(tmp_path: Path):
     # Arrange: the same dense doc that fires above, but density NOT enabled (only
     # base prose). PROSE-004 is opt-in, so it must produce no warning.
-    body = " ".join(_sentence(words=20, em_dashes=2) for _ in range(32)) + "\n"
+    body = " ".join(_build_sentence(words=20, em_dashes=2) for _ in range(32)) + "\n"
     _write(root=tmp_path, name="llm.md", body=body)
     check = ProseCheck()
     check.configure(settings={"enabled": True, "em_dash": False})
@@ -466,12 +466,12 @@ def test_prose004_silent_by_default_when_not_enabled(tmp_path: Path):
 def test_prose004_ignores_em_dashes_inside_fenced_code(tmp_path: Path):
     # Arrange: a dense block of em dashes lives entirely inside a fence; the prose
     # around it is clean. Density measures prose only, so the fence cannot trip it.
-    dense = " ".join(_sentence(words=20, em_dashes=2) for _ in range(32))
+    dense = " ".join(_build_sentence(words=20, em_dashes=2) for _ in range(32))
     body = f"Intro prose is clean here.\n```\n{dense}\n```\nOutro prose is clean too.\n"
     _write(root=tmp_path, name="fenced.md", body=body)
 
     # Act.
-    result = _density_check().run(src_root=str(tmp_path))
+    result = _build_density_check().run(src_root=str(tmp_path))
 
     # Assert: em dashes inside the fence never count.
     assert [w for w in result.warnings if w.code == "PROSE-004"] == []
