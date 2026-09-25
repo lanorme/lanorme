@@ -1071,7 +1071,10 @@ the exit code at <code>0</code>, until you promote them to errors.</p>
 </code></pre></div>
 <p>A clean run reports that every check passed and exits <code>0</code>:</p>
 <div class="highlight"><pre><span></span><code>All 30 checks passed.
+Opt-in checks not enabled: 11 (&#39;lanorme check --show-config&#39; lists them).
 </code></pre></div>
+<p>The second line counts the checks that ship switched off;
+<code>lanorme check --show-config</code> names them.</p>
 <p>Exit codes are <code>0</code> when no check fails (warnings alone leave it at <code>0</code>), <code>1</code>
 when a check fails (a violation, or a warning you have promoted), and <code>2</code> on a
 usage or configuration error, so the command drops straight into a pre-commit

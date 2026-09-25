@@ -1311,24 +1311,33 @@ project config:</p>
 <span class="go">project root: /path/to/project</span>
 
 <span class="go">[tool.lanorme]</span>
+<span class="go">  extends = [&#39;strict&#39;, &#39;hexagonal&#39;]</span>
 <span class="go">  ignore = [&#39;NAMING-003&#39;]</span>
 <span class="go">  promote = [&#39;ALL&#39;]</span>
 
 <span class="go">checks (effective settings):</span>
 <span class="go">  ...</span>
 <span class="go">  layer_deps         source_root=&#39;&#39; layers=&lt;4 items&gt; transport_layers=(&#39;api&#39;,) allowed_imports=&lt;4 keys&gt; composition_root=&lt;4 items&gt;</span>
+<span class="go">                     keys: allowed, composition_root, layers, source_root, transport_layers</span>
 <span class="go">  ...</span>
 <span class="go">  port_coverage      source_root=&#39;&#39; ports_dir=&#39;application/ports&#39; adapter_roots=(&#39;infrastructure&#39;,) composition_root=&lt;4 items&gt; ...</span>
+<span class="go">                     keys: adapter_roots, composition_root, ports_dir, ports_without_impl, skip_files, source_root</span>
 <span class="go">  prose              enabled=False ...   (opt-in, not enabled)</span>
+<span class="go">                     keys: density, em_dash, em_dash_density, emoji, enabled, extensions, spellings</span>
 <span class="go">  ...</span>
 </code></pre></div>
 <p>Read it as the merge in action:</p>
 <ul>
+<li><code>extends</code> is echoed as written, so the block records where the rest came
+  from; <code>baseline</code> is echoed the same way when set.</li>
 <li><code>promote = ['ALL']</code> comes from <code>strict</code>.</li>
 <li><code>layer_deps</code> and <code>port_coverage</code> are configured by <code>hexagonal</code>.</li>
 <li><code>ignore</code> comes from the local table.</li>
 <li><code>prose</code> is <code>enabled=False</code>: <code>strict</code> turns prose on, but the local
   <code>[tool.lanorme.prose]</code> table wins.</li>
+<li>The <code>keys:</code> line under each check lists the keys its table accepts. A key
+  outside that list, or a value of the wrong type, is a configuration error
+  (exit <code>2</code>).</li>
 </ul>
 <p>The <code>config file</code> and <code>project root</code> paths vary per machine.</p>
 <div class="admonition note">

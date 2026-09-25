@@ -632,13 +632,52 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#scan-files-through-discovery" class="md-nav__link">
+  <a href="#read-sources-through-lanormesources" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Scan files through discovery
+        Read sources through lanorme.sources
       
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="Read sources through lanorme.sources">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#walk-the-tree-through-moduleindex" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Walk the tree through module.index
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#read-names-off-nodes-through-lanormeastnames" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Read names off nodes through lanorme.astnames
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-run-context-lanormescanscan" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The run context: lanorme.scan.Scan
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -1147,13 +1186,52 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#scan-files-through-discovery" class="md-nav__link">
+  <a href="#read-sources-through-lanormesources" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Scan files through discovery
+        Read sources through lanorme.sources
       
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="Read sources through lanorme.sources">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#walk-the-tree-through-moduleindex" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Walk the tree through module.index
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#read-names-off-nodes-through-lanormeastnames" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Read names off nodes through lanorme.astnames
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-run-context-lanormescanscan" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The run context: lanorme.scan.Scan
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -1335,14 +1413,19 @@ package and point LaNorme at it.</p>
 <li><code>name</code> (str): a unique identifier, used by <code>--check &lt;name&gt;</code> and in output.</li>
 <li><code>description</code> (str): one line describing what the check enforces.</li>
 <li><code>rules</code> (list of str): one entry per rule code, each <code>"CODE-001: one line"</code>.</li>
-<li><code>run(self, *, src_root: str) -&gt; CheckResult</code>: scans the tree and returns the
+<li><code>check(self, scan: Scan) -&gt; CheckResult</code>: scans the tree and returns the
   findings.</li>
 </ul>
-<p><code>run</code> is keyword-only on <code>src_root</code> (the path being checked, as a string). It
-returns a <code>CheckResult</code> carrying two lists of <code>Violation</code>: <code>violations</code> (hard
-findings that fail the build) and <code>warnings</code> (advisories that report but keep the
-exit code at <code>0</code>).</p>
-<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">lanorme</span><span class="w"> </span><span class="kn">import</span> <span class="n">CheckResult</span><span class="p">,</span> <span class="n">Status</span><span class="p">,</span> <span class="n">Violation</span>
+<p><code>check</code> receives the <code>lanorme.scan.Scan</code> for the pass: <code>scan.root</code> is the
+directory being checked (a <code>Path</code>), and the scan also carries the subtree
+scope, the <code>exclude</code> globs in force, the project's <code>source_root</code> and the run's
+parse cache. LaNorme activates the scan around the call, so the readers in
+<code>lanorme.sources</code> and <code>lanorme.discovery</code> prune what it prunes; a check reads
+<code>scan.root</code> and calls them. <code>check</code> returns a <code>CheckResult</code> carrying two lists
+of <code>Violation</code>: <code>violations</code> (hard findings that fail the build) and
+<code>warnings</code> (advisories that report but keep the exit code at <code>0</code>).</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">lanorme</span><span class="w"> </span><span class="kn">import</span> <span class="n">CheckResult</span><span class="p">,</span> <span class="n">Violation</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">lanorme.scan</span><span class="w"> </span><span class="kn">import</span> <span class="n">Scan</span>
 
 
 <span class="k">class</span><span class="w"> </span><span class="nc">MyCheck</span><span class="p">:</span>
@@ -1350,24 +1433,54 @@ exit code at <code>0</code>).</p>
     <span class="n">description</span> <span class="o">=</span> <span class="s2">&quot;What it enforces, in one line&quot;</span>
     <span class="n">rules</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;MYCODE-001: the rule, in one line&quot;</span><span class="p">]</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">src_root</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CheckResult</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">check</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">scan</span><span class="p">:</span> <span class="n">Scan</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CheckResult</span><span class="p">:</span>
         <span class="n">violations</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Violation</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="c1"># inspect files under src_root</span>
-        <span class="n">status</span> <span class="o">=</span> <span class="n">Status</span><span class="o">.</span><span class="n">FAIL</span> <span class="k">if</span> <span class="n">violations</span> <span class="k">else</span> <span class="n">Status</span><span class="o">.</span><span class="n">PASS</span>
-        <span class="k">return</span> <span class="n">CheckResult</span><span class="p">(</span><span class="n">check</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">status</span><span class="o">=</span><span class="n">status</span><span class="p">,</span> <span class="n">violations</span><span class="o">=</span><span class="n">violations</span><span class="p">)</span>
+        <span class="c1"># inspect files under scan.root</span>
+        <span class="k">return</span> <span class="n">CheckResult</span><span class="o">.</span><span class="n">from_findings</span><span class="p">(</span><span class="n">check</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">violations</span><span class="o">=</span><span class="n">violations</span><span class="p">)</span>
 </code></pre></div>
+<p><code>CheckResult.from_findings(check=, violations=, warnings=)</code> builds the result
+from the two lists, both empty by default. Its status is derived from them,
+never stored: any violation is <code>FAIL</code>, otherwise any warning is <code>WARN</code>,
+otherwise <code>PASS</code>, so the header LaNorme prints always agrees with the
+findings. <code>CheckResult(check=, violations=, warnings=)</code> builds the same
+result; its <code>status=</code> argument is deprecated and ignored, with a
+<code>DeprecationWarning</code>.</p>
+<p>The previous entry point, <code>run(self, *, src_root: str)</code>, is deprecated. A
+check that defines <code>run</code> and no <code>check</code> still runs: LaNorme calls <code>run</code> with
+the scan active and <code>src_root</code> set to <code>str(scan.root)</code>, and emits a
+<code>DeprecationWarning</code> once per check class. Implement <code>check(scan)</code> before the
+old entry point is removed.</p>
 <p>A <code>Violation</code> records where and what:</p>
 <div class="highlight"><pre><span></span><code><span class="n">Violation</span><span class="p">(</span>
-    <span class="n">file</span><span class="o">=</span><span class="s2">&quot;src/utils.py&quot;</span><span class="p">,</span>   <span class="c1"># path, relative to src_root</span>
-    <span class="n">line</span><span class="o">=</span><span class="mi">12</span><span class="p">,</span>               <span class="c1"># 1-based line, or 0 for a whole-file or path finding</span>
-    <span class="n">rule</span><span class="o">=</span><span class="s2">&quot;MYCODE-001: the rule, in one line&quot;</span><span class="p">,</span>  <span class="c1"># or just the bare code</span>
+    <span class="n">file</span><span class="o">=</span><span class="s2">&quot;src/utils.py&quot;</span><span class="p">,</span>  <span class="c1"># path, relative to scan.root</span>
+    <span class="n">line</span><span class="o">=</span><span class="mi">12</span><span class="p">,</span>  <span class="c1"># 1-based line, or 0 for a whole-file or path finding</span>
+    <span class="n">rule</span><span class="o">=</span><span class="s2">&quot;MYCODE-001&quot;</span><span class="p">,</span>  <span class="c1"># the bare code; the runner adds the description</span>
     <span class="n">message</span><span class="o">=</span><span class="s2">&quot;What is wrong here&quot;</span><span class="p">,</span>
     <span class="n">fix</span><span class="o">=</span><span class="s2">&quot;What to do about it&quot;</span><span class="p">,</span>
 <span class="p">)</span>
 </code></pre></div>
-<p>The rule code is parsed from the <code>rule</code> string (everything before the first
-colon), so a <code>Violation</code> may carry either the full <code>"MYCODE-001: ..."</code> string or
-just <code>"MYCODE-001"</code>.</p>
+<p><code>rule</code> may be the bare code (<code>"MYCODE-001"</code>) or the full declared string
+(<code>"MYCODE-001: the rule, in one line"</code>). The runner expands a bare code to the
+string the check declares in <code>rules</code>, so every output carries the description
+and you spell it once per check.</p>
+<p>Three optional fields give the finding's extent: <code>column</code> and <code>end_column</code>
+(0-based, as <code>ast</code> counts them) and <code>end_line</code> (1-based, inclusive). Fill all
+three from the node you report with <code>**locate(node)</code>:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">lanorme.sources</span><span class="w"> </span><span class="kn">import</span> <span class="n">locate</span>
+
+<span class="n">Violation</span><span class="p">(</span>
+    <span class="n">file</span><span class="o">=</span><span class="n">module</span><span class="o">.</span><span class="n">relative</span><span class="p">,</span>
+    <span class="n">line</span><span class="o">=</span><span class="n">node</span><span class="o">.</span><span class="n">lineno</span><span class="p">,</span>
+    <span class="n">rule</span><span class="o">=</span><span class="s2">&quot;MYCODE-001&quot;</span><span class="p">,</span>
+    <span class="n">message</span><span class="o">=</span><span class="s2">&quot;What is wrong here&quot;</span><span class="p">,</span>
+    <span class="n">fix</span><span class="o">=</span><span class="s2">&quot;What to do about it&quot;</span><span class="p">,</span>
+    <span class="o">**</span><span class="n">locate</span><span class="p">(</span><span class="n">node</span><span class="p">),</span>
+<span class="p">)</span>
+</code></pre></div>
+<p>A node without positions gives <code>None</code> for each. The JSON and ndjson records
+carry these fields, derive the finding's <code>scope</code> (<code>span</code>, <code>line</code> or <code>file</code>)
+from them, and the <code>github</code> format turns them into annotation columns. See
+<a href="../../reference/cli/#finding-records">finding records</a>.</p>
 <h2 id="register-the-check">Register the check<a class="headerlink" href="#register-the-check" title="Permanent link">&para;</a></h2>
 <p>Call <code>register()</code> with an instance at import time. That is what makes LaNorme
 find and run it.</p>
@@ -1375,24 +1488,146 @@ find and run it.</p>
 
 <span class="n">register</span><span class="p">(</span><span class="n">MyCheck</span><span class="p">())</span>
 </code></pre></div>
+<p>Each check needs a name of its own: registering a second, different check
+under a name already taken raises <code>lanorme.errors.UsageError</code> (exit <code>2</code> at the
+CLI) rather than letting the later one silently replace the earlier.
+Registering the same instance twice is harmless.</p>
+<p>The registered instance is a template. The run never configures or runs it in
+place: every pass (the whole-tree pass and one per config region) works on a
+deep copy configured from that pass's config, so settings cannot leak from
+one region, or one run, into the next. A check must therefore survive
+<code>copy.deepcopy</code>, which rules out holding an open file or a lock on the
+instance.</p>
 <p>A check that reads configuration may also implement <code>configure(self, *,
 settings)</code>, which receives its <code>[tool.lanorme.&lt;name&gt;]</code> table before the run. See
 <a href="#configuring-a-check">Configuring a check</a> below.</p>
-<h2 id="scan-files-through-discovery">Scan files through discovery<a class="headerlink" href="#scan-files-through-discovery" title="Permanent link">&para;</a></h2>
-<p>Iterate files with <code>lanorme.discovery.iter_py_files</code> (or <code>iter_files</code> for other
-suffixes), never <code>Path.rglob</code>. The discovery helpers prune the built-in
-never-source directories (<code>.venv</code>, <code>node_modules</code>, <code>__pycache__</code>, <code>dist</code>,
-<code>build</code>, and the rest) and honour the user's <code>exclude</code> globs at walk time, so an
-excluded subtree is never read. A raw <code>Path.rglob</code> would walk into a virtualenv
-and report findings the user asked to exclude.</p>
-<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+<h2 id="read-sources-through-lanormesources">Read sources through <code>lanorme.sources</code><a class="headerlink" href="#read-sources-through-lanormesources" title="Permanent link">&para;</a></h2>
+<p>Read Python files through <code>lanorme.sources</code>, never <code>Path.rglob</code>. The module
+walks the tree with the same pruning as discovery (the built-in never-source
+directories such as <code>.venv</code>, <code>node_modules</code>, <code>__pycache__</code>, <code>dist</code> and
+<code>build</code>, plus the user's <code>exclude</code> globs, so an excluded subtree is never
+read), decodes each file the way the interpreter does (a UTF-8 BOM and a
+<code>coding:</code> cookie are honoured) and parses it once per run. Every check then
+receives the same <code>Module</code>, so a run costs one parse per file rather than one
+per check.</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">lanorme.sources</span><span class="w"> </span><span class="kn">import</span> <span class="n">iter_parsed_modules</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">lanorme.discovery</span><span class="w"> </span><span class="kn">import</span> <span class="n">iter_py_files</span>
-
-<span class="k">for</span> <span class="n">path</span> <span class="ow">in</span> <span class="n">iter_py_files</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="n">src_root</span><span class="p">)):</span>
-    <span class="o">...</span>  <span class="c1"># path is a Path to a *.py file under src_root</span>
+<span class="k">for</span> <span class="n">module</span> <span class="ow">in</span> <span class="n">iter_parsed_modules</span><span class="p">(</span><span class="n">scan</span><span class="o">.</span><span class="n">root</span><span class="p">):</span>
+    <span class="n">module</span><span class="o">.</span><span class="n">path</span>  <span class="c1"># Path to the *.py file</span>
+    <span class="n">module</span><span class="o">.</span><span class="n">relative</span>  <span class="c1"># its path relative to scan.root, posix style</span>
+    <span class="n">module</span><span class="o">.</span><span class="n">source</span>  <span class="c1"># the decoded text</span>
+    <span class="n">module</span><span class="o">.</span><span class="n">lines</span>  <span class="c1"># the text split into lines</span>
+    <span class="n">module</span><span class="o">.</span><span class="n">tree</span>  <span class="c1"># the parsed ast.Module</span>
+    <span class="n">module</span><span class="o">.</span><span class="n">comments</span>  <span class="c1"># every # comment, read by tokenize</span>
+    <span class="n">module</span><span class="o">.</span><span class="n">docstrings</span>  <span class="c1"># every module, class and function docstring</span>
+    <span class="n">module</span><span class="o">.</span><span class="n">imports</span>  <span class="c1"># every module an import statement names</span>
 </code></pre></div>
-<p><code>iter_files(root, suffix=".md")</code> does the same for any suffix.</p>
+<p><code>lines</code>, <code>comments</code>, <code>docstrings</code> and <code>imports</code> are views computed on first
+use and shared with every other check that reads the same file in the run, so
+reach for them rather than tokenising or walking the file again:</p>
+<ul>
+<li><code>module.comments</code> holds one <code>Comment</code> per <code>#</code> comment (<code>line</code>, <code>column</code>,
+  <code>token</code> as written, <code>text</code> without the <code>#</code>, and <code>standalone</code> when it has the
+  line to itself). A <code>#</code> inside a string is never a comment. On the rare
+  source the tokeniser gives up on part-way, the tuple holds the comments
+  before that point and <code>module.has_complete_comments</code> is false.</li>
+<li><code>module.docstrings</code> holds one <code>Docstring</code> per documented module, class and
+  function, in <code>ast.walk</code> order: <code>owner</code> (the node), <code>node</code> (the string
+  constant), <code>text</code> as written, <code>line</code>, and <code>clean()</code>, which equals
+  <code>ast.get_docstring(owner)</code>. <code>module.find_docstring(node)</code> looks one up by its
+  owner.</li>
+<li><code>module.imports</code> holds one <code>ImportedModule</code> per module named: <code>import a, b</code>
+  gives two, <code>from x import y, z</code> gives one for <code>x</code> holding both aliases. Each
+  has <code>node</code>, <code>module</code> (<code>""</code> for <code>from . import y</code>), <code>aliases</code>, <code>level</code> and
+  <code>is_from</code>.</li>
+</ul>
+<p><code>iter_parsed_modules(root)</code> yields only the files that parse. <code>iter_modules(root)</code>
+yields those same <code>Module</code> objects and, for a file the parser rejects,
+overflows on, or cannot read, an <code>UnparseableFile</code> (<code>path</code>, <code>relative</code>, <code>reason</code>)
+so the check can decide what to do. A check that reports such files emits the
+advisory <code>&lt;PREFIX&gt;-000</code> notice through <code>build_unparseable_notice</code>:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">lanorme.sources</span><span class="w"> </span><span class="kn">import</span> <span class="n">Module</span><span class="p">,</span> <span class="n">iter_modules</span><span class="p">,</span> <span class="n">build_unparseable_notice</span>
+
+<span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">iter_modules</span><span class="p">(</span><span class="n">scan</span><span class="o">.</span><span class="n">root</span><span class="p">):</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">item</span><span class="p">,</span> <span class="n">Module</span><span class="p">):</span>
+        <span class="o">...</span>  <span class="c1"># analyse item.tree</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">warnings</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">build_unparseable_notice</span><span class="p">(</span><span class="n">prefix</span><span class="o">=</span><span class="s2">&quot;MYCODE&quot;</span><span class="p">,</span> <span class="n">failure</span><span class="o">=</span><span class="n">item</span><span class="p">))</span>
+</code></pre></div>
+<p>The notice's rule is <code>MYCODE-000: &lt;reason&gt;</code>, with the reason one of <code>parse
+error</code>, <code>too deeply nested</code> or <code>unreadable</code>. A <code>-000</code> code is a notice, not a
+finding: promotion never escalates it and the baseline never records it.
+<code>build_skip_notice(prefix=, file=, name=, reason=)</code> builds the same notice for a
+file the check skips on its own.</p>
+<p>Trees are shared with every other check in the run, so a check must never
+mutate one, or read and <code>ast.parse</code> a file itself. Copy the tree first, or
+collect what you need without changing nodes.</p>
+<p>For files that are not Python, <code>lanorme.discovery.iter_files(root,
+suffix=".md")</code> walks the tree with the same pruning and returns the paths,
+sorted.</p>
+<h3 id="walk-the-tree-through-moduleindex">Walk the tree through <code>module.index</code><a class="headerlink" href="#walk-the-tree-through-moduleindex" title="Permanent link">&para;</a></h3>
+<p><code>module.index</code> is the file's <code>NodeIndex</code>: every node grouped by type, from one
+walk of the tree that all checks share. Ask it for the nodes you need instead
+of calling <code>ast.walk(module.tree)</code>:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">ast</span>
+
+<span class="k">for</span> <span class="n">module</span> <span class="ow">in</span> <span class="n">iter_parsed_modules</span><span class="p">(</span><span class="n">scan</span><span class="o">.</span><span class="n">root</span><span class="p">):</span>
+    <span class="k">for</span> <span class="n">call</span> <span class="ow">in</span> <span class="n">module</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">collect</span><span class="p">(</span><span class="n">ast</span><span class="o">.</span><span class="n">Call</span><span class="p">):</span>
+        <span class="o">...</span>  <span class="c1"># every call in the file</span>
+    <span class="k">for</span> <span class="n">function</span> <span class="ow">in</span> <span class="n">module</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">functions</span><span class="p">:</span>
+        <span class="o">...</span>  <span class="c1"># every def and async def, nested ones included</span>
+</code></pre></div>
+<p><code>collect(*types)</code> returns the nodes whose exact type is one of <code>types</code>.
+<code>functions</code> is <code>collect(ast.FunctionDef, ast.AsyncFunctionDef)</code>. Both keep
+<code>ast.walk</code> order, so a check that switches from a walk reports the same
+findings in the same order.</p>
+<h3 id="read-names-off-nodes-through-lanormeastnames">Read names off nodes through <code>lanorme.astnames</code><a class="headerlink" href="#read-names-off-nodes-through-lanormeastnames" title="Permanent link">&para;</a></h3>
+<p><code>lanorme.astnames</code> answers the small questions many checks ask of a node:</p>
+<ul>
+<li><code>find_decorator_leaf(decorator)</code> gives the name a decorator resolves to
+  (<code>@app.route("/")</code> gives <code>route</code>, <code>@abc.abstractmethod</code> gives
+  <code>abstractmethod</code>), or <code>None</code>. Calls are looked through unless <code>calls=False</code>;
+  subscripts too with <code>subscripts=True</code>. <code>list_decorator_leaves(node)</code> gives
+  one per decorator of a function or class.</li>
+<li><code>build_attr_chain(node)</code> gives the dotted path an attribute spells
+  (<code>hashlib.md5</code> gives <code>("hashlib", "md5")</code>), or <code>()</code>.</li>
+<li><code>read_str_constant(node)</code> gives the value of a string literal, or <code>None</code>.</li>
+</ul>
+<h3 id="the-run-context-lanormescanscan">The run context: <code>lanorme.scan.Scan</code><a class="headerlink" href="#the-run-context-lanormescanscan" title="Permanent link">&para;</a></h3>
+<p><code>iter_files</code>, <code>iter_dirs</code>, <code>iter_modules</code> and <code>parse_module</code> honour the run's
+exclude globs and subtree scope and share one parse cache, but a check never
+passes these around: they belong to the current <code>Scan</code>, the one <code>check</code>
+receives, which LaNorme activates around the call. A check reads <code>scan.root</code>
+and calls the functions. To run a check by hand under the same confinement,
+hand <code>lanorme.run_check</code> the scan; it activates the scan around the call and
+isolates an exception as a <code>RUN-000</code> notice, as a full run does:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">lanorme</span><span class="w"> </span><span class="kn">import</span> <span class="n">run_check</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">lanorme.scan</span><span class="w"> </span><span class="kn">import</span> <span class="n">Scan</span>
+
+<span class="n">result</span> <span class="o">=</span> <span class="n">run_check</span><span class="p">(</span><span class="n">MyCheck</span><span class="p">(),</span> <span class="n">scan</span><span class="o">=</span><span class="n">Scan</span><span class="p">(</span><span class="n">root</span><span class="o">=</span><span class="n">project_root</span><span class="p">,</span> <span class="n">excludes</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;vendor/*&quot;</span><span class="p">,)))</span>
+</code></pre></div>
+<p><code>run_check(check, src_root=str(path))</code> runs it over that path under whatever
+scan is active, and <code>lanorme.run_all</code> takes the same two arguments for every
+registered check. A direct <code>MyCheck().check(scan)</code> runs under the scan in
+force, not the one passed, so activate it first: <code>with scan.activate():</code>.
+<code>Scan.restrict(scope=..., excludes=...)</code> gives a scan confined to a subtree
+with more globs, sharing the parse cache. With no scan active, the whole tree
+is walked with no excludes. <code>lanorme.scan.get_current_scan()</code> returns the
+scan in force.</p>
+<p>The current scan lives in a <code>contextvars.ContextVar</code>, so it follows the
+context. Whether a new thread starts in its creator's context depends on the
+Python version and build (Python 3.14 adds the <code>thread_inherit_context</code> flag),
+and a worker outside it walks the whole tree with no excludes and another
+parse cache. A check that hands work to threads should run each task in a copy
+of its own context:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">contextvars</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">concurrent.futures</span><span class="w"> </span><span class="kn">import</span> <span class="n">ThreadPoolExecutor</span>
+
+<span class="k">with</span> <span class="n">ThreadPoolExecutor</span><span class="p">()</span> <span class="k">as</span> <span class="n">pool</span><span class="p">:</span>
+    <span class="n">futures</span> <span class="o">=</span> <span class="p">[</span><span class="n">pool</span><span class="o">.</span><span class="n">submit</span><span class="p">(</span><span class="n">contextvars</span><span class="o">.</span><span class="n">copy_context</span><span class="p">()</span><span class="o">.</span><span class="n">run</span><span class="p">,</span> <span class="n">scan_part</span><span class="p">,</span> <span class="n">part</span><span class="p">)</span> <span class="k">for</span> <span class="n">part</span> <span class="ow">in</span> <span class="n">parts</span><span class="p">]</span>
+</code></pre></div>
+<p>Take one <code>copy_context()</code> per task: a context can be entered by only one
+thread at a time.</p>
 <h2 id="conventions">Conventions<a class="headerlink" href="#conventions" title="Permanent link">&para;</a></h2>
 <p>These conventions keep a custom check consistent with the built-ins. The same
 rules apply whether the check ships inside LaNorme or as your plugin.</p>
@@ -1405,20 +1640,33 @@ rules apply whether the check ships inside LaNorme or as your plugin.</p>
   exit code at <code>0</code>. Opinionated or stylistic rules belong in <code>warnings</code>, so a
   user can promote them to errors when they choose (see
   <a href="../../reference/configuration/#promote"><code>promote</code></a>).</li>
-<li><strong>Set the status to match.</strong> Return <code>Status.FAIL</code> when <code>violations</code> is
-  non-empty, <code>Status.WARN</code> when only <code>warnings</code> is, otherwise <code>Status.PASS</code>.</li>
+<li><strong>Fill the finding lists; never set a status.</strong> The status is derived from
+  <code>violations</code> and <code>warnings</code>, so the header LaNorme prints (<code>[FAIL]</code>,
+  <code>[WARN]</code>, <code>[PASS]</code>) always agrees with the findings.</li>
 <li><strong>Cross-file checks declare <code>scope = "tree"</code>.</strong> If a finding depends on
   comparing or aggregating across files, set the class attribute <code>scope =
   "tree"</code>. The default <code>"file"</code> scope lets a check run once per config region
-  under per-directory configuration; a tree-scoped check runs once at the scan
-  root so a finding split across two regions is not missed.</li>
+  under per-directory configuration; a tree-scoped check runs once at the
+  project root so a finding split across two regions is not missed. A region
+  pass still starts at the project root and sees only that region's files, so
+  <code>module.relative</code> keeps the full path (<code>tests/helpers.py</code>, not
+  <code>helpers.py</code>) and a path-based exemption such as <code>tests/</code> holds inside a
+  nested region.</li>
 <li><strong>Default off when opinionated or broad.</strong> A rule that fires often on ordinary
   code should ship default-off behind an <code>enabled</code> flag, so users opt in (see
   <a href="#configuring-a-check">Configuring a check</a>).</li>
+<li><strong>Raise <code>UsageError</code> for a user's mistake.</strong> A setting that makes no sense is
+  not a crash. Raise <code>lanorme.errors.ConfigError</code> (a <code>UsageError</code> that also
+  carries the offending <code>key</code> and the <code>source</code> table) from <code>configure</code>, or
+  <code>UsageError</code> for any other mistake of the user's, with the message the user
+  needs; the CLI prints it as <code>ERROR: ...</code> and exits <code>2</code>. A <code>UsageError</code>
+  raised from <code>check</code> is not hidden in a <code>RUN-000</code> notice either. Never print
+  to stderr or call <code>sys.exit</code> from a check.</li>
 </ul>
-<p>A check must never let an exception escape <code>run</code>; LaNorme isolates a crashing
-check and reports it as a warning so one bug cannot sink the whole run, but a
-clean check should not rely on that safety net.</p>
+<p>A check must never let an exception escape <code>check</code>. LaNorme isolates a check
+that raises and reports it as a <code>RUN-000</code> warning whose message carries the
+exception type and text, so one bug cannot sink the whole run. A clean check
+should not rely on that safety net.</p>
 <h2 id="a-worked-example">A worked example<a class="headerlink" href="#a-worked-example" title="Permanent link">&para;</a></h2>
 <p>This check fails when a module is named exactly <code>utils.py</code>, on the house rule
 that every module should be named after what it does. LaNorme ships the same
@@ -1427,10 +1675,9 @@ here as the example because it is the smallest complete check.</p>
 <div class="highlight"><pre><span></span><code><span class="c1"># house_rules.py</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
-
-<span class="kn">from</span><span class="w"> </span><span class="nn">lanorme</span><span class="w"> </span><span class="kn">import</span> <span class="n">CheckResult</span><span class="p">,</span> <span class="n">Status</span><span class="p">,</span> <span class="n">Violation</span><span class="p">,</span> <span class="n">register</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">lanorme.discovery</span><span class="w"> </span><span class="kn">import</span> <span class="n">iter_py_files</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">lanorme</span><span class="w"> </span><span class="kn">import</span> <span class="n">CheckResult</span><span class="p">,</span> <span class="n">Violation</span><span class="p">,</span> <span class="n">register</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">lanorme.scan</span><span class="w"> </span><span class="kn">import</span> <span class="n">Scan</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">lanorme.sources</span><span class="w"> </span><span class="kn">import</span> <span class="n">iter_parsed_modules</span>
 
 
 <span class="k">class</span><span class="w"> </span><span class="nc">NoUtilsModule</span><span class="p">:</span>
@@ -1438,21 +1685,20 @@ here as the example because it is the smallest complete check.</p>
     <span class="n">description</span> <span class="o">=</span> <span class="s2">&quot;Modules must have a meaningful name, not &#39;utils&#39;&quot;</span>
     <span class="n">rules</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;HOUSE-001: Module must not be named &#39;utils.py&#39;&quot;</span><span class="p">]</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">src_root</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CheckResult</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">check</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">scan</span><span class="p">:</span> <span class="n">Scan</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CheckResult</span><span class="p">:</span>
         <span class="n">violations</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Violation</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="k">for</span> <span class="n">path</span> <span class="ow">in</span> <span class="n">iter_py_files</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="n">src_root</span><span class="p">)):</span>
-            <span class="k">if</span> <span class="n">path</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="s2">&quot;utils.py&quot;</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">module</span> <span class="ow">in</span> <span class="n">iter_parsed_modules</span><span class="p">(</span><span class="n">scan</span><span class="o">.</span><span class="n">root</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">module</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="s2">&quot;utils.py&quot;</span><span class="p">:</span>
                 <span class="n">violations</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
                     <span class="n">Violation</span><span class="p">(</span>
-                        <span class="n">file</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">path</span><span class="o">.</span><span class="n">relative_to</span><span class="p">(</span><span class="n">src_root</span><span class="p">)),</span>
+                        <span class="n">file</span><span class="o">=</span><span class="n">module</span><span class="o">.</span><span class="n">relative</span><span class="p">,</span>
                         <span class="n">line</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
-                        <span class="n">rule</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">rules</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+                        <span class="n">rule</span><span class="o">=</span><span class="s2">&quot;HOUSE-001&quot;</span><span class="p">,</span>
                         <span class="n">message</span><span class="o">=</span><span class="s2">&quot;Module named &#39;utils.py&#39; has no clear responsibility&quot;</span><span class="p">,</span>
                         <span class="n">fix</span><span class="o">=</span><span class="s2">&quot;Rename it after what it actually does&quot;</span><span class="p">,</span>
                     <span class="p">)</span>
                 <span class="p">)</span>
-        <span class="n">status</span> <span class="o">=</span> <span class="n">Status</span><span class="o">.</span><span class="n">FAIL</span> <span class="k">if</span> <span class="n">violations</span> <span class="k">else</span> <span class="n">Status</span><span class="o">.</span><span class="n">PASS</span>
-        <span class="k">return</span> <span class="n">CheckResult</span><span class="p">(</span><span class="n">check</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">status</span><span class="o">=</span><span class="n">status</span><span class="p">,</span> <span class="n">violations</span><span class="o">=</span><span class="n">violations</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">CheckResult</span><span class="o">.</span><span class="n">from_findings</span><span class="p">(</span><span class="n">check</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">violations</span><span class="o">=</span><span class="n">violations</span><span class="p">)</span>
 
 
 <span class="n">register</span><span class="p">(</span><span class="n">NoUtilsModule</span><span class="p">())</span>
@@ -1461,11 +1707,16 @@ here as the example because it is the smallest complete check.</p>
 <code>--plugin</code> and run it:</p>
 <div class="highlight"><pre><span></span><code><span class="gp">$ </span>lanorme<span class="w"> </span>check<span class="w"> </span>src/<span class="w"> </span>--plugin<span class="w"> </span>house_rules<span class="w"> </span>--check<span class="w"> </span>no_utils_module
 <span class="go">[FAIL] no_utils_module</span>
-<span class="go">  VIOLATION: utils.py:0 - Module named &#39;utils.py&#39; has no clear responsibility</span>
+<span class="go">  VIOLATION: utils.py:0 — Module named &#39;utils.py&#39; has no clear responsibility</span>
 <span class="go">    Rule: HOUSE-001: Module must not be named &#39;utils.py&#39;</span>
 <span class="go">    Fix: Rename it after what it actually does</span>
 <span class="go">--- no_utils_module: 1 violations, 0 warnings ---</span>
+
+<span class="go">Summary: 1 checks — 0 passed, 0 warned, 1 failed.</span>
+<span class="go">Findings: 1 error to fix, 0 advisory warnings.</span>
 </code></pre></div>
+<p>The check emitted the bare code <code>HOUSE-001</code>; the report shows the full rule
+string from <code>rules</code>.</p>
 <p>The exit code is <code>1</code>. Rename or remove the file and the run is clean:</p>
 <div class="highlight"><pre><span></span><code><span class="gp">$ </span>lanorme<span class="w"> </span>check<span class="w"> </span>src/<span class="w"> </span>--plugin<span class="w"> </span>house_rules<span class="w"> </span>--check<span class="w"> </span>no_utils_module
 <span class="go">All 1 checks passed.</span>
@@ -1477,18 +1728,20 @@ here as the example because it is the smallest complete check.</p>
 Pass the dotted module path, for example <code>--plugin myproject.checks.house_rules</code>.</p>
 </div>
 <h3 id="make-it-an-advisory">Make it an advisory<a class="headerlink" href="#make-it-an-advisory" title="Permanent link">&para;</a></h3>
-<p>To report without failing the build, put findings in <code>warnings</code> and return
-<code>Status.WARN</code>:</p>
-<div class="highlight"><pre><span></span><code>        <span class="n">status</span> <span class="o">=</span> <span class="n">Status</span><span class="o">.</span><span class="n">WARN</span> <span class="k">if</span> <span class="n">warnings</span> <span class="k">else</span> <span class="n">Status</span><span class="o">.</span><span class="n">PASS</span>
-        <span class="k">return</span> <span class="n">CheckResult</span><span class="p">(</span><span class="n">check</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">status</span><span class="o">=</span><span class="n">status</span><span class="p">,</span> <span class="n">warnings</span><span class="o">=</span><span class="n">warnings</span><span class="p">)</span>
+<p>To report without failing the build, collect the findings in a <code>warnings</code>
+list instead and pass it as <code>warnings</code>:</p>
+<div class="highlight"><pre><span></span><code><span class="k">return</span> <span class="n">CheckResult</span><span class="o">.</span><span class="n">from_findings</span><span class="p">(</span><span class="n">check</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">warnings</span><span class="o">=</span><span class="n">warnings</span><span class="p">)</span>
 </code></pre></div>
-<p>The run then exits <code>0</code> and the check shows as <code>[WARN]</code>. A user who wants it to
+<p>The run then exits <code>0</code>, the check shows as <code>[WARN]</code> and each finding is
+labelled <code>WARNING:</code> rather than <code>VIOLATION:</code>. A user who wants it to
 fail the build can escalate the code with
 <a href="../../reference/configuration/#promote"><code>promote</code></a>:</p>
-<div class="highlight"><pre><span></span><code><span class="gp">$ </span>lanorme<span class="w"> </span>check<span class="w"> </span>src/<span class="w"> </span>--plugin<span class="w"> </span>todo_advisory<span class="w"> </span>--promote<span class="w"> </span>TODO-001
+<div class="highlight"><pre><span></span><code><span class="gp">$ </span>lanorme<span class="w"> </span>check<span class="w"> </span>src/<span class="w"> </span>--plugin<span class="w"> </span>house_rules<span class="w"> </span>--promote<span class="w"> </span>HOUSE-001
 </code></pre></div>
 <p>That turns the advisory into a build-failing error (exit code <code>1</code>). <code>promote =
-["ALL"]</code> escalates every advisory at once.</p>
+["ALL"]</code> escalates every advisory at once. A code in <code>promote</code> must be one a
+loaded check declares, so load the plugin in the same run; otherwise the run
+exits <code>2</code> with <code>'promote' names no known rule code or category</code>.</p>
 <h2 id="loading-the-plugin">Loading the plugin<a class="headerlink" href="#loading-the-plugin" title="Permanent link">&para;</a></h2>
 <p>LaNorme has three ways to load a plugin module so its <code>register()</code> call runs.
 Choose one.</p>
@@ -1519,7 +1772,27 @@ lists.</p>
 <h2 id="configuring-a-check">Configuring a check<a class="headerlink" href="#configuring-a-check" title="Permanent link">&para;</a></h2>
 <p>To accept settings from a <code>[tool.lanorme.&lt;name&gt;]</code> table, implement an optional
 <code>configure</code> method. LaNorme hands it the table (a dict) before the run.</p>
-<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span><span class="p">,</span> <span class="n">field</span>
+<p>Read each value through the typed readers in <code>lanorme.checkconfig</code>:
+<code>is_flag_set</code> for a boolean, <code>read_int</code>, <code>read_str</code> and <code>read_str_list</code>. Each
+returns the value or rejects the wrong type (a quoted number, a float or <code>true</code>
+for an integer, a bare string for a list). Declare the keys <code>configure</code> reads
+in <code>settings_keys</code>. LaNorme then refuses a key outside that set, and
+<code>--show-config</code> lists the set on the check's <code>keys:</code> line. Both mistakes exit
+<code>2</code> and name the table and the key.</p>
+<p>A reader rejects a value by raising <code>lanorme.checkconfig.SettingError</code> (a
+<code>TypeError</code>), and a <code>configure</code> that validates a value itself raises
+<code>TypeError</code> or <code>ValueError</code>; LaNorme reports any of these as a
+<code>ConfigError</code> naming the table and, where it can isolate it, the key. Any
+other exception out of <code>configure</code> (an <code>AttributeError</code>, a <code>KeyError</code>) is a
+bug in the check and surfaces as one, not as the user's mistake.</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># stray_extensions.py</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span><span class="p">,</span> <span class="n">field</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">ClassVar</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">lanorme</span><span class="w"> </span><span class="kn">import</span> <span class="n">CheckResult</span><span class="p">,</span> <span class="n">Violation</span><span class="p">,</span> <span class="n">register</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">lanorme.checkconfig</span><span class="w"> </span><span class="kn">import</span> <span class="n">is_flag_set</span><span class="p">,</span> <span class="n">read_str_list</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">lanorme.discovery</span><span class="w"> </span><span class="kn">import</span> <span class="n">iter_files</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">lanorme.scan</span><span class="w"> </span><span class="kn">import</span> <span class="n">Scan</span>
 
 
 <span class="nd">@dataclass</span>
@@ -1528,34 +1801,87 @@ lists.</p>
     <span class="n">description</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;Flag unwanted file extensions in the tree&quot;</span>
     <span class="n">enabled</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
     <span class="n">extensions</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span> <span class="o">=</span> <span class="p">()</span>
-    <span class="n">rules</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span>
-        <span class="n">default_factory</span><span class="o">=</span><span class="k">lambda</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;HOUSE-002: Unwanted file extension&quot;</span><span class="p">]</span>
-    <span class="p">)</span>
+    <span class="n">rules</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="k">lambda</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;HOUSE-002: Unwanted file extension&quot;</span><span class="p">])</span>
+    <span class="n">settings_keys</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="nb">frozenset</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span><span class="s2">&quot;enabled&quot;</span><span class="p">,</span> <span class="s2">&quot;extensions&quot;</span><span class="p">})</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">configure</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">settings</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">enabled</span> <span class="o">=</span> <span class="nb">bool</span><span class="p">(</span><span class="n">settings</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;enabled&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">enabled</span><span class="p">))</span>
-        <span class="n">exts</span> <span class="o">=</span> <span class="n">settings</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;extensions&quot;</span><span class="p">)</span>
-        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">exts</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">extensions</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">exts</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">enabled</span> <span class="o">=</span> <span class="n">is_flag_set</span><span class="p">(</span><span class="n">settings</span><span class="o">=</span><span class="n">settings</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="s2">&quot;enabled&quot;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">enabled</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">extensions</span> <span class="o">=</span> <span class="n">read_str_list</span><span class="p">(</span>
+            <span class="n">settings</span><span class="o">=</span><span class="n">settings</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="s2">&quot;extensions&quot;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">extensions</span>
+        <span class="p">)</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">src_root</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CheckResult</span><span class="p">:</span>
-        <span class="o">...</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">check</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">scan</span><span class="p">:</span> <span class="n">Scan</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CheckResult</span><span class="p">:</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">enabled</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">CheckResult</span><span class="o">.</span><span class="n">from_findings</span><span class="p">(</span><span class="n">check</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+        <span class="n">root</span> <span class="o">=</span> <span class="n">scan</span><span class="o">.</span><span class="n">root</span>
+        <span class="n">warnings</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">Violation</span><span class="p">(</span>
+                <span class="n">file</span><span class="o">=</span><span class="n">path</span><span class="o">.</span><span class="n">relative_to</span><span class="p">(</span><span class="n">root</span><span class="p">)</span><span class="o">.</span><span class="n">as_posix</span><span class="p">(),</span>
+                <span class="n">line</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+                <span class="n">rule</span><span class="o">=</span><span class="s2">&quot;HOUSE-002&quot;</span><span class="p">,</span>
+                <span class="n">message</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;File with unwanted extension </span><span class="si">{</span><span class="n">suffix</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+                <span class="n">fix</span><span class="o">=</span><span class="s2">&quot;Delete it, or keep it out of the repository&quot;</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="k">for</span> <span class="n">suffix</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">extensions</span>
+            <span class="k">for</span> <span class="n">path</span> <span class="ow">in</span> <span class="n">iter_files</span><span class="p">(</span><span class="n">root</span><span class="p">,</span> <span class="n">suffix</span><span class="o">=</span><span class="n">suffix</span><span class="p">)</span>
+        <span class="p">]</span>
+        <span class="k">return</span> <span class="n">CheckResult</span><span class="o">.</span><span class="n">from_findings</span><span class="p">(</span><span class="n">check</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">warnings</span><span class="o">=</span><span class="n">warnings</span><span class="p">)</span>
+
+
+<span class="n">register</span><span class="p">(</span><span class="n">StrayExtensions</span><span class="p">())</span>
 </code></pre></div>
 <p>A user then configures it under the check's own table, named after <code>self.name</code>:</p>
 <div class="highlight"><pre><span></span><code><span class="k">[tool.lanorme.stray_extensions]</span>
 <span class="n">enabled</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span>
 <span class="n">extensions</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;.zip&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;.tmp&quot;</span><span class="p">]</span>
 </code></pre></div>
-<p>An opt-in check defaults <code>enabled</code> to <code>false</code> and returns <code>Status.PASS</code> with no
-findings until the table sets <code>enabled = true</code>. That keeps a broad or opinionated
-rule inert on a project that has not asked for it.</p>
+<p>With <code>stray_extensions.py</code> importable and <code>src/old.zip</code> and <code>src/notes.tmp</code> in
+the tree:</p>
+<div class="highlight"><pre><span></span><code><span class="gp">$ </span>lanorme<span class="w"> </span>check<span class="w"> </span>.<span class="w"> </span>--plugin<span class="w"> </span>stray_extensions<span class="w"> </span>--check<span class="w"> </span>stray_extensions
+<span class="go">[WARN] stray_extensions</span>
+<span class="go">  WARNING: src/old.zip:0 — File with unwanted extension .zip</span>
+<span class="go">    Rule: HOUSE-002: Unwanted file extension</span>
+<span class="go">    Fix: Delete it, or keep it out of the repository</span>
+<span class="go">  WARNING: src/notes.tmp:0 — File with unwanted extension .tmp</span>
+<span class="go">    Rule: HOUSE-002: Unwanted file extension</span>
+<span class="go">    Fix: Delete it, or keep it out of the repository</span>
+<span class="go">--- stray_extensions: 0 violations, 2 warnings ---</span>
+
+<span class="go">Summary: 1 checks — 0 passed, 1 warned, 0 failed.</span>
+<span class="go">Findings: 0 errors to fix, 2 advisory warnings.</span>
+</code></pre></div>
+<p>A mistyped value or key stops the run before any check starts:</p>
+<div class="highlight"><pre><span></span><code><span class="gp">$ </span>cat<span class="w"> </span>pyproject.toml
+<span class="go">[tool.lanorme.stray_extensions]</span>
+<span class="go">enabled = true</span>
+<span class="go">extension = [&quot;.zip&quot;]</span>
+<span class="gp">$ </span>lanorme<span class="w"> </span>check<span class="w"> </span>.<span class="w"> </span>--plugin<span class="w"> </span>stray_extensions
+<span class="go">ERROR: unknown key in [tool.lanorme.stray_extensions]: &#39;extension&#39;.</span>
+<span class="go">  Keys this check reads: enabled, extensions.</span>
+<span class="gp">$ </span><span class="nb">echo</span><span class="w"> </span><span class="nv">$?</span>
+<span class="go">2</span>
+</code></pre></div>
+<p>An opt-in check defaults <code>enabled</code> to <code>false</code> and returns an empty result
+(<code>CheckResult.from_findings(check=self.name)</code>) until the table sets
+<code>enabled = true</code>. That keeps a broad or opinionated rule inert on a project
+that has not asked for it. The concise summary counts such checks on its
+<code>Opt-in checks not enabled:</code> line, and <code>--check</code> on one prints a note saying
+it is off.</p>
+<p>When only some of a check's rules wait on a setting, declare them in a class
+attribute <code>opt_in_rules: frozenset[str]</code> and, to name the setting, an
+<code>opt_in_settings: dict[str, str]</code> from code to key. <code>lanorme rule CODE</code> then
+reports the rule as <code>opt-in via &lt;key&gt; = true in [tool.lanorme.&lt;check&gt;]</code>
+instead of <code>on by default</code>, as <code>comments</code> does for <code>PROSE-001</code> (<code>em_dash</code>).</p>
+<p>For a mistake <code>configure</code> cannot express as a type, such as two settings that
+contradict each other, raise <code>lanorme.errors.ConfigError</code> with the <code>key</code> and
+<code>source</code> it concerns. The CLI reports it the same way, with exit <code>2</code>.</p>
 <h2 id="verify-it-is-loaded">Verify it is loaded<a class="headerlink" href="#verify-it-is-loaded" title="Permanent link">&para;</a></h2>
 <p>Run the check and confirm it executed. <code>--output-format full</code> shows passing
 checks too, so a loaded check appears even when it found nothing:</p>
 <div class="highlight"><pre><span></span><code><span class="gp">$ </span>lanorme<span class="w"> </span>check<span class="w"> </span>.<span class="w"> </span>--plugin<span class="w"> </span>myproject.checks.house_rules<span class="w"> </span>--output-format<span class="w"> </span>full
 </code></pre></div>
 <p>For a check loaded via config or the entry-point group, drop the <code>--plugin</code>
-flag — plain <code>lanorme check . --output-format full</code> lists it once it is
+flag: plain <code>lanorme check . --output-format full</code> lists it once it is
 registered. Seeing your check in that output (a <code>[PASS]</code> line when it is clean)
 is the reliable signal that the plugin loaded. For machine-readable output while
 developing, use <code>--output-format ndjson</code> (one finding per line) or

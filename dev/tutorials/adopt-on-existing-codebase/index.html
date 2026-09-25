@@ -542,6 +542,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#step-11-see-what-a-severity-change-does" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 11: see what a severity change does
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#what-you-learned" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1234,6 +1245,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#step-11-see-what-a-severity-change-does" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 11: see what a severity change does
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#what-you-learned" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1372,24 +1394,32 @@ line and a function that takes too many positional parameters.</p>
 <div class="highlight"><pre><span></span><code>lanorme<span class="w"> </span>check<span class="w"> </span>.
 </code></pre></div>
 <div class="highlight"><pre><span></span><code>[WARN] file_limits
-  VIOLATION: myapp/users.py:13 — Function &#39;process&#39; has parameter count 6 (warn: 5)
+  WARNING: myapp/users.py:13 — Function &#39;process&#39; has parameter count 6 (warn: 5)
     Rule: PARAM-001: Function approaching the parameter limit
     Fix: Consider grouping related parameters into a dataclass or TypedDict
 --- file_limits: 0 violations, 1 warnings ---
 
 [FAIL] comments
   VIOLATION: myapp/users.py:5 — Commented-out code: old = lookup(id)
-    Rule: CMT-001
+    Rule: CMT-001: No commented-out code
     Fix: Delete it; version control remembers
 --- comments: 1 violations, 0 warnings ---
 
-Summary: 30 checks — 28 passed, 1 warnings, 1 failed.
+Summary: 30 checks — 28 passed, 1 warned, 1 failed.
+Findings: 1 error to fix, 1 advisory warning.
+Opt-in checks not enabled: 11 (&#39;lanorme check --show-config&#39; lists them).
 </code></pre></div>
 <p>The exit code is <code>1</code> because a violation was reported; the <code>PARAM-001</code>
 warning on its own would have left it at <code>0</code>. The default <code>concise</code> format
-shows only checks that found something, plus a summary. Other formats
-(<code>full</code>, <code>json</code>, <code>ndjson</code>, <code>github</code>) are available through <code>--output-format</code>;
-see the <a href="../../reference/cli/#output-formats">CLI reference</a>.</p>
+shows only checks that found something, plus a summary. The last line counts
+the checks that ship switched off; Step 4 turns them on. Other formats
+(<code>full</code>, <code>json</code>, <code>ndjson</code>, <code>github</code>, <code>summary</code>) are available through
+<code>--output-format</code>; see the <a href="../../reference/cli/#output-formats">CLI reference</a>.</p>
+<p>On a real codebase with 25 errors or more and no baseline, the summary ends
+with a pointer to this tutorial:</p>
+<div class="highlight"><pre><span></span><code>Tip: &#39;lanorme baseline write&#39; records today&#39;s findings as debt so that only new ones report (see the adoption tutorial).
+</code></pre></div>
+<p>That is Step 5 below.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>Exit codes are stable: <code>0</code> clean (warnings alone still exit <code>0</code>), <code>1</code>
@@ -1419,7 +1449,7 @@ as demanding as it gets from day one. Add it to <code>[tool.lanorme]</code>:</p>
 
 [FAIL] comments
   VIOLATION: myapp/users.py:5 — Commented-out code: old = lookup(id)
-    Rule: CMT-001
+    Rule: CMT-001: No commented-out code
     Fix: Delete it; version control remembers
 --- comments: 1 violations, 0 warnings ---
 
@@ -1435,7 +1465,8 @@ as demanding as it gets from day one. Add it to <code>[tool.lanorme]</code>:</p>
     Fix: Add a bare * separator: def foo(self, *, param1: str, param2: int)
 --- named_args: 1 violations, 0 warnings ---
 
-Summary: 30 checks — 26 passed, 0 warnings, 4 failed.
+Summary: 30 checks — 26 passed, 0 warned, 4 failed.
+Findings: 4 errors to fix, 0 advisory warnings.
 </code></pre></div>
 <p>Four failures now. The <code>PARAM-001</code> warning has become an error, and two opt-in
 checks have switched on and found the same function: <code>CMT-006</code> for its missing
@@ -1488,11 +1519,13 @@ passes:</p>
 <div class="highlight"><pre><span></span><code>lanorme<span class="w"> </span>check<span class="w"> </span>.
 </code></pre></div>
 <div class="highlight"><pre><span></span><code>All 30 checks passed.
+Suppressed: 0 by inline ignores, 0 by per-file-ignores, 4 by the baseline.
 </code></pre></div>
 <div class="highlight"><pre><span></span><code>Exit code: 0
 </code></pre></div>
-<p>The gate is green and strict at the same time. The starting debt did not move;
-it is recorded, not waived.</p>
+<p>The gate is green and strict at the same time. The <code>Suppressed:</code> line counts
+the four recorded findings the baseline kept quiet. The starting debt did not
+move; it is recorded, not waived.</p>
 <h2 id="step-9-see-a-new-violation-report">Step 9: see a new violation report<a class="headerlink" href="#step-9-see-a-new-violation-report" title="Permanent link">&para;</a></h2>
 <p>The point of the baseline is that new problems still fail the gate. Add a second
 module with a fresh commented-out line:</p>
@@ -1505,11 +1538,13 @@ module with a fresh commented-out line:</p>
 </code></pre></div>
 <div class="highlight"><pre><span></span><code>[FAIL] comments
   VIOLATION: myapp/orders.py:2 — Commented-out code: total = compute(cart)
-    Rule: CMT-001
+    Rule: CMT-001: No commented-out code
     Fix: Delete it; version control remembers
 --- comments: 1 violations, 0 warnings ---
 
-Summary: 30 checks — 29 passed, 0 warnings, 1 failed.
+Summary: 30 checks — 29 passed, 0 warned, 1 failed.
+Findings: 1 error to fix, 0 advisory warnings.
+Suppressed: 0 by inline ignores, 0 by per-file-ignores, 4 by the baseline.
 </code></pre></div>
 <p>Only the new finding in <code>myapp/orders.py</code> reports. The recorded debt in
 <code>myapp/users.py</code> stays quiet. New code is held to the full strict profile; old
@@ -1529,10 +1564,10 @@ a check that ignores the baseline for that run:</p>
 
 [FAIL] comments
   VIOLATION: myapp/orders.py:2 — Commented-out code: total = compute(cart)
-    Rule: CMT-001
+    Rule: CMT-001: No commented-out code
     Fix: Delete it; version control remembers
   VIOLATION: myapp/users.py:5 — Commented-out code: old = lookup(id)
-    Rule: CMT-001
+    Rule: CMT-001: No commented-out code
     Fix: Delete it; version control remembers
 --- comments: 2 violations, 0 warnings ---
 
@@ -1548,7 +1583,8 @@ a check that ignores the baseline for that run:</p>
     Fix: Add a bare * separator: def foo(self, *, param1: str, param2: int)
 --- named_args: 1 violations, 0 warnings ---
 
-Summary: 30 checks — 26 passed, 0 warnings, 4 failed.
+Summary: 30 checks — 26 passed, 0 warned, 4 failed.
+Findings: 5 errors to fix, 0 advisory warnings.
 </code></pre></div>
 <p>That is the full picture: the new finding plus the four recorded ones. It is
 your backlog whenever you want to chip away at the debt.</p>
@@ -1566,6 +1602,41 @@ Run &#39;lanorme baseline write&#39; to prune them.
 progress, run <code>lanorme baseline write</code> again to prune the stale entries and
 record the smaller debt. Over time the baseline shrinks toward empty, and the
 strict gate covers the whole codebase.</p>
+<h2 id="step-11-see-what-a-severity-change-does">Step 11: see what a severity change does<a class="headerlink" href="#step-11-see-what-a-severity-change-does" title="Permanent link">&para;</a></h2>
+<p>The baseline records each finding at the severity its check reported, before
+<code>promote</code> applies. <code>PARAM-001</code> on <code>process</code> is recorded as a warning, even
+though <code>strict</code> promotes it to an error in the report. Promotion runs after the
+baseline, so changing <code>promote</code> or the profile later does not bring recorded
+debt back.</p>
+<p>A change in the severity the check itself reports is different:</p>
+<ul>
+<li>A recorded error keeps suppressing its finding when the finding becomes a
+  warning, for example after you relax a threshold.</li>
+<li>A recorded warning never hides a finding that becomes an error. Debt that
+  crosses a hard limit reports again.</li>
+</ul>
+<p>See the second case. Delete the commented-out line in <code>myapp/orders.py</code> so the
+gate is green, then lower the hard parameter limit to 6, the count <code>process</code>
+has:</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># pyproject.toml</span>
+<span class="k">[tool.lanorme.file_limits]</span>
+<span class="n">param_error</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">6</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code>lanorme<span class="w"> </span>check<span class="w"> </span>.
+</code></pre></div>
+<div class="highlight"><pre><span></span><code>[FAIL] file_limits
+  VIOLATION: myapp/users.py:12 — Function &#39;process&#39; has parameter count 6 (limit: 6)
+    Rule: PARAM-001: Function exceeds the parameter limit
+    Fix: Group related parameters into a dataclass or TypedDict
+--- file_limits: 1 violations, 0 warnings ---
+
+Summary: 30 checks — 29 passed, 0 warned, 1 failed.
+Findings: 1 error to fix, 0 advisory warnings.
+Suppressed: 0 by inline ignores, 0 by per-file-ignores, 2 by the baseline.
+</code></pre></div>
+<p>The recorded warning no longer covers the finding, because the check now
+reports it as an error. Fix it, or run <code>lanorme baseline write</code> to record it
+at its new severity. Remove the <code>param_error</code> line to go back to the default.</p>
 <h2 id="what-you-learned">What you learned<a class="headerlink" href="#what-you-learned" title="Permanent link">&para;</a></h2>
 <ul>
 <li><code>extends = ["strict"]</code> turns on the full profile, opt-in checks and all.</li>
@@ -1576,6 +1647,9 @@ strict gate covers the whole codebase.</p>
 <li>New violations still report; recorded debt stays quiet until you pay it down.</li>
 <li><code>lanorme check --no-baseline</code> shows the whole debt; <code>lanorme baseline status</code>
   lists stale entries ready to prune.</li>
+<li>The baseline matches on the check's own severity: <code>promote</code> never brings
+  recorded debt back, and a finding its check now reports as an error
+  reports again.</li>
 </ul>
 <p>From here, every pull request is held to the strict profile on its new code,
 with no upfront cleanup required.</p>

@@ -1286,8 +1286,10 @@ documented with each rule in the <a href="../../RULES/">rule reference</a>. A ma
 <code>[tool.lanorme.&lt;check&gt;]</code>. In a standalone <code>lanorme.toml</code> the prefix is dropped: keys
 are top-level (<code>promote = ["TYPE-004"]</code>) and a sub-table is bare (<code>[per-file-ignores]</code>,
 <code>[prose]</code>). The examples below show the <code>pyproject.toml</code> form; a <code>[tool.lanorme]</code> prefix
-written inside a <code>lanorme.toml</code> is silently ignored. Keys also have command-line
-equivalents (<code>--select</code>, <code>--ignore</code>); the command line wins over config.</p>
+written inside a <code>lanorme.toml</code> is a configuration error (exit <code>2</code>), as is any
+top-level key that is neither one of the keys below nor the name of a check. Keys
+also have command-line equivalents (<code>--select</code>, <code>--ignore</code>); the command line wins
+over config.</p>
 <table>
 <thead>
 <tr>
@@ -1343,7 +1345,7 @@ equivalents (<code>--select</code>, <code>--ignore</code>); the command line win
 <tr>
 <td><a href="#source_root"><code>source_root</code></a></td>
 <td>string (path)</td>
-<td>the scan root</td>
+<td>the project root</td>
 <td>Architecture</td>
 </tr>
 <tr>
@@ -1390,7 +1392,7 @@ equivalents (<code>--select</code>, <code>--ignore</code>); the command line win
 <div class="highlight"><pre><span></span><code><span class="n">baseline</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;lanorme-baseline.json&quot;</span>
 </code></pre></div>
 <h2 id="source_root"><code>source_root</code><a class="headerlink" href="#source_root" title="Permanent link">&para;</a></h2>
-<p>The top-level package directory when ports, adapters and layers live under a nested package; the architecture checks interpret their paths relative to it, and <code>AUTHN-001</code> finds the <code>api/</code> layer under it.</p>
+<p>The top-level package directory when ports, adapters and layers live under a nested package; the architecture checks interpret their paths relative to it, <code>AUTHN-001</code> finds the <code>api/</code> layer under it, and <code>TESTFILE-001</code> its production directories.</p>
 <div class="highlight"><pre><span></span><code><span class="n">source_root</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;src/myapp&quot;</span>
 </code></pre></div>
 <h2 id="plugins"><code>plugins</code><a class="headerlink" href="#plugins" title="Permanent link">&para;</a></h2>
@@ -1402,7 +1404,7 @@ equivalents (<code>--select</code>, <code>--ignore</code>); the command line win
 <div class="highlight"><pre><span></span><code><span class="n">root</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span>
 </code></pre></div>
 <h2 id="per-directory-config">Per-directory config<a class="headerlink" href="#per-directory-config" title="Permanent link">&para;</a></h2>
-<p>Any directory below the scan root that carries its own config file (a
+<p>Any directory below the project root that carries its own config file (a
 <code>lanorme.toml</code>, a <code>.lanorme.toml</code>, or a <code>pyproject.toml</code> with a <code>[tool.lanorme]</code>
 table) is a region: the files beneath it are checked under that config. A nested
 region inherits every setting from the regions above it and overrides only the
@@ -1417,9 +1419,8 @@ stops the inheritance, so the subtree stands alone.</p>
 (<code>select</code>, <code>ignore</code>, <code>exclude</code>, <code>per-file-ignores</code>, <code>promote</code>) are read once at
 the root and apply to the whole run. Checks that compare files across the tree
 (<code>duplication</code>, <code>test_coverage</code>, <code>layer_deps</code>, <code>port_coverage</code>, <code>docs</code>, <code>meta</code>)
-run once at the scan root under the root config, so a region cannot relax them
-for its own subtree. <code>--check &lt;name&gt;</code> runs that one check at the root config too,
-without cascading.</p>
+run once at the project root under the root config, so a region cannot relax
+them for its own subtree. <code>--check &lt;name&gt;</code> cascades exactly like a full run.</p>
 <h2 id="per-check-settings">Per-check settings<a class="headerlink" href="#per-check-settings" title="Permanent link">&para;</a></h2>
 <p>Each check is configured under its own table. An opt-in check carries an
 <code>enabled</code> toggle that defaults to <code>false</code>; a default-on check has no toggle, and

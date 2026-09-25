@@ -743,6 +743,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#test-files" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Test files
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#attribute-access-attr-001-attr-002" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -892,10 +903,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#layer-dependencies-layer-001006" class="md-nav__link">
+  <a href="#layer-dependencies-layer-001007" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Layer dependencies: LAYER-001..006
+        Layer dependencies: LAYER-001..007
       
     </span>
   </a>
@@ -1167,6 +1178,28 @@
     <span class="md-ellipsis">
       
         Suppressions: SUPPRESS-001 / SUPPRESS-002
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#test-coverage-testfile-001" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Test coverage: TESTFILE-001
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#test-style-aaa-001-aaa-002" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Test style: AAA-001 / AAA-002
       
     </span>
   </a>
@@ -1401,6 +1434,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#test-files" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Test files
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#attribute-access-attr-001-attr-002" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1550,10 +1594,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#layer-dependencies-layer-001006" class="md-nav__link">
+  <a href="#layer-dependencies-layer-001007" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Layer dependencies: LAYER-001..006
+        Layer dependencies: LAYER-001..007
       
     </span>
   </a>
@@ -1831,6 +1875,28 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#test-coverage-testfile-001" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Test coverage: TESTFILE-001
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#test-style-aaa-001-aaa-002" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Test style: AAA-001 / AAA-002
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1884,6 +1950,33 @@ Default policy and per-check configuration: see the README.</p>
 rule but a notice that a check skipped a file it could not parse, and
 <code>RUN-000</code> reports a check that raised; both stay warnings whatever <code>promote</code>
 says.</p>
+<h2 id="test-files">Test files<a class="headerlink" href="#test-files" title="Permanent link">&para;</a></h2>
+<p>Every rule that treats test code differently uses one definition, in
+<code>lanorme.paths</code>, so a file is a test for all of them or for none. Three
+predicates, each on the path relative to the scan root:</p>
+<ul>
+<li><code>is_test_module</code>: a module pytest collects by name, a <code>test_*.py</code> or
+  <code>*_test.py</code> stem, wherever it lives. pytest collects such a module beside
+  production code as readily as under <code>tests/</code>.</li>
+<li><code>is_test_support</code>: <code>conftest.py</code> anywhere, and a <code>fixtures</code> or <code>factories</code>
+  module or package inside a tests directory. A production <code>factories/</code>
+  package (the factory pattern) is not test code.</li>
+<li><code>is_under_tests_dir</code>: any directory on the path named <code>tests</code> or <code>test</code>
+  (the standard library and SQLAlchemy use the singular).</li>
+</ul>
+<p>A production rule exempts the union of the three: <code>KWARG-001</code>, <code>DRY-001</code>,
+<code>SIMILAR-001</code>, <code>SIZE-*</code>, <code>COMPLEXITY-001</code>, <code>PARAM-001</code>, <code>SECRETPY-001</code>,
+<code>SQL-001</code>, <code>IMPORT-001</code>, <code>NAMING-005</code>, <code>CMT-006</code>, <code>CMT-007</code>, the <code>TERM</code> rules,
+<code>TYPE-001..004</code>, <code>STALE-001</code>, <code>ATTR-001</code> and <code>ATTR-002</code>. <code>AAA-001</code> and
+<code>AAA-002</code> judge collected test modules only. <code>TESTFILE-001</code> counts collected
+test modules under each configured root as partners.</p>
+<p>A name that only contains the word (<code>tests_utils.py</code>, <code>contest.py</code>,
+<code>integration_tests/</code>) matches none of the three. The union errs towards
+exempting: a <code>test_*.py</code> module that ships inside a package (a dialect
+compliance suite, a self-test) is exempt from the production rules although
+it is not under a tests directory, because pytest would collect it. LaNorme
+pays that cost itself: its <code>test_coverage.py</code> and <code>test_style.py</code> checks are
+production modules the <code>TYPE</code> rules no longer see.</p>
 <hr />
 <h2 id="attribute-access-attr-001-attr-002">Attribute access: <code>ATTR-001</code> / <code>ATTR-002</code><a class="headerlink" href="#attribute-access-attr-001-attr-002" title="Permanent link">&para;</a></h2>
 <p>Opt-in (default-off); both are advisory warnings. Enable with
@@ -1900,9 +1993,14 @@ dynamic form only hides the attribute from the type checker.</p>
 </ul>
 <p>High-confidence cases only. Exempt: three-argument <code>getattr(x, "name",
 default)</code> (the safe-access idiom); dunder names (<code>__class__</code>, <code>__name__</code>, ...);
-names that are not valid identifiers (cannot be written as <code>x.name</code>); and files
-under <code>tests/</code> or <code>test/</code>. Dynamic names (<code>getattr(x, name)</code>) are reflection and exempt
-unless <code>flag_dynamic</code> is set.</p>
+names that are not valid identifiers (cannot be written as <code>x.name</code>);
+<code>hasattr</code> on a receiver bound by a plain <code>import</code> (<code>hasattr(os, "fork")</code>,
+<code>hasattr(socket, "AF_UNIX")</code>) and <code>getattr</code> on one with a literal name
+(<code>getattr(sys, "getwindowsversion")</code>), which is platform feature detection
+on a module rather than duck typing of an object (a <code>setattr</code> or <code>delattr</code>
+on a module is still reported); and test files (see "Test files" above).
+Dynamic names (<code>getattr(x, name)</code>) are reflection and exempt unless
+<code>flag_dynamic</code> is set.</p>
 <p>Config:
 <div class="highlight"><pre><span></span><code><span class="k">[tool.lanorme.attribute_access]</span>
 <span class="n">enabled</span><span class="w">      </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span>
@@ -1915,7 +2013,18 @@ unless <code>flag_dynamic</code> is set.</p>
 result is one of <code>_CODE_NODES</code> (imports, assigns, defs, control flow,
 returns / raises / asserts, ...), the comment is treated as disabled code.
 Guards: comments ending in <code>.</code> / <code>?</code> / <code>!</code> are prose; <code>foo(...)</code> (literal
-<code>...</code>) is illustrative; <code>label: type</code> with no value is documentation; tooling
+<code>...</code>) is illustrative; <code>label: type</code> with no value is documentation, and
+<code>label: word = value</code> is a labelled note unless the word is a type: a
+builtin, a name that is not all lowercase, or a lowercase name the module
+imports (<code># TODO: retries = 5</code> and <code># cython: boundscheck=False</code> are notes,
+<code># x: int = 5</code> is code, and so is <code># created: datetime = now()</code> under
+<code>from datetime import datetime</code>); an assignment of a foreign literal
+(<code># enabled = true</code>, <code># timeout = null</code>) is TOML, YAML or JSON, not Python; a
+keyword followed only by an adverb (<code># return early</code>, <code># import lazily</code>,
+<code># raise instead</code>) is a prose fragment, unless the adverb is an <code>-ly</code> word
+the module binds itself (<code># return quickly</code> where <code>quickly</code> is assigned is
+code); the lines that follow a <code>Usage:</code>, <code>Example:</code> or <code>e.g.:</code>
+header in the same block show a call shape rather than disable one; tooling
 pragmas (<code># noqa</code>, <code># type:</code>, ...) are skipped; and the lines of a
 <a href="https://peps.python.org/pep-0723/">PEP 723</a> <code># /// script</code> ... <code># ///</code> inline
 metadata block are tooling, not code.</p>
@@ -1929,11 +2038,14 @@ tried in several wrapping strategies before being declared prose:</p>
 <li>Bare <code>return</code> / <code>yield</code> / <code>raise</code> are tried inside <code>def _(): ...</code>.</li>
 <li>Decorator lines (<code>@foo</code>) are tried followed by <code>def _(): pass</code>.</li>
 </ul>
-<p>Measured against the 165-comment corpus under
+<p>Measured against the 227-comment corpus under
 <code>evals/corpora/comments_commented_code/</code> with <code>evals/score_cmt001.py</code>:
-<strong>P = 0.985 / R = 1.000 / F1 = 0.992</strong> (TP = 66, FP = 1, FN = 0). The
-single FP is an illustrative call signature following a <code>Typical usage:</code>
-header.</p>
+<strong>P = 1.000 / R = 1.000 / F1 = 1.000</strong> (TP = 96, FP = 0, FN = 0, TN = 131),
+the same on the dev split, the holdout split and the 40 generated holdout
+comments.
+The negatives cover TODO tags, URLs, type contracts, licence headers, shebang
+lines, banners, math and units, prose, labelled notes, foreign literals,
+adverb fragments, illustrations and pragmas.</p>
 <p>Config:
 <div class="highlight"><pre><span></span><code><span class="k">[tool.lanorme.comments]</span>
 <span class="n">commented_code</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span><span class="w">   </span><span class="c1"># default-on; set false to disable CMT-001</span>
@@ -1956,6 +2068,12 @@ of the function the block sits inside, or the one it sits directly above
 any definition gets the base allowance, and the message names the
 complexity it scored so the number is never a mystery.</p>
 <p>Set <code>block_lines_per_branch = 0</code> for a flat cap.</p>
+<p>A preamble above a decorated function counts as sitting above the function:
+the decorators do not push it out of reach. Exempt from the block cap: a
+block carrying a licence or copyright marker (the Apache preamble is as long
+as it is), and a PEP 723 metadata block. Exempt from the line cap: a pragma
+line, and the URL part of a line (a URL cannot be wrapped, so only the text
+around it is measured).</p>
 <p>Config:
 <div class="highlight"><pre><span></span><code><span class="k">[tool.lanorme.comments]</span>
 <span class="n">verbose</span><span class="w">                </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span><span class="w">   </span><span class="c1"># default-on; set false to disable CMT-002</span>
@@ -1969,9 +2087,9 @@ Precision-first by design: it only flags a comment when every content word
 and verb maps onto the adjacent statement, and an allowlist exempts comments
 that carry a why, a caveat, a unit, or a reference. It will miss synonym
 paraphrases. Full design: <code>docs/cmt005-design.md</code>.</p>
-<p>Measured against the 167-comment corpus under
+<p>Measured against the 170-comment corpus under
 <code>evals/corpora/comments_restating/</code> with <code>evals/score_cmt005.py</code>:
-<strong>P = 1.000 / R = 0.418 / F1 = 0.589</strong> (TP = 33, FP = 0, FN = 46, TN = 88).
+<strong>P = 1.000 / R = 0.418 / F1 = 0.589</strong> (TP = 33, FP = 0, FN = 46, TN = 91).
 The 0.418 recall is bounded by the design's refusal to chase synonym
 paraphrases without losing precision.</p>
 <p>Config:
@@ -1987,13 +2105,15 @@ dashes and emoji. The cheapest way to satisfy all of them is to write
 nothing. These two point the other way.</p>
 <ul>
 <li><code>CMT-006</code>: a public function or class whose span reaches <code>min_lines</code>
-  (default 5) carries a docstring. Dunders, private names, <code>test_*</code> files,
-  <code>__init__.py</code>, <code>conftest.py</code>, <code>setup.py</code>, <code>alembic/</code> and <code>migrations/</code> are
-  out of scope.</li>
+  (default 5) carries a docstring. Dunders, private names, members of a
+  private class, functions nested inside a function, test files (see "Test
+  files"), <code>__init__.py</code>, <code>setup.py</code>, <code>alembic/</code> and <code>migrations/</code> are
+  out of scope. A definition under a module-level <code>if</code> or <code>try</code> is in scope.</li>
 <li><code>CMT-007</code>: that docstring says more than the signature. A docstring is
   vacuous when every content word in it is already carried by the
   definition's name, its parameters, or its enclosing class. Padding does
-  not help, because padding is restatement.</li>
+  not help, because padding is restatement, and a placeholder
+  (<code>"""TODO"""</code>, <code>"""Docstring."""</code>) is filler.</li>
 </ul>
 <p><code>CMT-007</code> reuses the vocabulary machinery behind <code>CMT-005</code>: identifier
 splitting, stemming, and the 11-category allowlist that exempts a comment
@@ -2007,9 +2127,9 @@ carrying a why, a caveat, a unit or a reference. Two additions on top:</p>
   after filler removal is vacuous whatever the allowlist says, so
   <code>This is a helper function.</code> is not rescued by it.</li>
 </ul>
-<p>Measured against the 23-definition corpus under
+<p>Measured against the 29-definition corpus under
 <code>evals/corpora/docstrings_vacuous/</code> with <code>evals/score_cmt007.py</code>:
-<strong>P = 1.000 / R = 1.000 / F1 = 1.000</strong> (TP = 9, FP = 0, FN = 0, TN = 14).
+<strong>P = 1.000 / R = 1.000 / F1 = 1.000</strong> (TP = 11, FP = 0, FN = 0, TN = 18).
 That corpus was written alongside the rule and tuned against, so treat the
 figure as a regression guard rather than an unbiased estimate. The
 independent evidence is held-out: <code>CMT-007</code> returns <strong>zero</strong> findings over
@@ -2029,7 +2149,10 @@ silent, and on this evidence it does.</p>
 <h3 id="prose-001-prose-003-on-comments-and-docstrings"><code>PROSE-001</code> / <code>PROSE-003</code> on comments and docstrings<a class="headerlink" href="#prose-001-prose-003-on-comments-and-docstrings" title="Permanent link">&para;</a></h3>
 <p>Off until enabled. The same rule codes that the <code>prose</code> check emits on
 Markdown also fire here, on <code>#</code> comments and <code>"""..."""</code> docstrings,
-when configured.</p>
+when configured. An emoji is a code point with Unicode's Emoji property, or
+any symbol followed by the emoji presentation selector (U+FE0F); a check mark
+(U+2713), a ballot box, a star, a die or a musical note is not one, and
+neither is the zero-width joiner that Hindi or Arabic text carries.</p>
 <p>Config:
 <div class="highlight"><pre><span></span><code><span class="k">[tool.lanorme.comments]</span>
 <span class="n">em_dash</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span><span class="w">   </span><span class="c1"># emit PROSE-001 on comments/docstrings</span>
@@ -2038,7 +2161,10 @@ when configured.</p>
 <hr />
 <h2 id="docs-docs-001008">Docs: <code>DOCS-001..008</code><a class="headerlink" href="#docs-docs-001008" title="Permanent link">&para;</a></h2>
 <p>Opt-in (default-off), tree-scoped. Enforces a familiar Diataxis-style structure
-and accessibility on a Markdown documentation tree. It inspects only Markdown
+and accessibility on a Markdown documentation tree. Headings and images inside
+a fenced code block, YAML front matter or an inline code span are never
+matched, and a rule (<code>---</code>) under a list item, a quote or a table row is a
+thematic break, not a setext heading. It inspects only Markdown
 under <code>docs_root</code> (default <code>docs</code>); files anywhere else are ignored, so it never
 imposes a docs structure on source trees or stray Markdown. Headings and images
 inside fenced code blocks are never matched, so a sample showing a hash heading
@@ -2086,8 +2212,9 @@ only individual files, so the section-index and quadrant rules can reason about
 where each page sits.</p>
 <hr />
 <h2 id="domain-terminology-term-nnn">Domain terminology: <code>TERM-NNN</code><a class="headerlink" href="#domain-terminology-term-nnn" title="Permanent link">&para;</a></h2>
-<p>Configurable ubiquitous-language enforcement. Inert by default. Each
-rule the user configures gets a code from the <code>TERM-</code> family.</p>
+<p>ConfigurableCheck ubiquitous-language enforcement. Inert by default. Each
+rule the user configures gets a code from the <code>TERM-</code> family. Test files
+(see "Test files") and <code>migrations/</code> are skipped.</p>
 <p>Config:
 <div class="highlight"><pre><span></span><code><span class="k">[[tool.lanorme.domain_terms.rules]]</span>
 <span class="n">id</span><span class="w">        </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;TERM-001&quot;</span>
@@ -2102,12 +2229,23 @@ rule the user configures gets a code from the <code>TERM-</code> family.</p>
 <hr />
 <h2 id="duplication-dry-001">Duplication: <code>DRY-001</code><a class="headerlink" href="#duplication-dry-001" title="Permanent link">&para;</a></h2>
 <p>Default-on. Detects <strong>exact structural clones</strong>: functions with an identical
-normalised AST body and at least five statements. Normalisation strips variable
-names and string literals, so two functions differing only in identifier
-spelling or string-constant content still match. It is precise but strict: a
-single added statement, a reordering, a changed number, or a renamed attribute
-defeats the match. For the fuzzier "these should share a helper" cases, see
-<code>SIMILAR-001</code> below.</p>
+normalised AST body and at least five statements (a leading docstring is
+documentation and counts for neither). Normalisation strips variable names and
+string literals, so two functions differing only in identifier spelling or
+string-constant content still match. The name a call targets is kept, like an
+attribute name: <code>min(...)</code> against <code>max(...)</code>, or <code>any(...)</code> against
+<code>all(...)</code>, is a different operation, not a renamed variable. A call to a name
+the function binds itself (a parameter, a local variable, a nested definition)
+is a call through a variable, so that name is abstracted with the variable;
+builtins and imported names stay literal. It is precise but strict: a single
+added statement, a reordering, a changed number, a renamed attribute or a
+renamed call defeats the match. For the fuzzier "these should share a helper"
+cases, see <code>SIMILAR-001</code> below. Skips <code>__init__.py</code>, <code>alembic/</code>,
+<code>migrations/</code>, and test files (see "Test files"). Measured on the holdout split of the shared
+corpus (<code>evals/corpora/duplication_similar/</code>, scorer <code>evals/score_dry001.py</code>),
+whose labels are near-duplicates rather than exact clones: <strong>precision 1.000 /
+recall 0.538</strong>; on the generated cases alone, precision 1.000 / recall 0.870
+(the misses are the reordered pairs, by design).</p>
 <p>Config: none. False positives on intentionally parallel
 adapters across bounded contexts are a known limit; suppress them with
 <code>[tool.lanorme.per-file-ignores]</code>, <code># noqa: DRY-001</code>, or
@@ -2115,32 +2253,55 @@ adapters across bounded contexts are a known limit; suppress them with
 <hr />
 <h2 id="near-duplicate-similar-001">Near-duplicate: <code>SIMILAR-001</code><a class="headerlink" href="#near-duplicate-similar-001" title="Permanent link">&para;</a></h2>
 <p>Opt-in (default-off), advisory <strong>warning</strong> (never fails the build). The fuzzy
-companion to <code>DRY-001</code>: it catches near-duplicates that the exact check misses
-(one or two added statements, reordering, a changed number, a renamed
-attribute, a renamed call) so a reviewer can decide whether to extract a shared
-helper.</p>
-<p>Two functions in a file are compared on two signals. <strong>Structure</strong>: a token
-sequence over the body that abstracts away variable names, attribute names and
-numbers, scored with <code>difflib</code> (so a one-statement or reorder drift still
-aligns). <strong>Anchors</strong>: the meaning-bearing tokens <code>DRY-001</code> discards: string
-literals, called names, operator kinds, and accessed attribute names, each
-scored by weighted Jaccard. A pair flags only when the structure is similar
-<strong>and</strong> every anchor agrees, which keeps precision high: parallel boilerplate
-that shares a shape but differs in its string keys or source attributes (config
-builders, dispatch tables, field mappers, framework handlers) is rejected.
-Equality/dunder/<code>@property</code> boilerplate and drifted logging-message strings are
-handled specially. Measured on the bundled corpus
-(<code>evals/corpora/duplication_similar/</code>, scorer <code>evals/score_similar.py</code>):
-<strong>precision 1.000 / recall 0.850 / F1 0.919</strong>. Known recall gaps: fully renamed
-attribute sets and error-message-only drift.</p>
+companion to <code>DRY-001</code>: it catches the near-duplicates the exact check misses
+so a reviewer can decide whether to extract a shared helper. Skips the same
+files as <code>DRY-001</code>, test files (see "Test files") among them.</p>
+<p>Two functions in a file are near-duplicates when they carry out the same
+operations in the same control-flow positions and differ only in data and in
+drift: variable, attribute and keyword names, numbers, and one or two
+statements inserted, removed or reordered. A pair whose statements differ in
+what they do is two functions: an operator flipped (<code>&lt;</code> against <code>&gt;</code>, <code>and</code>
+against <code>or</code>), a called name changed (<code>min</code> against <code>max</code>, <code>.append</code> against
+<code>.remove</code>), a statement moved into a new branch. So is a pair that differs in
+its string literals: keys, column names, formats and messages are the content
+a body is about, and parallel builders that share a shape but not their
+strings (config builders, column specs, dispatch tables, argparse subcommands)
+are boilerplate, not a clone. Message strings passed positionally to a
+logging or <code>print</code> call are left out, so a reworded log line is drift.</p>
+<p>Each function is fingerprinted as a sequence of statement lines (one per
+statement at every nesting depth: the depth, the statement kind, and the
+statement's own tokens with names, attributes, numbers and strings abstracted,
+operator kinds and call arities kept) and four multisets: operations (each
+statement's depth, kind, operators and calls), called names (a call to a parameter or
+local variable is abstracted, as <code>DRY-001</code> abstracts it), string literals, and
+accessed attribute names. A pair flags only when every gate passes:
+<code>struct_ratio</code>, a <code>difflib</code> ratio over the statement lines that tolerates a
+few inserted, removed or reordered statements; <code>op_jaccard</code>, <code>call_jaccard</code>
+and <code>str_jaccard</code>, the share of the smaller side's operations, called names
+and strings that the other side also carries, where 1.0 means nothing changed
+and things were only added; and <code>attr_jaccard</code>, a weighted Jaccard over
+attribute names that rejects the near-disjoint attribute sets of parallel
+mappers over different source objects. The <code>*_jaccard</code> keys keep their names;
+the measure behind the first three is that containment share, which unlike a
+Jaccard does not punish drift. Equality/dunder/<code>@property</code> boilerplate never
+flags.</p>
+<p>Known misses, by design: a call renamed to a synonym (<code>save</code> against
+<code>persist</code>) is indistinguishable from a call changed to its opposite, so called
+names must agree; a pair that differs only in its error messages; a pair whose
+attribute sets are fully renamed (<code>x</code>/<code>y</code> against <code>lon</code>/<code>lat</code>).</p>
+<p>The thresholds are derived on the dev split of the bundled corpus
+(<code>evals/corpora/duplication_similar/</code>, scorer <code>evals/score_similar.py</code>) and
+never on its holdout split. Measured on the holdout split: <strong>precision 1.000 /
+recall 0.966 / F1 0.982</strong>; on the generated holdout cases alone, precision
+1.000 / recall 1.000; on the dev split, precision 1.000 / recall 0.800.</p>
 <div class="highlight"><pre><span></span><code><span class="k">[tool.lanorme.similarity]</span>
 <span class="n">enabled</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span>
 <span class="c1"># threshold overrides (defaults shown):</span>
 <span class="n">min_statements</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">5</span>
 <span class="n">struct_ratio</span><span class="w">   </span><span class="o">=</span><span class="w"> </span><span class="mf">0.55</span>
 <span class="n">str_jaccard</span><span class="w">    </span><span class="o">=</span><span class="w"> </span><span class="mf">0.60</span>
-<span class="n">op_jaccard</span><span class="w">     </span><span class="o">=</span><span class="w"> </span><span class="mf">0.60</span>
-<span class="n">call_jaccard</span><span class="w">   </span><span class="o">=</span><span class="w"> </span><span class="mf">0.35</span>
+<span class="n">op_jaccard</span><span class="w">     </span><span class="o">=</span><span class="w"> </span><span class="mf">1.0</span>
+<span class="n">call_jaccard</span><span class="w">   </span><span class="o">=</span><span class="w"> </span><span class="mf">1.0</span>
 <span class="n">attr_jaccard</span><span class="w">   </span><span class="o">=</span><span class="w"> </span><span class="mf">0.10</span>
 </code></pre></div>
 <hr />
@@ -2149,7 +2310,9 @@ attribute sets and error-message-only drift.</p>
 <ul>
 <li><code>SIZE-001</code>: Python files. Warn at 300 effective (non-blank,
   non-comment) lines; error at 500.</li>
-<li><code>SIZE-002</code>: functions and methods. Warn at 50 lines; error at 80.</li>
+<li><code>SIZE-002</code>: functions and methods. Warn at 50 lines; error at 80. The
+  docstring is left out: it documents the function rather than lengthening
+  it.</li>
 <li><code>SIZE-003</code>: classes with more than 10 methods (warning only). Useful
   as a smell on services and views; on rich aggregate roots in a DDD
   codebase, expect to silence it via <code>per-file-ignores</code>.</li>
@@ -2165,11 +2328,12 @@ attribute sets and error-message-only drift.</p>
   <code>[f(x) for x in xs]</code> costs nothing. That keeps the 10 / 15 thresholds
   calibrated for code that leans on comprehensions; the conditional and
   nested-loop branching they can hide still counts.</li>
-<li><code>PARAM-001</code>: function/method parameter count, excluding <code>self</code> /
-  <code>cls</code>. Warn at 5; error at 8.</li>
+<li><code>PARAM-001</code>: function/method parameter count, excluding the receiver
+  (<code>self</code> / <code>cls</code>, or <code>mcs</code> / <code>metacls</code> in a metaclass). Warn at 5; error
+  at 8.</li>
 </ul>
-<p>Skips <code>__init__.py</code>, <code>conftest.py</code>, <code>alembic/</code>, <code>migrations/</code>, and
-<code>test_*</code> files.</p>
+<p>Skips <code>__init__.py</code>, <code>alembic/</code>, <code>migrations/</code>, and test files (see "Test
+files").</p>
 <p>Every threshold above is a default, not a fixed number. A project sets its
 own without giving up the rule:</p>
 <div class="highlight"><pre><span></span><code><span class="k">[tool.lanorme.file_limits]</span>
@@ -2203,7 +2367,7 @@ was measured against appears in its message.</p>
 <span class="n">dirs</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;legacy_src&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;build_artifacts&quot;</span><span class="p">]</span>
 </code></pre></div></p>
 <hr />
-<h2 id="layer-dependencies-layer-001006">Layer dependencies: <code>LAYER-001..006</code><a class="headerlink" href="#layer-dependencies-layer-001006" title="Permanent link">&para;</a></h2>
+<h2 id="layer-dependencies-layer-001007">Layer dependencies: <code>LAYER-001..007</code><a class="headerlink" href="#layer-dependencies-layer-001007" title="Permanent link">&para;</a></h2>
 <p>For hexagonal / layered codebases with a <code>domain/</code>, <code>application/</code>,
 <code>infrastructure/</code>, <code>api/</code> layout. Inert in their absence.</p>
 <p>If the layers live under a nested package directory, set the top-level
@@ -2222,9 +2386,15 @@ stay relative to the scan target.</p>
   <code>infrastructure/</code>.</li>
 <li><code>LAYER-006</code>: a <code>transport_layers</code> entry is not among the configured
   <code>layers</code>, so it has no effect (advisory <strong>warning</strong>, exit 0).</li>
+<li><code>LAYER-007</code>: a layer added through <code>layers</code> imports a layer its <code>allowed</code>
+  entry does not list. The fix names the layers it may import.</li>
 </ul>
 <p>These rules track Cockburn's hexagonal architecture and Seemann's
 composition-root pattern.</p>
+<p>A relative import is resolved against the importing file's package first, so
+<code>from .application import X</code> inside <code>domain/</code> names a sibling module in the
+domain layer, not the application layer, while <code>from ..infrastructure import db</code>
+still reaches the infrastructure layer.</p>
 <p>The composition-root exception applies to any layer listed in
 <code>transport_layers</code> (default <code>["api"]</code>). Apps with several peer transport
 adapters (a REST <code>api/</code>, an <code>mcp_server/</code>, a <code>grpc_server/</code>) can list them all
@@ -2235,7 +2405,11 @@ so each keeps its own composition root. A transport peer must also appear in
 <span class="c1"># Files allowed to import infrastructure (the composition root).</span>
 <span class="c1"># fnmatch globs against the source-relative path, so a module FILE</span>
 <span class="c1"># (api/dependencies.py) is recognised, not only a directory.</span>
-<span class="n">composition_root</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;api/dependencies/**&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;api/v1/dependencies/**&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;api/v1/main.py&quot;</span><span class="p">]</span>
+<span class="n">composition_root</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span>
+<span class="w">  </span><span class="s2">&quot;api/dependencies/**&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;api/dependencies.py&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;api/deps.py&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="s2">&quot;api/v1/dependencies/**&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;api/v1/dependencies.py&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;api/v1/deps.py&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="s2">&quot;api/v1/main.py&quot;</span><span class="p">,</span>
+<span class="p">]</span>
 
 <span class="c1"># For layouts whose layers differ. Defaults shown.</span>
 <span class="n">layers</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;domain&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;application&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;infrastructure&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;api&quot;</span><span class="p">]</span>
@@ -2264,7 +2438,13 @@ it conforms.</p>
 <hr />
 <h2 id="keyword-arguments-kwarg-001">Keyword arguments: <code>KWARG-001</code><a class="headerlink" href="#keyword-arguments-kwarg-001" title="Permanent link">&para;</a></h2>
 <p>Opt-in. With <code>enabled = true</code>, every multi-argument function definition
-must contain a bare <code>*</code> separator to force keyword-only call sites.</p>
+must contain a bare <code>*</code> separator to force keyword-only call sites. Test
+files (see "Test files") are skipped. Dunder
+methods and methods decorated <code>@override</code>, <code>@typing.override</code> or
+<code>@typing_extensions.override</code> are exempt: their signature is fixed by the
+protocol or the base class, so the finding belongs there. A called decorator
+that happens to be named <code>override</code> (Django's <code>@translation.override("fr")</code>)
+does not exempt a method.</p>
 <p>Config:
 <div class="highlight"><pre><span></span><code><span class="k">[tool.lanorme.named_args]</span>
 <span class="n">enabled</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span>
@@ -2326,6 +2506,15 @@ be an action's own attribute or artefact: <code>FetchOptions</code> holds option
 view, <code>LoadBalancer</code> is an agent noun. Words a verb acts on (<code>User</code>,
 <code>Order</code>, <code>Connection</code>, <code>Session</code>, <code>Token</code>) are deliberately not on that
 list, or <code>CreateUser</code> would pass.</p>
+<p>A class with an exception base (one named <code>...Error</code>, <code>...Exception</code>,
+<code>...Warning</code>, <code>...Exit</code> or <code>...Interrupt</code>) is a thing whatever it is
+called, and a last word that names the state an action reached
+(<code>SendFailed</code>, <code>FetchAborted</code>, <code>LoadComplete</code>) names an outcome, so both
+pass. A few attribute heads are listed by word (<code>behaviour</code>, <code>direction</code>,
+<code>reason</code>, <code>timing</code>, <code>wizard</code>, <code>impl</code>, <code>abc</code>), and a head that is a verb's
+object as often as its attribute (<code>Permission</code>, <code>Scope</code>, <code>Metrics</code>,
+<code>Progress</code>) is deliberately not, so <code>EmitMetrics</code> and <code>CreatePermission</code>
+stay reported; a project that names enums that way adds them to <code>exempt</code>.</p>
 <p>A message object is a noun by convention and is exempt through its suffix:
 <code>Command</code>, <code>Query</code>, <code>Event</code>, <code>Handler</code>, <code>UseCase</code>, <code>Request</code>, <code>Response</code>,
 <code>Job</code>, <code>Task</code>, extensible through <code>command_suffixes</code>. A verb-first class
@@ -2354,15 +2543,34 @@ function is not a command:</p>
   <code>abstractmethod</code>, <code>override</code> or <code>final</code>: a route, a fixture, a property
   setter, a signal receiver or a CLI command is named by the framework's
   contract.</li>
-<li>Dunders, keyword-clash names ending in <code>_</code>, hook names (<code>on_</code>, <code>pre_</code>,
-  <code>post_</code>, <code>before_</code>, <code>after_</code>, <code>pytest_</code>, and <code>_hook</code>, <code>_handler</code>,
-  <code>_callback</code>, <code>_listener</code>, <code>_receiver</code>), conversions and constructors
-  (<code>from_</code>, <code>to_</code>, <code>as_</code>, <code>into_</code>, <code>with_</code>, and <code>x_to_y</code>), entry points
-  (<code>main</code>, <code>async_main</code>, <code>cli</code>), standard-library protocol methods on a
-  class (<code>keys</code>, <code>fetchone</code>, <code>rollback</code>, <code>flush</code>, <code>info</code>), and the Django
-  and Scrapy hook names on plain classes (<code>process_request</code>,
-  <code>process_item</code>). <code>setUp</code> and <code>tearDown</code> pass because <code>set</code> and <code>tear</code>
-  are verbs.</li>
+<li>Dunders, keyword-clash names ending in <code>_</code>, hook names matched by word
+  so camelCase and bare forms count (<code>on_click</code>, <code>onMessage</code>, <code>pre_save</code>,
+  <code>after_request</code>, <code>pytest_configure</code>; <code>error_handler</code>, <code>_dynamic_class_hook</code>,
+  a bare <code>callback</code>, <code>handler</code> or <code>listener</code> handed to <code>signal.signal</code> or
+  <code>apply_async</code>), conversions and constructors (<code>from_</code>, <code>to_</code>, <code>as_</code>,
+  <code>into_</code>, <code>with_</code>, and <code>x_to_y</code>), entry points (<code>main</code>, <code>async_main</code>,
+  <code>cli</code>, the WSGI <code>application</code> of PEP 3333 and the ASGI <code>app</code>),
+  standard-library protocol methods on a class (<code>keys</code>, <code>fetchone</code>,
+  <code>rollback</code>, <code>flush</code>, <code>info</code>; the <code>asyncio</code> protocol hooks
+  <code>connection_made</code> and <code>data_received</code>, <code>socketserver</code>'s <code>server_bind</code>,
+  <code>ast.NodeVisitor.generic_visit</code>, <code>xml.sax</code>'s <code>characters</code>, <code>cmd.Cmd</code>'s
+  <code>emptyline</code>, <code>io</code>'s <code>readinto</code>, <code>urllib</code>'s <code>http_open</code>), the Django and
+  Scrapy hook names on plain classes (<code>process_request</code>, <code>process_item</code>),
+  and on a method only, the names Django, Django REST framework, Scrapy,
+  pydantic and SQLAlchemy fix (<code>ready</code>, <code>form_valid</code>, <code>allow_migrate</code>,
+  <code>test_func</code>, <code>perform_create</code>, <code>closed</code>, <code>spider_opened</code>,
+  <code>model_post_init</code>, <code>column_expression</code>): a module-level <code>ready()</code> is the
+  author's. <code>setUp</code> and <code>tearDown</code> pass because <code>set</code> and <code>tear</code> are verbs.</li>
+<li>A camelCase method on a class that may inherit the name
+  (<code>mousePressEvent</code> on a <code>QWidget</code> subclass, <code>dataReceived</code>, <code>onMessage</code>):
+  PEP 8 allows mixedCase only where it is the prevailing style, so the name
+  is the base API's. A class may inherit a name through an external base (one
+  the module does not define), or through a base the module defines that has
+  an external base itself or defines the same method. <code>object</code>, <code>ABC</code>,
+  <code>Generic</code>, <code>Protocol</code>, <code>NamedTuple</code>, <code>TypedDict</code> and the <code>Enum</code> family
+  (<code>Enum</code>, <code>IntEnum</code>, <code>StrEnum</code>, <code>Flag</code>, <code>IntFlag</code>) carry no method names and
+  do not count. The same name on any other class, or at module level, is
+  judged.</li>
 <li>Files under <code>migrations/</code> or <code>alembic/</code> inside the scanned tree, whose
   names a tool generated. A name with non-ASCII letters is not judged.</li>
 </ul>
@@ -2372,10 +2580,13 @@ a third-person form (<code>matches</code>), carries a verb suffix (<code>simplif
 <code>deregister</code>, <code>aclose</code>) or opens with one of the verbs Python fuses onto
 the next word (<code>getheaders</code>, <code>setdefault</code>, <code>isdigit</code>, <code>iteritems</code>; not
 <code>password</code>, <code>endpoint</code> or <code>checksum</code>), and leading modifiers are skipped
-(<code>bulk_insert</code>, <code>re_apply</code>, <code>atomic_write</code>, <code>safe_delete</code>). A word wrongly
-counted as a verb hides a finding and never creates one. The <code>verbs</code>
-setting extends the vocabulary, and a configured weak verb counts as a
-verb here too.</p>
+(<code>bulk_insert</code>, <code>re_apply</code>, <code>atomic_write</code>, <code>safe_delete</code>). The listed
+verbs include the business, moderation and security verbs a domain model
+uses (<code>refund</code>, <code>invite</code>, <code>enrol</code>, <code>ban</code>, <code>redact</code>, <code>mint</code>), and a noun
+that merely ends like a verb (<code>enterprise</code>, <code>premise</code>, <code>chunksize</code>) is not
+one. A word wrongly counted as a verb hides a finding and never creates
+one. The <code>verbs</code> setting extends the vocabulary, and a configured weak verb
+counts as a verb here too.</p>
 <h3 id="naming-008-a-function-does-not-open-with-a-weak-verb"><code>NAMING-008</code>: A function does not open with a weak verb<a class="headerlink" href="#naming-008-a-function-does-not-open-with-a-weak-verb" title="Permanent link">&para;</a></h3>
 <p><code>handle_</code>, <code>process_</code>, <code>perform_</code>, <code>do_</code>, <code>manage_</code> and <code>deal_with_</code> say
 that something happens to the object without saying what. Code Complete
@@ -2384,11 +2595,14 @@ same evasion. The finding is a function such as <code>handle_data</code> or
 <code>process_order</code> whose body parses, stores, validates or prices; the fix is
 to say which.</p>
 <p>A bare <code>handle</code> or <code>process</code> with no object is a dispatcher's slot and is
-not reported. A method on a class with bases may be overriding an inherited
-name (<code>do_GET</code> on a request handler, <code>process</code> on a SQLAlchemy type), so
-it is not reported either; nor is any name <code>NAMING-007</code> leaves alone as
-not the author's to choose. The rule applies to queries as well as
-commands. The list is replaced, not extended, through <code>weak_verbs</code>.</p>
+not reported. A method on a class that may inherit its name, by the same
+test as the camelCase exemption above, may be overriding it (<code>do_GET</code> on a
+request handler, <code>process</code> on a SQLAlchemy type), so it is not reported
+either; nor is any name <code>NAMING-007</code> leaves alone as
+not the author's to choose, which covers Django REST framework's
+<code>perform_create</code> and Django's <code>handle_label</code> on a plain mixin. The rule
+applies to queries as well as commands. The list is replaced, not
+extended, through <code>weak_verbs</code>.</p>
 <p>Config:
 <div class="highlight"><pre><span></span><code><span class="k">[tool.lanorme.naming_canon]</span>
 <span class="n">verbs</span><span class="w">            </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;frob&quot;</span><span class="p">]</span><span class="w">              </span><span class="c1"># words that read as verbs in this codebase</span>
@@ -2426,10 +2640,10 @@ clean under all three, with the codes promoted to errors.</p>
 <td>1.000</td>
 <td>1.000</td>
 <td>1.000</td>
-<td>7</td>
+<td>8</td>
 <td>0</td>
 <td>0</td>
-<td>15</td>
+<td>18</td>
 </tr>
 <tr>
 <td><code>NAMING-007</code></td>
@@ -2437,10 +2651,10 @@ clean under all three, with the codes promoted to errors.</p>
 <td>1.000</td>
 <td>1.000</td>
 <td>1.000</td>
-<td>9</td>
+<td>11</td>
 <td>0</td>
 <td>0</td>
-<td>31</td>
+<td>39</td>
 </tr>
 <tr>
 <td><code>NAMING-008</code></td>
@@ -2448,10 +2662,10 @@ clean under all three, with the codes promoted to errors.</p>
 <td>1.000</td>
 <td>1.000</td>
 <td>1.000</td>
-<td>7</td>
+<td>8</td>
 <td>0</td>
 <td>0</td>
-<td>12</td>
+<td>14</td>
 </tr>
 </tbody>
 </table>
@@ -2470,7 +2684,9 @@ check enforces both, plus the module-level version of one of them.</p>
 <code>DependencyProcessor</code>, <code>ConfigData</code> or <code>ScriptInfo</code>; the fix is to say what
 the thing is (a registry, a pool, a scheduler) or what it holds. A single
 word (<code>Manager</code> as a domain class), <code>MetaData</code> and its compounds, a
-<code>ContextManager</code> and names that are not PascalCase are not reported.</p>
+<code>ContextManager</code>, a class whose base already ends in the word
+(<code>UserManager(models.Manager)</code> is a Django manager, <code>ProcessManager</code> a
+<code>multiprocessing</code> one) and names that are not PascalCase are not reported.</p>
 <h3 id="naming-010-a-module-is-not-a-junk-drawer"><code>NAMING-010</code>: A module is not a junk drawer<a class="headerlink" href="#naming-010-a-module-is-not-a-junk-drawer" title="Permanent link">&para;</a></h3>
 <p><code>utils</code>, <code>util</code>, <code>utilities</code>, <code>helpers</code>, <code>helper</code>, <code>common</code>, <code>misc</code> and
 <code>stuff</code> promise nothing about what is inside; the
@@ -2485,9 +2701,13 @@ at least one, which is why the rule is opt-in.</p>
 becomes <code>build_url()</code>. Commands are <code>NAMING-007</code>'s and a raiser exists to
 raise, so this rule takes the rest: functions that return a value, and
 stubs. Predicates that carry an auxiliary anywhere (<code>is_valid</code>,
-<code>line_has_noqa</code>), constructors under <code>@classmethod</code>, properties,
-conversions and every reserved-name shape <code>NAMING-007</code> lists are exempt,
-and the same verb vocabulary applies.</p>
+<code>line_has_noqa</code>) or open with a third-person verb (<code>exists</code>, <code>matches</code>),
+constructors under <code>@classmethod</code>, properties, conversions, a decorator or
+closure factory (a function that returns a function it defines, or a
+lambda: <code>deprecated</code>, <code>cached</code> are named for what they confer) and every
+reserved-name shape <code>NAMING-007</code> lists are exempt, and the same verb
+vocabulary applies. A decorator returned through a variable
+(<code>actual = user_passes_test(...); return actual</code>) is not recognised as one.</p>
 <p>This is a house choice, not a correction. Naming a pure function for its
 value is the other canonical school (Code Complete, Ada, Swift, Kotlin, Go,
 Rust and Python's own library), and it is the one LaNorme's source follows:
@@ -2504,7 +2724,7 @@ the Java-school reading for itself.</p>
 <code>NAMING-009</code> reports 10 classes, <code>NAMING-010</code> 9 modules, <code>NAMING-011</code>
 1473 functions. Measured against <code>evals/corpora/naming_every_verb/</code> with
 <code>evals/score_naming011.py</code>: <strong>P = 1.000 / R = 1.000 / F1 = 1.000</strong>
-(TP = 8, FP = 0, FN = 0, TN = 18), a regression guard for the exemptions
+(TP = 10, FP = 0, FN = 0, TN = 23), a regression guard for the exemptions
 rather than an unbiased estimate. <code>NAMING-009</code> and <code>NAMING-010</code> match exact
 words and have unit tests instead of a corpus.</p>
 <hr />
@@ -2525,8 +2745,14 @@ words and have unit tests instead of a corpus.</p>
   <code>@router.get</code>, <code>delete_user</code> on <code>@router.delete</code>). Health probes and
   auth-issuance handlers are exempt.</li>
 <li><code>NAMING-004</code>: default-on warning. Functions whose return annotation
-  is <code>bool</code> should use a boolean prefix (<code>is_</code> / <code>has_</code> / <code>can_</code> /
-  <code>should_</code>).</li>
+  is <code>bool</code> should read as an assertion: a boolean prefix (<code>is_</code> / <code>has_</code> /
+  <code>can_</code> / <code>should_</code>), an auxiliary anywhere (<code>does_match</code>, <code>user_is_active</code>),
+  a third-person verb in front (<code>exists</code>, <code>matches</code>, <code>contains</code>,
+  <code>needs_refresh</code>) or a fused <code>isdir</code> / <code>hasattr</code> / <code>isEnabled</code> all pass;
+  <code>check_password</code> and <code>valid</code> are reported. Private names, <code>Protocol</code>
+  members, properties and the names a protocol or framework fixes
+  (<code>readable</code>, <code>filter</code> on a <code>logging.Filter</code>, Django's <code>allow_migrate</code>,
+  Qt's <code>eventFilter</code> on a subclass) are not judged.</li>
 </ul>
 <p>Config:
 <div class="highlight"><pre><span></span><code><span class="k">[tool.lanorme.naming_consistency]</span>
@@ -2535,7 +2761,8 @@ words and have unit tests instead of a corpus.</p>
 </code></pre></div></p>
 <hr />
 <h2 id="naming-scope-naming-005">Naming scope: <code>NAMING-005</code><a class="headerlink" href="#naming-scope-naming-005" title="Permanent link">&para;</a></h2>
-<p>Default-off. <strong>Opinionated.</strong> Lives in its own <code>naming_scope</code> check.</p>
+<p>Default-off. <strong>Opinionated.</strong> Lives in its own <code>naming_scope</code> check. Test
+files (see "Test files") and <code>migrations/</code> are skipped.</p>
 <p><code>NAMING-005</code> does not ban short names. <code>i</code> in a three-line loop is
 perfectly readable; the same <code>i</code> bound at the top of a sixty-line function
 and used at the bottom is not, because the binding has scrolled out of
@@ -2543,9 +2770,13 @@ sight and the name itself has to carry the meaning. The defect is
 shortness <em>held over distance</em>, so the requirement scales with the span.</p>
 <p>Span is measured from where a name is first bound to where it is last
 referenced, within one function. Only names the function itself binds are
-considered (parameters and assignment targets): a referenced-but-unbound
-short name such as <code>np</code> or <code>re</code> is an imported module, where the name is
-the library's choice and not the function's.</p>
+considered (parameters, assignment targets and <code>match</code> captures): a
+referenced-but-unbound short name such as <code>np</code> or <code>re</code> is an imported
+module, where the name is the library's choice and not the function's. A
+name a comprehension, a lambda or a nested function binds belongs to that
+scope, so an <code>r</code> in a comprehension at the top and another in a lambda at
+the bottom are two names, not one carried across; a use of the outer
+name inside such a scope still counts.</p>
 <p>Choosing the default (<code>max_span = 20</code>), measured over LaNorme's own
 <code>src/</code> and the 18 generated modules (about 10,000 lines) under <code>evals/</code>:</p>
 <table>
@@ -2595,7 +2826,7 @@ their audience and are the rule's most likely false positive.</p>
 </code></pre></div></p>
 <p>Measured against <code>evals/corpora/naming_scope/</code> with
 <code>evals/score_naming005.py</code>: <strong>P = 1.000 / R = 1.000 / F1 = 1.000</strong>
-(TP = 2, FP = 0, FN = 0, TN = 4). That corpus is a regression guard, not
+(TP = 3, FP = 0, FN = 0, TN = 6). That corpus is a regression guard, not
 an unbiased estimate; the calibration evidence is the table above.</p>
 <hr />
 <h2 id="pattern-divergence-import-001-endpoint-001">Pattern divergence: <code>IMPORT-001</code> / <code>ENDPOINT-001</code><a class="headerlink" href="#pattern-divergence-import-001-endpoint-001" title="Permanent link">&para;</a></h2>
@@ -2605,7 +2836,7 @@ an unbiased estimate; the calibration evidence is the table above.</p>
   function or method body). Equivalent to ruff <code>PLC0415</code> with a different
   default. Imports inside an <code>if TYPE_CHECKING:</code> guard are exempt, as are
   files under <code>infrastructure/observability/</code> and <code>api/v1/main.py</code>
-  (conditional startup wiring); <code>test_*</code> files are skipped.</li>
+  (conditional startup wiring); test files (see "Test files") are skipped.</li>
 <li><code>ENDPOINT-001</code>: default-on warning. Functions defined in files under
   <code>api/v1/endpoints/</code> must not exceed nesting depth 4. Deep endpoints
   correlate with missed branches in auth and validation paths.</li>
@@ -2617,7 +2848,8 @@ top-level <code>[tool.lanorme] source_root</code> anchors <code>ports_dir</code>
 and <code>composition_root</code> under a nested package directory when set.</p>
 <ul>
 <li><code>PORT-001</code>: every adapter file (under the adapter roots) must import
-  from the ports directory.</li>
+  from the ports directory. A private module (<code>_retry.py</code>) is a utility by
+  convention and is not asked to.</li>
 <li><code>PORT-002</code>: every <code>Protocol</code> declared in the ports directory must
   have at least one implementation. Build-failing like <code>PORT-001</code> and
   <code>PORT-003</code>. Ports realised only by test doubles or sibling plugins are
@@ -2629,7 +2861,7 @@ and <code>composition_root</code> under a nested package directory when set.</p>
 <div class="highlight"><pre><span></span><code><span class="k">[tool.lanorme.port_coverage]</span>
 <span class="n">ports_dir</span><span class="w">        </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;application/ports&quot;</span><span class="w">     </span><span class="c1"># where port Protocols live</span>
 <span class="n">adapter_roots</span><span class="w">    </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;infrastructure/services&quot;</span><span class="p">]</span><span class="w">  </span><span class="c1"># dirs scanned for adapters (recursive)</span>
-<span class="n">composition_root</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;*dependencies/*&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;*v1/main.py&quot;</span><span class="p">]</span><span class="w">  </span><span class="c1"># PORT-003 exemption (globs)</span>
+<span class="n">composition_root</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;*dependencies/*&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;*dependencies.py&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;*deps.py&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;*v1/main.py&quot;</span><span class="p">]</span><span class="w">  </span><span class="c1"># PORT-003 exemption (globs)</span>
 <span class="n">skip_files</span><span class="w">         </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;__init__.py&quot;</span><span class="p">]</span>
 <span class="n">ports_without_impl</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;repositories.py&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;unit_of_work.py&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;otel.py&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;metrics.py&quot;</span><span class="p">]</span>
 </code></pre></div>
@@ -2641,9 +2873,15 @@ and <code>composition_root</code> under a nested package directory when set.</p>
 <ul>
 <li><code>PROSE-001</code>: em dashes (U+2014) in prose.</li>
 <li><code>PROSE-002</code>: American spellings; suggests the British form.</li>
-<li><code>PROSE-003</code>: emoji in prose.</li>
+<li><code>PROSE-003</code>: emoji in prose (Unicode's Emoji property, or a symbol carrying
+  the emoji presentation selector; a check mark or a star is not one).</li>
 </ul>
-<p>Skips fenced code blocks (<code>```</code>, <code>~~~</code>) and inline <code>`code`</code> spans.</p>
+<p>Skips fenced code blocks (<code>```</code>, <code>~~~</code>; a fence closes only on a run at
+least as long as the one that opened it), YAML front matter, inline
+<code>`code`</code> spans, link targets, URLs and HTML tags. <code>PROSE-002</code> also
+ignores tokens that are code rather than words: a flag (<code>--color</code>), a dotted
+name (<code>settings.color</code>), a path, an assignment, or anything holding a digit
+or an underscore (<code>org-color-42</code>).</p>
 <h3 id="prose-004-em-dash-density-above-natural-english"><code>PROSE-004</code>: Em-dash density above natural English<a class="headerlink" href="#prose-004-em-dash-density-above-natural-english" title="Permanent link">&para;</a></h3>
 <p>Advisory warning, opt-in (default-off). Where <code>PROSE-001</code> bans every em dash
 outright, <code>PROSE-004</code> instead measures how often em dashes appear and warns once
@@ -2688,19 +2926,36 @@ ambiguous, the rule prefers a false negative over a false positive (no
 false sense of security). Use <code># noqa: &lt;CODE&gt;</code> or <code># lanorme: ignore[&lt;CODE&gt;]</code>
 for legitimate uses (e.g. a pickle load on a trusted local cache) or
 <code>[tool.lanorme.per-file-ignores]</code> for broader patches.</p>
+<p>Every rule sees a call through the module's own imports: <code>import
+subprocess as sp</code> and <code>from subprocess import run as sh</code> resolve to
+<code>subprocess.run</code>. A name counts as shadowed, and so as unknown, only when
+the rebinding (a parameter, a local <code>def</code>, an assignment) is visible at the
+call under Python's scoping: at module level, or in the calling function or
+a function around it. So a local <code>run(cmd, shell=True)</code> never fires, while a
+method named <code>exec</code> leaves a module-level <code>exec(code)</code> reported (a method
+name never shadows a global) and another function's parameter named <code>sp</code>
+does not hide <code>import subprocess as sp</code>. A <code>shell=</code> / <code>verify=</code> value that is
+not a literal is ambiguous and stays quiet; <code>usedforsecurity=</code> is the
+exception, since only a literal <code>False</code> declares a non-security use.</p>
 <ul>
 <li><code>SHELL-001</code>: <code>subprocess.run</code> / <code>call</code> / <code>check_call</code> /
   <code>check_output</code> / <code>Popen</code> with <code>shell=True</code>; <code>os.system</code>; <code>os.popen</code>.</li>
 <li><code>DESERIAL-001</code>: <code>pickle.load(s)</code>, <code>marshal.load(s)</code>, <code>dill.load(s)</code>,
-  <code>cPickle.load(s)</code>, <code>yaml.load</code> without <code>Loader=SafeLoader</code> /
-  <code>CSafeLoader</code> / <code>BaseLoader</code>, <code>yaml.unsafe_load</code>.</li>
-<li><code>EVAL-001</code>: <code>eval</code> / <code>exec</code> / <code>compile</code> where the first argument is
-  not a string literal. (Literal-arg <code>compile(...)</code> flows are accepted.)</li>
-<li><code>CRYPTO-001</code>: <code>hashlib.md5</code> / <code>hashlib.sha1</code> used for security
-  (<code>usedforsecurity=False</code> is honoured), <code>hashlib.new("md5"/"sha1", ...)</code>,
-  <code>ssl.PROTOCOL_SSLv2</code> / <code>SSLv3</code> / <code>TLSv1</code> / <code>TLSv1_1</code>.</li>
-<li><code>TLS-001</code>: <code>requests</code> / <code>httpx</code> / <code>aiohttp</code> call with <code>verify=False</code>,
-  <code>ssl._create_unverified_context</code>, <code>ssl.CERT_NONE</code> attribute reference.</li>
+  <code>cPickle.load(s)</code>, <code>yaml.load</code> without <code>SafeLoader</code> / <code>CSafeLoader</code> /
+  <code>BaseLoader</code> as the <code>Loader=</code> keyword or the second positional argument,
+  <code>yaml.unsafe_load</code>.</li>
+<li><code>EVAL-001</code>: <code>eval</code> / <code>exec</code> / <code>compile</code> (bare or as <code>builtins.eval</code>)
+  where the first argument is not a string literal. (Literal-arg
+  <code>compile(...)</code> flows are accepted.)</li>
+<li><code>CRYPTO-001</code>: <code>hashlib.md5</code> / <code>hashlib.sha1</code> / <code>hashlib.new("md5"/"sha1",
+  ...)</code> used for security (a literal <code>usedforsecurity=False</code> is honoured on
+  all three; a value that is not a literal fires, since it may be <code>True</code>),
+  <code>ssl.PROTOCOL_SSLv2</code> / <code>SSLv3</code> / <code>TLSv1</code> / <code>TLSv1_1</code> referenced
+  anywhere but as a comparison operand (<code>if proto == ssl.PROTOCOL_TLSv1:
+  reject()</code> is a guard, not a use).</li>
+<li><code>TLS-001</code>: <code>requests</code> / <code>httpx</code> call with <code>verify=False</code>, <code>aiohttp</code> call
+  with <code>ssl=False</code> / <code>verify_ssl=False</code>, <code>ssl._create_unverified_context</code>,
+  <code>ssl.CERT_NONE</code> referenced anywhere but as a comparison operand.</li>
 <li><code>DEBUG-001</code>: <code>Flask(...)</code> / <code>FastAPI(...)</code> constructor with
   <code>debug=True</code>, <code>*.run(debug=True)</code> / <code>*.run_server(debug=True)</code>,
   module-level <code>DEBUG = True</code> in <code>*settings.py</code> / <code>*config.py</code>.</li>
@@ -2711,8 +2966,14 @@ for legitimate uses (e.g. a pickle load on a trusted local cache) or
 <h2 id="security-patterns-authn-001-sql-001-secretpy-001">Security patterns: <code>AUTHN-001</code> / <code>SQL-001</code> / <code>SECRETPY-001</code><a class="headerlink" href="#security-patterns-authn-001-sql-001-secretpy-001" title="Permanent link">&para;</a></h2>
 <ul>
 <li><code>AUTHN-001</code>: default-on. <code>@router.post</code> / <code>put</code> / <code>patch</code> / <code>delete</code>
-  handlers must have an auth dependency (a parameter annotated with
-  <code>Depends(get_current_user)</code> or <code>Depends(require_*)</code>). FastAPI-shaped;
+  handlers must have an auth dependency: a <code>Depends(...)</code> or <code>Security(...)</code>
+  whose declared dependency (its first argument, or <code>dependency=</code>) is named
+  exactly <code>get_current_user</code> or starts with <code>require_</code>. It counts in a
+  parameter annotation (<code>Annotated[User, Depends(get_current_user)]</code>), as the
+  parameter default itself (<code>user: User = Depends(get_current_user)</code>), or in
+  the decorator's <code>dependencies=[...]</code> list. <code>get_current_user_optional</code>, an
+  auth name passed as some other argument, and a marker nested inside another
+  call in a default do not count. FastAPI-shaped;
   the rule checks for <strong>authentication presence only</strong>, not
   authorisation. Only endpoint files under <code>api/</code> are scanned; when the
   package sits under a nested directory (a src layout), set the top-level
@@ -2722,33 +2983,41 @@ for legitimate uses (e.g. a pickle load on a trusted local cache) or
 <li><code>SQL-001</code>: default-on. AST-based: only flags SQL string literals that
   reach a database execution sink (<code>.execute</code> / <code>.executemany</code> /
   <code>.executescript</code> on a DB-shaped receiver, or <code>read_sql</code> /
-  <code>read_sql_query</code>). Unwraps <code>text(...)</code> constructors, resolves module-
-  level and function-local string constants, and treats <code>+</code> /
-  <code>%</code>-formatted / <code>.format</code>-built SQL as interpolated (always flagged).
-  Static SQL passed alongside a <code>params=</code> / <code>parameters=</code> kwarg (or a
-  second positional on <code>.execute</code>) with placeholder marks (<code>:name</code>,
-  <code>%s</code>, <code>?</code>) is treated as safely parameterised and not flagged.
-  Excludes <code>alembic/</code> and <code>test_*</code> files. Measured against
-  <code>evals/corpora/security_raw_sql/</code> (120 labels): <strong>P = 1.000 /
-  R = 1.000 / F1 = 1.000</strong>. Known limitations not in the corpus: SQL
+  <code>read_sql_query</code>). Unwraps <code>text(...)</code> constructors, resolves a bare name
+  only to a module-level string constant or a string assigned in the same
+  function (never to a parameter, so a parameter named like a constant
+  elsewhere in the file stays unknown), and treats <code>%</code>-formatted /
+  <code>.format</code>-built SQL, or a <code>+</code> join with a non-literal side, as
+  interpolated (always flagged); a <code>+</code> join of literals and literal
+  constants only is static. Static SQL passed alongside a <code>params=</code> /
+  <code>parameters=</code> kwarg (or a second positional on <code>.execute</code>) with
+  placeholder marks (<code>:name</code>, <code>%s</code>, <code>?</code>) is treated as safely
+  parameterised and not flagged. Excludes <code>alembic/</code> and test files (see
+  "Test files").
+  Measured against <code>evals/corpora/security_raw_sql/</code> (125 labels):
+  <strong>P = 1.000 / R = 1.000 / F1 = 1.000</strong>. Known limitations not in the corpus: SQL
   built across multiple statements with helper functions; lazy-loaded
   query templates; non-Python query files.</li>
 <li><code>SECRETPY-001</code>: default-on. Lives in the <code>secrets</code> check. AST-based:
   flags credential-named assignments
-  (variable, dict key, or call kwarg) whose value looks like a real
-  secret, plus shape-only matches (PEM private-key blocks, JWT-shaped
-  tokens, Bearer headers, DB / cache URLs with embedded <code>user:pass@host</code>
-  credentials, and vendor-prefixed credentials: AWS <code>AKIA</code> / <code>ASIA</code>,
-  GitHub <code>ghp_</code> / <code>gho_</code> / <code>github_pat_</code>, Slack <code>xox*</code>, Stripe
-  <code>sk_live_</code> / <code>sk_test_</code>). Names whose first segment is <code>help_</code> /
-  <code>hint_</code> / <code>msg_</code> / etc. are documentation; names whose last segment
-  is structural (<code>pattern</code>, <code>endpoint</code>, <code>header</code>, <code>name</code>, <code>len</code>, ...)
-  are not credentials. Placeholder markers (<code>&lt;your-...&gt;</code>, <code>REPLACE_ME</code>,
+  (variable, dict key, or call kwarg) whose value is a string or bytes
+  literal that looks like a real secret, plus shape-only matches (PEM
+  private-key blocks, JWT-shaped tokens, Bearer headers, DB / cache URLs
+  with embedded <code>user:pass@host</code> credentials, and vendor-prefixed
+  credentials: AWS <code>AKIA</code> / <code>ASIA</code>, GitHub <code>ghp_</code> / <code>gho_</code> /
+  <code>github_pat_</code>, Slack <code>xox*</code>, Stripe <code>sk_live_</code> / <code>sk_test_</code>, Django
+  <code>django-insecure-</code>), wherever the literal sits, including as the
+  fallback of an <code>os.environ.get(...)</code> call. Names whose first segment is
+  <code>help_</code> / <code>hint_</code> / <code>msg_</code> / etc. are documentation; names whose last
+  segment is structural (<code>pattern</code>, <code>endpoint</code>, <code>header</code>, <code>name</code>, <code>len</code>,
+  <code>env</code>, <code>var</code>, <code>id</code>, <code>file</code>, <code>algorithm</code>, <code>backend</code>, ...) point at a
+  secret rather than hold one, unless the whole name is a credential
+  phrase (<code>aws_access_key_id</code>). Placeholder markers (<code>&lt;your-...&gt;</code>, <code>REPLACE_ME</code>,
   <code>example</code>, ...) skip a value unless it is high-entropy enough (32+
   chars, mixed case, digits) to defeat the marker (AWS docs-style
-  example secret keys). Excludes <code>conftest.py</code>, <code>seed_dev.py</code>, and
-  files starting with <code>test_</code>. Measured against
-  <code>evals/corpora/security_hardcoded_secrets/</code> (155 labels):
+  example secret keys). Excludes <code>seed_dev.py</code> and test files (see "Test
+  files"). Measured against
+  <code>evals/corpora/security_hardcoded_secrets/</code> (169 labels):
   <strong>P = 1.000 / R = 1.000 / F1 = 1.000</strong>. <strong>Scope warning</strong>:
   Python-source only; <code>.env</code>, <code>*.yaml</code>, <code>*.ipynb</code>, <code>*.tf</code>, <code>Dockerfile</code>,
   GitHub Actions workflows are out of scope until a separate
@@ -2787,7 +3056,8 @@ the value as missing.</p>
 <hr />
 <h2 id="stale-paths-stale-001">Stale paths: <code>STALE-001</code><a class="headerlink" href="#stale-paths-stale-001" title="Permanent link">&para;</a></h2>
 <p>Inert until configured. Flags references to old path tokens in
-docstrings and comments after a refactor.</p>
+docstrings and comments after a refactor. Test files (see "Test files")
+are skipped: a fixture may quote an old path on purpose.</p>
 <p>Config:
 <div class="highlight"><pre><span></span><code><span class="k">[tool.lanorme.stale_paths]</span>
 <span class="n">tokens</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;src/&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;old_pkg/&quot;</span><span class="p">]</span>
@@ -2801,12 +3071,13 @@ PII.</p>
 <li><code>JUNK-001</code>: files matching scratch / temp / OS / build name globs such
   as <code>screenshot*</code>, <code>scratch*</code>, <code>untitled*</code>, <code>*~</code>, <code>*.bak</code>, <code>*.orig</code>,
   <code>*.rej</code>, <code>*.swp</code>, <code>*.swo</code>, <code>*.tmp</code>, <code>tmp.*</code>, <code>temp.*</code>, <code>.DS_Store</code>,
-  <code>Thumbs.db</code>, <code>desktop.ini</code>, <code>nohup.out</code>, <code>core.*</code>, <code>*.pyc</code>, <code>*.pyo</code>,
-  <code>.coverage</code>, <code>coverage.xml</code>.</li>
+  <code>Thumbs.db</code>, <code>desktop.ini</code>, <code>nohup.out</code>, <code>core.[0-9]*</code> (a core dump, not a
+  <code>core.py</code> module), <code>*.pyc</code>, <code>*.pyo</code>, <code>.coverage</code>, <code>.coverage.*</code>,
+  <code>coverage.xml</code>.</li>
 <li><code>JUNK-002</code>: image / binary extensions outside an asset directory.
   Default extensions: <code>.png</code>, <code>.jpg</code>, <code>.jpeg</code>, <code>.gif</code>, <code>.bmp</code>, <code>.webp</code>.
   Default asset directories: <code>assets/</code>, <code>static/</code>, <code>images/</code>, <code>img/</code>,
-  <code>media/</code>, <code>public/</code>, <code>docs/</code>, <code>.github/</code>.</li>
+  <code>media/</code>, <code>public/</code>, <code>docs/</code>, <code>.github/</code>, <code>fixtures/</code>, <code>resources/</code>.</li>
 </ul>
 <p>Config:
 <div class="highlight"><pre><span></span><code><span class="k">[tool.lanorme.stray_artifacts]</span>
@@ -2818,7 +3089,7 @@ PII.</p>
 </code></pre></div></p>
 <hr />
 <h2 id="strong-types-type-001004">Strong types: <code>TYPE-001..004</code><a class="headerlink" href="#strong-types-type-001004" title="Permanent link">&para;</a></h2>
-<p>Default-on. Skips files under <code>tests/</code> and <code>migrations/</code>. <code>TYPE-001..003</code> are
+<p>Default-on. Skips test files (see "Test files") and <code>migrations/</code>. <code>TYPE-001..003</code> are
 build-failing; <code>TYPE-004</code> is an advisory warning.</p>
 <ul>
 <li><code>TYPE-001</code>: <code>dict[str, Any]</code> (and other weakly-typed dict containers)
@@ -2828,14 +3099,17 @@ build-failing; <code>TYPE-004</code> is an advisory warning.</p>
   parameters.</li>
 <li><code>TYPE-003</code>: <code>**kwargs</code> must be annotated with a concrete type or
   <code>Unpack[TypedDict]</code>; bare <code>**kwargs: Any</code> is rejected.</li>
-<li><code>TYPE-004</code> (advisory warning): a function with at least one annotated
+</ul>
+<p>For all three, a wrapper changes nothing: <code>dict[str, Any] | None</code>,
+<code>Optional[dict]</code> and <code>list[dict[str, Any]]</code> carry the same weak type, and a
+qualified <code>typing.Any</code> reads as <code>Any</code>.
+- <code>TYPE-004</code> (advisory warning): a function with at least one annotated
   parameter that returns a real value in its own scope should also declare a
   return type. This is the high-signal completeness subset of ruff's <code>ANN</code>,
   not blanket presence enforcement: it fires only when the parameters are
   already typed and a value escapes, so a fully untyped function or a procedure
   that returns nothing is left alone. Generators (own-scope <code>yield</code>) are exempt;
-  returns inside a nested <code>def</code> or <code>lambda</code> do not count.</li>
-</ul>
+  returns inside a nested <code>def</code> or <code>lambda</code> do not count.</p>
 <hr />
 <h2 id="suppressions-suppress-001-suppress-002">Suppressions: <code>SUPPRESS-001</code> / <code>SUPPRESS-002</code><a class="headerlink" href="#suppressions-suppress-001-suppress-002" title="Permanent link">&para;</a></h2>
 <p>Default-off. <strong>Opinionated.</strong> Lives in its own <code>suppressions</code> check.</p>
@@ -2853,7 +3127,7 @@ not close the hatches, they price them.</p>
   future one</em>, so a line suppressed once quietly opts out of everything
   added since. Flagged regardless of budget.</li>
 </ul>
-<p><strong>Neither code can be silenced inline.</strong> <code>lanorme.filtering</code> refuses
+<p><strong>Neither code can be silenced inline.</strong> <code>lanorme.filters</code> refuses
 <code># noqa</code> and <code># lanorme: ignore</code> for the <code>SUPPRESS</code> category, because a
 budget an offender can waive on the offending line is not a budget. They
 remain switchable in config, and that is the point: an escape belongs in a
@@ -2868,9 +3142,12 @@ backlog:</p>
 <code>max_total = 0</code>, that first run fails, and its <code>SUPPRESS-001</code> message carries
 today's count; set <code>max_total</code> to that number.</p>
 <p>Comments are read through <code>tokenize</code> and matched from the start of the
-comment, so a directive named in prose (`# lines up with --exclude and</p>
-<h1 id="noqa-handling-or-quoted-in-a-string-is-documentation-not-an-escape">noqa handling`) or quoted in a string is documentation, not an escape,<a class="headerlink" href="#noqa-handling-or-quoted-in-a-string-is-documentation-not-an-escape" title="Permanent link">&para;</a></h1>
-<p>and does not count against the budget.</p>
+comment, so a directive named in prose (a sentence such as "lines up with
+<code>--exclude</code> and <code># noqa</code> handling") or quoted in a string is documentation,
+not an escape, and does not count against the budget. Nor does a <code>noqa</code> whose
+codes all belong to another tool (<code># noqa: E501</code>, <code># noqa: S603</code>): it silences
+no LaNorme rule. A LaNorme code or category anywhere in the list
+(<code># noqa: E501,DRY-001</code>) counts once.</p>
 <p>Config:
 <div class="highlight"><pre><span></span><code><span class="k">[tool.lanorme.suppressions]</span>
 <span class="n">enabled</span><span class="w">       </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span>
@@ -2883,9 +3160,9 @@ a regression that the <code>SUPPRESS</code> codes survive a <code># noqa</code> 
 <hr />
 <h2 id="test-coverage-testfile-001">Test coverage: <code>TESTFILE-001</code><a class="headerlink" href="#test-coverage-testfile-001" title="Permanent link">&para;</a></h2>
 <p>Default-on warning. For each Python file under one of the hardwired
-production directories, verify that a matching <code>test_*.py</code> partner (by name
-or by import reference) exists under one of the configured test roots
-(<code>tests/integration/</code> by default). Note this is <strong>file presence</strong>, not
+production directories, verify that a matching test module (<code>test_*.py</code> or
+<code>*_test.py</code>, by name or by import reference, at any depth) exists under one
+of the configured test roots (<code>tests/integration/</code> by default). Note this is <strong>file presence</strong>, not
 coverage; it cannot tell you whether the test actually exercises the module.</p>
 <p>Findings are reported on the same path base as every other rule (relative to
 <code>src_root</code>), so a <code>[per-file-ignores]</code> glob written against the path another
@@ -2895,16 +3172,22 @@ the same way.</p>
 <div class="highlight"><pre><span></span><code><span class="k">[tool.lanorme.test_coverage]</span>
 <span class="n">test_roots</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;tests/integration&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;tests/unit&quot;</span><span class="p">]</span>
 </code></pre></div></p>
-<p><code>test_roots</code> lists the directories (relative to the backend root, the parent
-of <code>src_root</code>) scanned for partner test files; it defaults to
-<code>["tests/integration"]</code>. The scanned production directories
+<p>The production directories are looked up under the top-level
+<code>[tool.lanorme] source_root</code> when one is set (<code>source_root = "src/myapp"</code>),
+else under the project root and then one level down (a <code>src/</code> layout).
+<code>test_roots</code> lists the directories (relative to the backend root, the parent
+of that source directory) scanned recursively for partner test modules; it
+defaults to <code>["tests/integration"]</code>. <code>conftest.py</code>, fixtures and helpers
+under a root are not partners (see "Test files"). The scanned production directories
 (<code>api/v1/endpoints</code>, <code>application/services</code>, <code>application/commands</code>,
 <code>application/queries</code>, <code>infrastructure/repositories</code>,
 <code>infrastructure/signing</code>, <code>infrastructure/secrets</code>) and the exempt modules
 (<code>dependencies</code>, <code>main</code>, <code>logging</code>, <code>session</code>) are hardwired.</p>
 <hr />
 <h2 id="test-style-aaa-001-aaa-002">Test style: <code>AAA-001</code> / <code>AAA-002</code><a class="headerlink" href="#test-style-aaa-001-aaa-002" title="Permanent link">&para;</a></h2>
-<p>Off until enabled.</p>
+<p>Off until enabled. Judges the <code>test_</code> functions (not fixtures) of collected
+test modules only, <code>test_*.py</code> or <code>*_test.py</code> (see "Test files");
+<code>conftest.py</code>, fixtures and helpers are never judged, even under <code>tests/</code>.</p>
 <ul>
 <li><code>AAA-001</code>: test functions with more than <code>min_statements</code> (default 3)
   body statements must carry at least <code>required_markers</code> (default 2) of

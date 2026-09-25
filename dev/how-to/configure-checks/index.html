@@ -581,6 +581,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#tune-a-checks-settings" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tune a check's settings
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#exit-codes" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1102,6 +1113,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#tune-a-checks-settings" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tune a check's settings
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#exit-codes" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1180,8 +1202,10 @@ order:</p>
     D --&gt; E[inline ignore]
     E --&gt; F[reported]</code></pre>
 <p>Config is read from <code>[tool.lanorme]</code> in <code>pyproject.toml</code>, or from a
-<code>lanorme.toml</code> / <code>.lanorme.toml</code> file. Command-line flags override config for
-a single run. For the full key list and types, see the
+<code>lanorme.toml</code> / <code>.lanorme.toml</code> file. LaNorme walks up from the scan path to
+the outermost config, and a nested config cascades over the ones above it; see
+<a href="../../reference/cli/#config-discovery">config discovery</a>. Command-line flags
+override config for a single run. For the full key list and types, see the
 <a href="../../reference/configuration/">configuration reference</a>. Rule codes and
 categories are listed by <code>lanorme rules</code>; per-check settings live in the
 <a href="../../RULES/">rule reference</a>.</p>
@@ -1191,13 +1215,23 @@ categories are listed by <code>lanorme rules</code>; per-check settings live in 
 <code>lanorme.toml</code> / <code>.lanorme.toml</code> the <code>tool.lanorme</code> prefix is dropped:
 top-level scalar keys go bare (<code>select = [...]</code>) and sub-tables lose the
 prefix too, so <code>[tool.lanorme.per-file-ignores]</code> becomes
-<code>[per-file-ignores]</code>. Using the prefixed header in a <code>lanorme.toml</code> is a
-silent no-op — the table is ignored and no error is raised. See the
+<code>[per-file-ignores]</code>. A prefixed header in a <code>lanorme.toml</code> is a
+configuration error (exit <code>2</code>), as is any top-level key that is neither a
+run key nor the name of a check. See the
 <a href="../../reference/cli/#config-discovery">config discovery</a> note in the CLI
 reference.</p>
 </div>
 <p>Targets are rule codes (<code>EVAL-001</code>), categories (the part before the dash:
-<code>CMT</code>, <code>SECRETPY</code>), or <code>ALL</code>. <code>lanorme rules</code> lists every code.</p>
+<code>CMT</code>, <code>SECRETPY</code>), or <code>ALL</code>. <code>lanorme rules</code> lists every code. A target that
+names no known code or category, in a flag, in <code>[tool.lanorme]</code> or in
+<code>per-file-ignores</code>, is a usage error: the run exits <code>2</code> and points you at
+<code>lanorme rules</code>.</p>
+<div class="highlight"><pre><span></span><code><span class="gp">$ </span>lanorme<span class="w"> </span>check<span class="w"> </span>src<span class="w"> </span>--select<span class="w"> </span>EVAL-01
+<span class="go">ERROR: &#39;select&#39; names no known rule code or category: &#39;EVAL-01&#39;.</span>
+<span class="go">  Run &#39;lanorme rules&#39; to list every code and category.</span>
+<span class="gp">$ </span><span class="nb">echo</span><span class="w"> </span><span class="nv">$?</span>
+<span class="go">2</span>
+</code></pre></div>
 <h2 id="run-only-some-checks">Run only some checks<a class="headerlink" href="#run-only-some-checks" title="Permanent link">&para;</a></h2>
 <p>Goal: run a chosen subset and skip everything else.</p>
 <div class="highlight"><pre><span></span><code><span class="k">[tool.lanorme]</span>
@@ -1207,14 +1241,18 @@ reference.</p>
 <div class="highlight"><pre><span></span><code><span class="gp">$ </span>lanorme<span class="w"> </span>check<span class="w"> </span>src<span class="w"> </span>--select<span class="w"> </span>EVAL-001
 <span class="go">[FAIL] security_calls</span>
 <span class="go">  VIOLATION: pkg/main.py:1 — eval() on a non-literal argument is an RCE primitive</span>
-<span class="go">    Rule: EVAL-001</span>
+<span class="go">    Rule: EVAL-001: No eval/exec/compile on a non-literal argument</span>
 <span class="go">    Fix: Use ast.literal_eval for trusted-shape parsing, or build a dispatch table</span>
 <span class="go">--- security_calls: 1 violations, 0 warnings ---</span>
 
-<span class="go">Summary: 30 checks — 29 passed, 0 warnings, 1 failed.</span>
+<span class="go">Summary: 30 checks — 29 passed, 0 warned, 1 failed.</span>
+<span class="go">Findings: 1 error to fix, 0 advisory warnings.</span>
+<span class="go">Opt-in checks not enabled: 11 (&#39;lanorme check --show-config&#39; lists them).</span>
 </code></pre></div>
 <p>A category selects every code under it: <code>--select CMT</code> runs every comment
-rule; <code>--select ALL</code> runs everything enabled.</p>
+rule; <code>--select ALL</code> runs everything enabled. <code>--select</code> takes codes and
+categories, not check names. To run one check by name, use <code>--check</code>
+(<code>--check file_limits</code>).</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>Opt-in checks stay off even when named in <code>select</code>. Enable them first
@@ -1226,10 +1264,24 @@ with <code>[tool.lanorme.&lt;check&gt;] enabled = true</code> (for example
 <div class="highlight"><pre><span></span><code><span class="k">[tool.lanorme]</span>
 <span class="n">ignore</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;PARAM-001&quot;</span><span class="p">]</span>
 </code></pre></div>
-<p>Equivalent flag: <code>--ignore</code> takes a comma-separated list.</p>
-<div class="highlight"><pre><span></span><code><span class="gp">$ </span>lanorme<span class="w"> </span>check<span class="w"> </span>src<span class="w"> </span>--select<span class="w"> </span>file_limits<span class="w"> </span>--ignore<span class="w"> </span>PARAM-001
-<span class="go">All 30 checks passed.</span>
+<p>Equivalent flag: <code>--ignore</code> takes a comma-separated list. Here the
+<code>file_limits</code> check finds a nine-parameter function:</p>
+<div class="highlight"><pre><span></span><code><span class="gp">$ </span>lanorme<span class="w"> </span>check<span class="w"> </span>src<span class="w"> </span>--check<span class="w"> </span>file_limits
+<span class="go">[FAIL] file_limits</span>
+<span class="go">  VIOLATION: pkg/wide.py:1 — Function &#39;build&#39; has parameter count 9 (limit: 8)</span>
+<span class="go">    Rule: PARAM-001: Function exceeds the parameter limit</span>
+<span class="go">    Fix: Group related parameters into a dataclass or TypedDict</span>
+<span class="go">--- file_limits: 1 violations, 0 warnings ---</span>
+
+<span class="go">Summary: 1 checks — 0 passed, 0 warned, 1 failed.</span>
+<span class="go">Findings: 1 error to fix, 0 advisory warnings.</span>
 </code></pre></div>
+<p>Ignoring <code>PARAM-001</code> drops it and keeps the rest of the check:</p>
+<div class="highlight"><pre><span></span><code><span class="gp">$ </span>lanorme<span class="w"> </span>check<span class="w"> </span>src<span class="w"> </span>--check<span class="w"> </span>file_limits<span class="w"> </span>--ignore<span class="w"> </span>PARAM-001
+<span class="go">All 1 checks passed.</span>
+</code></pre></div>
+<p><code>--select SIZE,COMPLEXITY</code> narrows a full run to the size and complexity
+codes the same way, leaving <code>PARAM</code> out.</p>
 <p><code>ignore</code> applies after <code>select</code>, so a rule that is both selected and ignored
 is skipped.</p>
 <h2 id="exclude-paths-from-the-scan">Exclude paths from the scan<a class="headerlink" href="#exclude-paths-from-the-scan" title="Permanent link">&para;</a></h2>
@@ -1243,27 +1295,39 @@ directory at any depth, so <code>**/migrations/*</code> excludes <code>src/pkg/m
 <div class="highlight"><pre><span></span><code><span class="gp">$ </span>lanorme<span class="w"> </span>check<span class="w"> </span>.<span class="w"> </span>--select<span class="w"> </span>EVAL-001
 <span class="go">[FAIL] security_calls</span>
 <span class="go">  VIOLATION: src/pkg/main.py:1 — eval() on a non-literal argument is an RCE primitive</span>
-<span class="go">    Rule: EVAL-001</span>
+<span class="go">    Rule: EVAL-001: No eval/exec/compile on a non-literal argument</span>
 <span class="go">    Fix: Use ast.literal_eval for trusted-shape parsing, or build a dispatch table</span>
 <span class="go">  VIOLATION: src/pkg/migrations/m.py:1 — eval() on a non-literal argument is an RCE primitive</span>
-<span class="go">    Rule: EVAL-001</span>
+<span class="go">    Rule: EVAL-001: No eval/exec/compile on a non-literal argument</span>
 <span class="go">    Fix: Use ast.literal_eval for trusted-shape parsing, or build a dispatch table</span>
 <span class="go">--- security_calls: 2 violations, 0 warnings ---</span>
 
-<span class="go">Summary: 30 checks — 29 passed, 0 warnings, 1 failed.</span>
+<span class="go">Summary: 30 checks — 29 passed, 0 warned, 1 failed.</span>
+<span class="go">Findings: 2 errors to fix, 0 advisory warnings.</span>
+<span class="go">Opt-in checks not enabled: 11 (&#39;lanorme check --show-config&#39; lists them).</span>
 
 <span class="gp">$ </span>lanorme<span class="w"> </span>check<span class="w"> </span>.<span class="w"> </span>--select<span class="w"> </span>EVAL-001<span class="w"> </span>--exclude<span class="w"> </span><span class="s1">&#39;**/migrations/*&#39;</span>
 <span class="go">[FAIL] security_calls</span>
 <span class="go">  VIOLATION: src/pkg/main.py:1 — eval() on a non-literal argument is an RCE primitive</span>
-<span class="go">    Rule: EVAL-001</span>
+<span class="go">    Rule: EVAL-001: No eval/exec/compile on a non-literal argument</span>
 <span class="go">    Fix: Use ast.literal_eval for trusted-shape parsing, or build a dispatch table</span>
 <span class="go">--- security_calls: 1 violations, 0 warnings ---</span>
 
-<span class="go">Summary: 30 checks — 29 passed, 0 warnings, 1 failed.</span>
+<span class="go">Summary: 30 checks — 29 passed, 0 warned, 1 failed.</span>
+<span class="go">Findings: 1 error to fix, 0 advisory warnings.</span>
+<span class="go">Opt-in checks not enabled: 11 (&#39;lanorme check --show-config&#39; lists them).</span>
 </code></pre></div>
 <p>Match the depth you have. To exclude a <code>migrations/</code> directory sitting at the
 project root, use <code>migrations/*</code>; the leading <code>**/</code> form needs a parent
 segment and will not match a top-level directory.</p>
+<p>Naming an excluded path on the command line does not override the glob. With
+<code>exclude = ["**/migrations/*"]</code> in config, asking for the excluded file checks
+nothing: the run reports a clean tree and a note on stderr says so.</p>
+<div class="highlight"><pre><span></span><code><span class="gp">$ </span>lanorme<span class="w"> </span>check<span class="w"> </span>src/pkg/migrations/m.py<span class="w"> </span>--select<span class="w"> </span>EVAL-001
+<span class="go">Note: every requested path matches an exclude glob, so nothing was checked. Pass --exclude with another glob to override the configured excludes for one run.</span>
+<span class="go">All 30 checks passed.</span>
+<span class="go">Opt-in checks not enabled: 11 (&#39;lanorme check --show-config&#39; lists them).</span>
+</code></pre></div>
 <h2 id="silence-a-rule-for-a-path-glob">Silence a rule for a path glob<a class="headerlink" href="#silence-a-rule-for-a-path-glob" title="Permanent link">&para;</a></h2>
 <p>Goal: keep a rule on, but accept it for files matching a glob (for example,
 allow wide-signature test factories under <code>tests/</code> to keep <code>PARAM-001</code>).</p>
@@ -1277,7 +1341,9 @@ reports <code>PARAM-001</code>:</p>
 <span class="go">    Fix: Group related parameters into a dataclass or TypedDict</span>
 <span class="go">--- file_limits: 1 violations, 0 warnings ---</span>
 
-<span class="go">Summary: 30 checks — 29 passed, 0 warnings, 1 failed.</span>
+<span class="go">Summary: 30 checks — 29 passed, 0 warned, 1 failed.</span>
+<span class="go">Findings: 1 error to fix, 0 advisory warnings.</span>
+<span class="go">Opt-in checks not enabled: 11 (&#39;lanorme check --show-config&#39; lists them).</span>
 </code></pre></div>
 <p>The key is a glob; the value is a list of codes or categories suppressed for
 matching files. In <code>pyproject.toml</code> the table carries the <code>tool.lanorme</code>
@@ -1286,14 +1352,19 @@ prefix:</p>
 <span class="s2">&quot;tests/*&quot;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;PARAM-001&quot;</span><span class="p">]</span>
 </code></pre></div>
 <p>In a standalone <code>lanorme.toml</code> / <code>.lanorme.toml</code> the prefix is dropped and the
-header is bare — the prefixed form is silently ignored there:</p>
+header is bare. The prefixed form is silently ignored there:</p>
 <div class="highlight"><pre><span></span><code><span class="k">[per-file-ignores]</span>
 <span class="s2">&quot;tests/*&quot;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;PARAM-001&quot;</span><span class="p">]</span>
 </code></pre></div>
-<p>With either form in place, the matching file is no longer reported:</p>
+<p>With either form in place, the matching file is no longer reported, and the
+summary counts what the glob suppressed:</p>
 <div class="highlight"><pre><span></span><code><span class="gp">$ </span>lanorme<span class="w"> </span>check<span class="w"> </span>.<span class="w"> </span>--select<span class="w"> </span>PARAM-001
 <span class="go">All 30 checks passed.</span>
+<span class="go">Suppressed: 0 by inline ignores, 1 by per-file-ignores, 0 by the baseline.</span>
+<span class="go">Opt-in checks not enabled: 11 (&#39;lanorme check --show-config&#39; lists them).</span>
 </code></pre></div>
+<p>Globs match paths relative to the project root, and so does a nested region:
+a <code>tests/lanorme.toml</code> does not change what <code>"tests/*"</code> matches.</p>
 <p>Confirm the discovered config and effective per-check settings with
 <code>lanorme check --show-config</code>.</p>
 <h2 id="silence-one-line">Silence one line<a class="headerlink" href="#silence-one-line" title="Permanent link">&para;</a></h2>
@@ -1319,38 +1390,91 @@ line <code>0</code> is about the whole file (a junk-drawer module, say) and has 
 to carry a directive; silence it with <code>per-file-ignores</code> instead.</p>
 <p>Given this file checked with <code>--select EVAL-001</code>:</p>
 <div class="highlight"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">f</span><span class="p">():</span>
-    <span class="n">x</span> <span class="o">=</span> <span class="nb">eval</span><span class="p">(</span><span class="nb">input</span><span class="p">())</span>                 <span class="c1"># line 2: reported</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="nb">eval</span><span class="p">(</span><span class="nb">input</span><span class="p">())</span>
+
 
 <span class="k">def</span><span class="w"> </span><span class="nf">g</span><span class="p">():</span>
-    <span class="n">y</span> <span class="o">=</span> <span class="nb">eval</span><span class="p">(</span><span class="nb">input</span><span class="p">())</span>  <span class="c1"># noqa         # line 5: silenced (all rules)</span>
+    <span class="n">y</span> <span class="o">=</span> <span class="nb">eval</span><span class="p">(</span><span class="nb">input</span><span class="p">())</span>  <span class="c1"># noqa</span>
+
 
 <span class="k">def</span><span class="w"> </span><span class="nf">h</span><span class="p">():</span>
-    <span class="n">z</span> <span class="o">=</span> <span class="nb">eval</span><span class="p">(</span><span class="nb">input</span><span class="p">())</span>  <span class="c1"># noqa: EVAL-001   # line 8: silenced (this code)</span>
+    <span class="n">z</span> <span class="o">=</span> <span class="nb">eval</span><span class="p">(</span><span class="nb">input</span><span class="p">())</span>  <span class="c1"># noqa: EVAL-001</span>
+
 
 <span class="k">def</span><span class="w"> </span><span class="nf">k</span><span class="p">():</span>
-    <span class="n">w</span> <span class="o">=</span> <span class="nb">eval</span><span class="p">(</span><span class="nb">input</span><span class="p">())</span>  <span class="c1"># noqa: SQL-001    # line 11: still reported</span>
+    <span class="n">w</span> <span class="o">=</span> <span class="nb">eval</span><span class="p">(</span><span class="nb">input</span><span class="p">())</span>  <span class="c1"># lanorme: ignore[EVAL-001]</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">m</span><span class="p">():</span>
+    <span class="n">v</span> <span class="o">=</span> <span class="nb">eval</span><span class="p">(</span><span class="nb">input</span><span class="p">())</span>  <span class="c1"># noqa: SQL-001</span>
 </code></pre></div>
-<p>Only lines 2 and 11 are reported: the bare <code># noqa</code> and the matching
-<code># noqa: EVAL-001</code> suppress their lines, while <code># noqa: SQL-001</code> is the wrong
-code and does not silence the <code>eval</code>.</p>
+<p>Only lines 2 and 18 are reported. The bare <code># noqa</code>, the matching
+<code># noqa: EVAL-001</code> and <code># lanorme: ignore[EVAL-001]</code> suppress their lines.
+<code># noqa: SQL-001</code> names the wrong code and does not silence the <code>eval</code>.</p>
 <div class="highlight"><pre><span></span><code><span class="gp">$ </span>lanorme<span class="w"> </span>check<span class="w"> </span>a.py<span class="w"> </span>--select<span class="w"> </span>EVAL-001
 <span class="go">[FAIL] security_calls</span>
 <span class="go">  VIOLATION: a.py:2 — eval() on a non-literal argument is an RCE primitive</span>
-<span class="go">    Rule: EVAL-001</span>
+<span class="go">    Rule: EVAL-001: No eval/exec/compile on a non-literal argument</span>
 <span class="go">    Fix: Use ast.literal_eval for trusted-shape parsing, or build a dispatch table</span>
-<span class="go">  VIOLATION: a.py:11 — eval() on a non-literal argument is an RCE primitive</span>
-<span class="go">    Rule: EVAL-001</span>
+<span class="go">  VIOLATION: a.py:18 — eval() on a non-literal argument is an RCE primitive</span>
+<span class="go">    Rule: EVAL-001: No eval/exec/compile on a non-literal argument</span>
 <span class="go">    Fix: Use ast.literal_eval for trusted-shape parsing, or build a dispatch table</span>
 <span class="go">--- security_calls: 2 violations, 0 warnings ---</span>
 
-<span class="go">Summary: 30 checks — 29 passed, 0 warnings, 1 failed.</span>
+<span class="go">Summary: 30 checks — 29 passed, 0 warned, 1 failed.</span>
+<span class="go">Findings: 2 errors to fix, 0 advisory warnings.</span>
+<span class="go">Suppressed: 3 by inline ignores, 0 by per-file-ignores, 0 by the baseline.</span>
+<span class="go">Opt-in checks not enabled: 11 (&#39;lanorme check --show-config&#39; lists them).</span>
+</code></pre></div>
+<h2 id="tune-a-checks-settings">Tune a check's settings<a class="headerlink" href="#tune-a-checks-settings" title="Permanent link">&para;</a></h2>
+<p>Goal: change a check's threshold or option, such as the parameter limit.</p>
+<p>Each check reads its own table, named after the check. The keys it accepts
+are in its <a href="../../RULES/">rule reference</a> section.</p>
+<div class="highlight"><pre><span></span><code><span class="k">[tool.lanorme.file_limits]</span>
+<span class="n">param_error</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">10</span>
+</code></pre></div>
+<p>With the limit raised to 10, the nine-parameter factory drops from an error to
+an advisory warning (it is still past the warning threshold of 5), and the run
+exits <code>0</code>.</p>
+<p>Every table is validated before the run. A value of the wrong type exits <code>2</code>
+and names the table and the key. That covers a quoted number, a bare string
+where a list is expected, and a float or <code>true</code> where an integer is expected:</p>
+<div class="highlight"><pre><span></span><code><span class="gp">$ </span>cat<span class="w"> </span>pyproject.toml
+<span class="go">[tool.lanorme.file_limits]</span>
+<span class="go">param_error = &quot;10&quot;</span>
+<span class="gp">$ </span>lanorme<span class="w"> </span>check<span class="w"> </span>.<span class="w"> </span>--select<span class="w"> </span>PARAM-001
+<span class="go">ERROR: invalid value for [tool.lanorme.file_limits] param_error: &#39;param_error&#39; must be an integer, got str</span>
+<span class="go">  Run &#39;lanorme check . --show-config&#39; to see the effective settings for every check.</span>
+</code></pre></div>
+<p>A key the check does not read also exits <code>2</code>, and the message lists the keys
+it does read:</p>
+<div class="highlight"><pre><span></span><code><span class="gp">$ </span>cat<span class="w"> </span>pyproject.toml
+<span class="go">[tool.lanorme.file_limits]</span>
+<span class="go">param_limit = 10</span>
+<span class="gp">$ </span>lanorme<span class="w"> </span>check<span class="w"> </span>.<span class="w"> </span>--select<span class="w"> </span>PARAM-001
+<span class="go">ERROR: unknown key in [tool.lanorme.file_limits]: &#39;param_limit&#39;.</span>
+<span class="go">  Keys this check reads: class_method_warn, complexity_error, complexity_warn, file_error_lines, file_warn_lines, func_error_lines, func_warn_lines, param_error, param_warn.</span>
+</code></pre></div>
+<p>The top level is strict in the same way: a key that is neither a run key
+(<code>select</code>, <code>promote</code>, <code>source_root</code>, ...) nor the name of a check exits <code>2</code>
+and lists both, and a <code>[tool.lanorme]</code> table inside a <code>lanorme.toml</code> is
+refused with a message saying the keys go top level there. See
+<a href="../../reference/cli/#config-discovery">config discovery</a>.</p>
+<p><code>lanorme check --show-config</code> prints each check's effective settings and,
+on a <code>keys:</code> line under it, the keys its table accepts:</p>
+<div class="highlight"><pre><span></span><code><span class="gp">$ </span>lanorme<span class="w"> </span>check<span class="w"> </span>.<span class="w"> </span>--show-config
+<span class="go">...</span>
+<span class="go">  file_limits        file_warn_lines=300 file_error_lines=500 func_warn_lines=50 func_error_lines=80 class_method_warn=10 complexity_warn=10 complexity_error=15 param_warn=5 param_error=10</span>
+<span class="go">                     keys: class_method_warn, complexity_error, complexity_warn, file_error_lines, file_warn_lines, func_error_lines, func_warn_lines, param_error, param_warn</span>
+<span class="go">...</span>
 </code></pre></div>
 <h2 id="exit-codes">Exit codes<a class="headerlink" href="#exit-codes" title="Permanent link">&para;</a></h2>
-<p><code>lanorme check</code> exits <code>0</code> when clean, <code>1</code> when there are findings, and <code>2</code> on
-a usage or config error. This drives CI: a silenced finding leaves the run
-clean.</p>
+<p><code>lanorme check</code> exits <code>0</code> when clean or when only warnings were found, <code>1</code>
+when there are violations, and <code>2</code> on a usage or config error. This drives
+CI: a silenced finding leaves the run clean.</p>
 <div class="highlight"><pre><span></span><code><span class="gp">$ </span>lanorme<span class="w"> </span>check<span class="w"> </span>src<span class="w"> </span>--select<span class="w"> </span>EVAL-001<span class="w">   </span><span class="c1"># no eval in src</span>
 <span class="go">All 30 checks passed.</span>
+<span class="go">Opt-in checks not enabled: 11 (&#39;lanorme check --show-config&#39; lists them).</span>
 <span class="gp">$ </span><span class="nb">echo</span><span class="w"> </span><span class="nv">$?</span>
 <span class="go">0</span>
 </code></pre></div>

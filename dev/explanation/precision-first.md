@@ -159,6 +159,8 @@ Add this to your configuration and commit the file like a lockfile:
 
 $ lanorme check
 All 30 checks passed.
+Suppressed: 0 by inline ignores, 0 by per-file-ignores, 1 by the baseline.
+Opt-in checks not enabled: 11 ('lanorme check --show-config' lists them).
 ```
 
 **It never resurrects paid-down noise.** When you fix a finding, its entry no

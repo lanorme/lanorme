@@ -33,7 +33,11 @@ A clean run reports that every check passed and exits `0`:
 
 ```text
 All 30 checks passed.
+Opt-in checks not enabled: 11 ('lanorme check --show-config' lists them).
 ```
+
+The second line counts the checks that ship switched off;
+`lanorme check --show-config` names them.
 
 Exit codes are `0` when no check fails (warnings alone leave it at `0`), `1`
 when a check fails (a violation, or a warning you have promoted), and `2` on a

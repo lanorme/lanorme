@@ -142,25 +142,34 @@ config file:  /path/to/project/pyproject.toml [tool.lanorme]
 project root: /path/to/project
 
 [tool.lanorme]
+  extends = ['strict', 'hexagonal']
   ignore = ['NAMING-003']
   promote = ['ALL']
 
 checks (effective settings):
   ...
   layer_deps         source_root='' layers=<4 items> transport_layers=('api',) allowed_imports=<4 keys> composition_root=<4 items>
+                     keys: allowed, composition_root, layers, source_root, transport_layers
   ...
   port_coverage      source_root='' ports_dir='application/ports' adapter_roots=('infrastructure',) composition_root=<4 items> ...
+                     keys: adapter_roots, composition_root, ports_dir, ports_without_impl, skip_files, source_root
   prose              enabled=False ...   (opt-in, not enabled)
+                     keys: density, em_dash, em_dash_density, emoji, enabled, extensions, spellings
   ...
 ```
 
 Read it as the merge in action:
 
+- `extends` is echoed as written, so the block records where the rest came
+  from; `baseline` is echoed the same way when set.
 - `promote = ['ALL']` comes from `strict`.
 - `layer_deps` and `port_coverage` are configured by `hexagonal`.
 - `ignore` comes from the local table.
 - `prose` is `enabled=False`: `strict` turns prose on, but the local
   `[tool.lanorme.prose]` table wins.
+- The `keys:` line under each check lists the keys its table accepts. A key
+  outside that list, or a value of the wrong type, is a configuration error
+  (exit `2`).
 
 The `config file` and `project root` paths vary per machine.
 

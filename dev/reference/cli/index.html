@@ -818,6 +818,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Config discovery">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#per-check-settings-are-validated" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Per-check settings are validated
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -978,6 +995,56 @@
       
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="Output formats">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#summary-notes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Summary notes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#finding-records" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Finding records
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#github" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        github
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#summary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        summary
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -1183,6 +1250,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Config discovery">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#per-check-settings-are-validated" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Per-check settings are validated
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -1344,6 +1428,56 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Output formats">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#summary-notes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Summary notes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#finding-records" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Finding records
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#github" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        github
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#summary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        summary
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -1462,20 +1596,16 @@ the <a href="../../RULES/">rule reference</a> and the <a href="../rules-index/">
     B --&gt; W[write]
     B --&gt; S[status]</code></pre>
 <h2 id="config-discovery">Config discovery<a class="headerlink" href="#config-discovery" title="Permanent link">&para;</a></h2>
-<p>A command that runs checks reads configuration from the first source found
-walking up from the scan path:</p>
+<p>A command that runs checks looks for config in the scan path's directory and
+in each parent. In each directory it tries three files, in this order:</p>
 <ol>
-<li><code>lanorme.toml</code> in the directory. Keys live at the <strong>top level</strong> of the
-   file, with no table prefix.</li>
+<li><code>lanorme.toml</code>. Keys live at the <strong>top level</strong> of the file, with no table
+   prefix.</li>
 <li><code>.lanorme.toml</code>, same top-level layout.</li>
 <li>A <code>[tool.lanorme]</code> table in <code>pyproject.toml</code>.</li>
 </ol>
-<p>All three are tried in each directory before walking up to its parent, in that
-order, so a <code>lanorme.toml</code> wins over a <code>pyproject.toml</code> table beside it. The
-directory the config was found in is the project root: every finding is
-reported relative to it, whichever directory the command ran from, and
-<code>per-file-ignores</code> and <code>exclude</code> globs match against those paths. A file that
-is not valid TOML is a configuration error and exits <code>2</code>.</p>
+<p>The first one found is that directory's config, so a <code>lanorme.toml</code> wins over a
+<code>pyproject.toml</code> table beside it.</p>
 <div class="highlight"><pre><span></span><code><span class="c1"># lanorme.toml: keys at the top level</span>
 <span class="n">select</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;SEC&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;CMT-001&quot;</span><span class="p">]</span>
 <span class="n">baseline</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;lanorme-baseline.json&quot;</span>
@@ -1485,14 +1615,122 @@ is not valid TOML is a configuration error and exits <code>2</code>.</p>
 <span class="n">select</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;SEC&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;CMT-001&quot;</span><span class="p">]</span>
 <span class="n">baseline</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;lanorme-baseline.json&quot;</span>
 </code></pre></div>
+<p>The walk does not stop at the first config. It climbs to the outermost one, or
+to the first config that sets <code>root = true</code>, whichever it meets first. That
+config's directory is the project root. Every finding is reported relative to
+it, whichever directory the command ran from, and <code>per-file-ignores</code> and
+<code>exclude</code> globs match against those paths.</p>
+<p>Every config between the project root and the scan path is a region, and so is
+every config below the scan path. A region's check settings cascade over the
+ones above it, table by table and key by key, for the file-level checks over
+that region's files. So <code>lanorme check tests</code> with a <code>tests/lanorme.toml</code>
+checks <code>tests/</code> under the project's check settings plus the subtree's
+overrides, not the subtree's file alone. The run keys (<code>select</code>, <code>ignore</code>,
+<code>exclude</code>, <code>promote</code>, <code>per-file-ignores</code>, <code>baseline</code>, <code>source_root</code>) and the
+whole-tree checks' settings come from the project root's config whatever path
+is scanned, so <code>lanorme check tests</code> holds the same standard as
+<code>lanorme check .</code>: a nested config governs only its own region's file-level
+checks. Given this tree:</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># lanorme.toml</span>
+<span class="n">select</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;SIZE&quot;</span><span class="p">]</span>
+
+<span class="k">[file_limits]</span>
+<span class="n">file_warn_lines</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">5</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><span class="c1"># tests/lanorme.toml</span>
+<span class="k">[file_limits]</span>
+<span class="n">file_warn_lines</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">3</span>
+</code></pre></div>
+<p><code>tests/helpers.py</code> has four lines. The project's <code>select</code> and the subtree's
+threshold both apply, and the path is relative to the project root:</p>
+<div class="highlight"><pre><span></span><code><span class="gp">$ </span>lanorme<span class="w"> </span>check<span class="w"> </span>tests
+<span class="go">[WARN] file_limits</span>
+<span class="go">  WARNING: tests/helpers.py:1 — File has 4 effective lines (warn: 3)</span>
+<span class="go">    Rule: SIZE-001: File approaching the effective line limit</span>
+<span class="go">    Fix: Consider splitting into smaller modules before it grows further</span>
+<span class="go">--- file_limits: 0 violations, 1 warnings ---</span>
+
+<span class="go">Summary: 30 checks — 29 passed, 1 warned, 0 failed.</span>
+<span class="go">Findings: 0 errors to fix, 1 advisory warning.</span>
+<span class="go">Opt-in checks not enabled: 11 (&#39;lanorme check --show-config&#39; lists them).</span>
+</code></pre></div>
+<p>Every check runs from the project root, whichever path the command names.
+<code>lanorme check tests</code> confines the file walk to <code>tests/</code> instead of making it
+the root, so checks are handed <code>tests/helpers.py</code>, not <code>helpers.py</code>, and the
+path-based exemptions some checks apply (the <code>tests/</code> and <code>migrations/</code> skips)
+hold; <code>per-file-ignores</code> globs such as <code>"tests/*"</code> match the same path. Checks
+that compare files across the tree (<code>docs</code>, <code>duplication</code>, <code>test_coverage</code>,
+<code>layer_deps</code>, <code>port_coverage</code>) still see the whole project, so a duplicate of
+a scanned file elsewhere in the project is found and <code>source_root</code> is read
+from the project root; the report is then narrowed to the requested path. Each
+region is checked in its own pass under its merged settings, confined the same
+way to the files it governs. The
+<a href="../configuration/#per-directory-config">per-directory config</a> section covers
+which settings cascade.</p>
+<p>A config file that is not valid TOML is a configuration error and exits <code>2</code>.</p>
 <p>CLI flags override the matching config key for that run. <code>--show-config</code>
-prints the discovered source and the effective per-check settings.</p>
+prints the outermost config file and lists the nested ones between it and the
+scan path. It then shows the
+<code>[tool.lanorme]</code> keys in force (including <code>extends</code> and <code>baseline</code>) and the
+effective per-check settings. Under each check a <code>keys:</code> line lists the TOML
+keys that check reads:</p>
+<div class="highlight"><pre><span></span><code><span class="gp">$ </span><span class="nb">cd</span><span class="w"> </span>tests<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>lanorme<span class="w"> </span>check<span class="w"> </span>--show-config<span class="w"> </span>.
+<span class="go">config file:  /path/to/proj/lanorme.toml (+ nested: /path/to/proj/tests/lanorme.toml)</span>
+<span class="go">project root: /path/to/proj</span>
+
+<span class="go">[tool.lanorme]</span>
+<span class="go">  select = [&#39;SIZE&#39;]</span>
+
+<span class="go">checks (effective settings):</span>
+<span class="go">  ...</span>
+<span class="go">  file_limits        file_warn_lines=3 file_error_lines=500 func_warn_lines=50 func_error_lines=80 class_method_warn=10 complexity_warn=10 complexity_error=15 param_warn=5 param_error=8</span>
+<span class="go">                     keys: class_method_warn, complexity_error, complexity_warn, file_error_lines, file_warn_lines, func_error_lines, func_warn_lines, param_error, param_warn</span>
+<span class="go">  ...</span>
+</code></pre></div>
+<p>The absolute paths vary per machine. With no config anywhere, the
+<code>config file:</code> line says so and names the files it looked for.</p>
+<h3 id="per-check-settings-are-validated">Per-check settings are validated<a class="headerlink" href="#per-check-settings-are-validated" title="Permanent link">&para;</a></h3>
+<p>Every <code>[tool.lanorme.&lt;check&gt;]</code> table is checked before the run. A value of the
+wrong type or a key the check does not read exits <code>2</code>, naming the table and the
+key. The wrong types include a quoted number, a bare string where a list is
+expected, and a float or <code>true</code> where an integer is expected.</p>
+<div class="highlight"><pre><span></span><code><span class="gp">$ </span>cat<span class="w"> </span>pyproject.toml
+<span class="go">[tool.lanorme.file_limits]</span>
+<span class="go">file_warn_lines = &quot;300&quot;</span>
+<span class="gp">$ </span>lanorme<span class="w"> </span>check<span class="w"> </span>.
+<span class="go">ERROR: invalid value for [tool.lanorme.file_limits] file_warn_lines: &#39;file_warn_lines&#39; must be an integer, got str</span>
+<span class="go">  Run &#39;lanorme check . --show-config&#39; to see the effective settings for every check.</span>
+<span class="gp">$ </span><span class="nb">echo</span><span class="w"> </span><span class="nv">$?</span>
+<span class="go">2</span>
+</code></pre></div>
+<p>A misspelt key names the keys the check does read:</p>
+<div class="highlight"><pre><span></span><code><span class="gp">$ </span>cat<span class="w"> </span>pyproject.toml
+<span class="go">[tool.lanorme.file_limits]</span>
+<span class="go">file_warn_line = 300</span>
+<span class="gp">$ </span>lanorme<span class="w"> </span>check<span class="w"> </span>.
+<span class="go">ERROR: unknown key in [tool.lanorme.file_limits]: &#39;file_warn_line&#39;.</span>
+<span class="go">  Keys this check reads: class_method_warn, complexity_error, complexity_warn, file_error_lines, file_warn_lines, func_error_lines, func_warn_lines, param_error, param_warn.</span>
+</code></pre></div>
+<p>The top level is strict too. A key that is neither a run key (<code>select</code>,
+<code>ignore</code>, <code>exclude</code>, <code>promote</code>, <code>extends</code>, <code>baseline</code>, <code>source_root</code>,
+<code>plugins</code>, <code>per-file-ignores</code>, <code>root</code>) nor the name of a registered check,
+plugin checks included, exits <code>2</code> and lists both:</p>
+<div class="highlight"><pre><span></span><code><span class="gp">$ </span>cat<span class="w"> </span>lanorme.toml
+<span class="go">selct = [&quot;SIZE&quot;]</span>
+<span class="gp">$ </span>lanorme<span class="w"> </span>check<span class="w"> </span>.
+<span class="go">ERROR: unknown key in [tool.lanorme]: &#39;selct&#39;.</span>
+<span class="go">  Run keys: baseline, exclude, extends, ignore, per-file-ignores, plugins, promote, root, select, source_root.</span>
+<span class="go">  Check tables: attribute_access, comments, docs, docstrings, domain_terms, duplication, file_limits, ...</span>
+</code></pre></div>
+<p>A <code>[tool.lanorme]</code> table inside a <code>lanorme.toml</code> or <code>.lanorme.toml</code> is the
+<code>pyproject.toml</code> form in the wrong file; it exits <code>2</code> with a message saying
+the keys go top level there.</p>
 <h2 id="check">check<a class="headerlink" href="#check" title="Permanent link">&para;</a></h2>
 <p>Run checks against one or more paths.</p>
 <div class="highlight"><pre><span></span><code>lanorme check [-h] [--check SINGLE] [--select SELECT] [--ignore IGNORE]
               [--exclude EXCLUDE] [--promote PROMOTE] [--show-config]
               [--plugin PLUGIN]
-              [--output-format {concise,full,json,ndjson,github}]
+              [--output-format {concise,full,json,ndjson,github,summary}]
               [--json] [--no-baseline]
               [paths ...]
 </code></pre></div>
@@ -1542,14 +1780,14 @@ prints the discovered source and the effective per-check settings.</p>
 </tr>
 <tr>
 <td><code>--show-config</code></td>
-<td>Print the discovered config and effective per-check settings, then exit.</td>
+<td>Print the discovered config files, the <code>[tool.lanorme]</code> keys in force (including <code>extends</code> and <code>baseline</code>) and each check's effective settings and TOML keys, then exit.</td>
 </tr>
 <tr>
 <td><code>--plugin PLUGIN</code></td>
 <td>Plugin module to load. Repeatable. Adds to config <code>plugins</code>.</td>
 </tr>
 <tr>
-<td><code>--output-format {concise,full,json,ndjson,github}</code></td>
+<td><code>--output-format {concise,full,json,ndjson,github,summary}</code></td>
 <td>Output format. Default: <code>concise</code>. See <a href="#output-formats">output formats</a>.</td>
 </tr>
 <tr>
@@ -1562,28 +1800,62 @@ prints the discovered source and the effective per-check settings.</p>
 </tr>
 </tbody>
 </table>
+<p><code>lanorme check --help</code> ends with the ways to silence a finding: an inline
+<code># lanorme: ignore[CODE]</code> (or <code># noqa: CODE</code>), a <code>per-file-ignores</code> glob, or a
+baseline. The recipes are in
+<a href="../../how-to/configure-checks/">Configure which checks run</a>.</p>
 <p>For <code>--select</code>, <code>--ignore</code> and <code>--promote</code>, a category name (the part of a code
 before the dash, such as <code>CMT</code>) covers every code in it and <code>ALL</code> covers every
-code. <code>--check</code> takes a single check name, rule code or category, runs it at
-the root config without per-directory cascading, and ignores <code>--select</code>. The
-selection, ignore, exclude and promote keys are documented in the
+code. <code>--check</code> takes a single check name, rule code or category and ignores
+<code>--select</code>; it honours cascading per-directory config exactly like a full run.
+The selection, ignore, exclude and promote keys are documented in the
 <a href="../configuration/">configuration reference</a>; a CLI flag wins over its config
 key for that run.</p>
+<p>An opt-in check that is not enabled reports nothing, so <code>--check</code> on one says
+so on stderr:</p>
+<div class="highlight"><pre><span></span><code><span class="gp">$ </span>lanorme<span class="w"> </span>check<span class="w"> </span>--check<span class="w"> </span>named_args<span class="w"> </span>bad.py
+<span class="go">Note: named_args is opt-in and not enabled, so it reports nothing. Enable it with [tool.lanorme.named_args] enabled = true (see &#39;lanorme rule&#39; for its codes).</span>
+<span class="go">All 1 checks passed.</span>
+<span class="go">Opt-in checks not enabled: 1 (&#39;lanorme check --show-config&#39; lists them).</span>
+</code></pre></div>
+<p>Every selector is validated. <code>--select</code>, <code>--ignore</code> and <code>--promote</code>, their
+config counterparts and the codes in <code>per-file-ignores</code> accept <code>ALL</code>, a rule
+code, a category, a category's <code>-000</code> notice code (<code>TYPE-000</code>), and any code
+in a family whose check declares a <code>CAT-NNN</code> placeholder (<code>TERM-042</code>). A
+selector that names no known rule code or category is a usage error: the run
+exits <code>2</code> with a message on stderr, and <code>lanorme rules</code> lists every code and
+category.</p>
+<div class="highlight"><pre><span></span><code><span class="gp">$ </span>lanorme<span class="w"> </span>check<span class="w"> </span>--select<span class="w"> </span>NOPE<span class="w"> </span>.
+<span class="go">ERROR: &#39;select&#39; names no known rule code or category: &#39;NOPE&#39;.</span>
+<span class="go">  Run &#39;lanorme rules&#39; to list every code and category.</span>
+<span class="gp">$ </span><span class="nb">echo</span><span class="w"> </span><span class="nv">$?</span>
+<span class="go">2</span>
+</code></pre></div>
 <p><code>paths</code> may mix files and directories. The scan walks their common ancestor,
 so checks that compare files still see the siblings, and the report is then
-narrowed to the named targets.</p>
+narrowed to the named targets. When every requested path falls under an
+<code>exclude</code> glob, nothing is checked: the run reports a clean tree and prints a
+note on stderr saying so, with a hint to pass <code>--exclude</code> to override the
+configured globs for one run.</p>
+<p>Source files are decoded the way the interpreter decodes them, so a UTF-8 BOM
+and a <code>coding:</code> cookie are honoured. A file the parser rejects, overflows on,
+or cannot read is skipped by every check with a <code>&lt;PREFIX&gt;-000</code> notice from
+those that report one; see <a href="../../how-to/promote-warnings/#skip-notices-are-never-promoted">skip notices</a>.
+A check that raises is reported as a <code>RUN-000</code> warning whose message carries
+the exception type and text, and the rest of the run continues.</p>
 <h3 id="promotion">Promotion<a class="headerlink" href="#promotion" title="Permanent link">&para;</a></h3>
 <p><code>--promote</code> escalates the named advisory warnings, or <code>ALL</code> warnings, to
 build-failing errors. A run with only warnings exits <code>0</code>; promoting those
 warnings turns them into violations and the run exits <code>1</code>.</p>
 <div class="highlight"><pre><span></span><code><span class="gp">$ </span>lanorme<span class="w"> </span>check<span class="w"> </span>--check<span class="w"> </span>SIZE-003<span class="w"> </span>.
 <span class="go">[WARN] file_limits</span>
-<span class="go">  VIOLATION: big.py:1 — Class &#39;C&#39; has 11 methods (warn: 10)</span>
+<span class="go">  WARNING: big.py:1 — Class &#39;C&#39; has 11 methods (warn: 10)</span>
 <span class="go">    Rule: SIZE-003: Class has too many methods</span>
 <span class="go">    Fix: Consider decomposing into smaller, focused classes</span>
 <span class="go">--- file_limits: 0 violations, 1 warnings ---</span>
 
-<span class="go">Summary: 1 checks — 0 passed, 1 warnings, 0 failed.</span>
+<span class="go">Summary: 1 checks — 0 passed, 1 warned, 0 failed.</span>
+<span class="go">Findings: 0 errors to fix, 1 advisory warning.</span>
 <span class="gp">$ </span><span class="nb">echo</span><span class="w"> </span><span class="nv">$?</span>
 <span class="go">0</span>
 </code></pre></div>
@@ -1594,10 +1866,13 @@ warnings turns them into violations and the run exits <code>1</code>.</p>
 <span class="go">    Fix: Consider decomposing into smaller, focused classes</span>
 <span class="go">--- file_limits: 1 violations, 0 warnings ---</span>
 
-<span class="go">Summary: 1 checks — 0 passed, 0 warnings, 1 failed.</span>
+<span class="go">Summary: 1 checks — 0 passed, 0 warned, 1 failed.</span>
+<span class="go">Findings: 1 error to fix, 0 advisory warnings.</span>
 <span class="gp">$ </span><span class="nb">echo</span><span class="w"> </span><span class="nv">$?</span>
 <span class="go">1</span>
 </code></pre></div>
+<p>In the <code>json</code> and <code>ndjson</code> records a promoted finding carries
+<code>"promoted": true</code>.</p>
 <h3 id="baseline-interaction">Baseline interaction<a class="headerlink" href="#baseline-interaction" title="Permanent link">&para;</a></h3>
 <p>When config sets <code>baseline</code>, <code>check</code> suppresses every recorded finding and
 reports only new debt. <code>--no-baseline</code> ignores the baseline and reports the
@@ -1633,7 +1908,7 @@ with exit <code>2</code>, because a narrowed write would regenerate the baseline
 partial run and prune everything out of scope. The file it writes is a JSON
 object with a <code>version</code> and an <code>entries</code> list; each entry carries the file,
 the rule code, an anchor (a hash of the source line at the finding), the
-severity, the message and a count.</p>
+severity, the rule's description and a count.</p>
 <div class="highlight"><pre><span></span><code><span class="gp">$ </span>lanorme<span class="w"> </span>baseline<span class="w"> </span>write<span class="w"> </span>a.py
 <span class="go">ERROR: &#39;baseline&#39; must run over the whole project root, without file targets or selection flags.</span>
 <span class="gp">$ </span><span class="nb">echo</span><span class="w"> </span><span class="nv">$?</span>
@@ -1658,10 +1933,13 @@ baseline in place, <code>check</code> holds the project to account only for find
 adds.</p>
 <h3 id="baseline-status">baseline status<a class="headerlink" href="#baseline-status" title="Permanent link">&para;</a></h3>
 <p>List baseline entries that match nothing in the current run, the stale debt
-to prune. Exits <code>0</code>.</p>
+to prune. Entries are grouped by file and code, with <code>(xN)</code> when one file has
+several stale entries for the same code. Exits <code>0</code>, and ends quietly when
+piped into a reader that stops early.</p>
 <div class="highlight"><pre><span></span><code><span class="gp">$ </span>lanorme<span class="w"> </span>baseline<span class="w"> </span>status<span class="w"> </span>.
-<span class="go">1 stale baseline entry (matched nothing this run):</span>
-<span class="go">  bad.py  CMT-001</span>
+<span class="go">3 stale baseline entries (matched nothing this run):</span>
+<span class="go">  bad.py  CMT-001  (x2)</span>
+<span class="go">  ev.py  EVAL-001</span>
 
 <span class="go">Run &#39;lanorme baseline write&#39; to prune them.</span>
 </code></pre></div>
@@ -1671,15 +1949,19 @@ to prune. Exits <code>0</code>.</p>
 </code></pre></div>
 <h2 id="rules">rules<a class="headerlink" href="#rules" title="Permanent link">&para;</a></h2>
 <p>List all registered rules and exit.</p>
-<div class="highlight"><pre><span></span><code>lanorme rules [-h]
+<div class="highlight"><pre><span></span><code>lanorme rules [-h] [--json]
 </code></pre></div>
 <p>Output groups every rule code under its check, with checks sorted by name.
-Opt-in checks appear in the list but emit nothing until enabled. The <code>-000</code>
-notices a check can emit when it skips a file (<code>TYPE-000: parse error</code>) and
-the <code>RUN-000</code> notice for a check that raised are not rules and are not listed.</p>
+An opt-in check is marked <code>(opt-in)</code> and emits nothing until enabled. The
+<code>-000</code> notices a check can emit when it skips a file (<code>TYPE-000: parse error</code>,
+<code>TYPE-000: too deeply nested</code>, <code>TYPE-000: unreadable</code>) and the <code>RUN-000</code>
+notice for a check that raised are not rules and are not listed.</p>
 <div class="highlight"><pre><span></span><code><span class="gp">$ </span>lanorme<span class="w"> </span>rules
 
-<span class="go">...</span>
+<span class="gp">#</span><span class="c1"># attribute_access — Low-level getattr/hasattr/setattr/delattr smells  (opt-in)</span>
+<span class="go">  ATTR-001: Avoid hasattr() for type discrimination</span>
+<span class="go">  ATTR-002: Avoid getattr/setattr/delattr with a literal attribute name</span>
+
 <span class="gp">#</span><span class="c1"># comments — Concise, clean comments (commented-out code, verbosity, style)</span>
 <span class="go">  CMT-001: No commented-out code</span>
 <span class="go">  CMT-002: No verbose comments (block or line too long)</span>
@@ -1687,11 +1969,28 @@ the <code>RUN-000</code> notice for a check that raised are not rules and are no
 <span class="go">  PROSE-003: No emoji in comments or docstrings (opt-in)</span>
 <span class="go">...</span>
 </code></pre></div>
+<p><code>--json</code> prints the same data as a list of checks, for tools:</p>
+<div class="highlight"><pre><span></span><code>[
+  {
+    &quot;check&quot;: &quot;attribute_access&quot;,
+    &quot;description&quot;: &quot;Low-level getattr/hasattr/setattr/delattr smells&quot;,
+    &quot;opt_in&quot;: true,
+    &quot;rules&quot;: [
+      {
+        &quot;code&quot;: &quot;ATTR-001&quot;,
+        &quot;rule&quot;: &quot;ATTR-001: Avoid hasattr() for type discrimination&quot;
+      },
+      ...
+    ]
+  },
+  ...
+]
+</code></pre></div>
 <p>The same data, with the opt-in column, is in the
 <a href="../rules-index/">rule index</a>. Exits <code>0</code>.</p>
 <h2 id="rule">rule<a class="headerlink" href="#rule" title="Permanent link">&para;</a></h2>
 <p>Print the reference section for a single rule code.</p>
-<div class="highlight"><pre><span></span><code>lanorme rule [-h] code
+<div class="highlight"><pre><span></span><code>lanorme rule [-h] [--json] code
 </code></pre></div>
 <h3 id="arguments_2">Arguments<a class="headerlink" href="#arguments_2" title="Permanent link">&para;</a></h3>
 <table>
@@ -1706,24 +2005,52 @@ the <code>RUN-000</code> notice for a check that raised are not rules and are no
 <td><code>code</code></td>
 <td>The rule code to look up (for example <code>CMT-001</code>, <code>SQL-001</code>). Case does not matter.</td>
 </tr>
+<tr>
+<td><code>--json</code></td>
+<td>Print the declaration and the section as one JSON object.</td>
+</tr>
 </tbody>
 </table>
+<p>The output opens with the declared rule string and the check that emits it,
+marked <code>on by default</code>, <code>opt-in, enable it in config</code> when the whole check
+ships off, or <code>opt-in via &lt;setting&gt; = true in [tool.lanorme.&lt;check&gt;]</code> when the
+rule alone waits on a setting (<code>PROSE-001</code> on <code>em_dash</code>, <code>NAMING-001</code> on
+<code>repo_crud</code>). The reference section follows:</p>
 <div class="highlight"><pre><span></span><code><span class="gp">$ </span>lanorme<span class="w"> </span>rule<span class="w"> </span>CMT-001
+<span class="go">CMT-001: No commented-out code</span>
+<span class="go">  check: comments (on by default)</span>
+
 <span class="gp">#</span><span class="c1">## `CMT-001`: No commented-out code</span>
 
 <span class="go">Default-on. Walks every `#` comment and parses its text as Python; if the</span>
 <span class="go">result is one of `_CODE_NODES` (imports, assigns, defs, control flow,</span>
-<span class="go">returns / raises / asserts, ...), the comment is treated as disabled code.</span>
 <span class="go">...</span>
 </code></pre></div>
-<p>A code with no section of its own prints its category's section instead, so
-<code>lanorme rule shell-001</code> prints the whole security-calls section. An unknown
-code prints a not-found notice and exits <code>2</code>:</p>
+<p>A heading that names the code exactly wins over a heading that names its
+family, such as <code>NAMING-001..004</code>. A code with no heading of its own prints
+its family's section, so <code>lanorme rule NAMING-003</code> prints the naming
+conventions section. A <code>#</code> line inside a fenced code block never ends a
+section early.</p>
+<p><code>--json</code> returns <code>{code, rule, check, opt_in, section}</code>. <code>rule</code>, <code>check</code> and
+<code>opt_in</code> are <code>null</code> for a code no check declares, such as <code>TERM-042</code> from a
+<code>TERM-NNN</code> family:</p>
+<div class="highlight"><pre><span></span><code><span class="gp">$ </span>lanorme<span class="w"> </span>rule<span class="w"> </span>CMT-001<span class="w"> </span>--json
+<span class="go">{</span>
+<span class="go">  &quot;code&quot;: &quot;CMT-001&quot;,</span>
+<span class="go">  &quot;rule&quot;: &quot;CMT-001: No commented-out code&quot;,</span>
+<span class="go">  &quot;check&quot;: &quot;comments&quot;,</span>
+<span class="go">  &quot;opt_in&quot;: false,</span>
+<span class="go">  &quot;section&quot;: &quot;### `CMT-001`: No commented-out code\n\nDefault-on. ...&quot;</span>
+<span class="go">}</span>
+</code></pre></div>
+<p>An unknown code exits <code>2</code>:</p>
 <div class="highlight"><pre><span></span><code><span class="gp">$ </span>lanorme<span class="w"> </span>rule<span class="w"> </span>NOPE-999
-<span class="go">No reference section found for &#39;NOPE-999&#39;. Run &#39;lanorme rules&#39; for the list of emitted codes, or browse docs/RULES.md directly.</span>
+<span class="go">ERROR: no reference section found for &#39;NOPE-999&#39;. Run &#39;lanorme rules&#39; for the list of emitted codes, or browse docs/RULES.md directly.</span>
+<span class="gp">$ </span><span class="nb">echo</span><span class="w"> </span><span class="nv">$?</span>
+<span class="go">2</span>
 </code></pre></div>
 <h2 id="output-formats">Output formats<a class="headerlink" href="#output-formats" title="Permanent link">&para;</a></h2>
-<p><code>check</code> accepts five formats via <code>--output-format</code>.</p>
+<p><code>check</code> accepts six formats via <code>--output-format</code>.</p>
 <table>
 <thead>
 <tr>
@@ -1734,11 +2061,11 @@ code prints a not-found notice and exits <code>2</code>:</p>
 <tbody>
 <tr>
 <td><code>concise</code></td>
-<td>Default. Only checks with findings, plus a one-line summary.</td>
+<td>Default. Only checks with findings, then a <code>Summary:</code> line counting checks by status, a <code>Findings:</code> line counting errors and advisory warnings, and any <a href="#summary-notes">notes</a>.</td>
 </tr>
 <tr>
 <td><code>full</code></td>
-<td>Every check, including those that passed, with no summary line.</td>
+<td>Every check, including those that passed, with no summary.</td>
 </tr>
 <tr>
 <td><code>json</code></td>
@@ -1752,19 +2079,131 @@ code prints a not-found notice and exits <code>2</code>:</p>
 <td><code>github</code></td>
 <td>GitHub Actions workflow commands: <code>::error</code> for a violation, <code>::warning</code> for an advisory. Auto-selected when <code>GITHUB_ACTIONS=true</code>.</td>
 </tr>
+<tr>
+<td><code>summary</code></td>
+<td>Counts only: the totals, then findings by code and by top-level directory. For trees too large to read finding by finding.</td>
+</tr>
 </tbody>
 </table>
-<p><code>concise</code> reports only checks with findings and ends with a summary:</p>
+<p>In the <code>concise</code> and <code>full</code> formats an error is labelled <code>VIOLATION:</code> and an
+advisory <code>WARNING:</code>. Under a <code>[WARN]</code> header every finding is a warning; under
+a <code>[FAIL]</code> header the labels, and the check's footer
+(<code>--- name: N violations, M warnings ---</code>), tell the two apart.</p>
+<p><code>concise</code> reports only checks with findings and ends with a summary. The
+<code>Summary:</code> line counts checks by status and the <code>Findings:</code> line counts the
+errors to fix and the advisory warnings across them:</p>
 <div class="highlight"><pre><span></span><code><span class="gp">$ </span>lanorme<span class="w"> </span>check<span class="w"> </span>bad.py
 <span class="go">[FAIL] comments</span>
 <span class="go">  VIOLATION: bad.py:2 — Commented-out code: x = 2</span>
-<span class="go">    Rule: CMT-001</span>
+<span class="go">    Rule: CMT-001: No commented-out code</span>
 <span class="go">    Fix: Delete it; version control remembers</span>
 <span class="go">--- comments: 1 violations, 0 warnings ---</span>
 
-<span class="go">Summary: 30 checks — 29 passed, 0 warnings, 1 failed.</span>
+<span class="go">Summary: 30 checks — 29 passed, 0 warned, 1 failed.</span>
+<span class="go">Findings: 1 error to fix, 0 advisory warnings.</span>
+<span class="go">Opt-in checks not enabled: 11 (&#39;lanorme check --show-config&#39; lists them).</span>
 </code></pre></div>
-<p><code>json</code> emits one object per check, with <code>violations</code> and <code>warnings</code> arrays:</p>
+<h3 id="summary-notes">Summary notes<a class="headerlink" href="#summary-notes" title="Permanent link">&para;</a></h3>
+<p>After the totals, <code>concise</code> prints up to three notes, each only when it
+applies:</p>
+<ul>
+<li><code>Suppressed: N by inline ignores, M by per-file-ignores, K by the baseline.</code>
+  appears when any of the three is non-zero, so a clean run still shows what
+  it hid.</li>
+<li><code>Opt-in checks not enabled: N ('lanorme check --show-config' lists them).</code>
+  appears when some of the checks the run selected are opt-in and off; under
+  <code>--check</code> it counts that selection only.</li>
+<li><code>Tip: 'lanorme baseline write' records today's findings as debt so that only new ones report (see the adoption tutorial).</code>
+  appears at 25 errors or more when no baseline is configured. The
+  <a href="../../tutorials/adopt-on-existing-codebase/">adoption tutorial</a> walks through
+  it.</li>
+</ul>
+<div class="highlight"><pre><span></span><code><span class="gp">$ </span>lanorme<span class="w"> </span>check<span class="w"> </span>.
+<span class="go">All 30 checks passed.</span>
+<span class="go">Suppressed: 0 by inline ignores, 0 by per-file-ignores, 1 by the baseline.</span>
+<span class="go">Opt-in checks not enabled: 11 (&#39;lanorme check --show-config&#39; lists them).</span>
+</code></pre></div>
+<h3 id="finding-records">Finding records<a class="headerlink" href="#finding-records" title="Permanent link">&para;</a></h3>
+<p><code>json</code> emits one object per check, with <code>violations</code> and <code>warnings</code> arrays of
+finding records. <code>ndjson</code> emits the same records, one per line. Every record
+carries these fields:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>check</code></td>
+<td>The check that reported the finding.</td>
+</tr>
+<tr>
+<td><code>severity</code></td>
+<td><code>error</code> (a violation) or <code>warning</code> (an advisory).</td>
+</tr>
+<tr>
+<td><code>file</code></td>
+<td>The path, relative to the project root.</td>
+</tr>
+<tr>
+<td><code>line</code></td>
+<td>The 1-based line. <code>0</code> or <code>1</code> with no position for a whole-file finding.</td>
+</tr>
+<tr>
+<td><code>column</code></td>
+<td>The 0-based start column, as <code>ast</code> counts it, or <code>null</code> when the check does not know it.</td>
+</tr>
+<tr>
+<td><code>end_line</code></td>
+<td>The 1-based last line of the finding, inclusive, or <code>null</code>.</td>
+</tr>
+<tr>
+<td><code>end_column</code></td>
+<td>The 0-based end column, as <code>ast</code> counts it, or <code>null</code>.</td>
+</tr>
+<tr>
+<td><code>scope</code></td>
+<td><code>span</code> when the extent is known, <code>file</code> for a whole-file finding (line <code>0</code> or <code>1</code>, no position), else <code>line</code>.</td>
+</tr>
+<tr>
+<td><code>code</code></td>
+<td>The rule code, such as <code>CMT-001</code>.</td>
+</tr>
+<tr>
+<td><code>rule</code></td>
+<td>Always <code>CODE: description</code>, the string the check declares.</td>
+</tr>
+<tr>
+<td><code>message</code></td>
+<td>What is wrong here.</td>
+</tr>
+<tr>
+<td><code>fix</code></td>
+<td>What to do about it.</td>
+</tr>
+<tr>
+<td><code>promoted</code></td>
+<td><code>true</code> when <code>promote</code> raised a warning to an error.</td>
+</tr>
+<tr>
+<td><code>fingerprint</code></td>
+<td>16 hex characters that identify the finding.</td>
+</tr>
+</tbody>
+</table>
+<p>The fingerprint is a hash of the file, the code and the text of the finding's
+own line. An edit elsewhere in the file leaves it unchanged. Key on it to tell a
+fixed finding from one that only moved.</p>
+<div class="highlight"><pre><span></span><code><span class="gp">$ </span>lanorme<span class="w"> </span>check<span class="w"> </span>--output-format<span class="w"> </span>ndjson<span class="w"> </span>ev.py
+<span class="go">{&quot;check&quot;: &quot;security_calls&quot;, &quot;severity&quot;: &quot;error&quot;, &quot;file&quot;: &quot;ev.py&quot;, &quot;line&quot;: 2, &quot;column&quot;: 11, &quot;end_line&quot;: 2, &quot;end_column&quot;: 20, &quot;scope&quot;: &quot;span&quot;, &quot;code&quot;: &quot;EVAL-001&quot;, &quot;rule&quot;: &quot;EVAL-001: No eval/exec/compile on a non-literal argument&quot;, &quot;message&quot;: &quot;eval() on a non-literal argument is an RCE primitive&quot;, &quot;fix&quot;: &quot;Use ast.literal_eval for trusted-shape parsing, or build a dispatch table&quot;, &quot;promoted&quot;: false, &quot;fingerprint&quot;: &quot;2d8b5bcffce02d8e&quot;}</span>
+</code></pre></div>
+<p>Here <code>ev.py</code> is:</p>
+<div class="highlight"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">run</span><span class="p">(</span><span class="n">cmd</span><span class="p">):</span>
+    <span class="k">return</span> <span class="nb">eval</span><span class="p">(</span><span class="n">cmd</span><span class="p">)</span>
+</code></pre></div>
+<p><code>json</code> wraps the same records per check:</p>
 <div class="highlight"><pre><span></span><code><span class="gp">$ </span>lanorme<span class="w"> </span>check<span class="w"> </span>--json<span class="w"> </span>bad.py
 <span class="go">[</span>
 <span class="go">  ...</span>
@@ -1773,23 +2212,52 @@ code prints a not-found notice and exits <code>2</code>:</p>
 <span class="go">    &quot;status&quot;: &quot;FAIL&quot;,</span>
 <span class="go">    &quot;violations&quot;: [</span>
 <span class="go">      {</span>
+<span class="go">        &quot;check&quot;: &quot;comments&quot;,</span>
+<span class="go">        &quot;severity&quot;: &quot;error&quot;,</span>
 <span class="go">        &quot;file&quot;: &quot;bad.py&quot;,</span>
 <span class="go">        &quot;line&quot;: 2,</span>
+<span class="go">        &quot;column&quot;: 0,</span>
+<span class="go">        &quot;end_line&quot;: null,</span>
+<span class="go">        &quot;end_column&quot;: null,</span>
+<span class="go">        &quot;scope&quot;: &quot;line&quot;,</span>
 <span class="go">        &quot;code&quot;: &quot;CMT-001&quot;,</span>
-<span class="go">        &quot;rule&quot;: &quot;CMT-001&quot;,</span>
+<span class="go">        &quot;rule&quot;: &quot;CMT-001: No commented-out code&quot;,</span>
 <span class="go">        &quot;message&quot;: &quot;Commented-out code: x = 2&quot;,</span>
-<span class="go">        &quot;fix&quot;: &quot;Delete it; version control remembers&quot;</span>
+<span class="go">        &quot;fix&quot;: &quot;Delete it; version control remembers&quot;,</span>
+<span class="go">        &quot;promoted&quot;: false,</span>
+<span class="go">        &quot;fingerprint&quot;: &quot;40010927d0febec0&quot;</span>
 <span class="go">      }</span>
 <span class="go">    ],</span>
+<span class="go">    &quot;warnings&quot;: []</span>
+<span class="go">  },</span>
+<span class="go">  ...</span>
+<span class="go">]</span>
 </code></pre></div>
-<p><code>ndjson</code> emits one finding per line, each carrying its <code>check</code> and <code>severity</code>:</p>
-<div class="highlight"><pre><span></span><code><span class="gp">$ </span>lanorme<span class="w"> </span>check<span class="w"> </span>--output-format<span class="w"> </span>ndjson<span class="w"> </span>bad.py
-<span class="go">{&quot;check&quot;: &quot;comments&quot;, &quot;severity&quot;: &quot;error&quot;, &quot;file&quot;: &quot;bad.py&quot;, &quot;line&quot;: 2, &quot;code&quot;: &quot;CMT-001&quot;, &quot;rule&quot;: &quot;CMT-001&quot;, &quot;message&quot;: &quot;Commented-out code: x = 2&quot;, &quot;fix&quot;: &quot;Delete it; version control remembers&quot;}</span>
-</code></pre></div>
+<p>Piping any format into a reader that stops early, such as <code>| head</code> or a <code>jq</code>
+filter that exits after its first match, ends the run quietly with the normal
+exit code.</p>
+<h3 id="github">github<a class="headerlink" href="#github" title="Permanent link">&para;</a></h3>
 <p><code>github</code> emits workflow commands that annotate the diff in a GitHub Actions
-run. It is selected automatically when <code>GITHUB_ACTIONS=true</code>:</p>
-<div class="highlight"><pre><span></span><code><span class="gp">$ </span>lanorme<span class="w"> </span>check<span class="w"> </span>--output-format<span class="w"> </span>github<span class="w"> </span>bad.py
-<span class="go">::error file=bad.py,line=2,title=CMT-001::Commented-out code: x = 2</span>
+run. It is selected automatically when <code>GITHUB_ACTIONS=true</code>. The annotation
+carries <code>col</code>, <code>endLine</code> and <code>endColumn</code> when the check knows them; workflow
+columns are 1-based, so <code>col</code> is the record's <code>column</code> plus one:</p>
+<div class="highlight"><pre><span></span><code><span class="gp">$ </span>lanorme<span class="w"> </span>check<span class="w"> </span>--output-format<span class="w"> </span>github<span class="w"> </span>ev.py
+<span class="go">::error file=ev.py,line=2,endLine=2,col=12,endColumn=21,title=EVAL-001::eval() on a non-literal argument is an RCE primitive</span>
+</code></pre></div>
+<h3 id="summary">summary<a class="headerlink" href="#summary" title="Permanent link">&para;</a></h3>
+<p><code>summary</code> prints the totals, then the finding counts by code (with severity)
+and by top-level directory. A file at the root counts under <code>./</code>. Reach for it
+on a large tree, before reading the findings one by one:</p>
+<div class="highlight"><pre><span></span><code><span class="gp">$ </span>lanorme<span class="w"> </span>check<span class="w"> </span>--output-format<span class="w"> </span>summary<span class="w"> </span>.
+<span class="go">Summary: 30 checks — 27 passed, 1 warned, 2 failed.</span>
+<span class="go">Findings: 3 errors to fix, 1 advisory warning.</span>
+<span class="go">By code:</span>
+<span class="go">  CMT-001          error    2</span>
+<span class="go">  EVAL-001         error    1</span>
+<span class="go">  PARAM-001        warning  1</span>
+<span class="go">By directory:</span>
+<span class="go">  app/                     3</span>
+<span class="go">  tests/                   1</span>
 </code></pre></div>
 <h2 id="exit-codes">Exit codes<a class="headerlink" href="#exit-codes" title="Permanent link">&para;</a></h2>
 <table>
@@ -1802,7 +2270,7 @@ run. It is selected automatically when <code>GITHUB_ACTIONS=true</code>:</p>
 <tbody>
 <tr>
 <td><code>0</code></td>
-<td>Clean run. No violations (warnings alone, or a baseline-suppressed run, still exit <code>0</code>).</td>
+<td>Clean run, or warnings only. No violations (warnings alone, or a baseline-suppressed run, still exit <code>0</code>).</td>
 </tr>
 <tr>
 <td><code>1</code></td>
@@ -1816,10 +2284,12 @@ run. It is selected automatically when <code>GITHUB_ACTIONS=true</code>:</p>
 </table>
 <p>Exit <code>2</code> covers no subcommand at all, an unknown subcommand, an invalid flag
 value (such as a bad <code>--output-format</code> choice or an unknown <code>--check</code> name), a
+selector in <code>--select</code>, <code>--ignore</code>, <code>--promote</code>, their config keys or
+<code>per-file-ignores</code> that names no known rule code or category, a
 nonexistent scan path, a <code>baseline</code> write or status given file targets, a
 configured baseline file that does not exist, a config file that is not valid
-TOML, an invalid per-check value, an unknown profile, and <code>lanorme rule &lt;CODE&gt;</code>
-with an unknown code.</p>
+TOML, a mistyped or unknown per-check setting, an unknown profile, and
+<code>lanorme rule &lt;CODE&gt;</code> with an unknown code.</p>
 
 
 
