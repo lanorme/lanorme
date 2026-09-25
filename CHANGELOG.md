@@ -9,6 +9,8 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
 
 ## [Unreleased]
 
+## [0.21.0]
+
 ### Added
 
 - Findings carry their position: `column`, `end_line` and `end_column` in the
