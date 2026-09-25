@@ -285,7 +285,8 @@ def _find_definition_violations(
         if _skip(definition=definition, min_lines=min_lines, require_private=require_private):
             continue
         node = definition.node
-        doc = ast.get_docstring(node)
+        docstring = module.find_docstring(node)
+        doc = docstring.clean() if docstring is not None else None
         if doc is None:
             violations.append(
                 Violation(

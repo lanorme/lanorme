@@ -163,7 +163,7 @@ def test_opt_in_rule_without_a_declared_setting_is_just_opt_in(monkeypatch, caps
         def run(self, *, src_root: str):
             return lanorme.CheckResult.from_findings(check=self.name)
 
-    monkeypatch.setattr(lanorme, "_registry", {"gated": _Gated()})
+    monkeypatch.setattr(lanorme, "_registry", lanorme.Registry({"gated": _Gated()}))
 
     # Act.
     _run(["rule", "GATE-002"])

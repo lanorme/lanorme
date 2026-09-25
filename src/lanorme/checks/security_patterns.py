@@ -24,6 +24,7 @@ from pathlib import Path
 from typing import ClassVar
 
 from lanorme import CheckResult, Violation, register
+from lanorme.astnames import read_str_constant
 from lanorme.checkconfig import read_str
 from lanorme.sources import TOO_DEEP, Module, iter_parsed_modules, build_skip_notice, locate
 
@@ -257,24 +258,21 @@ def _extract_sql_string(
     - One-deep ``text(<expr>)`` / ``sa.text(<expr>)`` wrapper, unwrapped
       recursively.
     """
-    if isinstance(node, ast.Constant) and isinstance(node.value, str):
-        return node.value, False
-    if isinstance(node, ast.JoinedStr):
-        text = "".join(
-            v.value if isinstance(v, ast.Constant) and isinstance(v.value, str) else ""
-            for v in node.values
-        )
-        interp = any(isinstance(v, ast.FormattedValue) for v in node.values)
-        return text, interp
-    if isinstance(node, ast.Name) and constants is not None:
-        entry = constants.get(node.id)
-        if entry is None:
-            return None, False
-        return entry.text, entry.interpolated
-    if isinstance(node, ast.BinOp):
-        return _sql_from_binop(node, constants=constants)
-    if isinstance(node, ast.Call):
-        return _sql_from_call(node, constants=constants)
+    match node:
+        case ast.Constant(value=str() as text):
+            return text, False
+        case ast.JoinedStr(values=parts):
+            text = "".join(read_str_constant(part) or "" for part in parts)
+            return text, any(isinstance(part, ast.FormattedValue) for part in parts)
+        case ast.Name(id=name) if constants is not None:
+            entry = constants.get(name)
+            if entry is None:
+                return None, False
+            return entry.text, entry.interpolated
+        case ast.BinOp():
+            return _sql_from_binop(node, constants=constants)
+        case ast.Call():
+            return _sql_from_call(node, constants=constants)
     return None, False
 
 

@@ -145,21 +145,9 @@ def _scan_comments_and_docstrings(*, module: Module, compiled: list[_RuleSpec]) 
         if comment:
             _scan_text(text=comment, line_number=lineno_0 + 1)
 
-    for node in module.index.collect(
-        ast.Module,
-        ast.ClassDef,
-        ast.FunctionDef,
-        ast.AsyncFunctionDef,
-    ):
-        if (
-            node.body
-            and isinstance(node.body[0], ast.Expr)
-            and isinstance(node.body[0].value, ast.Constant)
-            and isinstance(node.body[0].value.value, str)
-        ):
-            const_node = node.body[0].value
-            for i, doc_line in enumerate(str(const_node.value).splitlines()):
-                _scan_text(text=doc_line, line_number=const_node.lineno + i)
+    for docstring in module.docstrings:
+        for i, doc_line in enumerate(docstring.text.splitlines()):
+            _scan_text(text=doc_line, line_number=docstring.line + i)
 
     return violations
 

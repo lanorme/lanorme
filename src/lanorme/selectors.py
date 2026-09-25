@@ -8,9 +8,31 @@ or ``[tool.lanorme] ignore`` is a usage error rather than a silently clean run.
 
 from __future__ import annotations
 
+import re
+
 from lanorme import Check, get_all_checks, extract_code
 from lanorme.errors import UsageError
-from lanorme.filters import _extract_category
+
+_CODE_RE = re.compile(r"^([A-Z]+)-\d+")
+
+
+def extract_category(code: str) -> str:
+    """The category prefix of a code, e.g. 'LAYER' from 'LAYER-002'."""
+    match = _CODE_RE.match(code)
+    return match.group(1) if match else code
+
+
+def is_code_matched(*, code: str, patterns: list[str]) -> bool:
+    """True if *code* matches any selector (exact code, category, or 'ALL').
+
+    Case-insensitive, and whitespace and empty entries are ignored, so a
+    selector from a config list (``[" type-004 "]``) behaves like the CLI form
+    (``--promote 'type-004'``), which the CLI splits and strips itself.
+    """
+    code_upper = code.upper()
+    category = extract_category(code_upper)
+    wanted = {p.strip().upper() for p in patterns if p.strip()}
+    return any(p in ("ALL", code_upper, category) for p in wanted)
 
 
 def checks_for_selector(*, selector: str) -> list[Check]:
@@ -20,7 +42,7 @@ def checks_for_selector(*, selector: str) -> list[Check]:
     for check in get_all_checks().values():
         for rule in check.rules:
             code = extract_code(rule)
-            if code == wanted or _extract_category(code) == wanted:
+            if code == wanted or extract_category(code) == wanted:
                 matched.append(check)
                 break
     return sorted(matched, key=lambda c: c.name)

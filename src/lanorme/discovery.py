@@ -11,9 +11,11 @@ Every check that scans a tree should iterate via :func:`iter_py_files` (or
    by the same globs as a safety net, but pruning here is what makes a large
    excluded subtree fast rather than merely silent.
 
-The active exclude globs are published by the CLI through :func:`set_excludes`
-before any check runs. They are process-global state, mirroring the check
-registry, because the ``Check.run(*, src_root)`` protocol carries no config.
+The exclude globs and the subtree scope come from the current
+:class:`~lanorme.scan.Scan`, which the runner activates around each pass
+because the ``Check.run(*, src_root)`` protocol carries no run context.
+:func:`set_excludes` and :func:`set_scope` remain for callers that drive a
+walk by hand; they replace the current scan's fields until it is replaced.
 """
 
 from __future__ import annotations
@@ -21,7 +23,10 @@ from __future__ import annotations
 import fnmatch
 import os
 from collections.abc import Iterator
+from dataclasses import replace
 from pathlib import Path
+
+from lanorme.scan import get_current_scan, install_scan
 
 # Directories that are never first-party source. Pruned by basename during the
 # walk regardless of configuration, so ``lanorme check .`` is fast by default.
@@ -40,27 +45,15 @@ DEFAULT_PRUNE_DIRS: frozenset[str] = frozenset(
     },
 )
 
-# Exclude globs published by the CLI for this run. Matched against the path
-# relative to the scan root, forward-slashed, the same anchoring the CLI's
-# post-filter uses so the two stay consistent.
-_active_excludes: tuple[str, ...] = ()
-
-# A root-relative directory the walk is confined to ("" for the whole tree).
-# The runner scopes a subtree scan (``lanorme check tests``) and each region's
-# pass to that subtree while every check still runs from, and reports relative
-# to, the project root.
-_active_scope: str = ""
-
 
 def set_scope(prefix: str) -> None:
     """Confine the walk to *prefix* (a root-relative posix directory, or ``""``)."""
-    global _active_scope
-    _active_scope = prefix.strip("/")
+    install_scan(replace(get_current_scan(), scope=prefix))
 
 
 def get_active_scope() -> str:
     """The directory the walk is currently confined to (``""`` for the whole tree)."""
-    return _active_scope
+    return get_current_scan().scope
 
 
 def find_narrower_scope(*, outer: str, inner: str) -> str | None:
@@ -85,14 +78,13 @@ def _on_scope_path(*, relative: str, scope: str) -> bool:
 
 
 def set_excludes(patterns: tuple[str, ...] | list[str]) -> None:
-    """Publish the exclude globs honoured by discovery for the current run."""
-    global _active_excludes
-    _active_excludes = tuple(patterns)
+    """Replace the exclude globs honoured by discovery for the current scan."""
+    install_scan(replace(get_current_scan(), excludes=tuple(patterns)))
 
 
 def get_active_excludes() -> tuple[str, ...]:
     """Return the exclude globs currently in effect."""
-    return _active_excludes
+    return get_current_scan().excludes
 
 
 def _is_excluded(*, relative: str, patterns: tuple[str, ...]) -> bool:
@@ -109,8 +101,8 @@ def _walk(root: Path, *, prune: frozenset[str]) -> Iterator[tuple[Path, str, lis
     directory's root-relative posix path plus ``/`` (empty at the root), so a
     file's relative path is one concatenation rather than a ``relative_to``.
     """
-    patterns = _active_excludes
-    scope = _active_scope
+    scan = get_current_scan()
+    patterns, scope = scan.excludes, scan.scope
     root = Path(root)
     for dirpath, dirnames, filenames in os.walk(root):
         here = Path(dirpath)
@@ -144,7 +136,7 @@ def iter_files(
     skipped too (so they are never read). If *suffix* is given, only files
     ending with it are returned.
     """
-    patterns = _active_excludes
+    patterns = get_current_scan().excludes
     found: list[Path] = []
     for here, prefix, _dirs, filenames in _walk(root, prune=prune):
         for name in filenames:
@@ -159,10 +151,10 @@ def iter_files(
 def iter_dirs(root: Path, *, prune: frozenset[str] = DEFAULT_PRUNE_DIRS) -> list[Path]:
     """Every directory under *root* (the root excluded) that the walk keeps, sorted.
 
-    CollectedResults from each visited directory's kept children, so a symlink to a
+    Collected from each visited directory's kept children, so a symlink to a
     directory is listed even though the walk does not descend into it.
     """
-    scope = _active_scope
+    scope = get_current_scan().scope
     found: list[Path] = []
     for here, prefix, dirnames, _files in _walk(root, prune=prune):
         for name in dirnames:

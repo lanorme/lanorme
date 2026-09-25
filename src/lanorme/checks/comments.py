@@ -28,16 +28,14 @@ Run:
 
 from __future__ import annotations
 
-import ast
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import ClassVar
 
 from lanorme import CheckResult, Violation, register
 from lanorme.checkconfig import read_int, is_flag_set
-from lanorme.checks.comment_code import (
-    _Comment,
-    _collect_comments,
+from lanorme.comment_code import (
+    Comment,
     _find_illustrative_lines,
     _find_pep723_metadata_lines,
     _is_licence_block,
@@ -53,20 +51,11 @@ _EM_DASH = "—"
 
 def _collect_docstring_lines(*, module: Module) -> list[tuple[int, str]]:
     """Return (line, text) for each line of every module/class/function docstring."""
-    out: list[tuple[int, str]] = []
-    for node in module.index.collect(
-        ast.Module,
-        ast.ClassDef,
-        ast.FunctionDef,
-        ast.AsyncFunctionDef,
-    ):
-        doc = ast.get_docstring(node, clean=False)
-        if doc is None or not node.body:
-            continue
-        start = node.body[0].lineno
-        for offset, text in enumerate(doc.splitlines()):
-            out.append((start + offset, text))
-    return out
+    return [
+        (docstring.line + offset, text)
+        for docstring in module.docstrings
+        for offset, text in enumerate(docstring.text.splitlines())
+    ]
 
 
 def _build_violation(
@@ -236,7 +225,7 @@ class CommentsCheck:
     def _find_verbose_violations(
         self,
         *,
-        comments: list[_Comment],
+        comments: list[Comment],
         module: Module,
         metadata_lines: frozenset[int],
     ) -> list[Violation]:
@@ -266,7 +255,7 @@ class CommentsCheck:
     def _block_violations(
         self,
         *,
-        comments: list[_Comment],
+        comments: list[Comment],
         module: Module,
         metadata_lines: frozenset[int],
     ) -> list[Violation]:
@@ -312,7 +301,7 @@ class CommentsCheck:
             index = end + 1
         return found
 
-    def _scan_file(self, *, module: Module, comments: list[_Comment]) -> list[Violation]:
+    def _scan_file(self, *, module: Module, comments: list[Comment]) -> list[Violation]:
         found: list[Violation] = []
         relative_file = module.relative
         metadata_lines = _find_pep723_metadata_lines(module.lines)
@@ -360,7 +349,7 @@ class CommentsCheck:
             violations.extend(
                 self._scan_file(
                     module=module,
-                    comments=_collect_comments(source=module.source, source_lines=module.lines),
+                    comments=list(module.comments),
                 ),
             )
 

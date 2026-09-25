@@ -38,7 +38,8 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from lanorme import CheckResult, Status, Violation, register
+from lanorme import CheckResult, Violation, register
+from lanorme.astnames import read_str_constant
 from lanorme.sources import Module, iter_parsed_modules, locate
 
 # A name suggests a credential when (i) it matches one of these multi-segment
@@ -255,14 +256,13 @@ def _value_is_real_secret(value: ast.expr) -> str | None:
     A ``bytes`` literal (``hmac_secret = b"..."``) is read as latin-1 text so
     the same length, marker and entropy tests apply.
     """
-    if not isinstance(value, ast.Constant):
-        return None
-    if isinstance(value.value, bytes):
-        text = value.value.decode("latin-1")
-    elif isinstance(value.value, str):
-        text = value.value
-    else:
-        return None
+    match value:
+        case ast.Constant(value=bytes() as raw):
+            text = raw.decode("latin-1")
+        case ast.Constant(value=str() as literal):
+            text = literal
+        case _:
+            return None
     if len(text) < _MIN_CRED_LITERAL_LEN:
         return None
     lowered = text.lower()
@@ -344,9 +344,10 @@ def _from_annassign(node: ast.AnnAssign, *, file: str) -> list[Violation]:
 def _from_dict(node: ast.Dict, *, file: str) -> list[Violation]:
     found: list[Violation] = []
     for key, value in zip(node.keys, node.values, strict=False):
-        if not (isinstance(key, ast.Constant) and isinstance(key.value, str)):
+        name = read_str_constant(key)
+        if name is None:
             continue
-        hit = _flag_assignment(name=key.value, value=value, node=key, file=file)
+        hit = _flag_assignment(name=name, value=value, node=key, file=file)
         if hit is not None:
             found.append(hit)
     return found
@@ -364,9 +365,10 @@ def _from_call_kwargs(node: ast.Call, *, file: str) -> list[Violation]:
 
 
 def _from_string_constant(node: ast.Constant, *, file: str) -> list[Violation]:
-    if not isinstance(node.value, str):
+    text = read_str_constant(node)
+    if text is None:
         return []
-    hit = _shape_violation(value=node.value, node=node, file=file)
+    hit = _shape_violation(value=text, node=node, file=file)
     return [hit] if hit is not None else []
 
 

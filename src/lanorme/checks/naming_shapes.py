@@ -15,6 +15,7 @@ from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
 
+from lanorme.astnames import list_decorator_leaves
 from lanorme.checks.naming_words import (
     CONVERSION_INFIXES,
     CONVERSION_PREFIXES,
@@ -130,18 +131,7 @@ def resolve_decorator_leaves(*, node: ast.FunctionDef | ast.AsyncFunctionDef) ->
     ``abstractmethod``. A decorator that is not a name or attribute underneath
     (a lambda, say) gives the empty string.
     """
-    leaves: set[str] = set()
-    for decorator in node.decorator_list:
-        target: ast.expr = decorator
-        while isinstance(target, (ast.Call, ast.Subscript)):
-            target = target.func if isinstance(target, ast.Call) else target.value
-        if isinstance(target, ast.Attribute):
-            leaves.add(target.attr)
-        elif isinstance(target, ast.Name):
-            leaves.add(target.id)
-        else:
-            leaves.add("")
-    return leaves
+    return {leaf or "" for leaf in list_decorator_leaves(node, subscripts=True)}
 
 
 def has_opaque_decorator(*, node: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:

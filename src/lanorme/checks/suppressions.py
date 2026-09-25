@@ -42,17 +42,15 @@ Run:
 
 from __future__ import annotations
 
-import io
 import re
-import tokenize
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import ClassVar
 
 from lanorme import CheckResult, Violation, register
 from lanorme.checkconfig import read_int, is_flag_set
-from lanorme.filters import _IGNORE_RE, _NOQA_RE
-from lanorme.sources import iter_parsed_modules
+from lanorme.directives import IGNORE_RE, NOQA_RE
+from lanorme.sources import Module, iter_parsed_modules
 
 # Code lists that name no rule in particular, so the directive covers whatever
 # exists now and whatever lands later.
@@ -85,7 +83,7 @@ def _classify(*, comment: str) -> bool | None:
     another tool's codes (``# noqa: E501``) silences nothing here and is not a
     directive either.
     """
-    for pattern in (_NOQA_RE, _IGNORE_RE):
+    for pattern in (NOQA_RE, IGNORE_RE):
         match = pattern.match(comment)
         if match is None:
             continue
@@ -100,25 +98,24 @@ def _classify(*, comment: str) -> bool | None:
     return None
 
 
-def _collect_directives(*, source: str, relative: str) -> list[_Directive]:
-    """Every suppression directive in one file, read from comment tokens only."""
+def _collect_directives(module: Module) -> list[_Directive]:
+    """Every suppression directive in one file, read from comment tokens only.
+
+    A file the tokeniser cannot read to the end yields none.
+    """
     found: list[_Directive] = []
-    try:
-        tokens = list(tokenize.generate_tokens(io.StringIO(source).readline))
-    except (tokenize.TokenError, IndentationError):
+    if not module.has_complete_comments:
         return found
-    for token in tokens:
-        if token.type != tokenize.COMMENT:
-            continue
-        blanket = _classify(comment=token.string)
+    for comment in module.comments:
+        blanket = _classify(comment=comment.token)
         if blanket is None:
             continue
         found.append(
             _Directive(
-                file=relative,
-                line=token.start[0],
-                column=token.start[1],
-                text=token.string.strip(),
+                file=module.relative,
+                line=comment.line,
+                column=comment.column,
+                text=comment.token.strip(),
                 blanket=blanket,
             ),
         )
@@ -201,7 +198,7 @@ class SuppressionsCheck:
             return CheckResult.from_findings(check=self.name)
         directives: list[_Directive] = []
         for module in iter_parsed_modules(Path(src_root)):
-            directives.extend(_collect_directives(source=module.source, relative=module.relative))
+            directives.extend(_collect_directives(module))
         directives.sort(key=lambda d: (d.file, d.line))
 
         violations = _find_budget_violation(directives=directives, max_total=self.max_total)

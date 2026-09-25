@@ -23,6 +23,7 @@ from pathlib import Path
 from typing import ClassVar
 
 from lanorme import CheckResult, Violation, register
+from lanorme.astnames import list_decorator_leaves
 from lanorme.checkconfig import is_flag_set
 from lanorme.checks.naming_shapes import Definition, is_framework_named
 from lanorme.checks.naming_words import is_predicate, split_name
@@ -224,12 +225,8 @@ def _has_bool_return_annotation(*, node: ast.FunctionDef | ast.AsyncFunctionDef)
 
 def _has_bool_exempt_decorator(*, node: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
     """Check if a function carries a decorator that exempts it from NAMING-004."""
-    for decorator in node.decorator_list:
-        if isinstance(decorator, ast.Name) and decorator.id in BOOL_EXEMPT_DECORATORS:
-            return True
-        if isinstance(decorator, ast.Attribute) and decorator.attr in BOOL_EXEMPT_DECORATORS:
-            return True
-    return False
+    leaves = list_decorator_leaves(node, calls=False)
+    return any(leaf in BOOL_EXEMPT_DECORATORS for leaf in leaves)
 
 
 def _is_protocol_base(*, base: ast.expr) -> bool:

@@ -33,6 +33,20 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
   pre-commit hooks). LaNorme itself is checked with Clean Code naming
   (`NAMING-009..011`) enabled and promoted: every function is named for what
   it does.
+- `lanorme.errors.ConfigError`, the `UsageError` for a mistake in a config file
+  or table, carrying the offending `key` and the `source` it was written in;
+  the typed readers raise `lanorme.checkconfig.SettingError` (a `TypeError`).
+- `lanorme.scan.Scan`, the run context (root, subtree scope, exclude globs and
+  the run's parse cache) that discovery and `lanorme.sources` read from a
+  context variable; `with scan.activate():` runs a check by hand under it.
+- Shared views on `Module`: `comments`, `docstrings` (with `find_docstring`),
+  `imports` and `has_complete_comments`, computed once per file per run; an
+  `UnparseableFile` keeps its decoded `source`.
+- `lanorme.astnames` (`find_decorator_leaf`, `list_decorator_leaves`,
+  `build_attr_chain`, `read_str_constant`) for plugin checks.
+- `lanorme.Registry` (`get_registry()`), whose `build_configured(config)` gives
+  configured deep copies of the registered checks.
+- `lanorme.reports.format_violation` and `format_result`, the human rendering.
 
 ### Changed
 
@@ -131,6 +145,32 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
   (`lanorme.filters`, `lanorme.reports`, `lanorme.runner`,
   `lanorme.reference`, `lanorme.diagnostics`; `extract_code`,
   `build_skip_notice`, `filter_findings`, ...).
+- Registering a second, different check under a name already taken raises
+  `UsageError` instead of silently replacing the first.
+- Only a `TypeError` or `ValueError` out of a check's `configure()` is
+  reported as an invalid config value; an `AttributeError` or `KeyError` is a
+  bug in the check and surfaces as one.
+- A `UsageError` raised inside a check's `run()` exits 2 instead of being
+  reported as a `RUN-000` crash notice.
+- Registered checks are never configured in place: each pass runs configured
+  deep copies, so a check registered with constructor arguments keeps them
+  and a check must be deep-copyable.
+- Under nested config regions, the summary's opt-in count reflects the root
+  config rather than whichever region ran last.
+- `test_coverage` reads test files through the shared parse, so a `coding:`
+  cookie or a BOM is honoured and a non-UTF-8 test file no longer crashes it.
+
+### Deprecated
+
+- `Violation.format_human` and `CheckResult.format_human` warn and delegate to
+  `lanorme.reports.format_violation` / `format_result`; they go in the next
+  release.
+
+### Removed
+
+- The in-place configuration helpers `checkconfig.apply_check_config` and
+  `regions.snapshot_defaults` / `restore_defaults`; use
+  `Registry.build_configured`.
 
 ### Fixed
 

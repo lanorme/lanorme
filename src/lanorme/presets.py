@@ -15,7 +15,7 @@ import tomllib
 from importlib.resources import files as resource_files
 from pathlib import Path
 
-from lanorme.errors import UsageError
+from lanorme.errors import ConfigError
 from lanorme.regions import merge_config
 
 
@@ -30,7 +30,11 @@ def _parse_profile_toml(*, text: str, label: str) -> dict[str, object]:
     try:
         return tomllib.loads(text)
     except tomllib.TOMLDecodeError as error:
-        raise UsageError(f"profile '{label}' is not valid TOML: {error}") from error
+        raise ConfigError(
+            f"profile '{label}' is not valid TOML: {error}",
+            key="extends",
+            source=label,
+        ) from error
 
 
 def _load_profile(*, name: str, project_root: Path) -> dict[str, object]:
@@ -38,15 +42,17 @@ def _load_profile(*, name: str, project_root: Path) -> dict[str, object]:
     if name.endswith(".toml") or "/" in name or os.sep in name:
         path = (project_root / name).resolve()
         if not path.is_file():
-            raise UsageError(f"profile file '{name}' does not exist.")
+            raise ConfigError(f"profile file '{name}' does not exist.", key="extends", source=name)
         return _parse_profile_toml(text=path.read_text(encoding="utf-8"), label=name)
 
     resource = resource_files("lanorme") / "profiles" / f"{name}.toml"
     if not resource.is_file():
         available = ", ".join(_list_bundled_profiles()) or "(none)"
-        raise UsageError(
+        raise ConfigError(
             f"unknown profile '{name}'. Bundled profiles: {available}.\n"
             f"  Use a name, or a path to a .toml file.",
+            key="extends",
+            source=name,
         )
     return _parse_profile_toml(text=resource.read_text(encoding="utf-8"), label=name)
 
@@ -67,9 +73,10 @@ def _resolve_extends(*, config: dict[str, object], project_root: Path) -> dict[s
     elif isinstance(raw, list) and all(isinstance(entry, str) for entry in raw):
         names = raw
     else:
-        raise UsageError(
+        raise ConfigError(
             "'extends' must be a profile name or a list of names/paths "
             f"(got {type(raw).__name__}).",
+            key="extends",
         )
 
     base: dict[str, object] = {}

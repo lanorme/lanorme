@@ -24,6 +24,7 @@ from pathlib import Path
 from typing import ClassVar
 
 from lanorme import CheckResult, Violation, register
+from lanorme.astnames import find_decorator_leaf
 from lanorme.checkconfig import is_flag_set
 from lanorme.sources import UnparseableFile, iter_modules, locate, build_unparseable_notice
 
@@ -48,10 +49,9 @@ def _is_override(*, node: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
     ``*`` cannot be added here: the finding belongs on the base method.
     """
     for decorator in node.decorator_list:
+        # One call is looked through (``@override()``), no more.
         target = decorator.func if isinstance(decorator, ast.Call) else decorator
-        if isinstance(target, ast.Name) and target.id == "override":
-            return True
-        if isinstance(target, ast.Attribute) and target.attr == "override":
+        if find_decorator_leaf(target, calls=False) == "override":
             return True
     return False
 

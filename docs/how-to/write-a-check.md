@@ -93,6 +93,18 @@ from lanorme import register
 register(MyCheck())
 ```
 
+Each check needs a name of its own: registering a second, different check
+under a name already taken raises `lanorme.errors.UsageError` (exit `2` at the
+CLI) rather than letting the later one silently replace the earlier.
+Registering the same instance twice is harmless.
+
+The registered instance is a template. The run never configures or runs it in
+place: every pass (the whole-tree pass and one per config region) works on a
+deep copy configured from that pass's config, so settings cannot leak from
+one region, or one run, into the next. A check must therefore survive
+`copy.deepcopy`, which rules out holding an open file or a lock on the
+instance.
+
 A check that reads configuration may also implement `configure(self, *,
 settings)`, which receives its `[tool.lanorme.<name>]` table before the run. See
 [Configuring a check](#configuring-a-check) below.
@@ -117,7 +129,29 @@ for module in iter_parsed_modules(src_root):
     module.source  # the decoded text
     module.lines  # the text split into lines
     module.tree  # the parsed ast.Module
+    module.comments  # every # comment, read by tokenize
+    module.docstrings  # every module, class and function docstring
+    module.imports  # every module an import statement names
 ```
+
+`lines`, `comments`, `docstrings` and `imports` are views computed on first
+use and shared with every other check that reads the same file in the run, so
+reach for them rather than tokenising or walking the file again:
+
+- `module.comments` holds one `Comment` per `#` comment (`line`, `column`,
+  `token` as written, `text` without the `#`, and `standalone` when it has the
+  line to itself). A `#` inside a string is never a comment. On the rare
+  source the tokeniser gives up on part-way, the tuple holds the comments
+  before that point and `module.has_complete_comments` is false.
+- `module.docstrings` holds one `Docstring` per documented module, class and
+  function, in `ast.walk` order: `owner` (the node), `node` (the string
+  constant), `text` as written, `line`, and `clean()`, which equals
+  `ast.get_docstring(owner)`. `module.find_docstring(node)` looks one up by its
+  owner.
+- `module.imports` holds one `ImportedModule` per module named: `import a, b`
+  gives two, `from x import y, z` gives one for `x` holding both aliases. Each
+  has `node`, `module` (`""` for `from . import y`), `aliases`, `level` and
+  `is_from`.
 
 `iter_parsed_modules(root)` yields only the files that parse. `iter_modules(root)`
 yields those same `Module` objects and, for a file the parser rejects,
@@ -170,6 +204,40 @@ for module in iter_parsed_modules(src_root):
 `ast.walk` order, so a check that switches from a walk reports the same
 findings in the same order.
 
+### Read names off nodes through `lanorme.astnames`
+
+`lanorme.astnames` answers the small questions many checks ask of a node:
+
+- `find_decorator_leaf(decorator)` gives the name a decorator resolves to
+  (`@app.route("/")` gives `route`, `@abc.abstractmethod` gives
+  `abstractmethod`), or `None`. Calls are looked through unless `calls=False`;
+  subscripts too with `subscripts=True`. `list_decorator_leaves(node)` gives
+  one per decorator of a function or class.
+- `build_attr_chain(node)` gives the dotted path an attribute spells
+  (`hashlib.md5` gives `("hashlib", "md5")`), or `()`.
+- `read_str_constant(node)` gives the value of a string literal, or `None`.
+
+### The run context: `lanorme.scan.Scan`
+
+`iter_files`, `iter_dirs`, `iter_modules` and `parse_module` honour the run's
+exclude globs and subtree scope and share one parse cache, but a check never
+passes these around: they belong to the current `Scan`, which the runner
+activates around each pass. A check only calls the functions. To run a check
+by hand under the same confinement, activate a scan yourself:
+
+```python
+from lanorme.scan import Scan
+
+with Scan(root=project_root, excludes=("vendor/*",)).activate():
+    result = MyCheck().run(src_root=str(project_root))
+```
+
+`Scan.restrict(scope=..., excludes=...)` gives a scan confined to a subtree
+with more globs, sharing the parse cache. With no scan active, the whole tree
+is walked with no excludes, which is what a check run directly gets.
+`lanorme.scan.get_current_scan()` returns the scan in force, including its
+`root` and the project's `source_root`.
+
 ## Conventions
 
 These conventions keep a custom check consistent with the built-ins. The same
@@ -199,9 +267,12 @@ rules apply whether the check ships inside LaNorme or as your plugin.
   code should ship default-off behind an `enabled` flag, so users opt in (see
   [Configuring a check](#configuring-a-check)).
 - **Raise `UsageError` for a user's mistake.** A setting that makes no sense is
-  not a crash. Raise `lanorme.errors.UsageError` from `configure` with the
-  message the user needs; the CLI prints it as `ERROR: ...` and exits `2`.
-  Never print to stderr or call `sys.exit` from a check.
+  not a crash. Raise `lanorme.errors.ConfigError` (a `UsageError` that also
+  carries the offending `key` and the `source` table) from `configure`, or
+  `UsageError` for any other mistake of the user's, with the message the user
+  needs; the CLI prints it as `ERROR: ...` and exits `2`. A `UsageError`
+  raised from `run` is not hidden in a `RUN-000` notice either. Never print to
+  stderr or call `sys.exit` from a check.
 
 A check must never let an exception escape `run`. LaNorme isolates a check
 that raises and reports it as a `RUN-000` warning whose message carries the
@@ -358,6 +429,13 @@ in `settings_keys`. LaNorme then refuses a key outside that set, and
 `--show-config` lists the set on the check's `keys:` line. Both mistakes exit
 `2` and name the table and the key.
 
+A reader rejects a value by raising `lanorme.checkconfig.SettingError` (a
+`TypeError`), and a `configure` that validates a value itself raises
+`TypeError` or `ValueError`; LaNorme reports any of these as a
+`ConfigError` naming the table and, where it can isolate it, the key. Any
+other exception out of `configure` (an `AttributeError`, a `KeyError`) is a
+bug in the check and surfaces as one, not as the user's mistake.
+
 ```python
 # stray_extensions.py
 from dataclasses import dataclass, field
@@ -459,8 +537,8 @@ reports the rule as `opt-in via <key> = true in [tool.lanorme.<check>]`
 instead of `on by default`, as `comments` does for `PROSE-001` (`em_dash`).
 
 For a mistake `configure` cannot express as a type, such as two settings that
-contradict each other, raise `lanorme.errors.UsageError`. The CLI reports it
-the same way, with exit `2`.
+contradict each other, raise `lanorme.errors.ConfigError` with the `key` and
+`source` it concerns. The CLI reports it the same way, with exit `2`.
 
 ## Verify it is loaded
 

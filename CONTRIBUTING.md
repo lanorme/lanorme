@@ -105,7 +105,15 @@ Conventions for a new rule:
 - **Walk the tree through `module.index`,** the file's `NodeIndex`:
   `module.index.collect(ast.Call)` for the nodes of a type, `module.index.functions`
   for every def. One walk per file is shared by every check, in `ast.walk`
-  order; do not call `ast.walk(tree)` yourself.
+  order; do not call `ast.walk(tree)` yourself. Read comments, docstrings and
+  imports through the shared views (`module.comments`, `module.docstrings`,
+  `module.imports`) and decorator names, attribute chains and string literals
+  through `lanorme.astnames`, rather than tokenising or walking again.
+- **Keep run state in the `Scan`, not in globals.** The exclude globs, the
+  subtree scope and the parse cache belong to the `lanorme.scan.Scan` the
+  runner activates around each pass. Registered checks are templates the
+  runner deep-copies and configures per pass, so a check must be
+  deep-copyable and is never configured in place.
 - **Build the result with `CheckResult.from_findings`,** which derives the
   status from the finding lists. Give a finding its span with
   `**locate(node)` (from `lanorme.sources`), and emit the bare code
@@ -116,8 +124,9 @@ Conventions for a new rule:
   the check reads in `settings_keys: ClassVar[frozenset[str]]`. A mistyped
   value or an undeclared key is then an exit-2 config error naming the table
   and key, and `--show-config` lists the keys.
-- **Raise `lanorme.errors.UsageError` for a user's mistake.** The CLI maps it
-  to `ERROR: ...` and exit `2`. Never print to stderr or call `sys.exit`
+- **Raise `lanorme.errors.UsageError` for a user's mistake,** or its subclass
+  `ConfigError` (carrying `key` and `source`) for one in a config file or
+  table. The CLI maps both to `ERROR: ...` and exit `2`. Never print to stderr or call `sys.exit`
   outside `cli.main`; diagnostics go through `logging.getLogger(__name__)`.
 - **One category prefix per check.** Rule codes (`SQL-001`, `LAYER-005`) are the
   public surface: people put them in `select` / `ignore` / `per-file-ignores`.

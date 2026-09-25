@@ -61,7 +61,7 @@ def test_run_all_runs_each_check_once_and_meta_audits_them(monkeypatch, tmp_path
     monkeypatch.setattr(
         lanorme,
         "_registry",
-        {"first": first, "meta": MetaCheck(), "second": second},
+        lanorme.Registry({"first": first, "meta": MetaCheck(), "second": second}),
     )
 
     # Act.
@@ -84,17 +84,23 @@ def test_check_meta_under_nested_regions_still_audits_every_check(
     # table would name an unknown check.
     _build_sub_region(tmp_path, 'select = ["META"]\n')
 
+    ran: list[str] = []  # shared by every copy the runner configures
+
     @dataclass
     class _Impostor(_Counting):
         def run(self, *, src_root: str) -> CheckResult:
-            self.runs += 1
+            ran.append(src_root)
             return CheckResult.from_findings(check="someone_else")
 
     impostor = _Impostor(name="honest")
     # The CLI imports the built-in checks on first use; do it before the
     # registry is swapped so they land in the real one, not the fake.
     _load_builtin_checks()
-    monkeypatch.setattr(lanorme, "_registry", {"honest": impostor, "meta": MetaCheck()})
+    monkeypatch.setattr(
+        lanorme,
+        "_registry",
+        lanorme.Registry({"honest": impostor, "meta": MetaCheck()}),
+    )
 
     # Act.
     _run(["check", str(tmp_path), "--check", "meta", "--output-format", "ndjson"])
@@ -102,13 +108,17 @@ def test_check_meta_under_nested_regions_still_audits_every_check(
 
     # Assert: META-004 reported, only meta's result shown, the impostor ran.
     assert [(r["check"], r["code"]) for r in records] == [("meta", "META-004")]
-    assert impostor.runs >= 1
+    assert ran
 
 
 def test_meta_audit_flags_a_result_whose_check_name_is_wrong(monkeypatch):
     # Arrange: a well-formed check whose collected result carries another name.
     impostor = _Counting(name="honest")
-    monkeypatch.setattr(lanorme, "_registry", {"honest": impostor, "meta": MetaCheck()})
+    monkeypatch.setattr(
+        lanorme,
+        "_registry",
+        lanorme.Registry({"honest": impostor, "meta": MetaCheck()}),
+    )
     results = {"honest": CheckResult.from_findings(check="someone_else")}
 
     # Act.
@@ -641,19 +651,19 @@ def test_opt_in_note_counts_only_the_selected_checks(tmp_path: Path, capsys):
     assert f"Opt-in checks not enabled: {registered} (" in full
 
 
-def test_run_notes_count_the_registry_when_no_selection_is_given():
+def test_opt_in_count_covers_only_the_selected_checks():
     # Arrange.
-    from lanorme.reports import RunNotes
+    from lanorme.runner import count_opt_in_disabled
 
     _load_builtin_checks()
-    registered = sum(
-        1 for c in lanorme.get_all_checks().values() if not getattr(c, "enabled", True)
-    )
+    checks = lanorme.get_all_checks()
+    registered = sum(1 for c in checks.values() if not getattr(c, "enabled", True))
 
     # Act / Assert.
-    assert RunNotes(project_root=Path()).opt_in_disabled == registered
-    assert RunNotes(project_root=Path(), selected_checks=("file_limits",)).opt_in_disabled == 0
-    assert RunNotes(project_root=Path(), selected_checks=("similarity",)).opt_in_disabled == 1
+    assert count_opt_in_disabled(checks=checks, selected=checks) == registered
+    assert count_opt_in_disabled(checks=checks, selected=("file_limits",)) == 0
+    assert count_opt_in_disabled(checks=checks, selected=("similarity",)) == 1
+    assert count_opt_in_disabled(checks=checks, selected=("no_such_check",)) == 0
 
 
 # --------------------------------------------------------------------------- #

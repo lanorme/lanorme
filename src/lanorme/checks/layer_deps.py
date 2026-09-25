@@ -158,30 +158,22 @@ def _extract_src_imports(
 ) -> list[tuple[str, _ImportNode]]:
     """Extract imports that reference architectural layers, as (target_layer, import node)."""
     imports: list[tuple[str, _ImportNode]] = []
-    for node in module.index.collect(ast.Import, ast.ImportFrom):
-        if isinstance(node, ast.Import):
-            for alias in node.names:
-                _record_layer_import(
-                    module=alias.name,
-                    node=node,
-                    imports=imports,
-                    layers=layers,
-                    package=package,
-                )
-        elif isinstance(node, ast.ImportFrom):
-            target = (
-                _resolve_relative_module(node=node, classify_rel=classify_rel)
-                if node.level
-                else node.module
+    for imported in module.imports:
+        node = imported.node
+        if not imported.is_from:
+            target = imported.module
+        elif imported.level:
+            target = _resolve_relative_module(node=node, classify_rel=classify_rel)
+        else:
+            target = imported.module
+        if target:
+            _record_layer_import(
+                module=target,
+                node=node,
+                imports=imports,
+                layers=layers,
+                package=package,
             )
-            if target:
-                _record_layer_import(
-                    module=target,
-                    node=node,
-                    imports=imports,
-                    layers=layers,
-                    package=package,
-                )
     return imports
 
 

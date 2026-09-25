@@ -12,9 +12,8 @@ from pathlib import Path
 
 import pytest
 
-from lanorme import CheckResult, Status, Violation, _registry, discovery, get_check, register
-from lanorme.checkconfig import apply_check_config
-from lanorme.cli import main
+from lanorme import CheckResult, Registry, Status, Violation, discovery, get_registry
+from lanorme.cli import _load_builtin_checks, main
 from lanorme.reports import _emit_github
 
 
@@ -34,26 +33,38 @@ class _Spy:
 
 def test_source_root_injected_only_into_layout_checks():
     # Arrange: a spy stands in for a generic configurable check.
-    spy = _Spy()
-    register(spy)
-    try:
-        # Act.
-        apply_check_config(
-            config={
-                "source_root": "src/pkg",
-                "layer_deps": {"composition_root": ["api/dependencies.py"]},
-                "spy_check": {"some_key": 1},
-            },
-        )
+    _load_builtin_checks()
+    registry = Registry({**get_registry(), "spy_check": _Spy()})
 
-        # Assert: the layout-aware checks receive it; the spy does not.
-        assert get_check("layer_deps").source_root == "src/pkg"
-        assert get_check("port_coverage").source_root == "src/pkg"
-        assert get_check("security_patterns").source_root == "src/pkg"
-        assert spy.received == {"some_key": 1}
-        assert "source_root" not in spy.received
-    finally:
-        _registry.pop("spy_check", None)
+    # Act.
+    configured = registry.build_configured(
+        {
+            "source_root": "src/pkg",
+            "layer_deps": {"composition_root": ["api/dependencies.py"]},
+            "spy_check": {"some_key": 1},
+        },
+    )
+
+    # Assert: the layout-aware checks receive it; the spy does not.
+    assert configured["layer_deps"].source_root == "src/pkg"
+    assert configured["port_coverage"].source_root == "src/pkg"
+    assert configured["security_patterns"].source_root == "src/pkg"
+    assert configured["spy_check"].received == {"some_key": 1}
+
+
+def test_configured_copies_leave_the_registered_checks_untouched():
+    # Arrange
+    _load_builtin_checks()
+    template = get_registry()["layer_deps"]
+    before = template.source_root
+
+    # Act
+    configured = get_registry().build_configured({"source_root": "src/pkg"})
+
+    # Assert
+    assert configured["layer_deps"] is not template
+    assert configured["layer_deps"].source_root == "src/pkg"
+    assert template.source_root == before
 
 
 def test_authn_fires_on_a_src_layout_project_through_the_cli(tmp_path: Path, capsys):
@@ -83,13 +94,29 @@ def test_authn_fires_on_a_src_layout_project_through_the_cli(tmp_path: Path, cap
     assert "AUTHN-001" in codes
 
 
-def test_main_publishes_configured_excludes_to_discovery(tmp_path: Path, capsys):
-    # Arrange: a project that configures an exclude glob.
+class _ExcludeSpy:
+    """A check that records the exclude globs discovery honours while it runs."""
+
+    name = "exclude_spy"
+    description = "records the active excludes"
+    rules: list[str] = []
+    seen: list[tuple[str, ...]] = []
+
+    def run(self, *, src_root: str) -> CheckResult:
+        _ExcludeSpy.seen.append(discovery.get_active_excludes())
+        return CheckResult.from_findings(check=self.name)
+
+
+def test_main_publishes_configured_excludes_to_discovery(tmp_path: Path, capsys, monkeypatch):
+    # Arrange: a project that configures an exclude glob, and a spy check.
     (tmp_path / "pyproject.toml").write_text(
         '[tool.lanorme]\nexclude = ["vendor/*"]\n',
         encoding="utf-8",
     )
     (tmp_path / "mod.py").write_text("x = 1\n", encoding="utf-8")
+    _load_builtin_checks()
+    monkeypatch.setattr(_ExcludeSpy, "seen", [])
+    monkeypatch.setattr("lanorme._registry", Registry({"exclude_spy": _ExcludeSpy()}))
 
     # Act: run the real CLI entry point (it may exit nonzero on findings).
     try:
@@ -97,8 +124,10 @@ def test_main_publishes_configured_excludes_to_discovery(tmp_path: Path, capsys)
     except SystemExit:
         pass
 
-    # Assert: the configured glob reached the discovery layer, not just output.
-    assert "vendor/*" in discovery.get_active_excludes()
+    # Assert: the glob reached the discovery layer during the run, and did not
+    # outlive it.
+    assert _ExcludeSpy.seen and all("vendor/*" in seen for seen in _ExcludeSpy.seen)
+    assert "vendor/*" not in discovery.get_active_excludes()
 
 
 def test_show_config_reports_source_and_opt_in_state(tmp_path: Path, capsys):

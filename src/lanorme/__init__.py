@@ -24,9 +24,15 @@ List every registered rule:
 from __future__ import annotations
 
 import enum
-from collections.abc import Callable, Iterable
+import warnings
+from collections.abc import Callable, Iterable, Iterator, Mapping
 from dataclasses import dataclass, field, replace
 from typing import Protocol, runtime_checkable
+
+# ``ConfigurableCheck`` is defined beside the config plumbing and re-exported here.
+from lanorme.checkconfig import ConfigurableCheck as ConfigurableCheck
+from lanorme.checkconfig import configure_checks
+from lanorme.errors import UsageError
 
 __version__ = "0.20.0"
 
@@ -96,12 +102,20 @@ class Violation:
         }
 
     def format_human(self, *, label: str = "VIOLATION") -> str:
-        """The three-line human rendering; *label* tells a violation from a warning."""
-        return (
-            f"  {label}: {self.file}:{self.line} — {self.message}\n"
-            f"    Rule: {self.rule}\n"
-            f"    Fix: {self.fix}"
-        )
+        """Deprecated: use ``lanorme.reports.format_violation``; removed in the next release."""
+        # Deferred: reports imports this module, and the shim goes next release.
+        from lanorme.reports import format_violation  # lanorme: ignore[IMPORT-001]
+
+        _warn_moved(old="Violation.format_human", new="format_violation")
+        return format_violation(self, label=label)
+
+
+def _warn_moved(*, old: str, new: str) -> None:
+    warnings.warn(
+        f"{old} is deprecated and will be removed in the next release; use lanorme.reports.{new}",
+        DeprecationWarning,
+        stacklevel=3,
+    )
 
 
 def extract_code(rule: str) -> str:
@@ -155,15 +169,12 @@ class CheckResult:
         }
 
     def format_human(self) -> str:
-        lines = [f"[{self.status.value}] {self.check}"]
-        for v in self.violations:
-            lines.append(v.format_human())
-        for w in self.warnings:
-            lines.append(w.format_human(label="WARNING"))
-        lines.append(
-            f"--- {self.check}: {len(self.violations)} violations, {len(self.warnings)} warnings ---",
-        )
-        return "\n".join(lines)
+        """Deprecated: use ``lanorme.reports.format_result``; removed in the next release."""
+        # Deferred: reports imports this module, and the shim goes next release.
+        from lanorme.reports import format_result  # lanorme: ignore[IMPORT-001]
+
+        _warn_moved(old="CheckResult.format_human", new="format_result")
+        return format_result(self)
 
 
 class Check(Protocol):
@@ -185,15 +196,6 @@ class Check(Protocol):
 
 
 @runtime_checkable
-class ConfigurableCheck(Protocol):
-    """A check that accepts a ``[tool.lanorme.<name>]`` settings table."""
-
-    def configure(self, *, settings: dict[str, object]) -> None:
-        """Apply configuration to the check before it runs."""
-        ...
-
-
-@runtime_checkable
 class ResultAuditor(Protocol):
     """A check that judges the other checks' results rather than the tree.
 
@@ -209,12 +211,69 @@ class ResultAuditor(Protocol):
 
 # --- Check registry ---
 
-_registry: dict[str, Check] = {}
+
+class Registry(Mapping[str, Check]):
+    """The registered checks by name, in registration order.
+
+    A registered check is a template: the runner never runs or configures it
+    in place. :meth:`build_configured` hands each pass deep copies configured
+    from that pass's config, so one region's settings cannot leak into the
+    next and a second run in the same process starts from the same defaults.
+    """
+
+    def __init__(self, checks: Mapping[str, Check] | None = None) -> None:
+        self._checks: dict[str, Check] = dict(checks or {})
+
+    def register(self, check: Check) -> None:
+        """Add *check*; a second, different check under a taken name is a usage error.
+
+        Registering the same object again is a no-op, so a module imported
+        twice does not fail; two plugins that pick one name do, rather than
+        the later silently replacing the earlier.
+        """
+        existing = self._checks.get(check.name)
+        if existing is not None and existing is not check:
+            raise UsageError(
+                f"a check named {check.name!r} is already registered "
+                f"({type(existing).__module__}.{type(existing).__qualname__}); "
+                f"{type(check).__module__}.{type(check).__qualname__} needs another name.",
+            )
+        self._checks[check.name] = check
+
+    def unregister(self, name: str) -> None:
+        """Remove the check registered under *name*, if any."""
+        self._checks.pop(name, None)
+
+    def build_configured(self, config: Mapping[str, object]) -> dict[str, Check]:
+        """A deep copy of every registered check, configured from *config*.
+
+        *config* is a resolved ``[tool.lanorme]`` table; each check's sub-table
+        goes to its copy's ``configure()``, and a value it rejects is a
+        :class:`~lanorme.errors.ConfigError`. The templates are never touched.
+        """
+        return configure_checks(templates=self._checks, config=dict(config))
+
+    def __getitem__(self, name: str) -> Check:
+        return self._checks[name]
+
+    def __iter__(self) -> Iterator[str]:
+        return iter(self._checks)
+
+    def __len__(self) -> int:
+        return len(self._checks)
+
+
+_registry = Registry()
+
+
+def get_registry() -> Registry:
+    """The process registry the CLI loads checks into."""
+    return _registry
 
 
 def register(check: Check) -> None:
     """Register a check so the unified runner can discover it."""
-    _registry[check.name] = check
+    _registry.register(check)
 
 
 def get_check(name: str) -> Check | None:
@@ -278,11 +337,15 @@ def run_check(check: Check, *, src_root: str) -> CheckResult:
 
     A bug in one check (a `RecursionError` on a pathological file, say) must not
     discard the results of every other check. The failure is reported as a
-    warning on that check and the run continues.
+    warning on that check and the run continues. A :class:`UsageError` is the
+    exception: it is the user's mistake, not the check's, so it propagates to
+    the caller (exit 2 at the CLI) rather than hiding in a crash notice.
     """
     try:
         return expand_rules(check=check, result=check.run(src_root=src_root))
-    except Exception as exc:  # noqa: BLE001 - one check must not sink the run
+    except UsageError:
+        raise
+    except Exception as exc:  # one check must not sink the run
         return _crash_notice(check=check, exc=exc)
 
 
@@ -290,7 +353,9 @@ def run_audit(check: ResultAuditor, *, results: dict[str, CheckResult]) -> Check
     """Run one result auditor with the same isolation as :func:`run_check`."""
     try:
         return expand_rules(check=check, result=check.audit(results=results))
-    except Exception as exc:  # noqa: BLE001 - one check must not sink the run
+    except UsageError:
+        raise
+    except Exception as exc:  # one check must not sink the run
         return _crash_notice(check=check, exc=exc)
 
 

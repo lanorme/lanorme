@@ -1,8 +1,10 @@
-"""What makes a ``#`` comment commented-out code, for CMT-001 and CMT-002.
+"""The one ``#`` comment tokeniser, and what makes a comment commented-out code.
 
-The comments check reads its ``#`` comments through :func:`_collect_comments`
-and asks :func:`_looks_like_code` whether one is a disabled statement rather
-than prose. The answer is precision-first: the text must parse as a Python
+:func:`collect_comments` reads every ``#`` comment of a source through
+:mod:`tokenize` (so a ``#`` inside a string never counts); ``Module.comments``
+serves it once per file per run to every check that reads comments. The
+comments check then asks :func:`_looks_like_code` whether one is a disabled
+statement rather than prose (CMT-001 and CMT-002). The answer is precision-first: the text must parse as a Python
 statement of a kind that only code has, and every shape that parses but is
 not code (a labelled note, a foreign literal, an adverb after a keyword, a
 call shown with ``...``, a PEP 723 block, the lines under an ``Example:``
@@ -61,16 +63,35 @@ _CODE_NODES = (
 
 
 @dataclass(frozen=True)
-class _Comment:
+class Comment:
+    """One ``#`` comment: where it starts, its text, and whether it has a line to itself.
+
+    *token* is the comment as written, ``#`` included; *text* is that with the
+    ``#`` and surrounding whitespace stripped.
+    """
+
     line: int
     column: int
     text: str
     standalone: bool
+    token: str = ""
 
 
-def _collect_comments(*, source: str, source_lines: list[str]) -> list[_Comment]:
-    """Return every ``#`` comment via tokenize (so ``#`` inside strings is ignored)."""
-    comments: list[_Comment] = []
+@dataclass(frozen=True)
+class CommentScan:
+    """The comments of one source, and whether the tokeniser read all of it.
+
+    On a source :mod:`tokenize` gives up on part-way, *comments* holds the
+    ones before that point and *complete* is false.
+    """
+
+    comments: tuple[Comment, ...]
+    complete: bool
+
+
+def collect_comments(*, source: str, source_lines: list[str]) -> CommentScan:
+    """Every ``#`` comment via tokenize (so ``#`` inside strings is ignored)."""
+    comments: list[Comment] = []
     try:
         for token in tokenize.generate_tokens(io.StringIO(source).readline):
             if token.type != tokenize.COMMENT:
@@ -78,16 +99,17 @@ def _collect_comments(*, source: str, source_lines: list[str]) -> list[_Comment]
             row, col = token.start
             before = source_lines[row - 1][:col] if 0 <= row - 1 < len(source_lines) else ""
             comments.append(
-                _Comment(
+                Comment(
                     line=row,
                     column=col,
                     text=token.string.lstrip("#").strip(),
                     standalone=not before.strip(),
+                    token=token.string,
                 ),
             )
-    except (tokenize.TokenError, IndentationError, SyntaxError):
-        pass
-    return comments
+    except (tokenize.TokenError, SyntaxError):
+        return CommentScan(comments=tuple(comments), complete=False)
+    return CommentScan(comments=tuple(comments), complete=True)
 
 
 def _has_ellipsis_arg(*, call: ast.Call) -> bool:
@@ -336,7 +358,7 @@ _ILLUSTRATION_HEADER = re.compile(
 )
 
 
-def _find_illustrative_lines(comments: list[_Comment]) -> frozenset[int]:
+def _find_illustrative_lines(comments: list[Comment]) -> frozenset[int]:
     """Return the lines that follow an illustration header in the same block."""
     illustrative: set[int] = set()
     under_header = False
@@ -360,7 +382,7 @@ def _find_illustrative_lines(comments: list[_Comment]) -> frozenset[int]:
 _LICENCE_MARKER = re.compile(r"copyright|licen[cs]e|spdx|\(c\)", re.IGNORECASE)
 
 
-def _is_licence_block(block: list[_Comment]) -> bool:
+def _is_licence_block(block: list[Comment]) -> bool:
     return any(_LICENCE_MARKER.search(comment.text) for comment in block)
 
 

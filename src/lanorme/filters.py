@@ -1,100 +1,32 @@
-"""Post-run filtering of check results: rule-code matching, ``# noqa``, promotion.
+"""Post-run narrowing of check results: targets, rule codes, excludes, silencers, promotion.
 
-These helpers operate purely on the ``CheckResult`` list a run produces. They
-carry no argument-parsing or config-discovery concern, so they live apart from
-``cli.py`` (which orchestrates them). Each ``_apply_*`` returns a new list with
-statuses recomputed; none mutates its input.
+These operate purely on the ``CheckResult`` list a run produces. They carry no
+argument-parsing or config-discovery concern, so they live apart from
+``cli.py`` and ``runner.py`` (which drive them). :class:`Narrowing` applies the
+stages in their fixed order and reports what each one dropped; every stage
+returns a new list with statuses recomputed and none mutates its input.
 """
 
 from __future__ import annotations
 
 import fnmatch
 import logging
-import re
-from dataclasses import replace
-from importlib.util import decode_source
+from collections.abc import Callable
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 from lanorme import CheckResult, Violation, extract_code
+from lanorme.directives import is_silenced_inline
+from lanorme.regions import reanchor_results
+from lanorme.selectors import is_code_matched
+from lanorme.source_lines import SourceLines
 
 logger = logging.getLogger(__name__)
 
-_CODE_RE = re.compile(r"^([A-Z]+)-\d+")
 
-
-def _extract_category(code: str) -> str:
-    """The category prefix of a code, e.g. 'LAYER' from 'LAYER-002'."""
-    match = _CODE_RE.match(code)
-    return match.group(1) if match else code
-
-
-def _matches(*, code: str, patterns: list[str]) -> bool:
-    """True if *code* matches any selector (exact code, category, or 'ALL').
-
-    Case-insensitive, and whitespace and empty entries are ignored, so a
-    selector from a config list (``[" type-004 "]``) behaves like the CLI form
-    (``--promote 'type-004'``), which is normalised by ``_split_csv``.
-    """
-    code_upper = code.upper()
-    category = _extract_category(code_upper)
-    wanted = {p.strip().upper() for p in patterns if p.strip()}
-    return any(p in ("ALL", code_upper, category) for p in wanted)
-
-
-def _keep(*, rule: str, select: list[str], ignore: list[str]) -> bool:
-    code = extract_code(rule)
-    selected = not select or _matches(code=code, patterns=select)
-    return selected and not _matches(code=code, patterns=ignore)
-
-
-# --------------------------------------------------------------------------- #
-# Rule-code selection, path targets, excludes, per-file-ignores
-# --------------------------------------------------------------------------- #
-
-
-def _apply_filters(
-    *,
-    results: list[CheckResult],
-    select: list[str],
-    ignore: list[str],
-) -> list[CheckResult]:
-    """Drop violations/warnings whose rule code is deselected, recompute status."""
-    if not select and not ignore:
-        return results
-    return [
-        result.filter_findings(
-            lambda finding: _keep(rule=finding.rule, select=select, ignore=ignore),
-        )
-        for result in results
-    ]
-
-
-def _apply_target_filter(
-    *,
-    results: list[CheckResult],
-    run_root: Path,
-    targets: list[Path] | None,
-) -> list[CheckResult]:
-    """Keep only findings for the explicitly requested files/dirs.
-
-    The checks run from *run_root* (the project root) so cross-file checks see
-    the whole project; this narrows output to the requested paths so a file
-    target reports that file alone. ``None`` (a lone directory request) keeps
-    everything: the discovery scope already confined the walk to it.
-    """
-    if not targets:
-        return results
-
-    files = {t.resolve() for t in targets if t.is_file()}
-    dirs = {t.resolve() for t in targets if t.is_dir()}
-
-    def should_keep(finding: Violation) -> bool:
-        if not finding.file:
-            return True  # a RUN-000 crash notice belongs to no path; never drop it
-        absolute = (run_root / finding.file).resolve()
-        return absolute in files or any(absolute == d or d in absolute.parents for d in dirs)
-
-    return [result.filter_findings(should_keep) for result in results]
+def count_findings(results: list[CheckResult]) -> int:
+    """Every violation and warning across *results*."""
+    return sum(len(r.violations) + len(r.warnings) for r in results)
 
 
 def _is_path_excluded(*, path: str, patterns: list[str]) -> bool:
@@ -102,44 +34,120 @@ def _is_path_excluded(*, path: str, patterns: list[str]) -> bool:
     return any(fnmatch.fnmatch(normalised, pattern) for pattern in patterns)
 
 
-def _apply_excludes(*, results: list[CheckResult], exclude: list[str]) -> list[CheckResult]:
-    """Drop violations/warnings whose file path matches an exclude glob."""
-    if not exclude:
-        return results
-    return [
-        result.filter_findings(
-            lambda finding: not _is_path_excluded(path=finding.file, patterns=exclude),
-        )
-        for result in results
-    ]
-
-
 def _is_silenced_per_file(*, file: str, rule: str, table: dict[str, list[str]]) -> bool:
     """True if *rule* (full code or category) is silenced for *file* by *table*."""
     code = extract_code(rule)
     normalised = file.replace("\\", "/")
-    for pattern, codes in table.items():
-        if fnmatch.fnmatch(normalised, pattern) and _matches(code=code, patterns=codes):
-            return True
-    return False
+    return any(
+        fnmatch.fnmatch(normalised, pattern) and is_code_matched(code=code, patterns=codes)
+        for pattern, codes in table.items()
+    )
 
 
-def _apply_per_file_ignores(
-    *,
-    results: list[CheckResult],
-    table: dict[str, list[str]],
-) -> list[CheckResult]:
-    """Drop findings whose ``(file, rule)`` pair is silenced by the per-file-ignores table."""
-    if not table:
-        return results
-    return [
-        result.filter_findings(
-            lambda finding: (
-                not _is_silenced_per_file(file=finding.file, rule=finding.rule, table=table)
-            ),
+@dataclass(frozen=True)
+class Narrowed:
+    """The results that survived a :class:`Narrowing`, and what each stage dropped.
+
+    ``dropped`` maps a stage name (``targets``, ``selection``, ``exclude``,
+    ``per_file``, ``inline``) to the number of findings it removed.
+    """
+
+    results: list[CheckResult]
+    dropped: dict[str, int] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class Narrowing:
+    """The result-narrowing a run applies after the checks, in its fixed order.
+
+    1. ``targets``: only findings for the explicitly requested files and
+       directories (in *run_root*-relative paths); ``None`` keeps everything,
+       since the discovery scope already confined the walk. The survivors are
+       then re-expressed relative to *project_root*, where every later stage
+       (config globs, the inline-ignore source lookup, display) works.
+    2. ``selection``: the rule codes *select* keeps and *ignore* drops.
+    3. ``exclude``: findings in a file an *exclude* glob matches.
+    4. ``per_file``: the ``[tool.lanorme.per-file-ignores]`` table.
+    5. ``inline``: a covering ``# noqa`` / ``# lanorme: ignore`` on the line,
+       read through *lines* (a fresh cache over *project_root* when not given).
+    """
+
+    select: list[str]
+    ignore: list[str]
+    exclude: list[str]
+    per_file_ignores: dict[str, list[str]]
+    project_root: Path
+    targets: list[Path] | None = None
+    run_root: Path | None = None
+    lines: SourceLines | None = None
+
+    def apply(self, results: list[CheckResult]) -> Narrowed:
+        """Run every stage over *results*, counting what each one drops.
+
+        A stage with nothing to apply (no targets, an empty table) is skipped
+        and counted as dropping nothing.
+        """
+        dropped: dict[str, int] = {}
+        for stage, keep in self._build_stages():
+            before = count_findings(results)
+            if keep is not None:
+                results = [result.filter_findings(keep) for result in results]
+            dropped[stage] = before - count_findings(results)
+            if stage == "targets":
+                results = reanchor_results(
+                    results=results,
+                    from_root=self.run_root or self.project_root,
+                    to_root=self.project_root,
+                )
+        return Narrowed(results=results, dropped=dropped)
+
+    def _build_stages(self) -> list[tuple[str, Callable[[Violation], bool] | None]]:
+        return [
+            ("targets", self._build_target_filter()),
+            ("selection", self._keep_selected if self.select or self.ignore else None),
+            ("exclude", self._keep_unexcluded if self.exclude else None),
+            ("per_file", self._keep_unsilenced_per_file if self.per_file_ignores else None),
+            ("inline", self._build_inline_filter()),
+        ]
+
+    def _build_target_filter(self) -> Callable[[Violation], bool] | None:
+        if not self.targets:
+            return None
+        run_root = self.run_root or self.project_root
+        files = {t.resolve() for t in self.targets if t.is_file()}
+        dirs = {t.resolve() for t in self.targets if t.is_dir()}
+
+        def is_targeted(finding: Violation) -> bool:
+            if not finding.file:
+                return True  # a RUN-000 crash notice belongs to no path; never drop it
+            absolute = (run_root / finding.file).resolve()
+            return absolute in files or any(absolute == d or d in absolute.parents for d in dirs)
+
+        return is_targeted
+
+    def _keep_selected(self, finding: Violation) -> bool:
+        code = extract_code(finding.rule)
+        selected = not self.select or is_code_matched(code=code, patterns=self.select)
+        return selected and not is_code_matched(code=code, patterns=self.ignore)
+
+    def _keep_unexcluded(self, finding: Violation) -> bool:
+        return not _is_path_excluded(path=finding.file, patterns=self.exclude)
+
+    def _keep_unsilenced_per_file(self, finding: Violation) -> bool:
+        return not _is_silenced_per_file(
+            file=finding.file,
+            rule=finding.rule,
+            table=self.per_file_ignores,
         )
-        for result in results
-    ]
+
+    def _build_inline_filter(self) -> Callable[[Violation], bool]:
+        lines = self.lines or SourceLines(self.project_root)
+
+        def is_unsilenced(finding: Violation) -> bool:
+            line = lines.read_line(file=finding.file, line=finding.line)
+            return not is_silenced_inline(line=line, rule=finding.rule)
+
+        return is_unsilenced
 
 
 def note_excluded_targets(
@@ -173,100 +181,7 @@ def note_excluded_targets(
     )
 
 
-# --------------------------------------------------------------------------- #
-# Inline suppression: the ``noqa`` and ``lanorme: ignore[...]`` comments
-# --------------------------------------------------------------------------- #
-
-_NOQA_RE = re.compile(r"#\s*noqa(?:\s*:\s*([A-Za-z0-9_,\-\s]+))?", re.IGNORECASE)
-# A LaNorme-native directive ruff and other linters never read, so a project
-# running both can silence a finding without ruff reporting an invalid `noqa`
-# (ruff's parser cannot tokenise the hyphen in our codes, e.g. ``TYPE-001``).
-_IGNORE_RE = re.compile(
-    r"#\s*lanorme\s*:\s*ignore(?:\s*\[([A-Za-z0-9_,\-\s]+)\])?",
-    re.IGNORECASE,
-)
-
-
-def _is_silenced_by_directive(*, pattern: re.Pattern[str], line: str, rule: str) -> bool:
-    """True if a *pattern* directive on *line* covers *rule*.
-
-    A directive with no code list (bare ``# noqa`` or ``# lanorme: ignore``)
-    silences every rule on the line; a coded one silences only matching codes
-    (exact code, category, or ``ALL``).
-    """
-    match = pattern.search(line)
-    if match is None:
-        return False
-    if match.group(1) is None:
-        return True
-    codes = [c.strip() for c in match.group(1).split(",") if c.strip()]
-    return _matches(code=extract_code(rule), patterns=codes)
-
-
-# Categories no inline directive may silence. A budget on suppressions that an
-# offender can waive on the offending line is not a budget, so the SUPPRESS
-# family is answerable only in config, where the decision is reviewable.
-_UNSUPPRESSABLE = frozenset({"SUPPRESS"})
-
-
-def _is_silenced_inline(*, line: str, rule: str) -> bool:
-    """True if a ``# noqa`` or ``# lanorme: ignore`` on *line* covers *rule*."""
-    if _extract_category(extract_code(rule)) in _UNSUPPRESSABLE:
-        return False
-    return _is_silenced_by_directive(
-        pattern=_NOQA_RE,
-        line=line,
-        rule=rule,
-    ) or _is_silenced_by_directive(
-        pattern=_IGNORE_RE,
-        line=line,
-        rule=rule,
-    )
-
-
-def _read_line(*, project_root: Path, file: str, line: int, cache: dict[str, list[str]]) -> str:
-    """Read source line *line* from *file*, caching the file's lines for the run."""
-    key = file.replace("\\", "/")
-    lines = cache.get(key)
-    if lines is None:
-        path = project_root / file
-        try:
-            # Decoded the way the interpreter decodes a module (a BOM or a
-            # ``coding:`` cookie is honoured), like ``lanorme.sources``, so a
-            # directive in a latin-1 file is read rather than the whole file
-            # dropped. ``decode_source`` raises SyntaxError on an unknown
-            # cookie and UnicodeDecodeError (a ValueError) on bad bytes.
-            lines = decode_source(path.read_bytes()).splitlines()
-        except (OSError, SyntaxError, ValueError):
-            lines = []
-        cache[key] = lines
-    if not lines or line <= 0 or line > len(lines):
-        return ""
-    return lines[line - 1]
-
-
-def _apply_inline_ignores(*, results: list[CheckResult], project_root: Path) -> list[CheckResult]:
-    """Drop findings whose source line carries a covering ``# noqa`` / ``# lanorme: ignore``."""
-    cache: dict[str, list[str]] = {}
-
-    def should_keep(violation: Violation) -> bool:
-        line = _read_line(
-            project_root=project_root,
-            file=violation.file,
-            line=violation.line,
-            cache=cache,
-        )
-        return not _is_silenced_inline(line=line, rule=violation.rule)
-
-    return [result.filter_findings(should_keep) for result in results]
-
-
-# --------------------------------------------------------------------------- #
-# Severity promotion
-# --------------------------------------------------------------------------- #
-
-
-def _apply_promotions(*, results: list[CheckResult], promote: list[str]) -> list[CheckResult]:
+def apply_promotions(*, results: list[CheckResult], promote: list[str]) -> list[CheckResult]:
     """Promote advisory warnings whose code matches *promote* into violations.
 
     Lets a project escalate heuristic, default-warning rules (for example
@@ -287,7 +202,7 @@ def _apply_promotions(*, results: list[CheckResult], promote: list[str]) -> list
             # ``-000`` codes are skip/parse-error notices ("could not analyse,
             # skipping"), not findings, so promotion (including ``ALL``) leaves
             # them as warnings rather than failing the build on a non-issue.
-            if not code.endswith("-000") and _matches(code=code, patterns=promote):
+            if not code.endswith("-000") and is_code_matched(code=code, patterns=promote):
                 escalated.append(replace(warning, promoted=True))
             else:
                 kept.append(warning)

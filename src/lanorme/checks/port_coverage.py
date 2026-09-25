@@ -104,26 +104,16 @@ def _extract_protocol_names(*, parsed: Module) -> list[tuple[str, ast.ClassDef]]
 
 def _extract_import_modules(*, parsed: Module) -> list[tuple[str, _ImportNode]]:
     """Extract import source modules as (dotted_module, import node) pairs."""
-    modules: list[tuple[str, _ImportNode]] = []
-    for node in parsed.index.collect(ast.Import, ast.ImportFrom):
-        if isinstance(node, ast.Import):
-            for alias in node.names:
-                modules.append((alias.name, node))
-        elif isinstance(node, ast.ImportFrom) and node.module:
-            modules.append((node.module, node))
-    return modules
+    return [(imported.module, imported.node) for imported in parsed.imports if imported.module]
 
 
 def _extract_imported_names(*, parsed: Module) -> set[str]:
     """Collect all names brought into scope via import statements."""
     names: set[str] = set()
-    for node in parsed.index.collect(ast.Import, ast.ImportFrom):
-        if isinstance(node, ast.Import):
-            for alias in node.names:
-                names.add(alias.asname if alias.asname else alias.name.split(".")[-1])
-        elif isinstance(node, ast.ImportFrom):
-            for alias in node.names or []:
-                names.add(alias.asname if alias.asname else alias.name)
+    for imported in parsed.imports:
+        for alias in imported.aliases:
+            leaf = alias.name if imported.is_from else alias.name.split(".")[-1]
+            names.add(alias.asname or leaf)
     return names
 
 
@@ -136,14 +126,12 @@ def _collect_adapter_bound_names(*, parsed: Module, adapter_dotted: tuple[str, .
     receiver check keeps the detection from firing on an unrelated same-named call.
     """
     bound: set[str] = set()
-    for node in parsed.index.collect(ast.Import, ast.ImportFrom):
-        if isinstance(node, ast.ImportFrom) and node.module:
-            if any(dotted in node.module for dotted in adapter_dotted):
-                bound.update(alias.asname or alias.name for alias in node.names)
-        elif isinstance(node, ast.Import):
-            for alias in node.names:
-                if any(dotted in alias.name for dotted in adapter_dotted):
-                    bound.add(alias.asname or alias.name.split(".")[-1])
+    for imported in parsed.imports:
+        if not imported.module or not any(dotted in imported.module for dotted in adapter_dotted):
+            continue
+        for alias in imported.aliases:
+            leaf = alias.name if imported.is_from else alias.name.split(".")[-1]
+            bound.add(alias.asname or leaf)
     return bound
 
 
@@ -207,9 +195,13 @@ def _collect_ports_package_import_stems(*, parsed: Module, ports_parts: list[str
     """
     width = len(ports_parts)
     stems: set[str] = set()
-    for node in parsed.index.collect(ast.ImportFrom):
-        if node.module and node.module.split(".")[-width:] == ports_parts:
-            stems.update(alias.name for alias in node.names)
+    for imported in parsed.imports:
+        if (
+            imported.is_from
+            and imported.module
+            and imported.module.split(".")[-width:] == ports_parts
+        ):
+            stems.update(alias.name for alias in imported.aliases)
     return stems
 
 

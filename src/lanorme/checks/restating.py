@@ -32,7 +32,7 @@ from typing import ClassVar
 
 from lanorme import CheckResult, Violation, register
 from lanorme.checkconfig import is_flag_set
-from lanorme.checks.comment_code import _PRAGMA_PREFIXES, _Comment, _collect_comments
+from lanorme.comment_code import _PRAGMA_PREFIXES, Comment
 from lanorme.sources import iter_parsed_modules
 
 MAX_CONTENT_WORDS = 4
@@ -315,7 +315,7 @@ class _Context:
     standalone_lines: set[int]
 
 
-def _find_adjacent_statement(*, comment: _Comment, ctx: _Context) -> ast.stmt | None:
+def _find_adjacent_statement(*, comment: Comment, ctx: _Context) -> ast.stmt | None:
     if comment.standalone:
         for line in ctx.stmt_lines:
             if line > comment.line:
@@ -324,7 +324,7 @@ def _find_adjacent_statement(*, comment: _Comment, ctx: _Context) -> ast.stmt | 
     return ctx.stmt_index.get(comment.line)
 
 
-def _is_restating(*, comment: _Comment, s: ast.stmt) -> bool:
+def _is_restating(*, comment: Comment, s: ast.stmt) -> bool:
     text = comment.text
     low = text.lower()
     if _is_allowlisted(text=text, low=low):
@@ -344,7 +344,7 @@ def _is_restating(*, comment: _Comment, s: ast.stmt) -> bool:
 def _find_restating_violations(
     *,
     tree: ast.Module,
-    comments: list[_Comment],
+    comments: list[Comment],
     file: str,
 ) -> list[Violation]:
     stmt_index = _build_stmt_index(tree=tree)
@@ -401,8 +401,7 @@ class RestatingCheck:
             return CheckResult.from_findings(check=self.name)
         violations: list[Violation] = []
         for module in iter_parsed_modules(Path(src_root)):
-            source_lines = module.lines
-            comments = _collect_comments(source=module.source, source_lines=source_lines)
+            comments = list(module.comments)
             violations.extend(
                 _find_restating_violations(
                     tree=module.tree,

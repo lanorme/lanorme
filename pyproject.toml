@@ -64,15 +64,16 @@ include = [
 ]
 
 # Ruff enforces the layout LaNorme does not judge: trailing commas on every
-# multi-line call, signature and literal (COM), and the formatter's line
-# breaking. LaNorme itself stays the judge of naming, size and structure.
+# multi-line call, signature and literal (COM), unused imports (F401), and the
+# formatter's line breaking. LaNorme itself stays the judge of naming, size and
+# structure.
 [tool.ruff]
 line-length = 100
 target-version = "py313"
-extend-exclude = ["tests/fixtures", "evals/corpora", "evals/articulacy/runs", "evals/articulacy/runs_control", "benchmarks/.corpora"]
+extend-exclude = ["tests/fixtures", "evals/corpora", "evals/articulacy/runs", "evals/articulacy/runs_control", "evals/readability/runs", "benchmarks/.corpora"]
 
 [tool.ruff.lint]
-select = ["COM"]
+select = ["COM", "F401"]
 
 [tool.ruff.format]
 skip-magic-trailing-comma = false

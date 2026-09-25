@@ -79,15 +79,14 @@ def _is_test_function(*, node: ast.AST) -> bool:
     return True
 
 
-def _list_statements(*, node: ast.FunctionDef | ast.AsyncFunctionDef) -> list[ast.stmt]:
+def _list_statements(
+    *,
+    node: ast.FunctionDef | ast.AsyncFunctionDef,
+    module: Module,
+) -> list[ast.stmt]:
     """Body statements minus a leading docstring (which is documentation, not setup)."""
     body = list(node.body)
-    if (
-        body
-        and isinstance(body[0], ast.Expr)
-        and isinstance(body[0].value, ast.Constant)
-        and isinstance(body[0].value.value, str)
-    ):
+    if module.find_docstring(node) is not None:
         body = body[1:]
     return body
 
@@ -207,7 +206,7 @@ class TestStyleCheck:
         for node in module.index.functions:
             if not _is_test_function(node=node):
                 continue
-            statements = _list_statements(node=node)
+            statements = _list_statements(node=node, module=module)
             if len(statements) <= self.min_statements:
                 continue
             sections = _collect_section_markers(
@@ -241,7 +240,7 @@ class TestStyleCheck:
         for node in module.index.functions:
             if not _is_test_function(node=node):
                 continue
-            statements = _list_statements(node=node)
+            statements = _list_statements(node=node, module=module)
             digest = _normalize_prefix(
                 statements=statements,
                 prefix_len=self.dry_prefix_statements,

@@ -39,6 +39,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from lanorme import CheckResult, Violation, register
+from lanorme.astnames import build_attr_chain, read_str_constant
 from lanorme.sources import Module, iter_parsed_modules, locate
 
 # (rule, message, fix) for one finding.
@@ -119,24 +120,6 @@ _TLS_OFF_KWARGS = {
 _WEB_FRAMEWORK_CONSTRUCTORS = frozenset({"Flask", "FastAPI"})
 
 
-def _extract_attr_chain(node: ast.AST | None) -> tuple[str, ...]:
-    """Return the dotted attribute chain at *node*, or () if it isn't one.
-
-    ``hashlib.md5`` -> ('hashlib', 'md5'); ``ssl.PROTOCOL_TLSv1`` -> ('ssl',
-    'PROTOCOL_TLSv1'); ``client.x.execute`` -> ('client', 'x', 'execute');
-    anything else (subscripts, calls in the chain, etc.) -> ().
-    """
-    parts: list[str] = []
-    current = node
-    while isinstance(current, ast.Attribute):
-        parts.append(current.attr)
-        current = current.value
-    if isinstance(current, ast.Name):
-        parts.append(current.id)
-        return tuple(reversed(parts))
-    return ()
-
-
 def _find_kwarg_named(*, call: ast.Call, name: str) -> ast.expr | None:
     for keyword in call.keywords:
         if keyword.arg == name:
@@ -153,7 +136,7 @@ def _is_constant_false(node: ast.expr | None) -> bool:
 
 
 def _is_string_literal(node: ast.expr | None) -> bool:
-    return isinstance(node, ast.Constant) and isinstance(node.value, str)
+    return read_str_constant(node) is not None
 
 
 def _build_violation(*, node: ast.AST, finding: _Finding, file: str) -> Violation:
@@ -256,7 +239,7 @@ def _build_scope(module: Module) -> _Scope:
 
 def _resolve_chain(node: ast.AST, *, scope: _Scope) -> tuple[str, ...]:
     """The attribute chain at *node* with its head import alias expanded."""
-    chain = _extract_attr_chain(node)
+    chain = build_attr_chain(node)
     if chain and chain[0] in scope.aliases:
         return scope.aliases[chain[0]] + chain[1:]
     return chain
@@ -285,7 +268,7 @@ def _find_deserial_finding(*, call: ast.Call, chain: tuple[str, ...]) -> _Findin
     loader = _find_kwarg_named(call=call, name="Loader")
     if loader is None and len(call.args) > 1:
         loader = call.args[1]
-    loader_chain = _extract_attr_chain(loader)
+    loader_chain = build_attr_chain(loader)
     if loader_chain and loader_chain[-1] in _SAFE_YAML_LOADERS:
         return None
     return (

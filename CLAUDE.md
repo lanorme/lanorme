@@ -65,9 +65,20 @@ one-line fix, a doc edit. Anything larger gets the phases above.
   `iter_parsed_modules`), which parses each file once per run and shares the
   tree with every check; never read or `ast.parse` a file yourself, and never
   mutate a tree. Walk the tree through `module.index` (`collect(ast.Call)`,
-  `functions`), one shared walk per file, not `ast.walk(tree)`. Other files go
-  through `lanorme.discovery.iter_files` / `iter_dirs`, never `Path.rglob` or
+  `functions`), one shared walk per file, not `ast.walk(tree)`. Use the shared
+  views rather than re-walking: `module.comments` (the one tokeniser, in
+  `lanorme/comment_code.py`), `module.docstrings` / `find_docstring(node)`,
+  `module.imports`, `module.lines`. Read decorator names, attribute chains and
+  string literals through `lanorme.astnames`. Other files go through
+  `lanorme.discovery.iter_files` / `iter_dirs`, never `Path.rglob` or
   `os.walk`, so directory pruning and the user's `exclude` globs are honoured.
+- Run context is a `lanorme.scan.Scan` (root, scope, excludes, the run's parse
+  cache) activated with `with scan.activate():`; discovery and sources read the
+  current one, so check signatures never carry it. Do not add process-global
+  state. Registered checks are templates: the runner runs deep copies from
+  `Registry.build_configured(config)`, so never configure a registered check
+  in place, and keep checks deep-copyable. `register` refuses a second check
+  under a taken name.
 - Build the result with `CheckResult.from_findings(check=self.name, ...)` so
   the status always agrees with the finding lists; give a finding its span with
   `**locate(node)`; emit the bare code (`rule="SIZE-001"`) and let the runner
@@ -78,7 +89,10 @@ one-line fix, a doc edit. Anything larger gets the phases above.
   (`read_str_list`, `read_int`, `read_str`, `is_flag_set`) and declare the keys
   the check reads in `settings_keys`, so a mistyped value or key is an exit-2
   config error, not a run-time failure.
-- Raise `lanorme.errors.UsageError` for a mistake the user made; never print to
+- Raise `lanorme.errors.UsageError` for a mistake the user made, and its
+  subclass `ConfigError` (with `key` and `source`) for one in a config file or
+  table; the typed readers raise `SettingError`, and only that, `TypeError` or
+  `ValueError` out of `configure()` is reported as the user's; never print to
   stderr or call `sys.exit` outside `cli.main`. Diagnostics go through
   `logging.getLogger(__name__)`; findings go to stdout through the reporters.
 - Names: a function is named for what it does, verb first (`build_`,

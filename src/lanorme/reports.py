@@ -15,37 +15,11 @@ import json
 import os
 import sys
 from collections.abc import Iterator
-from pathlib import Path
 
-from lanorme import CheckResult, Status, Violation, get_all_checks
-from lanorme.baseline import compute_fingerprint
-
-
-@dataclasses.dataclass(frozen=True)
-class RunNotes:
-    """What the run did around the findings, for the summary and the records."""
-
-    project_root: Path
-    selected_checks: tuple[str, ...] | None = None
-    suppressed_inline: int = 0
-    suppressed_per_file: int = 0
-    suppressed_baseline: int = 0
-    baseline_configured: bool = False
-
-    @property
-    def opt_in_disabled(self) -> int:
-        """Selected checks that ship off and were not enabled for this run.
-
-        ``selected_checks`` is the run's selection (every check for a full
-        run, the one named under ``--check``); ``None`` counts the registry.
-        """
-        checks = get_all_checks()
-        names = checks if self.selected_checks is None else self.selected_checks
-        return sum(
-            1
-            for name in names
-            if name in checks and hasattr(checks[name], "enabled") and not checks[name].enabled
-        )
+from lanorme import Check, CheckResult, Status, Violation
+from lanorme.baseline import FindingKeys
+from lanorme.regions import DiscoveredConfig
+from lanorme.runner import RunOutcome
 
 
 @contextlib.contextmanager
@@ -75,11 +49,31 @@ def tolerate_closed_pipe() -> Iterator[None]:
 # --------------------------------------------------------------------------- #
 
 
+def format_violation(violation: Violation, *, label: str = "VIOLATION") -> str:
+    """The three-line human rendering of a finding; *label* tells a violation from a warning."""
+    return (
+        f"  {label}: {violation.file}:{violation.line} — {violation.message}\n"
+        f"    Rule: {violation.rule}\n"
+        f"    Fix: {violation.fix}"
+    )
+
+
+def format_result(result: CheckResult) -> str:
+    """The human rendering of one check's result: a header, each finding, a tally."""
+    lines = [f"[{result.status.value}] {result.check}"]
+    lines.extend(format_violation(v) for v in result.violations)
+    lines.extend(format_violation(w, label="WARNING") for w in result.warnings)
+    lines.append(
+        f"--- {result.check}: {len(result.violations)} violations, "
+        f"{len(result.warnings)} warnings ---",
+    )
+    return "\n".join(lines)
+
+
 def _build_finding_records(
     *,
     result: CheckResult,
-    project_root: Path | None,
-    cache: dict[str, list[str]],
+    keys: FindingKeys,
 ) -> list[dict[str, object]]:
     """Flatten a check result into one record per finding (violations + warnings)."""
     records: list[dict[str, object]] = []
@@ -90,30 +84,23 @@ def _build_finding_records(
                 "severity": severity,
                 **finding.to_dict(),
             }
-            if project_root is not None:
-                record["fingerprint"] = compute_fingerprint(
-                    project_root=project_root,
-                    finding=finding,
-                    cache=cache,
-                )
+            record["fingerprint"] = keys.compute_fingerprint(finding)
             records.append(record)
     return records
 
 
-def _emit_ndjson(*, results: list[CheckResult], project_root: Path | None) -> None:
+def _emit_ndjson(*, results: list[CheckResult], keys: FindingKeys) -> None:
     """Print one JSON object per finding, newline-delimited (grep/jq friendly)."""
-    cache: dict[str, list[str]] = {}
     for result in results:
-        for record in _build_finding_records(result=result, project_root=project_root, cache=cache):
+        for record in _build_finding_records(result=result, keys=keys):
             print(json.dumps(record))
 
 
-def _emit_json(*, results: list[CheckResult], project_root: Path | None) -> None:
+def _emit_json(*, results: list[CheckResult], keys: FindingKeys) -> None:
     """Print one object per check, each finding carrying its fingerprint."""
-    cache: dict[str, list[str]] = {}
     payload = []
     for result in results:
-        records = _build_finding_records(result=result, project_root=project_root, cache=cache)
+        records = _build_finding_records(result=result, keys=keys)
         payload.append(
             {
                 "check": result.check,
@@ -148,18 +135,19 @@ def _emit_summary(*, results: list[CheckResult]) -> None:
             print(f"  {directory + '/':<24} {count}")
 
 
-def _emit_human(*, results: list[CheckResult], show_passed: bool, notes: RunNotes | None) -> None:
+def _emit_human(*, outcome: RunOutcome, show_passed: bool) -> None:
     """Print the human report.
 
     ``full`` (*show_passed* true) reproduces the verbose per-check listing exactly,
     with no summary footer. ``concise`` (*show_passed* false) prints only the checks
     that found something, then the summary so an empty run is not silent.
     """
+    results = outcome.results
     shown = 0
     for result in results:
         if not show_passed and result.status == Status.PASS:
             continue
-        print(result.format_human())
+        print(format_result(result))
         print()
         shown += 1
 
@@ -169,8 +157,7 @@ def _emit_human(*, results: list[CheckResult], show_passed: bool, notes: RunNote
         print(f"All {len(results)} checks passed.")
     else:
         _print_totals(results=results)
-    if notes is not None:
-        _print_notes(results=results, notes=notes)
+    _print_notes(outcome=outcome)
 
 
 def _print_totals(*, results: list[CheckResult]) -> None:
@@ -190,21 +177,23 @@ def _print_totals(*, results: list[CheckResult]) -> None:
 _BASELINE_TIP_THRESHOLD = 25
 
 
-def _print_notes(*, results: list[CheckResult], notes: RunNotes) -> None:
+def _print_notes(*, outcome: RunOutcome) -> None:
     """What a clean or dirty summary would otherwise hide: suppressions, opt-ins, adoption."""
-    suppressed = (notes.suppressed_inline, notes.suppressed_per_file, notes.suppressed_baseline)
+    suppressed = tuple(
+        outcome.dropped.get(stage, 0) for stage in ("inline", "per_file", "baseline")
+    )
     if any(suppressed):
         print(
             f"Suppressed: {suppressed[0]} by inline ignores, {suppressed[1]} by per-file-ignores, "
             f"{suppressed[2]} by the baseline.",
         )
-    if notes.opt_in_disabled:
+    if outcome.opt_in_disabled:
         print(
-            f"Opt-in checks not enabled: {notes.opt_in_disabled} "
+            f"Opt-in checks not enabled: {outcome.opt_in_disabled} "
             "('lanorme check --show-config' lists them).",
         )
-    errors = sum(len(r.violations) for r in results)
-    if errors >= _BASELINE_TIP_THRESHOLD and not notes.baseline_configured:
+    errors = sum(len(r.violations) for r in outcome.results)
+    if errors >= _BASELINE_TIP_THRESHOLD and not outcome.baseline_configured:
         print(
             "Tip: 'lanorme baseline write' records today's findings as debt so that only "
             "new ones report (see the adoption tutorial).",
@@ -293,19 +282,19 @@ def print_baseline_drift(*, drifted: list[tuple[str, str]], output_format: str) 
     )
 
 
-def emit(*, results: list[CheckResult], output_format: str, notes: RunNotes | None = None) -> None:
-    """Dispatch results to the requested output format."""
-    project_root = notes.project_root if notes is not None else None
+def emit(*, outcome: RunOutcome, output_format: str) -> None:
+    """Dispatch a run's results to the requested output format."""
+    results = outcome.results
     if output_format == "json":
-        _emit_json(results=results, project_root=project_root)
+        _emit_json(results=results, keys=outcome.keys)
     elif output_format == "ndjson":
-        _emit_ndjson(results=results, project_root=project_root)
+        _emit_ndjson(results=results, keys=outcome.keys)
     elif output_format == "github":
         _emit_github(results=results)
     elif output_format == "summary":
         _emit_summary(results=results)
     else:
-        _emit_human(results=results, show_passed=output_format == "full", notes=notes)
+        _emit_human(outcome=outcome, show_passed=output_format == "full")
 
 
 # --------------------------------------------------------------------------- #
@@ -354,19 +343,20 @@ _TOP_LEVEL_KEYS = (
 )
 
 
-def print_config(
-    *,
-    config: dict[str, object],
-    source: str | None,
-    project_root: Path,
-    extends: object = None,
-) -> None:
+def print_config(*, checks: dict[str, Check], found: DiscoveredConfig) -> None:
     """Print the discovered config file and the effective settings for every check.
 
-    *extends* is the raw ``extends`` value: profile resolution folds it into
-    *config*, so it is passed separately to show where promoted or ignored
+    *checks* are the registered checks configured from ``found.config``.
+    ``found.extends`` is the raw ``extends`` value: profile resolution folds it
+    into the config, so it is shown separately to say where promoted or ignored
     codes came from.
     """
+    config, source, project_root, extends = (
+        found.config,
+        found.source,
+        found.project_root,
+        found.extends,
+    )
     if source is None:
         print(
             "config file:  none, built-in defaults (looked for lanorme.toml, .lanorme.toml "
@@ -384,5 +374,5 @@ def print_config(
         if config.get("per-file-ignores"):
             print(f"  per-file-ignores = {config['per-file-ignores']!r}")
     print("\nchecks (effective settings):")
-    for name, check in sorted(get_all_checks().items()):
+    for name, check in sorted(checks.items()):
         print(f"  {name:<18} {_summarise_settings(check)}")

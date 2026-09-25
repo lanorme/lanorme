@@ -28,7 +28,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import ClassVar
 
-from lanorme import CheckResult, Status, Violation, register
+from lanorme import CheckResult, Violation, register
 from lanorme.checkconfig import read_int
 from lanorme.sources import Module, UnparseableFile, iter_modules, locate, build_unparseable_notice
 

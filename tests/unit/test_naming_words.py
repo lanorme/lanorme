@@ -238,7 +238,8 @@ def test_third_person_and_fused_predicates(tokens: list[str]) -> None:
 
 
 @pytest.mark.parametrize(
-    "tokens", [["empty"], ["valid"], ["check", "password"], ["match"], ["ready"]],
+    "tokens",
+    [["empty"], ["valid"], ["check", "password"], ["match"], ["ready"]],
 )
 def test_non_predicates(tokens: list[str]) -> None:
     assert not is_predicate(tokens=tokens)

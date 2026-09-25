@@ -43,7 +43,8 @@ import ast
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from lanorme import CheckResult, Status, Violation, register
+from lanorme import CheckResult, Violation, register
+from lanorme.astnames import find_decorator_leaf, list_decorator_leaves
 from lanorme.sources import (
     TOO_DEEP,
     Module,
@@ -79,28 +80,18 @@ def _is_exempt_path(*, relative_path: str) -> bool:
 
 
 def _has_exempt_decorator(*, func_node: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
-    for dec in func_node.decorator_list:
-        name = _resolve_decorator_name(dec)
-        if name in _EXEMPT_DECORATORS:
-            return True
-    return False
-
-
-def _resolve_decorator_name(node: ast.expr) -> str | None:
-    if isinstance(node, ast.Name):
-        return node.id
-    if isinstance(node, ast.Attribute):
-        return node.attr
-    if isinstance(node, ast.Call):
-        return _resolve_decorator_name(node.func)
-    return None
+    return any(leaf in _EXEMPT_DECORATORS for leaf in list_decorator_leaves(func_node))
 
 
 def _render_annotation_text(annotation: ast.expr) -> str:
-    """Render an annotation AST back to source text (best-effort)."""
+    """Render an annotation AST back to source text (best-effort).
+
+    A parsed annotation always unparses; only one nested deeper than the
+    unparser's recursion allows fails, and it is named rather than rendered.
+    """
     try:
         return ast.unparse(annotation)
-    except Exception:
+    except RecursionError:
         return "<unparseable>"
 
 
@@ -138,20 +129,17 @@ def _classify_annotation(annotation: ast.expr) -> tuple[str, str, str] | None:
     ``Optional[dict]``, ``Annotated[dict, ...]``) is the same weak type, so the
     walk descends through those wrappers to the first container it finds.
     """
-    # Bare container: `dict`, `list`, `Dict`, etc. (no subscript at all).
-    if isinstance(annotation, ast.Name) and annotation.id in _BARE_CONTAINERS:
-        return ("fail", "TYPE-002", _build_bare_container_message(name=annotation.id))
-
-    if isinstance(annotation, ast.Subscript):
-        outer = _resolve_decorator_name(annotation.value)
-        if outer in _BARE_CONTAINERS:
-            return _classify_container(annotation=annotation)
-        return _classify_first(_list_slice_elements(annotation.slice))
-
-    # `X | None` style unions.
-    if isinstance(annotation, ast.BinOp):
-        return _classify_first([annotation.left, annotation.right])
-
+    match annotation:
+        # Bare container: `dict`, `list`, `Dict`, etc. (no subscript at all).
+        case ast.Name(id=name) if name in _BARE_CONTAINERS:
+            return ("fail", "TYPE-002", _build_bare_container_message(name=name))
+        case ast.Subscript(value=outer, slice=inner):
+            if find_decorator_leaf(outer) in _BARE_CONTAINERS:
+                return _classify_container(annotation=annotation)
+            return _classify_first(_list_slice_elements(inner))
+        # `X | None` style unions.
+        case ast.BinOp(left=left, right=right):
+            return _classify_first([left, right])
     return None
 
 
@@ -194,22 +182,18 @@ def _collect_value_names(node: ast.expr) -> list[str]:
     A qualified leaf (``typing.Any``, ``t.Any``) contributes its final
     attribute, so it is read the same as the bare name.
     """
-    names: list[str] = []
-    if isinstance(node, ast.Name):
-        names.append(node.id)
-    elif isinstance(node, ast.Attribute):
-        names.append(node.attr)
-    elif isinstance(node, ast.Tuple):
-        for elt in node.elts:
-            names.extend(_collect_value_names(elt))
-    elif isinstance(node, ast.Subscript):
-        # `Optional[Any]` → look at the slice
-        names.extend(_collect_value_names(node.slice))
-    elif isinstance(node, ast.BinOp):
-        # `int | None` style unions
-        names.extend(_collect_value_names(node.left))
-        names.extend(_collect_value_names(node.right))
-    return names
+    match node:
+        case ast.Name(id=name) | ast.Attribute(attr=name):
+            return [name]
+        case ast.Tuple(elts=elements):
+            return [name for element in elements for name in _collect_value_names(element)]
+        # `Optional[Any]`: look at the slice.
+        case ast.Subscript(slice=inner):
+            return _collect_value_names(inner)
+        # `int | None` style unions.
+        case ast.BinOp(left=left, right=right):
+            return [*_collect_value_names(left), *_collect_value_names(right)]
+    return []
 
 
 def _has_annotated_param(*, func: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
@@ -316,7 +300,7 @@ def _collect_param_findings(*, func: ast.FunctionDef | ast.AsyncFunctionDef) -> 
 def _is_weak_kwargs_annotation(annotation: ast.expr) -> bool:
     """True for ``Any`` (bare or qualified), a bare ``dict`` or a ``dict[str, Any]``."""
     if isinstance(annotation, ast.Name | ast.Attribute):
-        return _resolve_decorator_name(annotation) in _HARD_WEAK_TYPES | _MAPPING_CONTAINERS
+        return find_decorator_leaf(annotation) in _HARD_WEAK_TYPES | _MAPPING_CONTAINERS
     classified = _classify_annotation(annotation)
     return classified is not None and classified[0] == "fail"
 

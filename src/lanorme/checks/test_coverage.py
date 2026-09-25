@@ -25,7 +25,6 @@ Run:
 
 from __future__ import annotations
 
-import ast
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import ClassVar
@@ -33,6 +32,7 @@ from typing import ClassVar
 from lanorme import CheckResult, Violation, register
 from lanorme.checkconfig import read_str, read_str_list
 from lanorme.discovery import DEFAULT_PRUNE_DIRS
+from lanorme.sources import UNREADABLE, Module, parse_module
 
 
 # ---------------------------------------------------------------------------
@@ -133,27 +133,33 @@ def _find_test_files(*, backend_root: Path, test_roots: tuple[str, ...]) -> list
     return sorted(found)
 
 
-def _collect_dotted_import_paths(source: str) -> list[str] | None:
-    """Reconstruct the dotted import paths of a test file from its AST.
+def _collect_dotted_import_paths(module: Module) -> list[str]:
+    """Reconstruct the dotted import paths of a test file from its imports.
 
-    Returns one string per imported target (e.g. ``app.services.billing``),
-    or ``None`` if the source cannot be parsed, signalling the caller to fall
-    back to a raw-text scan.
+    Returns one string per imported target (e.g. ``app.services.billing``).
     """
-    try:
-        tree = ast.parse(source)
-    except SyntaxError:
-        return None
-
     paths: list[str] = []
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Import):
-            paths.extend(alias.name for alias in node.names)
-        elif isinstance(node, ast.ImportFrom) and node.module is not None:
-            paths.append(node.module)
-            paths.extend(f"{node.module}.{alias.name}" for alias in node.names)
-
+    for imported in module.imports:
+        if not imported.is_from:
+            paths.append(imported.module)
+        elif imported.module:
+            paths.append(imported.module)
+            paths.extend(f"{imported.module}.{alias.name}" for alias in imported.aliases)
     return paths
+
+
+def _read_test_file(path: Path) -> tuple[str, list[str] | None] | None:
+    """A test file's text and dotted import paths, from the run's shared parse.
+
+    The paths are ``None`` for a file that does not parse, signalling the
+    caller to fall back to a raw-text scan; an unreadable file gives ``None``.
+    """
+    parsed = parse_module(path, root=path.parent)
+    if isinstance(parsed, Module):
+        return parsed.source, _collect_dotted_import_paths(parsed)
+    if parsed.reason == UNREADABLE:
+        return None
+    return parsed.source, None
 
 
 def _import_covers_module(
@@ -231,11 +237,9 @@ def _check_module_coverage(
     # an integration test_x.py) do not shadow one another.
     test_file_imports: dict[str, tuple[str, list[str] | None]] = {}
     for tf in test_files:
-        try:
-            contents = tf.read_text(encoding="utf-8")
-        except OSError:
-            continue
-        test_file_imports[str(tf)] = (contents, _collect_dotted_import_paths(contents))
+        read = _read_test_file(tf)
+        if read is not None:
+            test_file_imports[str(tf)] = read
 
     warnings: list[Violation] = []
     for rel_path, name, import_hint in modules:

@@ -1,8 +1,8 @@
 """Unit tests for the cascading per-directory config model (issue #28).
 
 These cover the pure region resolution: merge precedence, inheritance, the
-``root = true`` stop, nested-region pruning globs, and the pristine snapshot the
-runner uses to keep one region's config from leaking into the next.
+``root = true`` stop, and nested-region pruning globs. That one region's config
+cannot leak into the next is pinned in ``test_scan.py``.
 """
 
 from __future__ import annotations
@@ -14,8 +14,6 @@ from lanorme.regions import (
     build_child_exclude_globs,
     discover_regions,
     merge_config,
-    restore_defaults,
-    snapshot_defaults,
 )
 
 
@@ -115,25 +113,6 @@ def test_child_exclude_globs_prune_nested_regions(tmp_path: Path):
 
     # Assert
     assert globs == ["a/b", "a/b/*"]
-
-
-def test_snapshot_restore_resets_mutated_state():
-    """Restoring the snapshot returns a configured check to its defaults."""
-
-    class _Toggle:
-        def __init__(self):
-            self.enabled = False
-
-    # Arrange
-    check = _Toggle()
-    snapshot = snapshot_defaults({"toggle": check})
-
-    # Act
-    check.enabled = True
-    restore_defaults(checks={"toggle": check}, snapshot=snapshot)
-
-    # Assert
-    assert check.enabled is False
 
 
 def _find_region_at(regions: list[Region], directory: Path) -> Region:

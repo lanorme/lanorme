@@ -12,12 +12,16 @@ tree-scoped checks (duplication, layers, coverage) still see the whole project:
 the standard is the project's. Cascading per-directory config is handled here
 too: each region's file-level pass is confined to the region's own files by
 the same scope, under that region's merged settings.
+
+The confinement is a :class:`~lanorme.scan.Scan` activated around each pass,
+and each pass runs its own configured copies of the registered checks, so no
+pass leaves state behind for the next.
 """
 
 from __future__ import annotations
 
-from collections.abc import Callable
-from dataclasses import dataclass
+from collections.abc import Callable, Iterable
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from lanorme import (
@@ -25,18 +29,13 @@ from lanorme import (
     CheckResult,
     ResultAuditor,
     get_all_checks,
+    get_registry,
     run_audit,
     run_check,
 )
-from lanorme.checkconfig import apply_check_config
-from lanorme.discovery import find_narrower_scope, set_excludes, set_scope
-from lanorme.filters import (
-    _apply_excludes,
-    _apply_filters,
-    _apply_inline_ignores,
-    _apply_per_file_ignores,
-    _apply_target_filter,
-)
+from lanorme.baseline import FindingKeys
+from lanorme.discovery import find_narrower_scope
+from lanorme.filters import Narrowing
 from lanorme.presets import _resolve_extends
 from lanorme.regions import (
     Config,
@@ -45,12 +44,11 @@ from lanorme.regions import (
     combine_results,
     discover_regions,
     is_tree_scoped,
-    reanchor_results,
     compute_region_prefix,
-    restore_defaults,
 )
+from lanorme.scan import Scan
 from lanorme.selectors import reject_unknown_selectors
-from lanorme.sources import clear_cache
+from lanorme.source_lines import SourceLines
 
 
 def parse_per_file_ignores(*, table: object) -> dict[str, list[str]]:
@@ -69,30 +67,34 @@ def parse_per_file_ignores(*, table: object) -> dict[str, list[str]]:
 
 @dataclass(frozen=True)
 class RunBounds:
-    """Where a run starts from, what it is confined to, and what it excludes.
+    """Where a run starts from and what it is confined to.
 
-    *scope* is the subtree the scan asked for, relative to *run_root* (``""``
-    for the whole tree); *pristine* is the checks' default state, restored
-    before each pass so one region's settings never leak into the next.
+    *scan* covers the whole project from the run root: the exclude globs and
+    the run's shared parse cache. *scope* is the subtree the scan asked for,
+    relative to the run root (``""`` for the whole tree).
     """
 
-    run_root: Path
+    scan: Scan
     scope: str
-    exclude: list[str]
-    pristine: dict[str, object]
+
+    @property
+    def run_root(self) -> Path:
+        """The directory every check runs from."""
+        return self.scan.root
 
 
 def run_regions(
     *,
     regions: list[Region],
-    root_config: Config,
+    root_checks: dict[str, Check],
     bounds: RunBounds,
     only: list[Check] | None = None,
 ) -> list[CheckResult]:
     """Run the checks within *bounds* under cascading config and merge the results.
 
-    *only* restricts the run to the given checks (a ``--check`` selection);
-    the default runs every registered check.
+    *root_checks* are the registered checks configured from the root config;
+    *only* restricts the run to the given registered checks (a ``--check``
+    selection); the default runs every registered check.
 
     Whole-tree checks run once from the run root over the whole tree, whatever
     the scope: a duplicate of a scanned file elsewhere in the project is still
@@ -103,53 +105,34 @@ def run_regions(
     root, so a check sees ``tests/helpers.py`` and not ``helpers.py`` and its
     path-based exemptions hold.
     """
-    checks, reported = _select_checks(only=only)
-    by_name = _run_tree_pass(checks=checks, root_config=root_config, bounds=bounds)
+    names, reported = _select_checks(only=only)
+    by_name = _run_tree_pass(checks={name: root_checks[name] for name in names}, bounds=bounds)
     for region in regions:
-        passed = _run_region_pass(checks=checks, region=region, regions=regions, bounds=bounds)
+        passed = _run_region_pass(names=names, region=region, regions=regions, bounds=bounds)
         for name, result in passed.items():
             by_name[name] = combine_results(existing=by_name.get(name), addition=result)
-    set_scope(bounds.scope)
-    set_excludes(bounds.exclude)
 
-    for name, check in checks.items():
-        if isinstance(check, ResultAuditor):
-            by_name[name] = run_audit(check, results=by_name)
+    with bounds.scan.restrict(scope=bounds.scope).activate():
+        for name in names:
+            check = root_checks[name]
+            if isinstance(check, ResultAuditor):
+                by_name[name] = run_audit(check, results=by_name)
     return [by_name[name] for name in reported if name in by_name]
 
 
-def _configure_pass(
-    *,
-    config: Config,
-    bounds: RunBounds,
-    scope: str,
-    nested: list[str] = (),
-) -> None:
-    """Reset the checks, apply *config*, and confine discovery for one pass."""
-    restore_defaults(checks=get_all_checks(), snapshot=bounds.pristine)
-    apply_check_config(config=config)
-    set_excludes([*bounds.exclude, *nested])
-    set_scope(scope)
-
-
-def _run_tree_pass(
-    *,
-    checks: dict[str, Check],
-    root_config: Config,
-    bounds: RunBounds,
-) -> dict[str, CheckResult]:
+def _run_tree_pass(*, checks: dict[str, Check], bounds: RunBounds) -> dict[str, CheckResult]:
     """The whole-tree checks, once from the run root over the whole project."""
-    _configure_pass(config=root_config, bounds=bounds, scope="")
-    return {
-        name: run_check(check, src_root=str(bounds.run_root))
-        for name, check in checks.items()
-        if is_tree_scoped(check) and not isinstance(check, ResultAuditor)
-    }
+    with bounds.scan.activate():
+        return {
+            name: run_check(check, src_root=str(bounds.run_root))
+            for name, check in checks.items()
+            if is_tree_scoped(check) and not isinstance(check, ResultAuditor)
+        }
 
 
 def _run_region_pass(
     *,
-    checks: dict[str, Check],
+    names: list[str],
     region: Region,
     regions: list[Region],
     bounds: RunBounds,
@@ -164,16 +147,17 @@ def _run_region_pass(
     if scope is None:
         return {}
     nested = build_child_exclude_globs(region=region, regions=regions, scan_root=bounds.run_root)
-    _configure_pass(config=region.merged, bounds=bounds, scope=scope, nested=nested)
-    return {
-        name: run_check(check, src_root=str(bounds.run_root))
-        for name, check in checks.items()
-        if not is_tree_scoped(check)
-    }
+    checks = get_registry().build_configured(region.merged)
+    with bounds.scan.restrict(scope=scope, excludes=nested).activate():
+        return {
+            name: run_check(checks[name], src_root=str(bounds.run_root))
+            for name in names
+            if not is_tree_scoped(checks[name])
+        }
 
 
-def _select_checks(*, only: list[Check] | None) -> tuple[dict[str, Check], list[str]]:
-    """The checks to run and the names to report for a ``--check`` selection.
+def _select_checks(*, only: list[Check] | None) -> tuple[list[str], list[str]]:
+    """The names of the checks to run and to report for a ``--check`` selection.
 
     A selected result auditor (``--check meta``) needs the other checks'
     results to judge, so the whole registry runs and only its result is
@@ -181,12 +165,12 @@ def _select_checks(*, only: list[Check] | None) -> tuple[dict[str, Check], list[
     """
     checks = get_all_checks()
     if only is None:
-        return checks, list(checks)
+        return list(checks), list(checks)
     chosen = {id(check) for check in only}
     reported = [name for name, check in checks.items() if id(check) in chosen]
     if any(isinstance(check, ResultAuditor) for check in only):
-        return checks, reported
-    return {name: checks[name] for name in reported}, reported
+        return list(checks), reported
+    return reported, reported
 
 
 @dataclass(frozen=True)
@@ -200,17 +184,34 @@ class Filters:
 
 
 @dataclass(frozen=True)
-class CollectedResults:
-    """The filtered results of a run and how many findings the silencers dropped.
+class RunOutcome:
+    """What a run found, and what it did around the findings, for the reports.
 
     ``selected`` names the checks the run was asked to report, in registry
     order: every check for a full run, the selection under ``--check``.
+    ``dropped`` counts the findings each narrowing stage removed (``inline``,
+    ``per_file`` and, once the CLI applies it, ``baseline`` are the ones a
+    summary reports). ``keys`` is the run's shared finding-key cache, for the
+    baseline and the fingerprints the JSON formats carry. ``opt_in_disabled``
+    is how many selected checks ship off and were not enabled.
     """
 
     results: list[CheckResult]
+    project_root: Path
+    keys: FindingKeys
     selected: tuple[str, ...] = ()
-    suppressed_per_file: int = 0
-    suppressed_inline: int = 0
+    dropped: dict[str, int] = field(default_factory=dict)
+    opt_in_disabled: int = 0
+    baseline_configured: bool = False
+
+
+def count_opt_in_disabled(*, checks: dict[str, Check], selected: Iterable[str]) -> int:
+    """How many of the *selected* checks are opt-in and not enabled."""
+    return sum(
+        1
+        for name in selected
+        if name in checks and hasattr(checks[name], "enabled") and not checks[name].enabled
+    )
 
 
 def resolve_run_root(*, scan_root: Path, project_root: Path) -> tuple[Path, str]:
@@ -230,88 +231,98 @@ def resolve_run_root(*, scan_root: Path, project_root: Path) -> tuple[Path, str]
     return project_root, relative.as_posix()
 
 
-def count_findings(results: list[CheckResult]) -> int:
-    return sum(len(r.violations) + len(r.warnings) for r in results)
-
-
-def collect_results(
+def _run_checks(
     *,
-    config: dict[str, object],
-    scan_root: Path,
-    project_root: Path,
-    targets: list[Path] | None,
-    pristine: dict[str, object],
-    filters: Filters,
-    resolve_single: Callable[..., tuple[list[Check], list[str]]],
-) -> CollectedResults | None:
-    """Run the checks and apply every filter up to (and including) inline ignores.
+    config: Config,
+    configured: dict[str, Check],
+    bounds: RunBounds,
+    only: list[Check] | None,
+) -> list[CheckResult]:
+    """Discover the config regions within *bounds* and run the checks over them."""
+    # The region walk honours the scope too, so only the regions on or under
+    # the scanned subtree are found; the ones above it are already folded into
+    # *config* by the walk-up discovery.
+    with bounds.scan.restrict(scope=bounds.scope).activate():
+        regions = discover_regions(
+            scan_root=bounds.run_root,
+            root_config=config,
+            resolve_extends=_resolve_extends,
+        )
+    return run_regions(regions=regions, root_checks=configured, bounds=bounds, only=only)
 
-    This is the shared spine of ``check``, ``baseline write`` and ``baseline
-    status``: all three must see byte-identical findings through an identical
-    path, or recorded anchors would not line up with checked ones. The baseline
-    hook and promotion run after this, on the returned project-root-relative
-    results. Returns ``None`` when no checks are registered.
-    """
+
+def _read_per_file_ignores(*, config: Config, filters: Filters) -> dict[str, list[str]]:
+    """The per-file-ignores table, once every selector the run was given names a rule."""
     per_file_ignores = parse_per_file_ignores(table=config.get("per-file-ignores", {}))
     reject_unknown_selectors(selectors=filters.select, origin="'select'")
     reject_unknown_selectors(selectors=filters.ignore, origin="'ignore'")
     for pattern, codes in per_file_ignores.items():
         reject_unknown_selectors(selectors=codes, origin=f"per-file-ignores entry '{pattern}'")
-    set_excludes(filters.exclude)
-    clear_cache()
+    return per_file_ignores
+
+
+def collect_results(
+    *,
+    config: dict[str, object],
+    configured: dict[str, Check],
+    scan_root: Path,
+    project_root: Path,
+    targets: list[Path] | None,
+    filters: Filters,
+    resolve_single: Callable[..., tuple[list[Check], list[str]]],
+) -> RunOutcome | None:
+    """Run the checks and narrow the results up to (and including) inline ignores.
+
+    *configured* holds the registered checks configured from *config* (the
+    root config); they run the whole-tree pass and judge the opt-in count,
+    while each region's pass configures its own. This is the shared spine of
+    ``check``, ``baseline write`` and ``baseline status``: all three must see
+    byte-identical findings through an identical path, or recorded anchors
+    would not line up with checked ones. The baseline hook and promotion run
+    after this, on the returned project-root-relative results. Returns
+    ``None`` when no checks are registered.
+    """
+    per_file_ignores = _read_per_file_ignores(config=config, filters=filters)
 
     only: list[Check] | None = None
     implicit_select: list[str] = []
     if filters.single:
         only, implicit_select = resolve_single(selector=filters.single)
     run_root, scope = resolve_run_root(scan_root=scan_root, project_root=project_root)
-    set_scope(scope)
-    try:
-        # The region walk honours the scope too, so only the regions on or
-        # under the scanned subtree are found; the ones above it are already
-        # folded into *config* by the walk-up discovery.
-        regions = discover_regions(
-            scan_root=run_root,
-            root_config=config,
-            resolve_extends=_resolve_extends,
-        )
-        results = run_regions(
-            regions=regions,
-            root_config=config,
-            bounds=RunBounds(
-                run_root=run_root,
-                scope=scope,
-                exclude=filters.exclude,
-                pristine=pristine,
-            ),
-            only=only,
-        )
-    finally:
-        set_scope("")
-
+    source_root = config.get("source_root")
+    base = Scan(
+        root=run_root,
+        excludes=tuple(filters.exclude),
+        source_root=source_root if isinstance(source_root, str) else "",
+    )
+    bounds = RunBounds(scan=base, scope=scope)
+    results = _run_checks(config=config, configured=configured, bounds=bounds, only=only)
     if not results:
         return None
 
-    # A code-form ``--check`` (e.g. DRY-001) narrows to that code; otherwise the
-    # filters' select (CLI then config) applies.
-    effective_select = implicit_select or filters.select
-    # A lone directory target narrows the report the same way named targets
-    # do: the whole-tree checks saw the project, the report is the subtree's.
-    scoped_targets = targets if targets is not None or not scope else [scan_root]
-    results = _apply_target_filter(results=results, run_root=run_root, targets=scoped_targets)
-    # The target filter works in run-root-relative paths; everything after it
-    # (config globs, inline-ignore source lookup, display) works in project-root-relative.
-    results = reanchor_results(results=results, from_root=run_root, to_root=project_root)
-    results = _apply_filters(results=results, select=effective_select, ignore=filters.ignore)
-    results = _apply_excludes(results=results, exclude=filters.exclude)
-    before = count_findings(results)
-    results = _apply_per_file_ignores(results=results, table=per_file_ignores)
-    per_file = before - count_findings(results)
-    before = count_findings(results)
-    results = _apply_inline_ignores(results=results, project_root=project_root)
-    return CollectedResults(
-        results=results,
-        selected=tuple(_select_checks(only=only)[1]),
-        suppressed_per_file=per_file,
-        suppressed_inline=before - count_findings(results),
+    keys = FindingKeys(SourceLines(project_root))
+    narrowed = Narrowing(
+        # A code-form ``--check`` (e.g. DRY-001) narrows to that code;
+        # otherwise the filters' select (CLI then config) applies.
+        select=implicit_select or filters.select,
+        ignore=filters.ignore,
+        exclude=filters.exclude,
+        per_file_ignores=per_file_ignores,
+        project_root=project_root,
+        # A lone directory target narrows the report the same way named
+        # targets do: the whole-tree checks saw the project, the report is
+        # the subtree's.
+        targets=targets if targets is not None or not scope else [scan_root],
+        run_root=run_root,
+        lines=keys.lines,
+    ).apply(results)
+    selected = tuple(_select_checks(only=only)[1])
+    return RunOutcome(
+        results=narrowed.results,
+        project_root=project_root,
+        keys=keys,
+        selected=selected,
+        dropped=narrowed.dropped,
+        opt_in_disabled=count_opt_in_disabled(checks=configured, selected=selected),
+        baseline_configured=bool(config.get("baseline")),
     )

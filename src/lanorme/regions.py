@@ -34,16 +34,15 @@ root-level and are applied once by the CLI pipeline.
 
 from __future__ import annotations
 
-import copy
 import tomllib
 from collections.abc import Callable
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 
-from lanorme import Check, CheckResult, Violation
-from lanorme.checkconfig import reject_unknown_top_level_keys
+from lanorme import Check, CheckResult, Violation, get_all_checks
+from lanorme.checkconfig import RUN_KEYS
 from lanorme.discovery import iter_dirs
-from lanorme.errors import UsageError
+from lanorme.errors import ConfigError
 
 # A loaded TOML config: string keys to arbitrary scalar / list / table values.
 Config = dict[str, object]
@@ -53,7 +52,7 @@ DEDICATED_CONFIG_FILES: tuple[str, ...] = ("lanorme.toml", ".lanorme.toml")
 
 
 def read_toml(path: Path) -> Config:
-    """Parse *path*, raising :class:`UsageError` with the reason if it is not valid TOML.
+    """Parse *path*, raising :class:`ConfigError` with the reason if it is not valid TOML.
 
     A config file the user wrote by hand is a configuration error when it does
     not parse, not a crash, so it reports like every other usage error.
@@ -62,7 +61,29 @@ def read_toml(path: Path) -> Config:
         with path.open("rb") as handle:
             return tomllib.load(handle)
     except tomllib.TOMLDecodeError as error:
-        raise UsageError(f"{path} is not valid TOML: {error}") from error
+        raise ConfigError(f"{path} is not valid TOML: {error}", source=str(path)) from error
+
+
+def reject_unknown_top_level_keys(*, config: dict[str, object], origin: str) -> None:
+    """Refuse a config whose top-level names neither a run key nor a check.
+
+    A misspelt run key (``selct``) or check table (``[tool.lanorme.file_limit]``)
+    was silently ignored, so the setting never applied and nothing said so.
+    Plugin checks are registered before this runs, so their tables count as
+    known. *origin* names the table for the message.
+    """
+    checks = get_all_checks()
+    unknown = sorted(key for key in config if key not in RUN_KEYS and key not in checks)
+    if not unknown:
+        return
+    listed = ", ".join(repr(key) for key in unknown)
+    raise ConfigError(
+        f"unknown key in {origin}: {listed}.\n"
+        f"  Run keys: {', '.join(sorted(RUN_KEYS))}.\n"
+        f"  Check tables: {', '.join(sorted(checks)) or '(none)'}.",
+        key=unknown[0],
+        source=origin,
+    )
 
 
 def find_dedicated_config(directory: Path) -> Path | None:
@@ -106,11 +127,13 @@ def _reject_prefixed_table(*, path: Path, config: Config) -> None:
     """
     tool = config.get("tool")
     if isinstance(tool, dict) and "lanorme" in tool:
-        raise UsageError(
+        raise ConfigError(
             f"{path} holds a [tool.lanorme] table, but in a dedicated config file the "
             "keys are top level.\n"
             "  Write select = [...] and [file_limits] there, not [tool.lanorme] and "
             "[tool.lanorme.file_limits]; the prefix belongs in pyproject.toml only.",
+            key="tool",
+            source=str(path),
         )
 
 
@@ -310,36 +333,6 @@ def _label_config(directory: Path) -> str:
 def is_tree_scoped(check: Check) -> bool:
     """True when *check* compares across files and must run once at the scan root."""
     return getattr(check, "scope", "file") == "tree"
-
-
-def snapshot_defaults(checks: dict[str, Check]) -> dict[str, Config]:
-    """Capture each check's declared defaults so the runner can reset between regions.
-
-    Checks are configured-once singletons whose ``configure()`` mutates instance
-    attributes in place and never resets them, so running regions in sequence
-    would leak one region's settings into the next. The defaults are read from a
-    freshly constructed instance rather than the live one: across repeated CLI
-    invocations in a single process (the test suite, a server) the live singleton
-    is already configured from an earlier run, so its state is not pristine. A
-    check that cannot be reconstructed with no arguments falls back to its current
-    state.
-    """
-    snapshot: dict[str, Config] = {}
-    for name, check in checks.items():
-        try:
-            defaults = type(check)().__dict__
-        except Exception:  # noqa: BLE001 - an exotic check keeps its current state
-            defaults = check.__dict__
-        snapshot[name] = copy.deepcopy(defaults)
-    return snapshot
-
-
-def restore_defaults(*, checks: dict[str, Check], snapshot: dict[str, Config]) -> None:
-    """Reset each check's instance state to the captured pristine snapshot."""
-    for name, check in checks.items():
-        if name in snapshot:
-            check.__dict__.clear()
-            check.__dict__.update(copy.deepcopy(snapshot[name]))
 
 
 def combine_results(*, existing: CheckResult | None, addition: CheckResult) -> CheckResult:

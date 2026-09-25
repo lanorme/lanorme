@@ -393,3 +393,32 @@ def test_import_of_a_longer_module_name_does_not_cover_a_prefix(tmp_path: Path):
     assert [(w.file, w.line) for w in result.warnings] == [
         ("application/services/bill.py", 1),
     ]
+
+
+def test_unparseable_test_file_still_covers_by_raw_text(tmp_path: Path):
+    # Arrange: the only partner does not parse, but names the module.
+    src, integration = _build_layout(tmp_path)
+    (src / "application" / "services" / "billing.py").write_text("def f(): ...\n")
+    (integration / "test_other.py").write_text("def test_x(:\n    services.billing\n")
+
+    # Act
+    result = CoverageCheck().run(src_root=str(src))
+
+    # Assert: the permissive raw-text fallback credits it.
+    assert result.warnings == []
+
+
+def test_test_file_with_a_coding_cookie_is_read(tmp_path: Path):
+    # Arrange: a latin-1 partner, decoded the way the interpreter decodes it.
+    src, integration = _build_layout(tmp_path)
+    (src / "application" / "services" / "billing.py").write_text("def f(): ...\n")
+    (integration / "test_other.py").write_bytes(
+        b"# -*- coding: latin-1 -*-\nfrom app.services.billing import f\nNAME = '\xe9'\n",
+    )
+
+    # Act
+    result = CoverageCheck().run(src_root=str(src))
+
+    # Assert
+    assert result.warnings == []
+    assert result.status == Status.PASS

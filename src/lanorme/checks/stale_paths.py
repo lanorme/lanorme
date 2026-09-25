@@ -22,9 +22,7 @@ Run:
 from __future__ import annotations
 
 import ast
-import io
 import re
-import tokenize
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import ClassVar
@@ -76,63 +74,37 @@ def _scan_docstring(
     return findings
 
 
-def _iter_comments(source: str) -> list[tuple[int, int, str]]:
-    """Yield ``(lineno, column, comment_text)`` for every real comment in *source*.
-
-    Uses :mod:`tokenize` so that a ``#`` inside a string literal is never
-    mistaken for a comment. Un-tokenisable sources yield no comments (a graceful
-    fallback that keeps the check silent rather than risking a false positive).
-    """
-    comments: list[tuple[int, int, str]] = []
-    try:
-        tokens = tokenize.generate_tokens(io.StringIO(source).readline)
-        for tok in tokens:
-            if tok.type == tokenize.COMMENT:
-                comments.append((tok.start[0], tok.start[1], tok.string))
-    except (tokenize.TokenError, IndentationError):
-        return []
-    return comments
-
-
 def _scan_file(*, module: Module, patterns: list[re.Pattern[str]]) -> list[Violation]:
     relative_file = module.relative
     violations: list[Violation] = []
 
     # Inline comments (tokenize-extracted, so a '#' in a string never counts).
-    for lineno, column, comment_text in _iter_comments(module.source):
+    # A file the tokeniser cannot read to the end contributes none: a graceful
+    # fallback that keeps the check silent rather than risking a false positive.
+    comments = module.comments if module.has_complete_comments else ()
+    for comment in comments:
         for pattern in patterns:
-            for match in pattern.finditer(comment_text):
+            for match in pattern.finditer(comment.token):
                 violations.append(
                     Violation(
                         file=relative_file,
-                        line=lineno,
+                        line=comment.line,
                         rule="STALE-001",
                         message=f"Stale path reference '{match.group(0)}' in comment",
                         fix=f"Update '{match.group(0)}' to the current path",
-                        column=column,
+                        column=comment.column,
                     ),
                 )
 
     # Docstrings, module, class, function.
-    for node in module.index.collect(
-        ast.Module,
-        ast.ClassDef,
-        ast.FunctionDef,
-        ast.AsyncFunctionDef,
-    ):
-        if (
-            node.body
-            and isinstance(node.body[0], ast.Expr)
-            and isinstance(node.body[0].value, ast.Constant)
-            and isinstance(node.body[0].value.value, str)
-        ):
-            violations.extend(
-                _scan_docstring(
-                    const=node.body[0].value,
-                    relative_file=relative_file,
-                    patterns=patterns,
-                ),
-            )
+    for docstring in module.docstrings:
+        violations.extend(
+            _scan_docstring(
+                const=docstring.node,
+                relative_file=relative_file,
+                patterns=patterns,
+            ),
+        )
 
     return violations
 

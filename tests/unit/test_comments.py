@@ -15,8 +15,8 @@ from pathlib import Path
 import pytest
 
 from lanorme import Status
-from lanorme.checks import comment_code as comments_module
-from lanorme.checks.comment_code import _comment_parses_as_code
+from lanorme import comment_code as comments_module
+from lanorme.comment_code import _comment_parses_as_code
 from lanorme.checks.comments import CommentsCheck
 
 # A single-line expression nested far enough to overflow a recursion-bounded

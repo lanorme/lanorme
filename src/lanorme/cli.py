@@ -20,7 +20,8 @@ import logging
 import os
 import pkgutil
 import sys
-from dataclasses import dataclass
+from dataclasses import replace
+from functools import partial
 from importlib.metadata import entry_points
 from pathlib import Path
 
@@ -28,25 +29,19 @@ import lanorme.checks
 from lanorme import baseline, reference, reports
 from lanorme import (
     Check,
-    CheckResult,
-    ResultAuditor,
     Status,
     __version__,
     get_all_checks,
     get_check,
-    extract_code,
-    run_all,
-    run_audit,
-    run_check,
+    get_registry,
 )
-from lanorme.checkconfig import apply_check_config, reject_unknown_top_level_keys
 from lanorme.diagnostics import configure_diagnostics
 from lanorme.errors import UsageError
-from lanorme.filters import _apply_promotions, note_excluded_targets
+from lanorme.filters import apply_promotions, count_findings, note_excluded_targets
 from lanorme.presets import _resolve_extends
 from lanorme.selectors import checks_for_selector, reject_unknown_selectors
-from lanorme.regions import discover_config, restore_defaults, snapshot_defaults
-from lanorme.runner import Filters, collect_results, count_findings
+from lanorme.regions import discover_config, reject_unknown_top_level_keys
+from lanorme.runner import Filters, RunOutcome, collect_results
 
 logger = logging.getLogger(__name__)
 
@@ -78,22 +73,28 @@ def _load_plugin_modules(modules: list[str]) -> None:
 # --------------------------------------------------------------------------- #
 
 
-def _resolve_single(*, selector: str) -> tuple[list[Check], list[str]]:
+def _resolve_single(
+    *,
+    selector: str,
+    configured: dict[str, Check],
+) -> tuple[list[Check], list[str]]:
     """The check(s) named or coded by *selector*, and the implicit code narrowing.
 
     Resolution is name-first (an exact check name like ``duplication``), then by
     rule code or category (``DRY-001`` / ``SIZE``, case-insensitive). When a code
     or category is given, it is returned as an implicit selector so the output is
     narrowed to that code, and only the owning check(s) run. Exits 2 if unknown.
+    The registered checks are returned; *configured* (the same checks under the
+    run's config) says whether the selection is enabled.
     """
     by_name = get_check(selector)
     if by_name is not None:
-        _note_disabled_selection(only=[by_name])
+        _note_disabled_selection(only=[by_name], configured=configured)
         return [by_name], []
 
     matched = checks_for_selector(selector=selector)
     if matched:
-        _note_disabled_selection(only=matched)
+        _note_disabled_selection(only=matched, configured=configured)
         return matched, [selector.upper()]
 
     names = ", ".join(sorted(get_all_checks())) or "(none)"
@@ -144,7 +145,7 @@ def _read_config_list(value: object) -> list[str]:
 
     Accepts a list (``promote = ["TYPE-004"]``) or a bare string
     (``promote = "ALL"``); anything else yields ``[]``. Whitespace and case are
-    handled downstream by ``_matches``, matching the CLI ``_split_csv`` path.
+    handled downstream by ``is_code_matched``, matching the CLI ``_split_csv`` path.
     """
     if isinstance(value, str):
         return [value]
@@ -270,9 +271,10 @@ def _build_parser() -> argparse.ArgumentParser:
 # --------------------------------------------------------------------------- #
 
 
-def _note_disabled_selection(*, only: list[Check]) -> None:
+def _note_disabled_selection(*, only: list[Check], configured: dict[str, Check]) -> None:
     """Say so when every selected check is opt-in and not enabled: the run would be silent."""
-    disabled = [c.name for c in only if hasattr(c, "enabled") and not getattr(c, "enabled")]
+    effective = [configured.get(c.name, c) for c in only]
+    disabled = [c.name for c in effective if hasattr(c, "enabled") and not getattr(c, "enabled")]
     if len(disabled) != len(only):
         return
     names = ", ".join(disabled)
@@ -297,7 +299,7 @@ def _run_and_report(
     scan_root: Path,
     project_root: Path,
     targets: list[Path] | None,
-    pristine: dict[str, object],
+    configured: dict[str, Check],
 ) -> None:
     """Run the selected checks, apply the filters, print, and set the exit code."""
     ignore = _split_csv(args.ignore) or _read_config_list(config.get("ignore"))
@@ -307,45 +309,27 @@ def _run_and_report(
     output_format = reports.resolve_output_format(explicit=args.output_format, as_json=args.json)
     reject_unknown_selectors(selectors=promote, origin="'promote'")
 
-    collected = collect_results(
+    outcome = collect_results(
         config=config,
+        configured=configured,
         scan_root=scan_root,
         project_root=project_root,
         targets=targets,
-        pristine=pristine,
         filters=Filters(single=args.single, select=select, ignore=ignore, exclude=exclude),
-        resolve_single=_resolve_single,
+        resolve_single=partial(_resolve_single, configured=configured),
     )
-    if collected is None:
+    if outcome is None:
         print("No checks registered.")
         return
     note_excluded_targets(targets=targets, project_root=project_root, exclude=exclude)
 
-    results = collected.results
     drifted: list[tuple[str, str]] = []
-    baselined = 0
     if not args.no_baseline:
-        before = count_findings(results)
-        results, drifted = _apply_baseline(
-            results=results,
-            config=config,
-            project_root=project_root,
-        )
-        baselined = before - count_findings(results)
-
-    results = _apply_promotions(results=results, promote=promote)
-    notes = reports.RunNotes(
-        project_root=project_root,
-        selected_checks=collected.selected,
-        suppressed_inline=collected.suppressed_inline,
-        suppressed_per_file=collected.suppressed_per_file,
-        suppressed_baseline=baselined,
-        baseline_configured=_resolve_baseline_path(config=config, project_root=project_root)
-        is not None,
-    )
-    failed = any(r.status == Status.FAIL for r in results)
+        outcome, drifted = _apply_baseline(outcome=outcome, config=config)
+    outcome = replace(outcome, results=apply_promotions(results=outcome.results, promote=promote))
+    failed = any(r.status == Status.FAIL for r in outcome.results)
     with reports.tolerate_closed_pipe():
-        reports.emit(results=results, output_format=output_format, notes=notes)
+        reports.emit(outcome=outcome, output_format=output_format)
         reports.print_baseline_drift(drifted=drifted, output_format=output_format)
     if failed:
         sys.exit(1)
@@ -353,31 +337,32 @@ def _run_and_report(
 
 def _apply_baseline(
     *,
-    results: list[CheckResult],
+    outcome: RunOutcome,
     config: dict[str, object],
-    project_root: Path,
-) -> tuple[list[CheckResult], list[tuple[str, str]]]:
-    """Suppress the configured baseline's findings; return the survivors and the drift."""
-    baseline_path = _resolve_baseline_path(config=config, project_root=project_root)
+) -> tuple[RunOutcome, list[tuple[str, str]]]:
+    """Suppress the configured baseline's findings; return the narrowed run and the drift.
+
+    The baseline file is read once; drift is judged on the raw findings, since
+    it has to see what the baseline did match to tell a moved anchor from debt
+    that is genuinely new.
+    """
+    baseline_path = _resolve_baseline_path(config=config, project_root=outcome.project_root)
     if baseline_path is None:
-        return results, []
+        return outcome, []
     if not baseline_path.exists():
         raise UsageError(
             f"baseline file '{baseline_path}' does not exist. Run 'lanorme baseline write' first.",
         )
-    # Drift reads the raw findings: it has to see what the baseline did
-    # match to tell a moved anchor from debt that is genuinely new.
-    drifted = baseline.find_drifted_codes(
-        results=results,
-        project_root=project_root,
-        baseline_path=baseline_path,
+    recorded = baseline.Baseline.load(baseline_path, keys=outcome.keys)
+    drifted = recorded.find_drift(outcome.results)
+    survivors = recorded.suppress(outcome.results)
+    dropped = count_findings(outcome.results) - count_findings(survivors)
+    narrowed = replace(
+        outcome,
+        results=survivors,
+        dropped={**outcome.dropped, "baseline": dropped},
     )
-    suppressed = baseline.suppress(
-        results=results,
-        project_root=project_root,
-        baseline_path=baseline_path,
-    )
-    return suppressed, drifted
+    return narrowed, drifted
 
 
 def _run_check_command(*, args: argparse.Namespace) -> None:
@@ -387,25 +372,14 @@ def _run_check_command(*, args: argparse.Namespace) -> None:
     found = discover_config(start=scan_root, resolve_extends=_resolve_extends)
     config, project_root, config_source = found.config, found.project_root, found.source
     _load_plugin_modules([*config.get("plugins", []), *args.plugin])
-    # Capture pristine defaults, then reset every check to them before applying
-    # config. configure() only ever sets, never resets, so without this a check
-    # configured by an earlier invocation in the same process would leak its
-    # settings into this run. The cascading runner reuses the snapshot to reset
-    # between regions.
     reject_unknown_top_level_keys(config=config, origin="[tool.lanorme]")
-    checks = get_all_checks()
-    pristine = snapshot_defaults(checks)
-    restore_defaults(checks=checks, snapshot=pristine)
-    apply_check_config(config=config)
+    # The registered checks are templates; the run works on configured copies,
+    # so nothing an earlier run in this process configured can leak into it.
+    configured = get_registry().build_configured(config)
 
     if args.show_config:
         with reports.tolerate_closed_pipe():
-            reports.print_config(
-                config=config,
-                source=config_source,
-                project_root=project_root,
-                extends=found.extends,
-            )
+            reports.print_config(checks=configured, found=found)
         return
 
     _run_and_report(
@@ -414,7 +388,7 @@ def _run_check_command(*, args: argparse.Namespace) -> None:
         scan_root=scan_root,
         project_root=project_root,
         targets=targets,
-        pristine=pristine,
+        configured=configured,
     )
 
 
@@ -434,42 +408,45 @@ def _run_baseline_command(*, args: argparse.Namespace) -> None:
 
     _load_plugin_modules(config.get("plugins", []))
     reject_unknown_top_level_keys(config=config, origin="[tool.lanorme]")
-    checks = get_all_checks()
-    pristine = snapshot_defaults(checks)
-    restore_defaults(checks=checks, snapshot=pristine)
-    apply_check_config(config=config)
+    configured = get_registry().build_configured(config)
 
     baseline_path = _resolve_baseline_path(config=config, project_root=project_root)
     if baseline_path is None:
         baseline_path = project_root / "lanorme-baseline.json"
 
-    collected = collect_results(
+    outcome = collect_results(
         config=config,
+        configured=configured,
         scan_root=scan_root,
         project_root=project_root,
         targets=None,
-        pristine=pristine,
         filters=Filters(
             single=None,
             select=_read_config_list(config.get("select")),
             ignore=_read_config_list(config.get("ignore")),
             exclude=_read_config_list(config.get("exclude")),
         ),
-        resolve_single=_resolve_single,
+        resolve_single=partial(_resolve_single, configured=configured),
     )
-    if collected is None:
+    if outcome is None:
         print("No checks registered.")
         return
-    results = collected.results
+    results, keys = outcome.results, outcome.keys
 
     with reports.tolerate_closed_pipe():
         if args.action == "write":
-            baseline.write(results=results, project_root=project_root, baseline_path=baseline_path)
+            baseline.write(
+                results=results,
+                project_root=project_root,
+                baseline_path=baseline_path,
+                keys=keys,
+            )
         else:
             baseline.print_status(
                 results=results,
                 project_root=project_root,
                 baseline_path=baseline_path,
+                keys=keys,
             )
 
 

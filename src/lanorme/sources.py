@@ -15,10 +15,10 @@ number of checks; this module does it once and hands every check the same
 
 Trees are shared, so a check must never mutate one; copy first.
 
-The cache is process-global like the check registry and the active excludes,
-because the ``Check.run(*, src_root)`` protocol carries no run context. The
-CLI drops it at the start of each run (and the test suite around each test),
-so a run never sees a tree from an earlier one. Within a process, an entry is
+The cache belongs to the current :class:`~lanorme.scan.Scan`, because the
+``Check.run(*, src_root)`` protocol carries no run context. The runner starts
+each run with a fresh scan, so a run never sees a tree from an earlier one;
+outside a run the default scan's cache is shared by the process. An entry is
 also checked against the file's size, inode and timestamps, which catches an
 edit between two API calls except a same-size rewrite inside one timestamp
 tick of a coarse-grained filesystem.
@@ -28,23 +28,21 @@ from __future__ import annotations
 
 import ast
 from collections.abc import Iterator
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from importlib.util import decode_source
 from pathlib import Path
 
 from lanorme import Violation
+from lanorme.comment_code import Comment
 from lanorme.discovery import iter_py_files
+from lanorme.scan import get_current_scan
+from lanorme.source_views import Docstring, DocstringOwner, ImportedModule, SourceViews
 
 # Reasons a file yields an UnparseableFile. Rule strings built from them are stable
 # public surface (``SIZE-000: parse error`` anchors a baseline entry).
 PARSE_ERROR = "parse error"
 TOO_DEEP = "too deeply nested"
 UNREADABLE = "unreadable"
-
-# Beyond this many cached modules the cache stops growing and further files
-# are parsed per check, as before. Bounds memory on a very large monorepo
-# without changing any result.
-_CACHE_LIMIT = 5000
 
 
 class NodeIndex:
@@ -88,27 +86,67 @@ class NodeIndex:
 
 @dataclass(frozen=True)
 class Module:
-    """One parsed source file: its path, root-relative posix path, text and tree."""
+    """One parsed source file: its path, root-relative posix path, text and tree.
+
+    The views (``lines``, ``comments``, ``docstrings``, ``imports``) are
+    computed on first use and shared with every other check that reads the
+    same file in the run; like the tree, they must not be mutated.
+    """
 
     path: Path
     relative: str
     source: str
     tree: ast.Module
     index: NodeIndex
+    views: SourceViews | None = field(default=None, repr=False, compare=False)
+
+    def __post_init__(self) -> None:
+        if self.views is None:
+            object.__setattr__(self, "views", SourceViews(source=self.source, index=self.index))
 
     @property
     def lines(self) -> list[str]:
         """The source split into lines, for checks that report by line text."""
-        return self.source.splitlines()
+        return self.views.lines
+
+    @property
+    def comments(self) -> tuple[Comment, ...]:
+        """Every ``#`` comment, read by :mod:`tokenize` so a ``#`` in a string never counts."""
+        return self.views.comment_scan.comments
+
+    @property
+    def has_complete_comments(self) -> bool:
+        """False when the tokeniser gave up part-way and ``comments`` holds only a prefix."""
+        return self.views.comment_scan.complete
+
+    @property
+    def docstrings(self) -> tuple[Docstring, ...]:
+        """Every module, class and function docstring, in ``ast.walk`` order."""
+        return self.views.docstrings
+
+    @property
+    def imports(self) -> tuple[ImportedModule, ...]:
+        """Every module an ``import`` or ``from ... import`` names, in ``ast.walk`` order."""
+        return self.views.imports
+
+    def find_docstring(self, owner: DocstringOwner) -> Docstring | None:
+        """The docstring of *owner* (a node of this module's tree), or ``None``."""
+        return self.views.docstrings_by_owner.get(id(owner))
 
 
 @dataclass(frozen=True)
 class UnparseableFile:
-    """A source file that could not be turned into a tree, and why."""
+    """A source file that could not be turned into a tree, and why.
+
+    *source* is the decoded text when the file decoded but did not parse
+    (``""`` when it could not be read or decoded), for a check that falls
+    back to scanning the raw text.
+    """
 
     path: Path
     relative: str
     reason: str
+    source: str = ""
 
 
 # What identifies one version of a file: size, inode, and both timestamps.
@@ -124,14 +162,12 @@ class _CacheEntry:
     tree: ast.Module | None
     reason: str
     index: NodeIndex | None = None
-
-
-_cache: dict[str, _CacheEntry] = {}
+    views: SourceViews | None = None
 
 
 def clear_cache() -> None:
-    """Drop every cached parse. The CLI calls this at the start of each run."""
-    _cache.clear()
+    """Drop every cached parse of the current scan (a run starts with an empty one)."""
+    get_current_scan().cache.clear()
 
 
 def _parse(path: Path, *, signature: _Signature) -> _CacheEntry:
@@ -141,19 +177,26 @@ def _parse(path: Path, *, signature: _Signature) -> _CacheEntry:
     except OSError:
         return _CacheEntry(signature=signature, source="", tree=None, reason=UNREADABLE)
     try:
+        # SyntaxError for an unknown ``coding:`` cookie, a UnicodeDecodeError
+        # (a ValueError) for bytes the declared encoding rejects.
         source = decode_source(raw)
+    except (SyntaxError, ValueError):
+        return _CacheEntry(signature=signature, source="", tree=None, reason=PARSE_ERROR)
+    try:
         tree = ast.parse(source, filename=str(path))
     except (SyntaxError, ValueError):
-        # ValueError covers a null byte and a UnicodeDecodeError alike.
-        return _CacheEntry(signature=signature, source="", tree=None, reason=PARSE_ERROR)
+        # ValueError covers a null byte.
+        return _CacheEntry(signature=signature, source=source, tree=None, reason=PARSE_ERROR)
     except (RecursionError, MemoryError):
-        return _CacheEntry(signature=signature, source="", tree=None, reason=TOO_DEEP)
+        return _CacheEntry(signature=signature, source=source, tree=None, reason=TOO_DEEP)
+    index = NodeIndex(tree)
     return _CacheEntry(
         signature=signature,
         source=source,
         tree=tree,
         reason="",
-        index=NodeIndex(tree),
+        index=index,
+        views=SourceViews(source=source, index=index),
     )
 
 
@@ -170,12 +213,13 @@ def _load_entry(path: Path) -> _CacheEntry:
     """The parse outcome for *path*, from the cache when it is still current."""
     key = str(path)
     signature = _read_signature(path)
-    cached = _cache.get(key)
-    if cached is not None and cached.signature == signature:
+    cache = get_current_scan().cache
+    cached = cache.get(key)
+    if isinstance(cached, _CacheEntry) and cached.signature == signature:
         return cached
     entry = _parse(path, signature=signature)
-    if entry.tree is not None and len(_cache) < _CACHE_LIMIT:
-        _cache[key] = entry
+    if entry.tree is not None:
+        cache.store(key, entry=entry)
     return entry
 
 
@@ -184,13 +228,19 @@ def parse_module(path: Path, *, root: Path) -> Module | UnparseableFile:
     relative = path.relative_to(root).as_posix()
     entry = _load_entry(path)
     if entry.tree is None or entry.index is None:
-        return UnparseableFile(path=path, relative=relative, reason=entry.reason)
+        return UnparseableFile(
+            path=path,
+            relative=relative,
+            reason=entry.reason,
+            source=entry.source,
+        )
     return Module(
         path=path,
         relative=relative,
         source=entry.source,
         tree=entry.tree,
         index=entry.index,
+        views=entry.views,
     )
 
 
@@ -255,11 +305,14 @@ def build_unparseable_notice(*, prefix: str, failure: UnparseableFile) -> Violat
 
 
 def count_cached() -> int:
-    """Number of parsed modules currently held; for tests and diagnostics."""
-    return len(_cache)
+    """Number of parsed modules the current scan holds; for tests and diagnostics."""
+    return len(get_current_scan().cache)
 
 
 __all__ = [
+    "Comment",
+    "Docstring",
+    "ImportedModule",
     "Module",
     "NodeIndex",
     "UnparseableFile",
