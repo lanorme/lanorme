@@ -1,32 +1,93 @@
 {
-  "_comment": "Ground truth for CMT-007. Keys are file:line of the definition; true means the docstring is vacuous and should be flagged. Definitions the rule deliberately leaves alone (below the size floor, private, dunder) are labelled false, so a scope regression surfaces as a false positive. Every definition here is long enough to be in scope unless it is listed as an out-of-scope case.",
-  "positives/pos_restated.py:4": true,
-  "positives/pos_restated.py:13": true,
-  "positives/pos_restated.py:21": true,
-  "positives/pos_restated.py:29": true,
-  "positives/pos_empty_and_noise.py:4": true,
-  "positives/pos_empty_and_noise.py:12": true,
-  "positives/pos_empty_and_noise.py:20": true,
-  "positives/pos_empty_and_noise.py:28": true,
-  "positives/pos_empty_and_noise.py:31": true,
-  "negatives/neg_substantive.py:4": false,
-  "negatives/neg_substantive.py:12": false,
-  "negatives/neg_substantive.py:20": false,
-  "negatives/neg_substantive.py:28": false,
-  "negatives/neg_substantive.py:35": false,
-  "negatives/neg_substantive.py:43": false,
-  "negatives/neg_allowlisted.py:4": false,
-  "negatives/neg_allowlisted.py:12": false,
-  "negatives/neg_allowlisted.py:19": false,
-  "negatives/neg_allowlisted.py:26": false,
-  "negatives/neg_short_and_private.py:4": false,
-  "negatives/neg_short_and_private.py:9": false,
-  "negatives/neg_short_and_private.py:17": false,
-  "negatives/neg_short_and_private.py:20": false,
-  "positives/pos_placeholders.py:4": true,
-  "positives/pos_placeholders.py:12": true,
-  "negatives/neg_out_of_scope.py:4": false,
-  "negatives/neg_out_of_scope.py:7": false,
-  "negatives/neg_out_of_scope.py:17": false,
-  "negatives/neg_out_of_scope.py:18": false
+  "rules": ["CMT-007"],
+  "unit": "definition",
+  "description": "Ground truth for CMT-007. Keys are file:line of the definition; true means the docstring is vacuous and should be flagged. Definitions the rule deliberately leaves alone (below the size floor, private, dunder) are labelled false, so a scope regression surfaces as a false positive. Every definition here is long enough to be in scope unless it is listed as an out-of-scope case.",
+  "split": "hashed",
+  "files": {
+    "dev/negatives/neg_allowlisted.py": {
+      "source": "hand-written",
+      "labelled_by": "Claude",
+      "labelled_before_rule": "unknown",
+      "added_in": "83f1407",
+      "labels": [
+        {"line": 4, "flag": false},
+        {"line": 12, "flag": false},
+        {"line": 20, "flag": false},
+        {"line": 28, "flag": false}
+      ]
+    },
+    "dev/negatives/neg_substantive.py": {
+      "source": "hand-written",
+      "labelled_by": "Claude",
+      "labelled_before_rule": "unknown",
+      "added_in": "83f1407",
+      "labels": [
+        {"line": 4, "flag": false},
+        {"line": 12, "flag": false},
+        {"line": 20, "flag": false},
+        {"line": 29, "flag": false},
+        {"line": 37, "flag": false},
+        {"line": 45, "flag": false}
+      ]
+    },
+    "dev/positives/pos_placeholders.py": {
+      "source": "hand-written",
+      "labelled_by": "Claude",
+      "labelled_before_rule": "unknown",
+      "added_in": "b188144",
+      "labels": [
+        {"line": 4, "flag": true},
+        {"line": 12, "flag": true}
+      ]
+    },
+    "dev/positives/pos_restated.py": {
+      "source": "hand-written",
+      "labelled_by": "Claude",
+      "labelled_before_rule": "unknown",
+      "added_in": "83f1407",
+      "labels": [
+        {"line": 4, "flag": true},
+        {"line": 13, "flag": true},
+        {"line": 21, "flag": true},
+        {"line": 29, "flag": true}
+      ]
+    },
+    "holdout/negatives/neg_out_of_scope.py": {
+      "source": "hand-written",
+      "labelled_by": "Claude",
+      "labelled_before_rule": "unknown",
+      "added_in": "b188144",
+      "labels": [
+        {"line": 4, "flag": false},
+        {"line": 7, "flag": false},
+        {"line": 17, "flag": false},
+        {"line": 18, "flag": false}
+      ]
+    },
+    "holdout/negatives/neg_short_and_private.py": {
+      "source": "hand-written",
+      "labelled_by": "Claude",
+      "labelled_before_rule": "unknown",
+      "added_in": "83f1407",
+      "labels": [
+        {"line": 4, "flag": false},
+        {"line": 9, "flag": false},
+        {"line": 17, "flag": false},
+        {"line": 20, "flag": false}
+      ]
+    },
+    "holdout/positives/pos_empty_and_noise.py": {
+      "source": "hand-written",
+      "labelled_by": "Claude",
+      "labelled_before_rule": "unknown",
+      "added_in": "83f1407",
+      "labels": [
+        {"line": 4, "flag": true},
+        {"line": 12, "flag": true},
+        {"line": 20, "flag": true},
+        {"line": 28, "flag": true},
+        {"line": 31, "flag": true}
+      ]
+    }
+  }
 }

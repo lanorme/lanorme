@@ -140,6 +140,22 @@ Conventions for a new rule:
   corpus under `evals/corpora/` and a scorer under `evals/` that reports
   precision, recall, and F1, so the precision claim is measured. The release
   audit records those numbers to `evals/results/`; see [`evals/README.md`](evals/README.md).
+- **Label first, tune second, never tune on the holdout.** A score is only
+  honest if the rule was not fitted to the examples that grade it:
+  - Write a case's label, with its provenance (`source`, `labelled_by`,
+    `labelled_before_rule`), in `labels.json` before you tune the rule against
+    that case. Never relabel a case to match what the rule does.
+  - Every corpus has a `dev/` split you may tune against and a sealed `holdout/`
+    split. A change to a check's thresholds or source must not add, edit,
+    relabel or move that rule's holdout files in the same change. Grow the
+    holdout in a separate change that leaves the rule alone.
+  - A file's split follows the hash of its name; `evals/validate_corpora.py`
+    rejects a file on the wrong side, an unlabelled file or comment, and missing
+    provenance.
+  - Report the dev and holdout numbers side by side. A large dev-minus-holdout
+    gap is overfitting to explain, not a number to tune away. The audit's
+    `--gate` fails a change that lowers a holdout precision or recall by more
+    than 0.02.
 - **Stay within the house limits.** LaNorme enforces its own `SIZE` / `PARAM` /
   `COMPLEXITY` limits on itself: files warn at 300 effective lines and fail at
   500; functions warn at 50 and fail at 80; complexity warns at 10 and fails at

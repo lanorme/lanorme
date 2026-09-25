@@ -1,231 +1,431 @@
 {
-  "positives/pos_disabled_imports.py": [
-    {"line": 8, "label": "commented_code", "note": "disabled import statement"},
-    {"line": 9, "label": "commented_code", "note": "disabled from-import"},
-    {"line": 10, "label": "commented_code", "note": "disabled import with alias"},
-    {"line": 11, "label": "commented_code", "note": "disabled third-party import"},
-    {"line": 12, "label": "commented_code", "note": "disabled relative import"},
-    {"line": 13, "label": "commented_code", "note": "disabled multi-name from-import"},
-    {"line": 21, "label": "commented_code", "note": "disabled import below body"},
-    {"line": 22, "label": "commented_code", "note": "disabled stdlib import"}
-  ],
-  "positives/pos_disabled_assignments.py": [
-    {"line": 9, "label": "commented_code", "note": "disabled assignment"},
-    {"line": 10, "label": "commented_code", "note": "disabled assignment with generator expression"},
-    {"line": 11, "label": "commented_code", "note": "disabled constant assignment"},
-    {"line": 14, "label": "commented_code", "note": "disabled augmented assignment inside loop"},
-    {"line": 15, "label": "commented_code", "note": "disabled assignment"},
-    {"line": 16, "label": "commented_code", "note": "disabled augmented assignment"},
-    {"line": 20, "label": "commented_code", "note": "disabled module-level constant"},
-    {"line": 21, "label": "commented_code", "note": "disabled module-level constant"},
-    {"line": 22, "label": "commented_code", "note": "disabled module-level constant containing URL string"},
-    {"line": 30, "label": "commented_code", "note": "disabled attribute assignment"},
-    {"line": 31, "label": "commented_code", "note": "disabled attribute assignment with call"}
-  ],
-  "positives/pos_disabled_calls.py": [
-    {"line": 9, "label": "commented_code", "note": "disabled logger call"},
-    {"line": 10, "label": "commented_code", "note": "disabled metrics call"},
-    {"line": 12, "label": "commented_code", "note": "disabled cache write"},
-    {"line": 13, "label": "commented_code", "note": "disabled notifier call"},
-    {"line": 15, "label": "commented_code", "note": "disabled audit call"},
-    {"line": 30, "label": "commented_code", "note": "disabled debug print"},
-    {"line": 31, "label": "commented_code", "note": "disabled breakpoint call"},
-    {"line": 32, "label": "commented_code", "note": "disabled pdb call"}
-  ],
-  "positives/pos_disabled_control_flow.py": [
-    {"line": 8, "label": "commented_code", "note": "disabled if header"},
-    {"line": 9, "label": "commented_code", "note": "disabled return inside if body"},
-    {"line": 10, "label": "commented_code", "note": "disabled for header"},
-    {"line": 11, "label": "commented_code", "note": "disabled call inside for body"},
-    {"line": 13, "label": "commented_code", "note": "disabled while header"},
-    {"line": 14, "label": "commented_code", "note": "disabled augmented assignment inside while"},
-    {"line": 15, "label": "commented_code", "note": "disabled return statement"},
-    {"line": 20, "label": "commented_code", "note": "disabled if header"},
-    {"line": 21, "label": "commented_code", "note": "disabled raise inside if body"},
-    {"line": 22, "label": "commented_code", "note": "disabled elif header"},
-    {"line": 23, "label": "commented_code", "note": "disabled raise inside elif body"},
-    {"line": 27, "label": "commented_code", "note": "disabled try header"},
-    {"line": 28, "label": "commented_code", "note": "disabled call inside try"},
-    {"line": 29, "label": "commented_code", "note": "disabled except header"},
-    {"line": 30, "label": "commented_code", "note": "disabled call inside except"},
-    {"line": 31, "label": "commented_code", "note": "disabled bare raise"}
-  ],
-  "positives/pos_disabled_definitions.py": [
-    {"line": 6, "label": "commented_code", "note": "disabled decorator line"},
-    {"line": 7, "label": "commented_code", "note": "disabled built-in decorator"},
-    {"line": 8, "label": "commented_code", "note": "disabled framework decorator with arguments"},
-    {"line": 13, "label": "commented_code", "note": "disabled function def header"},
-    {"line": 14, "label": "commented_code", "note": "disabled return inside function body"},
-    {"line": 17, "label": "commented_code", "note": "disabled class header"},
-    {"line": 18, "label": "commented_code", "note": "disabled __init__ header"},
-    {"line": 19, "label": "commented_code", "note": "disabled attribute assignment in __init__"},
-    {"line": 20, "label": "ok", "note": "blank '#' separator inside a disabled block, not itself an executable statement"},
-    {"line": 21, "label": "commented_code", "note": "disabled method header"},
-    {"line": 22, "label": "commented_code", "note": "disabled method-call statement"},
-    {"line": 28, "label": "commented_code", "note": "disabled @property decorator"},
-    {"line": 29, "label": "commented_code", "note": "disabled method header"},
-    {"line": 30, "label": "commented_code", "note": "disabled return statement"}
-  ],
-  "positives/pos_disabled_block.py": [
-    {"line": 8, "label": "commented_code", "note": "disabled assignment opening a multi-line block"},
-    {"line": 9, "label": "commented_code", "note": "disabled list-construction assignment"},
-    {"line": 10, "label": "commented_code", "note": "disabled for-loop header"},
-    {"line": 11, "label": "commented_code", "note": "disabled assignment inside for body"},
-    {"line": 12, "label": "commented_code", "note": "disabled method-call statement inside for body"},
-    {"line": 13, "label": "commented_code", "note": "disabled return statement"}
-  ],
-  "positives/pos_inline_disabled.py": [
-    {"line": 10, "label": "commented_code", "note": "inline disabled alternative assignment"},
-    {"line": 11, "label": "commented_code", "note": "inline disabled alternative assignment"},
-    {"line": 12, "label": "commented_code", "note": "inline disabled alternative assignment"},
-    {"line": 17, "label": "commented_code", "note": "inline disabled alternative call"}
-  ],
-  "negatives/neg_todo_fixme.py": [
-    {"line": 8, "label": "ok", "note": "TODO tag; references a call but primary purpose is the task marker"},
-    {"line": 9, "label": "ok", "note": "FIXME tag describing observed behaviour of validate(req)"},
-    {"line": 10, "label": "ok", "note": "XXX tag describing cache.get behaviour"},
-    {"line": 11, "label": "ok", "note": "HACK tag describing a workaround"},
-    {"line": 12, "label": "ok", "note": "TODO with assignee referencing itertools.chain"},
-    {"line": 13, "label": "ok", "note": "FIXME with issue number describing handler failure"},
-    {"line": 14, "label": "ok", "note": "NOTE tag marking deprecation"},
-    {"line": 18, "label": "ok", "note": "TODO tag referencing constant rename"},
-    {"line": 19, "label": "ok", "note": "FIXME tag about identifier rename"}
-  ],
-  "negatives/neg_urls_refs.py": [
-    {"line": 5, "label": "ok", "note": "documentation URL reference"},
-    {"line": 6, "label": "ok", "note": "algorithm citation with URL"},
-    {"line": 7, "label": "ok", "note": "tracking issue URL"},
-    {"line": 8, "label": "ok", "note": "RFC citation with URL"},
-    {"line": 9, "label": "ok", "note": "paper citation with arXiv id"},
-    {"line": 14, "label": "ok", "note": "RFC reference prose"},
-    {"line": 15, "label": "ok", "note": "reference-implementation URL"},
-    {"line": 19, "label": "ok", "note": "bug-tracker URL"},
-    {"line": 20, "label": "ok", "note": "Slack thread URL"},
-    {"line": 21, "label": "ok", "note": "design-doc URL"}
-  ],
-  "negatives/neg_type_contracts.py": [
-    {"line": 7, "label": "ok", "note": "parameter shape/type documentation"},
-    {"line": 8, "label": "ok", "note": "parameter shape/type documentation"},
-    {"line": 9, "label": "ok", "note": "return-type contract"},
-    {"line": 10, "label": "ok", "note": "exception contract"},
-    {"line": 19, "label": "ok", "note": "grammar/BNF description, contains := which is not Python"},
-    {"line": 20, "label": "ok", "note": "tuple-shaped return-type description"},
-    {"line": 25, "label": "ok", "note": "callable signature description"},
-    {"line": 26, "label": "ok", "note": "invariant prose about callable contract"}
-  ],
-  "negatives/neg_copyright_headers.py": [
-    {"line": 3, "label": "ok", "note": "copyright header"},
-    {"line": 4, "label": "ok", "note": "license header"},
-    {"line": 5, "label": "ok", "note": "license header prose"},
-    {"line": 6, "label": "ok", "note": "license header prose"},
-    {"line": 7, "label": "ok", "note": "license header blank separator"},
-    {"line": 8, "label": "ok", "note": "license URL inside header"},
-    {"line": 9, "label": "ok", "note": "license header blank separator"},
-    {"line": 10, "label": "ok", "note": "license header prose"},
-    {"line": 11, "label": "ok", "note": "license header prose"},
-    {"line": 12, "label": "ok", "note": "license header prose"}
-  ],
-  "negatives/neg_shebang_encoding.py": [
-    {"line": 1, "label": "ok", "note": "shebang line"},
-    {"line": 2, "label": "ok", "note": "PEP 263 source-encoding declaration"},
-    {"line": 3, "label": "ok", "note": "vim modeline"}
-  ],
-  "negatives/neg_section_banners.py": [
-    {"line": 5, "label": "ok", "note": "banner rule"},
-    {"line": 6, "label": "ok", "note": "section title"},
-    {"line": 7, "label": "ok", "note": "banner rule"},
-    {"line": 11, "label": "ok", "note": "banner rule"},
-    {"line": 12, "label": "ok", "note": "section title"},
-    {"line": 13, "label": "ok", "note": "banner rule"},
-    {"line": 20, "label": "ok", "note": "inline section header"},
-    {"line": 27, "label": "ok", "note": "short section marker"},
-    {"line": 28, "label": "ok", "note": "short section marker"},
-    {"line": 29, "label": "ok", "note": "decorative section marker"}
-  ],
-  "negatives/neg_math_units.py": [
-    {"line": 7, "label": "ok", "note": "unit annotation prose"},
-    {"line": 8, "label": "ok", "note": "unit annotation prose"},
-    {"line": 9, "label": "ok", "note": "unit annotation prose"},
-    {"line": 10, "label": "ok", "note": "physics constant note with unit"},
-    {"line": 11, "label": "ok", "note": "astronomy unit note"},
-    {"line": 16, "label": "ok", "note": "parameter-unit annotation"},
-    {"line": 17, "label": "ok", "note": "delta annotation with unit"},
-    {"line": 18, "label": "ok", "note": "formula annotation with units"},
-    {"line": 22, "label": "ok", "note": "constant annotation prose"},
-    {"line": 23, "label": "ok", "note": "tolerance annotation with unit"}
-  ],
-  "negatives/neg_prose.py": [
-    {"line": 7, "label": "ok", "note": "explanatory sentence ending in period"},
-    {"line": 8, "label": "ok", "note": "explanatory sentence"},
-    {"line": 9, "label": "ok", "note": "question/answer prose"},
-    {"line": 10, "label": "ok", "note": "warning prose ending in exclamation"},
-    {"line": 20, "label": "ok", "note": "explanatory prose"},
-    {"line": 21, "label": "ok", "note": "explanatory prose"}
-  ],
-  "negatives/neg_colon_annotations.py": [
-    {"line": 7, "label": "ok", "note": "prose using 'key: value' phrasing"},
-    {"line": 8, "label": "ok", "note": "field documentation prose"},
-    {"line": 9, "label": "ok", "note": "field documentation prose"},
-    {"line": 10, "label": "ok", "note": "field documentation prose"},
-    {"line": 15, "label": "ok", "note": "input contract prose"},
-    {"line": 16, "label": "ok", "note": "output contract prose"},
-    {"line": 17, "label": "ok", "note": "side-effects contract prose"},
-    {"line": 21, "label": "ok", "note": "module-level environment annotation"},
-    {"line": 22, "label": "ok", "note": "module-level region annotation"},
-    {"line": 23, "label": "ok", "note": "module-level tier annotation"}
-  ],
-  "negatives/neg_pragmas.py": [
-    {"line": 5, "label": "ok", "note": "Pyflakes noqa pragma attached to import"},
-    {"line": 6, "label": "ok", "note": "Pyflakes noqa pragma attached to import"},
-    {"line": 10, "label": "ok", "note": "mypy type-ignore pragma"},
-    {"line": 13, "label": "ok", "note": "PEP 484 function type comment (tool pragma form)"},
-    {"line": 18, "label": "ok", "note": "bandit nosec pragma"},
-    {"line": 19, "label": "ok", "note": "pylint disable pragma"},
-    {"line": 20, "label": "ok", "note": "mypy file-level pragma"},
-    {"line": 21, "label": "ok", "note": "ruff noqa pragma"},
-    {"line": 22, "label": "ok", "note": "black fmt pragma"},
-    {"line": 23, "label": "ok", "note": "black fmt pragma"},
-    {"line": 24, "label": "ok", "note": "coverage pragma"},
-    {"line": 25, "label": "ok", "note": "coverage pragma"}
-  ],
-  "negatives/neg_call_signatures.py": [
-    {"line": 7, "label": "ok", "note": "usage-section header label"},
-    {"line": 8, "label": "ok", "note": "illustrative call signature with ellipsis placeholders"},
-    {"line": 9, "label": "ok", "note": "concrete usage example following a 'Typical usage:' header"},
-    {"line": 14, "label": "ok", "note": "Signature: prefix documenting an API shape with ellipsis placeholders"},
-    {"line": 15, "label": "ok", "note": "Equivalent-to prose containing a list comprehension as illustration"},
-    {"line": 16, "label": "ok", "note": "callback-signature description with trailing ellipsis"},
-    {"line": 20, "label": "ok", "note": "Public surface: header label"},
-    {"line": 21, "label": "ok", "note": "indented illustrative call signature with ellipsis"},
-    {"line": 22, "label": "ok", "note": "indented illustrative call signature with ellipsis"},
-    {"line": 23, "label": "ok", "note": "indented illustrative call signature with ellipsis"}
-  ],
-  "negatives/neg_labelled_notes.py": [
-    {"line": 7, "label": "ok", "note": "task tag with a labelled value: a note, not a typed assignment"},
-    {"line": 8, "label": "ok", "note": "task tag with a labelled value"},
-    {"line": 9, "label": "ok", "note": "'default:' label; the annotation word is not a type"},
-    {"line": 10, "label": "ok", "note": "cython directive"},
-    {"line": 11, "label": "ok", "note": "TOML/YAML literal 'true' is not Python"},
-    {"line": 12, "label": "ok", "note": "TOML/YAML literal 'false' is not Python"},
-    {"line": 13, "label": "ok", "note": "JSON/SQL literal 'null' is not Python"},
-    {"line": 14, "label": "ok", "note": "prose fragment: keyword followed only by an adverb"},
-    {"line": 15, "label": "ok", "note": "prose fragment: keyword followed only by an adverb"},
-    {"line": 16, "label": "ok", "note": "prose fragment: keyword followed only by an adverb"}
-  ],
-  "negatives/neg_illustrations.py": [
-    {"line": 7, "label": "ok", "note": "illustration header"},
-    {"line": 8, "label": "ok", "note": "call shape shown under an Example: header"},
-    {"line": 9, "label": "ok", "note": "call shape shown under an Example: header"},
-    {"line": 13, "label": "ok", "note": "illustration header (e.g.:)"},
-    {"line": 14, "label": "ok", "note": "assignment shown under an e.g.: header"}
-  ],
-  "positives/pos_typed_notes.py": [
-    {"line": 7, "label": "commented_code", "note": "disabled typed assignment (builtin type)"},
-    {"line": 8, "label": "commented_code", "note": "disabled typed assignment (subscript type)"},
-    {"line": 9, "label": "commented_code", "note": "disabled typed assignment (class type)"},
-    {"line": 10, "label": "commented_code", "note": "disabled return of a real name ending in -ly"},
-    {"line": 11, "label": "commented_code", "note": "disabled raise of a real name"},
-    {"line": 15, "label": "ok", "note": "prose header; not an illustration header"},
-    {"line": 16, "label": "commented_code", "note": "disabled assignment under an 'Old code:' header"}
-  ]
+  "rules": ["CMT-001"],
+  "unit": "comment",
+  "description": "Ground truth for CMT-001. Every comment in every file is labelled: flag true means the comment is primarily an executable Python statement a reasonable engineer would read as disabled code; false covers TODO tags, references, type notes, licence headers, banners, pragmas, prose and illustrative call signatures.",
+  "split": "hashed",
+  "files": {
+    "dev/negatives/neg_call_signatures.py": {
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "labels": [
+        {"line": 7, "flag": false, "note": "usage-section header label"},
+        {"line": 8, "flag": false, "note": "illustrative call signature with ellipsis placeholders"},
+        {"line": 9, "flag": false, "note": "concrete usage example following a 'Typical usage:' header"},
+        {"line": 14, "flag": false, "note": "Signature: prefix documenting an API shape with ellipsis placeholders"},
+        {"line": 15, "flag": false, "note": "Equivalent-to prose containing a list comprehension as illustration"},
+        {"line": 16, "flag": false, "note": "callback-signature description with trailing ellipsis"},
+        {"line": 20, "flag": false, "note": "Public surface: header label"},
+        {"line": 21, "flag": false, "note": "indented illustrative call signature with ellipsis"},
+        {"line": 22, "flag": false, "note": "indented illustrative call signature with ellipsis"},
+        {"line": 23, "flag": false, "note": "indented illustrative call signature with ellipsis"}
+      ]
+    },
+    "dev/negatives/neg_colon_annotations.py": {
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "labels": [
+        {"line": 7, "flag": false, "note": "prose using 'key: value' phrasing"},
+        {"line": 8, "flag": false, "note": "field documentation prose"},
+        {"line": 9, "flag": false, "note": "field documentation prose"},
+        {"line": 10, "flag": false, "note": "field documentation prose"},
+        {"line": 15, "flag": false, "note": "input contract prose"},
+        {"line": 16, "flag": false, "note": "output contract prose"},
+        {"line": 17, "flag": false, "note": "side-effects contract prose"},
+        {"line": 21, "flag": false, "note": "module-level environment annotation"},
+        {"line": 22, "flag": false, "note": "module-level region annotation"},
+        {"line": 23, "flag": false, "note": "module-level tier annotation"}
+      ]
+    },
+    "dev/negatives/neg_copyright_headers.py": {
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "labels": [
+        {"line": 3, "flag": false, "note": "copyright header"},
+        {"line": 4, "flag": false, "note": "license header"},
+        {"line": 5, "flag": false, "note": "license header prose"},
+        {"line": 6, "flag": false, "note": "license header prose"},
+        {"line": 7, "flag": false, "note": "license header blank separator"},
+        {"line": 8, "flag": false, "note": "license URL inside header"},
+        {"line": 9, "flag": false, "note": "license header blank separator"},
+        {"line": 10, "flag": false, "note": "license header prose"},
+        {"line": 11, "flag": false, "note": "license header prose"},
+        {"line": 12, "flag": false, "note": "license header prose"}
+      ]
+    },
+    "dev/negatives/neg_illustrations.py": {
+      "source": "hand-written",
+      "labelled_by": "Claude",
+      "labelled_before_rule": "unknown",
+      "added_in": "b188144",
+      "labels": [
+        {"line": 7, "flag": false, "note": "illustration header"},
+        {"line": 8, "flag": false, "note": "call shape shown under an Example: header"},
+        {"line": 9, "flag": false, "note": "call shape shown under an Example: header"},
+        {"line": 13, "flag": false, "note": "illustration header (e.g.:)"},
+        {"line": 14, "flag": false, "note": "assignment shown under an e.g.: header"}
+      ]
+    },
+    "dev/negatives/neg_labelled_notes.py": {
+      "source": "hand-written",
+      "labelled_by": "Claude",
+      "labelled_before_rule": "unknown",
+      "added_in": "b188144",
+      "labels": [
+        {"line": 7, "flag": false, "note": "task tag with a labelled value: a note, not a typed assignment"},
+        {"line": 8, "flag": false, "note": "task tag with a labelled value"},
+        {"line": 9, "flag": false, "note": "'default:' label; the annotation word is not a type"},
+        {"line": 10, "flag": false, "note": "cython directive"},
+        {"line": 11, "flag": false, "note": "TOML/YAML literal 'true' is not Python"},
+        {"line": 12, "flag": false, "note": "TOML/YAML literal 'false' is not Python"},
+        {"line": 13, "flag": false, "note": "JSON/SQL literal 'null' is not Python"},
+        {"line": 14, "flag": false, "note": "prose fragment: keyword followed only by an adverb"},
+        {"line": 15, "flag": false, "note": "prose fragment: keyword followed only by an adverb"},
+        {"line": 16, "flag": false, "note": "prose fragment: keyword followed only by an adverb"}
+      ]
+    },
+    "dev/negatives/neg_pragmas.py": {
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "labels": [
+        {"line": 5, "flag": false, "note": "Pyflakes noqa pragma attached to import"},
+        {"line": 6, "flag": false, "note": "Pyflakes noqa pragma attached to import"},
+        {"line": 10, "flag": false, "note": "mypy type-ignore pragma"},
+        {"line": 13, "flag": false, "note": "PEP 484 function type comment (tool pragma form)"},
+        {"line": 18, "flag": false, "note": "bandit nosec pragma"},
+        {"line": 19, "flag": false, "note": "pylint disable pragma"},
+        {"line": 20, "flag": false, "note": "mypy file-level pragma"},
+        {"line": 21, "flag": false, "note": "ruff noqa pragma"},
+        {"line": 22, "flag": false, "note": "black fmt pragma"},
+        {"line": 23, "flag": false, "note": "black fmt pragma"},
+        {"line": 24, "flag": false, "note": "coverage pragma"},
+        {"line": 25, "flag": false, "note": "coverage pragma"}
+      ]
+    },
+    "dev/negatives/neg_prose.py": {
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "labels": [
+        {"line": 7, "flag": false, "note": "explanatory sentence ending in period"},
+        {"line": 8, "flag": false, "note": "explanatory sentence"},
+        {"line": 9, "flag": false, "note": "question/answer prose"},
+        {"line": 10, "flag": false, "note": "warning prose ending in exclamation"},
+        {"line": 20, "flag": false, "note": "explanatory prose"},
+        {"line": 21, "flag": false, "note": "explanatory prose"}
+      ]
+    },
+    "dev/negatives/neg_section_banners.py": {
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "labels": [
+        {"line": 5, "flag": false, "note": "banner rule"},
+        {"line": 6, "flag": false, "note": "section title"},
+        {"line": 7, "flag": false, "note": "banner rule"},
+        {"line": 11, "flag": false, "note": "banner rule"},
+        {"line": 12, "flag": false, "note": "section title"},
+        {"line": 13, "flag": false, "note": "banner rule"},
+        {"line": 20, "flag": false, "note": "inline section header"},
+        {"line": 27, "flag": false, "note": "short section marker"},
+        {"line": 28, "flag": false, "note": "short section marker"},
+        {"line": 29, "flag": false, "note": "decorative section marker"}
+      ]
+    },
+    "dev/negatives/neg_todo_fixme.py": {
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "labels": [
+        {"line": 8, "flag": false, "note": "TODO tag; references a call but primary purpose is the task marker"},
+        {"line": 9, "flag": false, "note": "FIXME tag describing observed behaviour of validate(req)"},
+        {"line": 10, "flag": false, "note": "XXX tag describing cache.get behaviour"},
+        {"line": 11, "flag": false, "note": "HACK tag describing a workaround"},
+        {"line": 12, "flag": false, "note": "TODO with assignee referencing itertools.chain"},
+        {"line": 13, "flag": false, "note": "FIXME with issue number describing handler failure"},
+        {"line": 14, "flag": false, "note": "NOTE tag marking deprecation"},
+        {"line": 18, "flag": false, "note": "TODO tag referencing constant rename"},
+        {"line": 19, "flag": false, "note": "FIXME tag about identifier rename"}
+      ]
+    },
+    "dev/negatives/neg_type_contracts.py": {
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "labels": [
+        {"line": 7, "flag": false, "note": "parameter shape/type documentation"},
+        {"line": 8, "flag": false, "note": "parameter shape/type documentation"},
+        {"line": 9, "flag": false, "note": "return-type contract"},
+        {"line": 10, "flag": false, "note": "exception contract"},
+        {"line": 19, "flag": false, "note": "grammar/BNF description, contains := which is not Python"},
+        {"line": 20, "flag": false, "note": "tuple-shaped return-type description"},
+        {"line": 25, "flag": false, "note": "callable signature description"},
+        {"line": 26, "flag": false, "note": "invariant prose about callable contract"}
+      ]
+    },
+    "dev/negatives/neg_urls_refs.py": {
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "labels": [
+        {"line": 5, "flag": false, "note": "documentation URL reference"},
+        {"line": 6, "flag": false, "note": "algorithm citation with URL"},
+        {"line": 7, "flag": false, "note": "tracking issue URL"},
+        {"line": 8, "flag": false, "note": "RFC citation with URL"},
+        {"line": 9, "flag": false, "note": "paper citation with arXiv id"},
+        {"line": 14, "flag": false, "note": "RFC reference prose"},
+        {"line": 15, "flag": false, "note": "reference-implementation URL"},
+        {"line": 19, "flag": false, "note": "bug-tracker URL"},
+        {"line": 20, "flag": false, "note": "Slack thread URL"},
+        {"line": 21, "flag": false, "note": "design-doc URL"}
+      ]
+    },
+    "dev/positives/pos_disabled_assignments.py": {
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "labels": [
+        {"line": 9, "flag": true, "note": "disabled assignment"},
+        {"line": 10, "flag": true, "note": "disabled assignment with generator expression"},
+        {"line": 11, "flag": true, "note": "disabled constant assignment"},
+        {"line": 14, "flag": true, "note": "disabled augmented assignment inside loop"},
+        {"line": 15, "flag": true, "note": "disabled assignment"},
+        {"line": 16, "flag": true, "note": "disabled augmented assignment"},
+        {"line": 20, "flag": true, "note": "disabled module-level constant"},
+        {"line": 21, "flag": true, "note": "disabled module-level constant"},
+        {"line": 22, "flag": true, "note": "disabled module-level constant containing URL string"},
+        {"line": 30, "flag": true, "note": "disabled attribute assignment"},
+        {"line": 31, "flag": true, "note": "disabled attribute assignment with call"}
+      ]
+    },
+    "dev/positives/pos_disabled_calls.py": {
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "labels": [
+        {"line": 9, "flag": true, "note": "disabled logger call"},
+        {"line": 10, "flag": true, "note": "disabled metrics call"},
+        {"line": 12, "flag": true, "note": "disabled cache write"},
+        {"line": 13, "flag": true, "note": "disabled notifier call"},
+        {"line": 15, "flag": true, "note": "disabled audit call"},
+        {"line": 30, "flag": true, "note": "disabled debug print"},
+        {"line": 31, "flag": true, "note": "disabled breakpoint call"},
+        {"line": 32, "flag": true, "note": "disabled pdb call"}
+      ]
+    },
+    "dev/positives/pos_disabled_control_flow.py": {
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "labels": [
+        {"line": 8, "flag": true, "note": "disabled if header"},
+        {"line": 9, "flag": true, "note": "disabled return inside if body"},
+        {"line": 10, "flag": true, "note": "disabled for header"},
+        {"line": 11, "flag": true, "note": "disabled call inside for body"},
+        {"line": 13, "flag": true, "note": "disabled while header"},
+        {"line": 14, "flag": true, "note": "disabled augmented assignment inside while"},
+        {"line": 15, "flag": true, "note": "disabled return statement"},
+        {"line": 20, "flag": true, "note": "disabled if header"},
+        {"line": 21, "flag": true, "note": "disabled raise inside if body"},
+        {"line": 22, "flag": true, "note": "disabled elif header"},
+        {"line": 23, "flag": true, "note": "disabled raise inside elif body"},
+        {"line": 27, "flag": true, "note": "disabled try header"},
+        {"line": 28, "flag": true, "note": "disabled call inside try"},
+        {"line": 29, "flag": true, "note": "disabled except header"},
+        {"line": 30, "flag": true, "note": "disabled call inside except"},
+        {"line": 31, "flag": true, "note": "disabled bare raise"}
+      ]
+    },
+    "dev/positives/pos_disabled_definitions.py": {
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "labels": [
+        {"line": 6, "flag": true, "note": "disabled decorator line"},
+        {"line": 7, "flag": true, "note": "disabled built-in decorator"},
+        {"line": 8, "flag": true, "note": "disabled framework decorator with arguments"},
+        {"line": 13, "flag": true, "note": "disabled function def header"},
+        {"line": 14, "flag": true, "note": "disabled return inside function body"},
+        {"line": 17, "flag": true, "note": "disabled class header"},
+        {"line": 18, "flag": true, "note": "disabled __init__ header"},
+        {"line": 19, "flag": true, "note": "disabled attribute assignment in __init__"},
+        {"line": 20, "flag": false, "note": "blank '#' separator inside a disabled block, not itself an executable statement"},
+        {"line": 21, "flag": true, "note": "disabled method header"},
+        {"line": 22, "flag": true, "note": "disabled method-call statement"},
+        {"line": 28, "flag": true, "note": "disabled @property decorator"},
+        {"line": 29, "flag": true, "note": "disabled method header"},
+        {"line": 30, "flag": true, "note": "disabled return statement"}
+      ]
+    },
+    "dev/positives/pos_inline_disabled.py": {
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "labels": [
+        {"line": 10, "flag": true, "note": "inline disabled alternative assignment"},
+        {"line": 11, "flag": true, "note": "inline disabled alternative assignment"},
+        {"line": 12, "flag": true, "note": "inline disabled alternative assignment"},
+        {"line": 17, "flag": true, "note": "inline disabled alternative call"}
+      ]
+    },
+    "dev/positives/pos_typed_notes.py": {
+      "source": "hand-written",
+      "labelled_by": "Claude",
+      "labelled_before_rule": "unknown",
+      "added_in": "b188144",
+      "labels": [
+        {"line": 7, "flag": true, "note": "disabled typed assignment (builtin type)"},
+        {"line": 8, "flag": true, "note": "disabled typed assignment (subscript type)"},
+        {"line": 9, "flag": true, "note": "disabled typed assignment (class type)"},
+        {"line": 10, "flag": true, "note": "disabled return of a real name ending in -ly"},
+        {"line": 11, "flag": true, "note": "disabled raise of a real name"},
+        {"line": 15, "flag": false, "note": "prose header; not an illustration header"},
+        {"line": 16, "flag": true, "note": "disabled assignment under an 'Old code:' header"}
+      ]
+    },
+    "holdout/generated/gen_comment_statement_01.py": {
+      "source": "generated:comment_statement",
+      "labelled_by": "evals/generate_adversarial.py",
+      "labelled_before_rule": true,
+      "labels": [
+        {"line": 9, "flag": true, "note": "comment_statement from dev/negatives/neg_copyright_headers.py:18"},
+        {"line": 11, "flag": true, "note": "comment_statement from holdout/positives/pos_disabled_block.py:14"},
+        {"line": 13, "flag": true, "note": "comment_statement from holdout/positives/pos_disabled_imports.py:25"},
+        {"line": 15, "flag": true, "note": "comment_statement from holdout/negatives/neg_math_units.py:7"},
+        {"line": 17, "flag": true, "note": "comment_statement from dev/negatives/neg_pragmas.py:14"},
+        {"line": 19, "flag": true, "note": "comment_statement from dev/negatives/neg_urls_refs.py:16"},
+        {"line": 21, "flag": true, "note": "comment_statement from dev/negatives/neg_pragmas.py:5"},
+        {"line": 23, "flag": true, "note": "comment_statement from dev/positives/pos_inline_disabled.py:10"},
+        {"line": 25, "flag": true, "note": "comment_statement from holdout/positives/pos_disabled_block.py:19"},
+        {"line": 27, "flag": true, "note": "comment_statement from dev/positives/pos_disabled_calls.py:23"},
+        {"line": 29, "flag": true, "note": "comment_statement from dev/positives/pos_inline_disabled.py:11"},
+        {"line": 31, "flag": true, "note": "comment_statement from holdout/negatives/neg_shebang_encoding.py:14"}
+      ]
+    },
+    "holdout/generated/gen_comment_statement_02.py": {
+      "source": "generated:comment_statement",
+      "labelled_by": "evals/generate_adversarial.py",
+      "labelled_before_rule": true,
+      "labels": [
+        {"line": 9, "flag": true, "note": "comment_statement from dev/negatives/neg_call_signatures.py:17"},
+        {"line": 11, "flag": true, "note": "comment_statement from dev/positives/pos_disabled_calls.py:19"},
+        {"line": 13, "flag": true, "note": "comment_statement from dev/positives/pos_disabled_calls.py:11"},
+        {"line": 15, "flag": true, "note": "comment_statement from dev/negatives/neg_todo_fixme.py:15"},
+        {"line": 17, "flag": true, "note": "comment_statement from dev/negatives/neg_section_banners.py:30"},
+        {"line": 19, "flag": true, "note": "comment_statement from dev/negatives/neg_type_contracts.py:11"},
+        {"line": 21, "flag": true, "note": "comment_statement from dev/positives/pos_disabled_control_flow.py:16"},
+        {"line": 23, "flag": true, "note": "comment_statement from dev/negatives/neg_pragmas.py:18"},
+        {"line": 25, "flag": true, "note": "comment_statement from holdout/positives/pos_disabled_block.py:18"},
+        {"line": 27, "flag": true, "note": "comment_statement from dev/negatives/neg_prose.py:16"},
+        {"line": 29, "flag": true, "note": "comment_statement from dev/negatives/neg_prose.py:22"},
+        {"line": 31, "flag": true, "note": "comment_statement from dev/positives/pos_typed_notes.py:17"}
+      ]
+    },
+    "holdout/generated/gen_docstring_sentence_01.py": {
+      "source": "generated:docstring_sentence",
+      "labelled_by": "evals/generate_adversarial.py",
+      "labelled_before_rule": true,
+      "labels": [
+        {"line": 9, "flag": false, "note": "docstring_sentence from dev/positives/pos_disabled_calls.py"},
+        {"line": 11, "flag": false, "note": "docstring_sentence from holdout/positives/pos_disabled_block.py"},
+        {"line": 13, "flag": false, "note": "docstring_sentence from holdout/positives/pos_disabled_block.py"},
+        {"line": 15, "flag": false, "note": "docstring_sentence from dev/positives/pos_typed_notes.py"},
+        {"line": 17, "flag": false, "note": "docstring_sentence from holdout/positives/pos_disabled_imports.py"},
+        {"line": 19, "flag": false, "note": "docstring_sentence from dev/negatives/neg_pragmas.py"},
+        {"line": 21, "flag": false, "note": "docstring_sentence from dev/negatives/neg_todo_fixme.py"},
+        {"line": 23, "flag": false, "note": "docstring_sentence from holdout/negatives/neg_math_units.py"},
+        {"line": 25, "flag": false, "note": "docstring_sentence from dev/negatives/neg_colon_annotations.py"},
+        {"line": 27, "flag": false, "note": "docstring_sentence from dev/positives/pos_disabled_definitions.py"},
+        {"line": 29, "flag": false, "note": "docstring_sentence from dev/negatives/neg_section_banners.py"},
+        {"line": 31, "flag": false, "note": "docstring_sentence from dev/negatives/neg_copyright_headers.py"}
+      ]
+    },
+    "holdout/generated/gen_docstring_sentence_02.py": {
+      "source": "generated:docstring_sentence",
+      "labelled_by": "evals/generate_adversarial.py",
+      "labelled_before_rule": true,
+      "labels": [
+        {"line": 9, "flag": false, "note": "docstring_sentence from holdout/negatives/neg_shebang_encoding.py"},
+        {"line": 11, "flag": false, "note": "docstring_sentence from dev/negatives/neg_prose.py"},
+        {"line": 13, "flag": false, "note": "docstring_sentence from dev/positives/pos_disabled_assignments.py"},
+        {"line": 15, "flag": false, "note": "docstring_sentence from holdout/positives/pos_disabled_imports.py"}
+      ]
+    },
+    "holdout/negatives/neg_math_units.py": {
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "labels": [
+        {"line": 7, "flag": false, "note": "unit annotation prose"},
+        {"line": 8, "flag": false, "note": "unit annotation prose"},
+        {"line": 9, "flag": false, "note": "unit annotation prose"},
+        {"line": 10, "flag": false, "note": "physics constant note with unit"},
+        {"line": 11, "flag": false, "note": "astronomy unit note"},
+        {"line": 16, "flag": false, "note": "parameter-unit annotation"},
+        {"line": 17, "flag": false, "note": "delta annotation with unit"},
+        {"line": 18, "flag": false, "note": "formula annotation with units"},
+        {"line": 22, "flag": false, "note": "constant annotation prose"},
+        {"line": 23, "flag": false, "note": "tolerance annotation with unit"}
+      ]
+    },
+    "holdout/negatives/neg_shebang_encoding.py": {
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "labels": [
+        {"line": 1, "flag": false, "note": "shebang line"},
+        {"line": 2, "flag": false, "note": "PEP 263 source-encoding declaration"},
+        {"line": 3, "flag": false, "note": "vim modeline"}
+      ]
+    },
+    "holdout/positives/pos_disabled_block.py": {
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "labels": [
+        {"line": 8, "flag": true, "note": "disabled assignment opening a multi-line block"},
+        {"line": 9, "flag": true, "note": "disabled list-construction assignment"},
+        {"line": 10, "flag": true, "note": "disabled for-loop header"},
+        {"line": 11, "flag": true, "note": "disabled assignment inside for body"},
+        {"line": 12, "flag": true, "note": "disabled method-call statement inside for body"},
+        {"line": 13, "flag": true, "note": "disabled return statement"}
+      ]
+    },
+    "holdout/positives/pos_disabled_imports.py": {
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "labels": [
+        {"line": 8, "flag": true, "note": "disabled import statement"},
+        {"line": 9, "flag": true, "note": "disabled from-import"},
+        {"line": 10, "flag": true, "note": "disabled import with alias"},
+        {"line": 11, "flag": true, "note": "disabled third-party import"},
+        {"line": 12, "flag": true, "note": "disabled relative import"},
+        {"line": 13, "flag": true, "note": "disabled multi-name from-import"},
+        {"line": 21, "flag": true, "note": "disabled import below body"},
+        {"line": 22, "flag": true, "note": "disabled stdlib import"}
+      ]
+    }
+  }
 }

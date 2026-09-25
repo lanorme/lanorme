@@ -1,16 +1,106 @@
 {
-  "fire_api_overview.md": {"should_fire": true},
-  "fire_launch_announcement.md": {"should_fire": true},
-  "fire_productivity_guide.md": {"should_fire": true},
-  "ok_boundary_clustered.md": {"should_fire": false},
-  "ok_boundary_fraction.md": {"should_fire": false},
-  "ok_code_fenced.md": {"should_fire": false},
-  "ok_faq.md": {"should_fire": false},
-  "ok_long_gardening.md": {"should_fire": false},
-  "ok_long_history.md": {"should_fire": false},
-  "ok_near_low_fraction.md": {"should_fire": false},
-  "ok_short_emheavy.md": {"should_fire": false},
-  "ok_short_punchy.md": {"should_fire": false},
-  "ok_sparse_essay.md": {"should_fire": false},
-  "ok_tutorial.md": {"should_fire": false}
+  "rules": ["PROSE-004"],
+  "unit": "file",
+  "description": "Ground truth for PROSE-004, labelled per document: flag true is a long document that carries an em dash through most of its sentences; false covers natural edited English that uses em dashes sparingly, boundary documents, a short em-heavy document below the eligibility floor and a document whose em dashes live only in fenced code.",
+  "split": "hashed",
+  "files": {
+    "dev/fire_launch_announcement.md": {
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "flag": true
+    },
+    "dev/ok_boundary_clustered.md": {
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "flag": false
+    },
+    "dev/ok_code_fenced.md": {
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "flag": false
+    },
+    "dev/ok_faq.md": {
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "flag": false
+    },
+    "dev/ok_long_history.md": {
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "flag": false
+    },
+    "dev/ok_near_low_fraction.md": {
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "flag": false
+    },
+    "dev/ok_short_emheavy.md": {
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "flag": false
+    },
+    "dev/ok_sparse_essay.md": {
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "flag": false
+    },
+    "dev/ok_tutorial.md": {
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "flag": false
+    },
+    "holdout/fire_api_overview.md": {
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "flag": true
+    },
+    "holdout/fire_productivity_guide.md": {
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "flag": true
+    },
+    "holdout/ok_boundary_fraction.md": {
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "flag": false
+    },
+    "holdout/ok_long_gardening.md": {
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "flag": false
+    },
+    "holdout/ok_short_punchy.md": {
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "flag": false
+    }
+  }
 }

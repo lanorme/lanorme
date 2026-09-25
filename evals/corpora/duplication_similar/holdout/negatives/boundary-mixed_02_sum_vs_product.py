@@ -1,0 +1,22 @@
+def running_total(numbers):
+    acc = 0
+    seen = 0
+    values = list(numbers)
+    for number in values:
+        if number is None:
+            continue
+        acc = acc + number
+        seen += 1
+    return acc
+
+
+def running_product(numbers):
+    acc = 1
+    seen = 0
+    values = list(numbers)
+    for number in values:
+        if number is None:
+            continue
+        acc = acc * number
+        seen += 1
+    return acc

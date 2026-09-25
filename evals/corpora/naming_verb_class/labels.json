@@ -1,29 +1,50 @@
 {
-  "_comment": "Ground truth for NAMING-006. Keys are file:line of a class definition; true means the class is named as an action and should be flagged. Negatives cover a noun head after a verb (FetchOptions, ConnectTimeout), a CQRS suffix, an adjective, and a non-PascalCase ctypes name.",
-  "positives/pos_action_classes.py:4": true,
-  "positives/pos_action_classes.py:11": true,
-  "positives/pos_action_classes.py:21": true,
-  "positives/pos_action_classes.py:29": true,
-  "positives/pos_action_classes.py:39": true,
-  "positives/pos_action_classes.py:46": true,
-  "positives/pos_action_classes.py:53": true,
-  "negatives/neg_thing_classes.py:4": false,
-  "negatives/neg_thing_classes.py:11": false,
-  "negatives/neg_thing_classes.py:17": false,
-  "negatives/neg_thing_classes.py:23": false,
-  "negatives/neg_thing_classes.py:27": false,
-  "negatives/neg_thing_classes.py:33": false,
-  "negatives/neg_thing_classes.py:40": false,
-  "negatives/neg_thing_classes.py:44": false,
-  "negatives/neg_thing_classes.py:50": false,
-  "negatives/neg_thing_classes.py:56": false,
-  "negatives/neg_thing_classes.py:62": false,
-  "negatives/neg_thing_classes.py:68": false,
-  "negatives/neg_thing_classes.py:74": false,
-  "negatives/neg_thing_classes.py:80": false,
-  "negatives/neg_thing_classes.py:84": false,
-  "negatives/neg_thing_classes.py:88": false,
-  "negatives/neg_thing_classes.py:92": false,
-  "negatives/neg_thing_classes.py:96": false,
-  "positives/pos_action_classes.py:60": true
+  "rules": ["NAMING-006"],
+  "unit": "definition",
+  "description": "Ground truth for NAMING-006. Keys are file:line of a class definition; true means the class is named as an action and should be flagged. Negatives cover a noun head after a verb (FetchOptions, ConnectTimeout), a CQRS suffix, an adjective, and a non-PascalCase ctypes name.",
+  "split": "too_small",
+  "files": {
+    "dev/negatives/neg_thing_classes.py": {
+      "source": "hand-written",
+      "labelled_by": "Antonio Badilla-Olivas",
+      "labelled_before_rule": "unknown",
+      "added_in": "ee99862",
+      "labels": [
+        {"line": 4, "flag": false},
+        {"line": 11, "flag": false},
+        {"line": 17, "flag": false},
+        {"line": 23, "flag": false},
+        {"line": 27, "flag": false},
+        {"line": 33, "flag": false},
+        {"line": 40, "flag": false},
+        {"line": 44, "flag": false},
+        {"line": 50, "flag": false},
+        {"line": 56, "flag": false},
+        {"line": 62, "flag": false},
+        {"line": 68, "flag": false},
+        {"line": 74, "flag": false},
+        {"line": 80, "flag": false},
+        {"line": 84, "flag": false},
+        {"line": 88, "flag": false},
+        {"line": 92, "flag": false},
+        {"line": 96, "flag": false}
+      ]
+    },
+    "dev/positives/pos_action_classes.py": {
+      "source": "hand-written",
+      "labelled_by": "Antonio Badilla-Olivas",
+      "labelled_before_rule": "unknown",
+      "added_in": "ee99862",
+      "labels": [
+        {"line": 4, "flag": true},
+        {"line": 11, "flag": true},
+        {"line": 21, "flag": true},
+        {"line": 29, "flag": true},
+        {"line": 39, "flag": true},
+        {"line": 46, "flag": true},
+        {"line": 53, "flag": true},
+        {"line": 60, "flag": true}
+      ]
+    }
+  }
 }

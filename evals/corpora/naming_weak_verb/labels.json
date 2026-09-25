@@ -1,25 +1,46 @@
 {
-  "_comment": "Ground truth for NAMING-008. Keys are file:line of a function definition; true means the name opens with a weak verb the author was free to change. Negatives cover a bare handle, a participle, subclass overrides, Django and Scrapy hooks, a registered handler and a closure.",
-  "positives/pos_weak_verbs.py:4": true,
-  "positives/pos_weak_verbs.py:10": true,
-  "positives/pos_weak_verbs.py:17": true,
-  "positives/pos_weak_verbs.py:23": true,
-  "positives/pos_weak_verbs.py:28": true,
-  "positives/pos_weak_verbs.py:35": true,
-  "positives/pos_weak_verbs.py:44": true,
-  "negatives/neg_named_actions_and_hooks.py:4": false,
-  "negatives/neg_named_actions_and_hooks.py:9": false,
-  "negatives/neg_named_actions_and_hooks.py:14": false,
-  "negatives/neg_named_actions_and_hooks.py:19": false,
-  "negatives/neg_named_actions_and_hooks.py:52": false,
-  "negatives/neg_named_actions_and_hooks.py:57": false,
-  "negatives/neg_named_actions_and_hooks.py:27": false,
-  "negatives/neg_named_actions_and_hooks.py:30": false,
-  "negatives/neg_named_actions_and_hooks.py:37": false,
-  "negatives/neg_named_actions_and_hooks.py:40": false,
-  "negatives/neg_named_actions_and_hooks.py:47": false,
-  "negatives/neg_named_actions_and_hooks.py:60": false,
-  "negatives/neg_named_actions_and_hooks.py:69": false,
-  "negatives/neg_named_actions_and_hooks.py:72": false,
-  "positives/pos_weak_verbs.py:53": true
+  "rules": ["NAMING-008"],
+  "unit": "definition",
+  "description": "Ground truth for NAMING-008. Keys are file:line of a function definition; true means the name opens with a weak verb the author was free to change. Negatives cover a bare handle, a participle, subclass overrides, Django and Scrapy hooks, a registered handler and a closure.",
+  "split": "too_small",
+  "files": {
+    "dev/negatives/neg_named_actions_and_hooks.py": {
+      "source": "hand-written",
+      "labelled_by": "Antonio Badilla-Olivas",
+      "labelled_before_rule": "unknown",
+      "added_in": "ee99862",
+      "labels": [
+        {"line": 4, "flag": false},
+        {"line": 9, "flag": false},
+        {"line": 14, "flag": false},
+        {"line": 19, "flag": false},
+        {"line": 27, "flag": false},
+        {"line": 30, "flag": false},
+        {"line": 37, "flag": false},
+        {"line": 40, "flag": false},
+        {"line": 47, "flag": false},
+        {"line": 52, "flag": false},
+        {"line": 57, "flag": false},
+        {"line": 60, "flag": false},
+        {"line": 69, "flag": false},
+        {"line": 72, "flag": false}
+      ]
+    },
+    "dev/positives/pos_weak_verbs.py": {
+      "source": "hand-written",
+      "labelled_by": "Antonio Badilla-Olivas",
+      "labelled_before_rule": "unknown",
+      "added_in": "ee99862",
+      "labels": [
+        {"line": 4, "flag": true},
+        {"line": 10, "flag": true},
+        {"line": 17, "flag": true},
+        {"line": 23, "flag": true},
+        {"line": 28, "flag": true},
+        {"line": 35, "flag": true},
+        {"line": 44, "flag": true},
+        {"line": 53, "flag": true}
+      ]
+    }
+  }
 }

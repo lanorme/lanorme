@@ -34,11 +34,12 @@ fi
 uv run --group dev pytest tests/unit -q
 uv run lanorme check .            # dogfood: nonzero exit on any FAIL
 uv run python scripts/gen_docs.py --check   # docs in sync: fail if generated docs are stale
-# eval audit precheck: validate the labelled corpora are not stale before we
-# touch the tree (a stale fixture must block the release here, while the failure
-# still leaves the tree untouched). The recorded audit is written later, against
-# the release commit, so its version and commit stamp match the released tree.
-uv run python evals/audit.py --version "$VERSION" --no-perf --output "$(mktemp)"
+# eval audit precheck: validate the labelled corpora are complete and not stale,
+# and gate every rule's holdout precision and recall against the latest recorded
+# audit (a drop beyond 0.02 blocks), before we touch the tree, while a failure
+# still leaves it untouched. The recorded audit is written later, against the
+# release commit, so its version and commit stamp match the released tree.
+uv run python evals/audit.py --version "$VERSION" --no-perf --output "$(mktemp)" --gate latest
 
 # --- bump the version (portable in-place edit) ------------------------------
 perl -i -pe "s/^version = .*/version = \"$VERSION\"/" pyproject.toml
