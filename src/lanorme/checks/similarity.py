@@ -47,7 +47,7 @@ A pair is flagged when every gate passes:
   ``min_statements`` top-level statements each body must have, the docstring
                      left out.
 
-The ``*_jaccard`` keys keep their historical names; the measure behind
+The ``*_jaccard`` keys keep their names; the measure behind
 ``op_jaccard``, ``call_jaccard`` and ``str_jaccard`` is the containment share
 described above, which unlike a Jaccard does not punish drift.
 

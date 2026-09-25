@@ -12,10 +12,10 @@ from __future__ import annotations
 
 import ast
 
-FunctionNode = ast.FunctionDef | ast.AsyncFunctionDef | ast.Lambda
+FunctionNode = ast.FunctionDef | ast.AsyncFunctionDef
 
 
-def list_body_statements(*, func: ast.FunctionDef | ast.AsyncFunctionDef) -> list[ast.stmt]:
+def list_body_statements(*, func: FunctionNode) -> list[ast.stmt]:
     """The function's statements without a leading docstring."""
     body = func.body
     if (

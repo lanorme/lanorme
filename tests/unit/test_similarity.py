@@ -127,10 +127,11 @@ def test_inserted_guard_statement_is_flagged(tmp_path: Path):
 
 
 def test_inserted_statement_with_a_new_string_is_flagged(tmp_path: Path):
-    # Arrange: one added call carrying a string the original does not have.
+    # Arrange: one added call carrying two strings the original does not have
+    # (a Jaccard over strings would fall to 0.5; containment stays at 1.0).
     second = _BASE.format(name="second").replace(
         "    mean = fsum(xs) / n\n",
-        '    record("samples", n)\n    mean = fsum(xs) / n\n',
+        '    record("samples", "count", n)\n    mean = fsum(xs) / n\n',
     )
 
     # Act + Assert: the strings of the smaller side all appear in the other.

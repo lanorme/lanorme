@@ -347,8 +347,8 @@ against `or`), a called name changed (`min` against `max`, `.append` against
 its string literals: keys, column names, formats and messages are the content
 a body is about, and parallel builders that share a shape but not their
 strings (config builders, column specs, dispatch tables, argparse subcommands)
-are boilerplate, not a clone. Message strings passed to a logging or `print`
-call are left out, so a reworded log line is drift.
+are boilerplate, not a clone. Message strings passed positionally to a
+logging or `print` call are left out, so a reworded log line is drift.
 
 Each function is fingerprinted as a sequence of statement lines (one per
 statement at every nesting depth: the depth, the statement kind, and the
