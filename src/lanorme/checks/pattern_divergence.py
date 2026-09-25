@@ -16,6 +16,7 @@ from pathlib import Path
 
 from lanorme import CheckResult, Status, Violation, register
 from lanorme.discovery import iter_py_files
+from lanorme.paths import is_test_file
 
 # ---------------------------------------------------------------------------
 # IMPORT-001: No inline imports inside functions
@@ -248,7 +249,7 @@ class PatternDivergenceCheck:
             relative_file = py_file.relative_to(src_path).as_posix()
 
             # Skip test files.
-            if Path(relative_file).name.startswith("test_"):
+            if is_test_file(relative_file):
                 continue
 
             try:

@@ -1,7 +1,7 @@
 """TESTFILE-001: every production module must have a corresponding test.
 
 A single advisory (WARNING) rule, surfaced when a file in one of the hardwired
-production directories lacks a matching ``test_*.py`` partner under one of the
+production directories lacks a matching test module partner under one of the
 configured test roots (``tests/integration/`` by default). AAA-style test
 checks live in the ``test_style`` check.
 
@@ -25,6 +25,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from lanorme import CheckResult, Status, Violation, register
+from lanorme.discovery import iter_py_files
+from lanorme.paths import is_test_module
 
 
 # ---------------------------------------------------------------------------
@@ -86,13 +88,20 @@ def _find_production_modules(*, src_root: str) -> list[tuple[str, str, str]]:
 
 
 def _find_test_files(*, backend_root: Path, test_roots: tuple[str, ...]) -> list[Path]:
-    """Return all test_*.py files under each configured test root."""
+    """Return every test module (``lanorme.paths.is_test_module``) under each test root.
+
+    The walk is recursive and honours the user's ``exclude`` globs, so a
+    partner test in a nested package (``tests/integration/api/test_users.py``)
+    counts. Support files (``conftest.py``, fixtures, helpers) are not partners.
+    """
     found: list[Path] = []
     for test_root in test_roots:
         tests_dir = backend_root / test_root
         if not tests_dir.is_dir():
             continue
-        found.extend(tests_dir.glob("test_*.py"))
+        found.extend(
+            path for path in iter_py_files(tests_dir) if is_test_module(path.relative_to(tests_dir))
+        )
     return sorted(found)
 
 
@@ -146,13 +155,13 @@ def _module_has_test(
     test_file_imports: dict[str, tuple[str, list[str] | None]],
 ) -> bool:
     """True if any test file targets the module by name or by import."""
-    if f"test_{module_name}" in test_stems:
+    if f"test_{module_name}" in test_stems or f"{module_name}_test" in test_stems:
         return True
 
     parts = module_name.split("_")
     if len(parts) > 1:
         shortened = "_".join(parts[:-1])
-        if f"test_{shortened}" in test_stems:
+        if f"test_{shortened}" in test_stems or f"{shortened}_test" in test_stems:
             return True
 
     for contents, import_paths in test_file_imports.values():

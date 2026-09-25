@@ -14,7 +14,7 @@ project through ``[tool.lanorme.file_limits]``. Rule strings carry no number so
 that a configured threshold does not change a finding's baseline anchor; the
 number a finding was measured against lives in its message.
 
-Excludes: __init__.py, conftest.py, alembic/, migrations/, test_* prefixed files.
+Excludes: __init__.py, alembic/, migrations/, and test files (see lanorme.paths).
 
 Run:
     lanorme check . --check=file_limits
@@ -29,6 +29,7 @@ from pathlib import Path
 
 from lanorme import CheckResult, Status, Violation, register
 from lanorme.discovery import iter_py_files
+from lanorme.paths import is_test_file
 
 # Default thresholds. Each is the default of the matching ``FileLimitsCheck``
 # field, so ``[tool.lanorme.file_limits]`` overrides them per project.
@@ -52,8 +53,8 @@ COMPLEXITY_ERROR = 15
 PARAM_WARN = 5
 PARAM_ERROR = 8
 
-# Files and directories excluded from scanning.
-EXCLUDED_FILENAMES = {"__init__.py", "conftest.py"}
+# Files and directories excluded from scanning (test files: ``lanorme.paths``).
+EXCLUDED_FILENAMES = {"__init__.py"}
 EXCLUDED_DIR_PARTS = {"alembic", "migrations"}
 
 
@@ -83,7 +84,7 @@ def _should_exclude(*, relative: Path) -> bool:
     """
     if relative.name in EXCLUDED_FILENAMES:
         return True
-    if relative.name.startswith("test_"):
+    if is_test_file(relative):
         return True
     return any(part in EXCLUDED_DIR_PARTS for part in relative.parts)
 

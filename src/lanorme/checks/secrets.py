@@ -14,8 +14,8 @@ priority for security rules: do not produce a false sense of security):
    / ASIA, GitHub ``ghp_`` / ``gho_`` / ``github_pat_``, Slack ``xox*``,
    Stripe ``sk_live_`` / ``sk_test_``). These betray themselves regardless of
    where they sit.
-3. **Implicit exclusions**: files matching ``conftest.py``, ``seed_dev.py``,
-   or starting with ``test_`` are skipped wholesale; names whose first segment
+3. **Implicit exclusions**: ``seed_dev.py`` and test files (see
+   ``lanorme.paths``) are skipped wholesale; names whose first segment
    is ``help_`` / ``hint_`` / ``msg_`` / etc. are documentation; names whose
    last segment is structural (``pattern``, ``endpoint``, ``header``,
    ``name``, ``len``, ...) are not credentials.
@@ -37,6 +37,7 @@ from pathlib import Path
 
 from lanorme import CheckResult, Status, Violation, register
 from lanorme.discovery import iter_py_files
+from lanorme.paths import is_test_file
 
 # A name suggests a credential when (i) it matches one of these multi-segment
 # phrases as the whole name or as a ``_``-anchored suffix, OR (ii) one of its
@@ -77,7 +78,7 @@ _PLACEHOLDER_MARKERS = (
     "redacted", "sample",
 )
 
-_SCAN_EXCLUDES = {"conftest.py", "seed_dev.py"}
+_SCAN_EXCLUDES = {"seed_dev.py"}
 
 _PEM_BLOCK_RE = re.compile(r"-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----")
 _JWT_RE = re.compile(r"\beyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b")
@@ -267,7 +268,7 @@ class SecretsCheck:
             if any(part in _SKIP_DIRS for part in relative.parts):
                 continue
             file_name = path.name
-            if file_name in _SCAN_EXCLUDES or file_name.startswith("test_"):
+            if file_name in _SCAN_EXCLUDES or is_test_file(relative):
                 continue
             try:
                 source = path.read_text(encoding="utf-8")

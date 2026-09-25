@@ -40,6 +40,7 @@ from pathlib import Path
 
 from lanorme import CheckResult, Status, Violation, register
 from lanorme.discovery import iter_py_files
+from lanorme.paths import is_test_file
 
 # Beyond this many lines between binding and last use, a short name stops
 # paying for itself. Roughly one screen: see the calibration above.
@@ -184,7 +185,7 @@ class NamingScopeCheck:
             # Match skip directories inside the root only: the absolute path's
             # ancestors are the user's filesystem, not the project layout.
             relative = path.relative_to(root)
-            if any(part in _SKIP_DIRS for part in relative.parts) or path.name.startswith("test_"):
+            if any(part in _SKIP_DIRS for part in relative.parts) or is_test_file(relative):
                 continue
             try:
                 tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))

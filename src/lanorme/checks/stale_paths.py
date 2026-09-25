@@ -12,8 +12,8 @@ Configure the stale tokens in ``[tool.lanorme.stale_paths]``::
 
 With no configuration the check is inert (always PASS).
 
-Boundary exemptions: files under ``tests/`` are skipped (fixtures legitimately
-reference legacy layouts).
+Boundary exemptions: test files (see ``lanorme.paths``) are skipped (fixtures
+legitimately reference legacy layouts).
 
 Run:
     lanorme check . --check=stale_paths
@@ -30,10 +30,10 @@ from pathlib import Path
 
 from lanorme import CheckResult, Status, Violation, register
 from lanorme.discovery import iter_py_files
+from lanorme.paths import is_test_file
 
 # Default is empty → the check is inert until configured.
 _STALE_TOKENS: tuple[str, ...] = ()
-_EXEMPT_PATH_FRAGMENTS = ("tests/",)
 
 
 def _compile_patterns(tokens: tuple[str, ...]) -> list[re.Pattern[str]]:
@@ -47,8 +47,8 @@ def _compile_patterns(tokens: tuple[str, ...]) -> list[re.Pattern[str]]:
 
 
 def _is_exempt(*, relative_path: str) -> bool:
-    normalised = relative_path.replace("\\", "/")
-    return any(normalised.startswith(p) for p in _EXEMPT_PATH_FRAGMENTS)
+    """True for test files (see ``lanorme.paths``): fixtures may quote old paths."""
+    return is_test_file(relative_path)
 
 
 def _scan_text(

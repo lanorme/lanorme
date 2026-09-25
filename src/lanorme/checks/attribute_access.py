@@ -22,7 +22,7 @@ cases only:
     - Dunder names (``__class__``, ``__name__`` ...) are introspection, exempt.
     - Three-argument ``getattr(x, "name", default)`` is the legitimate
       safe-access idiom, exempt.
-    - Files under ``tests/`` are exempt (tests poke internals on purpose).
+    - Test files (see ``lanorme.paths``) are exempt (tests poke internals on purpose).
 
 Dynamic names (``getattr(x, name)``, ``getattr(x, "_" + n)``) are genuine
 reflection and exempt by default. Enable ``flag_dynamic`` to flag them too::
@@ -43,18 +43,13 @@ from pathlib import Path
 
 from lanorme import CheckResult, Status, Violation, register
 from lanorme.discovery import iter_py_files
+from lanorme.paths import is_test_file
 
 _ATTR_BUILTINS = frozenset({"getattr", "hasattr", "setattr", "delattr"})
 
-# Files under these path fragments are skipped (intentional internal poking).
-_EXEMPT_PATH_FRAGMENTS = ("tests/", "test/")
-
-
 def _is_exempt_file(*, relative: str) -> bool:
-    norm = relative.replace("\\", "/")
-    if Path(norm).name.startswith("test_"):
-        return True
-    return any(norm.startswith(p) or f"/{p}" in norm for p in _EXEMPT_PATH_FRAGMENTS)
+    """True for test files (see ``lanorme.paths``): tests poke internals on purpose."""
+    return is_test_file(relative)
 
 
 def _builtin_name(*, call: ast.Call) -> str | None:

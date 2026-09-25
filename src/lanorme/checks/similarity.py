@@ -54,12 +54,14 @@ from pathlib import Path
 
 from lanorme import CheckResult, Status, Violation, register
 from lanorme.discovery import iter_py_files
+from lanorme.paths import is_test_file
 
 _SKIP_DIRS = frozenset({".git", ".venv", "venv", "node_modules", "__pycache__", "dist", "build"})
 
-# Files exempt from near-duplicate analysis (mirrors DRY-001): test functions
-# and migrations are legitimately parallel by nature.
-_EXCLUDED_FILENAMES = frozenset({"__init__.py", "conftest.py"})
+# Files exempt from near-duplicate analysis (mirrors DRY-001): package markers
+# and migrations are legitimately parallel by nature; test files are exempt
+# through ``lanorme.paths``.
+_EXCLUDED_FILENAMES = frozenset({"__init__.py"})
 _EXCLUDED_DIR_PARTS = frozenset({"alembic", "migrations"})
 
 
@@ -71,7 +73,7 @@ def _should_skip(*, relative: Path) -> bool:
     """
     if any(part in _SKIP_DIRS for part in relative.parts):
         return True
-    if relative.name in _EXCLUDED_FILENAMES or relative.name.startswith("test_"):
+    if relative.name in _EXCLUDED_FILENAMES or is_test_file(relative):
         return True
     return any(part in _EXCLUDED_DIR_PARTS for part in relative.parts)
 

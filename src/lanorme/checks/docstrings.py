@@ -41,6 +41,7 @@ from pathlib import Path
 from lanorme import CheckResult, Status, Violation, register
 from lanorme.checks.restating import _is_allowlisted, _split_identifier, _stem
 from lanorme.discovery import iter_py_files
+from lanorme.paths import is_test_file
 
 # Definitions shorter than this need no docstring: a three-line helper whose
 # name says it all is not improved by a sentence repeating the name.
@@ -50,9 +51,9 @@ DEFAULT_MIN_LINES = 5
 # abbreviation of it. Below this, prefix matching is noise.
 MIN_ABBREVIATION = 3
 
-# Files where a missing docstring is not a defect: package markers, fixtures
-# and generated code. Mirrors the file_limits skip list.
-_SKIP_FILES = frozenset({"__init__.py", "conftest.py", "setup.py"})
+# Files where a missing docstring is not a defect: package markers and
+# generated code. Test files are exempt through ``lanorme.paths``.
+_SKIP_FILES = frozenset({"__init__.py", "setup.py"})
 _SKIP_DIRS = frozenset(
     {".git", ".venv", "venv", "node_modules", "__pycache__", "dist", "build", "alembic", "migrations"}
 )
@@ -238,7 +239,7 @@ class DocstringsCheck:
             relative = path.relative_to(root)
             if any(part in _SKIP_DIRS for part in relative.parts) or path.name in _SKIP_FILES:
                 continue
-            if path.name.startswith("test_"):
+            if is_test_file(relative):
                 continue
             try:
                 tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))

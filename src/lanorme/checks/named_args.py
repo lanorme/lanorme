@@ -7,7 +7,7 @@ bare ``*`` separator so callers are forced to use keyword arguments. Opt-in
 Exceptions (skipped silently):
     - Dunder methods (__init__ with ≤1 extra param, __str__, __eq__, etc.)
     - Dependency-injection markers (``Depends()`` parameters)
-    - Test files (filenames starting with ``test_``)
+    - Test files (see ``lanorme.paths``)
     - Lambda expressions
     - Functions suppressed with ``# noqa: KWARG-001``
 
@@ -23,14 +23,10 @@ from pathlib import Path
 
 from lanorme import CheckResult, Status, Violation, register
 from lanorme.discovery import iter_py_files
+from lanorme.paths import is_test_file
 
 # Parameters that are implicit receiver, never counted.
 SELF_CLS_NAMES = {"self", "cls"}
-
-
-def _is_test_file(*, file_path: str) -> bool:
-    """Return True if the file is a test file (name starts with ``test_``)."""
-    return Path(file_path).name.startswith("test_")
 
 
 def _is_dunder(*, name: str) -> bool:
@@ -195,7 +191,7 @@ class NamedArgsCheck:
             relative_file = py_file.relative_to(src_path).as_posix()
 
             # Skip test files entirely.
-            if _is_test_file(file_path=relative_file):
+            if is_test_file(relative_file):
                 continue
 
             try:

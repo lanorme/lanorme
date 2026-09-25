@@ -27,7 +27,8 @@ green PR. Do not finish with a red gate.
 - Setup: `uv sync --group dev`, then `uvx pre-commit install`.
 - Layout: checks live in `src/lanorme/checks/`, the CLI in `src/lanorme/cli.py`,
   the public API and registry in `src/lanorme/__init__.py`, the shared file walk
-  in `src/lanorme/discovery.py`.
+  in `src/lanorme/discovery.py`, the shared test-file predicates in
+  `src/lanorme/paths.py` (use them; never write another `test_` prefix check).
 
 ## How we build features
 

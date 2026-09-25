@@ -9,6 +9,34 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
 
 ## [Unreleased]
 
+### Changed
+
+- Every check that treats test code differently now shares one definition
+  of a test file, `lanorme.paths`: a module pytest collects by name
+  (`test_*.py` or `*_test.py`, wherever it lives), test support
+  (`conftest.py` anywhere; a `fixtures` or `factories` module or package
+  inside a tests directory), or anything under a `tests/` or `test/`
+  directory. `KWARG-001`, `DRY-001`, `SIZE-*`, `COMPLEXITY-001`, `PARAM-001`,
+  `SIMILAR-001`, `SECRETPY-001`, `SQL-001`, `IMPORT-001`, `NAMING-005`,
+  `CMT-006`, `CMT-007` and the `TERM` rules used to exempt only a `test_`
+  filename prefix, so a `tests/helpers.py`, a `tests/conftest.py` or a
+  fixture under `tests/fixtures/` was judged as production code;
+  `TYPE-001..004` and `STALE-001` exempted only a `tests/` directory, so a
+  `test/` suite or a `test_*.py` beside code was judged; `ATTR-001` and
+  `ATTR-002` already combined the two. All of them now exempt the union.
+  Measured on the benchmark corpora (requests, flask, rich, SQLAlchemy, the
+  standard library) and LaNorme itself, the shared definition removes 1,344
+  findings that sat on test-suite code and adds none; see "Test files" in
+  `docs/RULES.md`.
+- `AAA-001` and `AAA-002` judge exactly the modules the shared definition
+  calls collected tests; the behaviour is unchanged.
+- `TESTFILE-001` now finds partner tests recursively under each configured
+  test root and accepts the `*_test.py` shape, so a module whose test lives
+  in a nested package (`tests/integration/api/test_users.py`) is no longer
+  reported as untested. `conftest.py`, fixtures and helpers under the root
+  are not partners. On SQLAlchemy's `test/` tree the lookup finds 209 partner
+  modules where the flat scan found none.
+
 ## [0.20.0]
 
 ### Fixed

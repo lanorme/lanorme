@@ -1,8 +1,8 @@
 """AAA-001 and AAA-002: test-style enforcement for pytest-style suites.
 
-The check applies only to test functions in test files. A test function is a
-function whose name starts with ``test_`` defined inside a file whose stem
-starts with ``test_`` or ends with ``_test``.
+The check applies only to test functions in test modules. A test function is a
+function whose name starts with ``test_`` defined inside a module pytest
+collects by name (``lanorme.paths.is_test_module``).
 
     AAA-001  Each non-trivial test function must have inline AAA section
              comments (Arrange/Act/Assert, or Given/When/Then). The default
@@ -35,6 +35,7 @@ from pathlib import Path
 
 from lanorme import CheckResult, Status, Violation, register
 from lanorme.discovery import iter_py_files
+from lanorme.paths import is_test_module
 
 # Default marker vocabulary. AAA + BDD + a few common aliases.
 _DEFAULT_MARKERS = ("arrange", "act", "assert", "given", "when", "then")
@@ -47,18 +48,7 @@ _SECTION_ALIASES: dict[str, frozenset[str]] = {
     "assert": frozenset({"assert", "then", "expect", "verify"}),
 }
 
-# Directories that look like tests but are not (fixtures, factories, conftest).
-_TEST_NON_TEST_STEMS = frozenset({"conftest", "__init__", "fixtures", "factories"})
-
 _SKIP_DIRS = frozenset({".git", ".venv", "venv", "node_modules", "__pycache__", "dist", "build"})
-
-
-def _is_test_file(*, path: Path) -> bool:
-    """True if *path* looks like a pytest test module."""
-    stem = path.stem
-    if stem in _TEST_NON_TEST_STEMS:
-        return False
-    return stem.startswith("test_") or stem.endswith("_test")
 
 
 def _is_test_function(*, node: ast.AST) -> bool:
@@ -264,7 +254,7 @@ class TestStyleCheck:
             relative = path.relative_to(root)
             if any(part in _SKIP_DIRS for part in relative.parts):
                 continue
-            if not _is_test_file(path=path):
+            if not is_test_module(relative):
                 continue
             try:
                 source = path.read_text(encoding="utf-8")

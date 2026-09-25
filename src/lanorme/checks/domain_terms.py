@@ -30,6 +30,7 @@ from pathlib import Path
 
 from lanorme import CheckResult, Status, Violation, register
 from lanorme.discovery import iter_py_files
+from lanorme.paths import is_test_file
 
 # Each rule maps forbidden terms to a canonical replacement. Empty by default →
 # the check is inert until a project supplies its own vocabulary.
@@ -54,10 +55,9 @@ _SKIP_DIRS = ("migrations",)
 
 
 def _is_exempt_path(*, relative_path: str) -> bool:
-    normalized = relative_path.replace("\\", "/")
-    name = Path(normalized).name
-    if name.startswith("test_"):
+    if is_test_file(relative_path):
         return True
+    normalized = relative_path.replace("\\", "/")
     return any(normalized.startswith(f"{d}/") or f"/{d}/" in normalized for d in _SKIP_DIRS)
 
 

@@ -24,6 +24,7 @@ from pathlib import Path
 
 from lanorme import CheckResult, Status, Violation, register
 from lanorme.discovery import iter_py_files
+from lanorme.paths import is_test_file
 
 # HTTP methods that mutate data, these MUST have auth.
 MUTATION_METHODS = {"post", "put", "patch", "delete"}
@@ -319,7 +320,7 @@ def _check_raw_sql(
     relative_file: str,
 ) -> list[Violation]:
     """SQL-001: only flag raw SQL that actually reaches a DB execution sink."""
-    if "alembic" in relative_file or Path(relative_file).name.startswith("test_"):
+    if "alembic" in relative_file or is_test_file(relative_file):
         return []
     constants = _collect_string_constants(tree=tree)
     violations: list[Violation] = []

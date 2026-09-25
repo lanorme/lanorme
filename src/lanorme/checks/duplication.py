@@ -10,7 +10,7 @@ is exact modulo those placeholders: a single added statement, a reordering, a
 changed number, or a renamed attribute defeats it. For the fuzzier near-duplicate
 cases see the ``similarity`` check (SIMILAR-001).
 
-Excludes: __init__.py, conftest.py, alembic/, migrations/, test_* prefixed files.
+Excludes: __init__.py, alembic/, migrations/, and test files (see lanorme.paths).
 
 Run:
     lanorme check . --check=duplication
@@ -26,12 +26,13 @@ from pathlib import Path
 
 from lanorme import CheckResult, Status, Violation, register
 from lanorme.discovery import iter_py_files
+from lanorme.paths import is_test_file
 
 # Minimum number of statements in a function body to consider for duplication.
 MIN_BODY_STATEMENTS = 5
 
-# Files and directories excluded from scanning.
-EXCLUDED_FILENAMES = {"__init__.py", "conftest.py"}
+# Files and directories excluded from scanning (test files: ``lanorme.paths``).
+EXCLUDED_FILENAMES = {"__init__.py"}
 EXCLUDED_DIR_PARTS = {"alembic", "migrations"}
 
 
@@ -44,7 +45,7 @@ def _should_exclude(*, relative: Path) -> bool:
     """
     if relative.name in EXCLUDED_FILENAMES:
         return True
-    if relative.name.startswith("test_"):
+    if is_test_file(relative):
         return True
     return any(part in EXCLUDED_DIR_PARTS for part in relative.parts)
 
