@@ -50,3 +50,26 @@ def test_excludes_do_not_leak_after_reset(tmp_path: Path):
 
     # Assert: with no active excludes, pkg/ is visible again.
     assert "pkg/a.py" in found
+
+
+# --------------------------------------------------------------------------- #
+# narrowing one scope by another
+# --------------------------------------------------------------------------- #
+
+
+def test_find_narrower_scope_keeps_the_deeper_of_two_nested_scopes():
+    # Arrange: the whole tree paired with a subtree, equal scopes, and nesting both ways.
+    pairs = [("", ""), ("tests", ""), ("", "tests"), ("tests", "tests")]
+    nested = [("tests", "tests/unit"), ("tests/unit", "tests")]
+
+    # Act.
+    narrowed = [discovery.find_narrower_scope(outer=o, inner=i) for o, i in pairs + nested]
+
+    # Assert: the whole tree defers to the other scope, nesting picks the deeper.
+    assert narrowed == ["", "tests", "tests", "tests", "tests/unit", "tests/unit"]
+
+
+def test_find_narrower_scope_is_none_for_disjoint_scopes():
+    # Arrange / Act / Assert: a sibling, and a name that is only a prefix, are disjoint.
+    assert discovery.find_narrower_scope(outer="tests", inner="src") is None
+    assert discovery.find_narrower_scope(outer="tests", inner="tests_extra") is None

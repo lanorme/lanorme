@@ -130,7 +130,7 @@ Conventions for a new rule:
   architecture rule) must set the class attribute `scope = "tree"`. The default
   is `"file"`. It matters under cascading per-directory config: file-scoped
   checks run once per config region, but a tree-scoped check runs once at the
-  scan root so a finding split across two regions is not missed.
+  project root so a finding split across two regions is not missed.
 - **Default off when opinionated or broad.** If a rule is opinionated or fires
   often on ordinary code, ship it default-off (an `enabled` field, default
   `False`) and let users opt in. Decide the default by measuring the rule on

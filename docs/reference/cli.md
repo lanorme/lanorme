@@ -107,12 +107,17 @@ Findings: 0 errors to fix, 1 advisory warning.
 Opt-in checks not enabled: 11 ('lanorme check --show-config' lists them).
 ```
 
-Each region is checked in its own pass under its merged settings. The pass
-starts at the scan root, so checks see a region's files with paths relative to
-it: `lanorme check .` hands them `tests/helpers.py`, not `helpers.py`. Path-based
-exemptions, such as the `tests/` and `migrations/` skips some checks apply,
-therefore hold inside a nested region. `per-file-ignores` globs such as
-`"tests/*"` match the project-root path, so they hold too. The
+Every check runs from the project root, whichever path the command names.
+`lanorme check tests` confines the file walk to `tests/` instead of making it
+the root, so checks are handed `tests/helpers.py`, not `helpers.py`, and the
+path-based exemptions some checks apply (the `tests/` and `migrations/` skips)
+hold; `per-file-ignores` globs such as `"tests/*"` match the same path. Checks
+that compare files across the tree (`duplication`, `test_coverage`,
+`layer_deps`, `port_coverage`) still see the whole project, so a duplicate of
+a scanned file elsewhere in the project is found and `source_root` is read
+from the project root; the report is then narrowed to the requested path. Each
+region is checked in its own pass under its merged settings, confined the same
+way to the files it governs. The
 [per-directory config](configuration.md#per-directory-config) section covers
 which settings cascade.
 
@@ -172,6 +177,24 @@ ERROR: unknown key in [tool.lanorme.file_limits]: 'file_warn_line'.
   Keys this check reads: class_method_warn, complexity_error, complexity_warn, file_error_lines, file_warn_lines, func_error_lines, func_warn_lines, param_error, param_warn.
 ```
 
+The top level is strict too. A key that is neither a run key (`select`,
+`ignore`, `exclude`, `promote`, `extends`, `baseline`, `source_root`,
+`plugins`, `per-file-ignores`, `root`) nor the name of a registered check,
+plugin checks included, exits `2` and lists both:
+
+```console
+$ cat lanorme.toml
+selct = ["SIZE"]
+$ lanorme check .
+ERROR: unknown key in [tool.lanorme]: 'selct'.
+  Run keys: baseline, exclude, extends, ignore, per-file-ignores, plugins, promote, root, select, source_root.
+  Check tables: attribute_access, comments, docs, docstrings, domain_terms, duplication, file_limits, ...
+```
+
+A `[tool.lanorme]` table inside a `lanorme.toml` or `.lanorme.toml` is the
+`pyproject.toml` form in the wrong file; it exits `2` with a message saying
+the keys go top level there.
+
 ## check
 
 Run checks against one or more paths.
@@ -226,7 +249,7 @@ so on stderr:
 $ lanorme check --check named_args bad.py
 Note: named_args is opt-in and not enabled, so it reports nothing. Enable it with [tool.lanorme.named_args] enabled = true (see 'lanorme rule' for its codes).
 All 1 checks passed.
-Opt-in checks not enabled: 11 ('lanorme check --show-config' lists them).
+Opt-in checks not enabled: 1 ('lanorme check --show-config' lists them).
 ```
 
 Every selector is validated. `--select`, `--ignore` and `--promote`, their
@@ -275,7 +298,6 @@ $ lanorme check --check SIZE-003 .
 
 Summary: 1 checks — 0 passed, 1 warned, 0 failed.
 Findings: 0 errors to fix, 1 advisory warning.
-Opt-in checks not enabled: 11 ('lanorme check --show-config' lists them).
 $ echo $?
 0
 ```
@@ -290,7 +312,6 @@ $ lanorme check --check SIZE-003 --promote ALL .
 
 Summary: 1 checks — 0 passed, 0 warned, 1 failed.
 Findings: 1 error to fix, 0 advisory warnings.
-Opt-in checks not enabled: 11 ('lanorme check --show-config' lists them).
 $ echo $?
 1
 ```
@@ -450,8 +471,10 @@ lanorme rule [-h] [--json] code
 | `--json` | Print the declaration and the section as one JSON object. |
 
 The output opens with the declared rule string and the check that emits it,
-marked `on by default` or `opt-in, enable it in config`. The reference
-section follows:
+marked `on by default`, `opt-in, enable it in config` when the whole check
+ships off, or `opt-in via <setting> = true in [tool.lanorme.<check>]` when the
+rule alone waits on a setting (`PROSE-001` on `em_dash`, `NAMING-001` on
+`repo_crud`). The reference section follows:
 
 ```console
 $ lanorme rule CMT-001
@@ -539,7 +562,8 @@ applies:
   appears when any of the three is non-zero, so a clean run still shows what
   it hid.
 - `Opt-in checks not enabled: N ('lanorme check --show-config' lists them).`
-  appears when some opt-in checks are off.
+  appears when some of the checks the run selected are opt-in and off; under
+  `--check` it counts that selection only.
 - `Tip: 'lanorme baseline write' records today's findings as debt so that only new ones report (see the adoption tutorial).`
   appears at 25 errors or more when no baseline is configured. The
   [adoption tutorial](../tutorials/adopt-on-existing-codebase.md) walks through

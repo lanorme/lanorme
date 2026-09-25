@@ -41,6 +41,7 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 from lanorme import Check, CheckResult, Violation
+from lanorme.checkconfig import reject_unknown_top_level_keys
 from lanorme.discovery import iter_dirs
 from lanorme.errors import UsageError
 
@@ -83,7 +84,9 @@ def load_lanorme_config(directory: Path) -> Config | None:
     """
     dedicated = find_dedicated_config(directory)
     if dedicated is not None:
-        return read_toml(dedicated)
+        config = read_toml(dedicated)
+        _reject_prefixed_table(path=dedicated, config=config)
+        return config
 
     pyproject = directory / "pyproject.toml"
     if pyproject.is_file():
@@ -92,6 +95,23 @@ def load_lanorme_config(directory: Path) -> Config | None:
             return tool_config
 
     return None
+
+
+def _reject_prefixed_table(*, path: Path, config: Config) -> None:
+    """Refuse a ``[tool.lanorme]`` table inside a dedicated config file.
+
+    The prefix is the ``pyproject.toml`` form; in ``lanorme.toml`` the keys
+    are top level. Written there, the table was silently ignored and the
+    whole config with it.
+    """
+    tool = config.get("tool")
+    if isinstance(tool, dict) and "lanorme" in tool:
+        raise UsageError(
+            f"{path} holds a [tool.lanorme] table, but in a dedicated config file the "
+            "keys are top level.\n"
+            "  Write select = [...] and [file_limits] there, not [tool.lanorme] and "
+            "[tool.lanorme.file_limits]; the prefix belongs in pyproject.toml only.",
+        )
 
 
 def merge_config(*, base: Config, override: Config) -> Config:
@@ -165,13 +185,16 @@ def discover_regions(
     regions = [Region(directory=scan_root, raw=root_config)]
 
     # The walk honours the run's excludes, so an excluded fixture tree that
-    # carries its own pyproject never becomes a region of its own.
+    # carries its own pyproject never becomes a region of its own, and the
+    # discovery scope, so a subtree scan finds only the regions on or under
+    # that subtree: the others govern no scanned file.
     for directory in iter_dirs(scan_root):
         here = directory.resolve()
         config = load_lanorme_config(here)
         if config:
             if resolve_extends is not None:
                 config = resolve_extends(config=config, project_root=here)
+            reject_unknown_top_level_keys(config=config, origin=_label_config(here))
             regions.append(Region(directory=here, raw=config))
 
     regions.sort(key=lambda region: len(region.directory.parts))

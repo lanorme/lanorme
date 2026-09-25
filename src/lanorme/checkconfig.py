@@ -6,10 +6,11 @@ sub-table goes to that check's ``configure()``. Both the single-config run and
 the cascading runner come through here, so a value the user got wrong is
 reported the same way wherever it was written.
 
-The ``*_setting`` readers are for ``configure()`` bodies: each returns the
-typed value or raises ``TypeError`` naming the key, which the plumbing below
-turns into the usual exit-2 usage error. A check that reads its table through
-them never carries a mistyped value into ``run()``.
+The typed readers (``read_int``, ``read_str``, ``read_str_list`` and
+``is_flag_set``) are for ``configure()`` bodies: each returns the typed value
+or raises ``TypeError`` naming the key, which the plumbing below turns into
+the usual exit-2 usage error. A check that reads its table through them never
+carries a mistyped value into ``run()``.
 """
 
 from __future__ import annotations
@@ -63,9 +64,49 @@ def read_str_list(
     return tuple(value)
 
 
+# The top-level keys the run itself reads. Every other top-level key must be
+# the name of a registered check, or it is a mistake.
+RUN_KEYS: frozenset[str] = frozenset(
+    {
+        "select",
+        "ignore",
+        "exclude",
+        "promote",
+        "extends",
+        "baseline",
+        "source_root",
+        "plugins",
+        "per-file-ignores",
+        "root",
+    },
+)
+
+
+def reject_unknown_top_level_keys(*, config: dict[str, object], origin: str) -> None:
+    """Refuse a config whose top-level names neither a run key nor a check.
+
+    A misspelt run key (``selct``) or check table (``[tool.lanorme.file_limit]``)
+    was silently ignored, so the setting never applied and nothing said so.
+    Plugin checks are registered before this runs, so their tables count as
+    known. *origin* names the table for the message.
+    """
+    checks = get_all_checks()
+    unknown = sorted(key for key in config if key not in RUN_KEYS and key not in checks)
+    if not unknown:
+        return
+    listed = ", ".join(repr(key) for key in unknown)
+    raise UsageError(
+        f"unknown key in {origin}: {listed}.\n"
+        f"  Run keys: {', '.join(sorted(RUN_KEYS))}.\n"
+        f"  Check tables: {', '.join(sorted(checks)) or '(none)'}.",
+    )
+
+
 # Top-level ``source_root`` is injected into these layout-aware checks only;
 # every other check scans the full target tree.
-_SOURCE_ROOT_CHECKS = frozenset({"layer_deps", "port_coverage", "security_patterns"})
+_SOURCE_ROOT_CHECKS = frozenset(
+    {"layer_deps", "port_coverage", "security_patterns", "test_coverage"},
+)
 
 
 def _find_offending_key(*, check: ConfigurableCheck, settings: dict[str, object]) -> str | None:
@@ -138,8 +179,9 @@ def apply_check_config(*, config: dict[str, object]) -> None:
     """Pass each ``[tool.lanorme.<check>]`` sub-table to that check's configure().
 
     The top-level ``source_root`` is merged into the settings of the
-    layout-aware checks (``layer_deps`` / ``port_coverage``, and
-    ``security_patterns`` for the ``api/`` layer AUTHN-001 scans) so a single
+    layout-aware checks (``layer_deps`` / ``port_coverage``,
+    ``security_patterns`` for the ``api/`` layer AUTHN-001 scans, and
+    ``test_coverage`` for its production directories) so a single
     ``lanorme check .`` from the repo root can locate layers under a nested
     package directory while every other check keeps scanning the whole tree.
     """

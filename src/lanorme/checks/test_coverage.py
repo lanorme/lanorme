@@ -9,6 +9,11 @@ Findings are reported relative to ``src_root`` (the same base every other
 check uses), so the CLI's re-anchoring and the ``[per-file-ignores]`` globs
 both line up with the path other rules report for the same file.
 
+The production directories are looked up under the top-level
+``[tool.lanorme] source_root`` when one is set (``"src/myapp"``), else under
+the root itself and then one level down (a ``src/`` layout); the test roots
+are read relative to that source directory's parent, the backend root.
+
 Configure the scanned test roots:
 
     [tool.lanorme.test_coverage]
@@ -26,7 +31,8 @@ from pathlib import Path
 from typing import ClassVar
 
 from lanorme import CheckResult, Violation, register
-from lanorme.checkconfig import read_str_list
+from lanorme.checkconfig import read_str, read_str_list
+from lanorme.discovery import DEFAULT_PRUNE_DIRS
 
 
 # ---------------------------------------------------------------------------
@@ -64,13 +70,42 @@ _EXEMPT_MODULES: set[str] = {
 _DEFAULT_TEST_ROOTS: tuple[str, ...] = ("tests/integration",)
 
 
-def _find_production_modules(*, src_root: str) -> list[tuple[str, str, str]]:
-    """Return testable production modules as (relative_path, name, import_hint)."""
+def _has_testable_dir(directory: Path) -> bool:
+    """True when *directory* holds at least one of the hardwired production directories."""
+    return any((directory / dir_rel).is_dir() for dir_rel, _prefix in _TESTABLE_DIRS)
+
+
+def find_source_dir(*, run_root: Path, source_root: str) -> Path:
+    """The directory the production layout lives under.
+
+    A configured ``source_root`` is taken as given. Otherwise the run root
+    itself wins when it holds a production directory; failing that, the first
+    immediate child directory that does (a ``src/`` layout); failing that,
+    the run root, where the check then finds nothing.
+    """
+    if source_root:
+        return run_root / source_root
+    if _has_testable_dir(run_root):
+        return run_root
+    try:
+        children = sorted(run_root.iterdir())
+    except OSError:
+        return run_root
+    for child in children:
+        if child.is_dir() and child.name not in DEFAULT_PRUNE_DIRS and _has_testable_dir(child):
+            return child
+    return run_root
+
+
+def _find_production_modules(*, run_root: Path, source_dir: Path) -> list[tuple[str, str, str]]:
+    """Return testable production modules as (relative_path, name, import_hint).
+
+    The path is relative to *run_root*, the base every other check reports on.
+    """
     modules: list[tuple[str, str, str]] = []
-    src_path = Path(src_root)
 
     for dir_rel, import_prefix in _TESTABLE_DIRS:
-        target_dir = src_path / dir_rel
+        target_dir = source_dir / dir_rel
         if not target_dir.is_dir():
             continue
 
@@ -81,7 +116,7 @@ def _find_production_modules(*, src_root: str) -> list[tuple[str, str, str]]:
             if name in _EXEMPT_MODULES:
                 continue
 
-            rel_path = py_file.relative_to(src_path).as_posix()
+            rel_path = py_file.relative_to(run_root).as_posix()
             modules.append((rel_path, name, import_prefix))
 
     return modules
@@ -171,13 +206,17 @@ def _module_has_test(
 
 def _check_module_coverage(
     *,
-    src_root: str,
-    backend_root: Path,
+    run_root: Path,
+    source_dir: Path,
     test_roots: tuple[str, ...],
 ) -> list[Violation]:
-    """TESTFILE-001: verify every production module has a corresponding test."""
-    modules = _find_production_modules(src_root=src_root)
-    test_files = _find_test_files(backend_root=backend_root, test_roots=test_roots)
+    """TESTFILE-001: verify every production module has a corresponding test.
+
+    The test roots are read relative to the backend root, the parent of
+    *source_dir* (``src/`` for a ``src/app/...`` layout).
+    """
+    modules = _find_production_modules(run_root=run_root, source_dir=source_dir)
+    test_files = _find_test_files(backend_root=source_dir.parent, test_roots=test_roots)
     test_stems = {f.stem for f in test_files}
     primary_root = test_roots[0] if test_roots else "tests/integration"
 
@@ -218,12 +257,13 @@ def _check_module_coverage(
 class TestCoverageCheck:
     """Validates that every production module has a corresponding test file."""
 
-    settings_keys: ClassVar[frozenset[str]] = frozenset({"test_roots"})
+    settings_keys: ClassVar[frozenset[str]] = frozenset({"test_roots", "source_root"})
 
     name: str = "test_coverage"
     description: str = "Test coverage: every production module has a test"
     scope = "tree"  # needs the whole test-file set to know a module is covered
     test_roots: tuple[str, ...] = _DEFAULT_TEST_ROOTS
+    source_root: str = ""
     rules: list[str] = field(
         default_factory=lambda: [
             "TESTFILE-001: Every production module must have a corresponding test",
@@ -234,21 +274,24 @@ class TestCoverageCheck:
         """Apply ``[tool.lanorme.test_coverage]`` configuration.
 
         ``test_roots`` is a list of directories (relative to the backend root,
-        ``src_root.parent``) scanned for partner ``test_*.py`` files. An empty
-        list (or one holding only empty strings) keeps the current roots; a
-        value that is not a list of strings is a config error.
+        the parent of the source directory) scanned for partner ``test_*.py``
+        files. An empty list (or one holding only empty strings) keeps the
+        current roots; a value that is not a list of strings is a config
+        error. ``source_root`` is the top-level key the CLI injects, the
+        directory the production layout lives under.
         """
         roots = read_str_list(settings=settings, key="test_roots", default=self.test_roots)
         cleaned = tuple(root for root in roots if root)
         if cleaned:
             self.test_roots = cleaned
+        self.source_root = read_str(settings=settings, key="source_root", default=self.source_root)
 
     def run(self, *, src_root: str) -> CheckResult:
         """Run the coverage check and return advisory warnings."""
-        backend_root = Path(src_root).parent
+        run_root = Path(src_root)
         coverage_warnings = _check_module_coverage(
-            src_root=src_root,
-            backend_root=backend_root,
+            run_root=run_root,
+            source_dir=find_source_dir(run_root=run_root, source_root=self.source_root),
             test_roots=self.test_roots,
         )
         return CheckResult.from_findings(check=self.name, warnings=coverage_warnings)

@@ -110,3 +110,68 @@ def test_unknown_rule_is_a_usage_error():
     with pytest.raises(UsageError, match="NOPE-999"):
         print_rule_detail(code="NOPE-999")
     assert exit_code == 2
+
+
+# --------------------------------------------------------------------------- #
+# a rule that is off until a setting enables it is reported as opt-in
+# --------------------------------------------------------------------------- #
+
+
+def test_rule_behind_a_setting_names_the_setting(capsys):
+    # Arrange: PROSE-001 in the comments check is off until em_dash = true.
+    _load_builtin_checks()
+
+    # Act.
+    _run(["rule", "PROSE-001"])
+    out = capsys.readouterr().out
+    detail = describe_rule(code="PROSE-001")
+
+    # Assert: not "on by default", the setting named, the JSON carrying both.
+    assert "check: comments (opt-in via em_dash = true in [tool.lanorme.comments])" in out
+    assert (detail["opt_in"], detail["opt_in_setting"]) == (True, "em_dash")
+
+
+def test_default_on_rule_of_the_same_check_stays_on_by_default(capsys):
+    # Arrange.
+    _load_builtin_checks()
+
+    # Act.
+    _run(["rule", "CMT-001"])
+    out = capsys.readouterr().out
+    detail = describe_rule(code="KWARG-001")
+
+    # Assert: CMT-001 is on; a check-level opt-in reports its "enabled" key.
+    assert "check: comments (on by default)" in out
+    assert (detail["opt_in"], detail["opt_in_setting"]) == (True, "enabled")
+
+
+def test_opt_in_rule_without_a_declared_setting_is_just_opt_in(monkeypatch, capsys):
+    # Arrange: a check that declares opt_in_rules but no opt_in_settings.
+    from dataclasses import dataclass, field
+
+    import lanorme
+
+    @dataclass
+    class _Gated:
+        name: str = "gated"
+        description: str = "gated rules"
+        opt_in_rules: frozenset[str] = frozenset({"GATE-002"})
+        rules: list[str] = field(
+            default_factory=lambda: ["GATE-001: always", "GATE-002: sometimes"],
+        )
+
+        def run(self, *, src_root: str):
+            return lanorme.CheckResult.from_findings(check=self.name)
+
+    monkeypatch.setattr(lanorme, "_registry", {"gated": _Gated()})
+
+    # Act.
+    _run(["rule", "GATE-002"])
+    gated = capsys.readouterr().out
+    _run(["rules", "--json"])
+    listing = json.loads(capsys.readouterr().out)
+
+    # Assert: the bare "opt-in" marker, and the listing flags the rule, not the check.
+    assert "check: gated (opt-in)" in gated
+    assert listing[0]["opt_in"] is False
+    assert [rule["opt_in"] for rule in listing[0]["rules"]] == [False, True]

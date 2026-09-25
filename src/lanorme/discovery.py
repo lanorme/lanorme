@@ -46,8 +46,9 @@ DEFAULT_PRUNE_DIRS: frozenset[str] = frozenset(
 _active_excludes: tuple[str, ...] = ()
 
 # A root-relative directory the walk is confined to ("" for the whole tree).
-# The cascading runner scopes each region's pass to the region's own subtree
-# while every check still runs from, and reports relative to, the scan root.
+# The runner scopes a subtree scan (``lanorme check tests``) and each region's
+# pass to that subtree while every check still runs from, and reports relative
+# to, the project root.
 _active_scope: str = ""
 
 
@@ -60,6 +61,22 @@ def set_scope(prefix: str) -> None:
 def get_active_scope() -> str:
     """The directory the walk is currently confined to (``""`` for the whole tree)."""
     return _active_scope
+
+
+def find_narrower_scope(*, outer: str, inner: str) -> str | None:
+    """The directory both scopes confine to, or ``None`` when they are disjoint.
+
+    ``""`` is the whole tree, so it defers to the other scope; otherwise the
+    deeper of two nested scopes wins. The runner uses this to confine a
+    region's pass to the part of the region a subtree scan asked for.
+    """
+    if not outer or not inner or outer == inner:
+        return outer or inner
+    if inner.startswith(outer + "/"):
+        return inner
+    if outer.startswith(inner + "/"):
+        return outer
+    return None
 
 
 def _on_scope_path(*, relative: str, scope: str) -> bool:

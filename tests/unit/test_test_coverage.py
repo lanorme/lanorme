@@ -339,3 +339,37 @@ def test_string_literal_substring_should_not_count_as_coverage(tmp_path: Path):
     # correctly flagged.
     assert result.status == Status.WARN
     assert any("order" in w.message for w in result.warnings)
+
+
+# --------------------------------------------------------------------------- #
+# the production layout is found under source_root, or one level down
+# --------------------------------------------------------------------------- #
+
+
+def test_cli_from_the_project_root_finds_the_layout_under_source_root(tmp_path: Path, capsys):
+    # Arrange: config at the root names the source directory.
+    _project_with_uncovered_module(tmp_path, config='[tool.lanorme]\nsource_root = "src"\n')
+
+    # Act: scan the whole project, not the src dir.
+    try:
+        main(["check", str(tmp_path), "--check=test_coverage", "--json"])
+    except SystemExit:
+        pass
+
+    # Assert: the module is found under src/ and reported project-relative.
+    findings = _parse_testfile_findings(capsys)
+    assert [w["file"] for w in findings] == ["src/application/services/billing.py"]
+
+
+def test_source_dir_falls_back_to_the_root_then_one_level_down(tmp_path: Path):
+    # Arrange: a src/ layout with a decoy .venv holding the same directories.
+    from lanorme.checks.test_coverage import find_source_dir
+
+    (tmp_path / ".venv" / "application" / "services").mkdir(parents=True)
+    (tmp_path / "src" / "application" / "services").mkdir(parents=True)
+
+    # Act / Assert: configured wins, then the one-level src/ layout, then the root.
+    assert find_source_dir(run_root=tmp_path, source_root="app") == tmp_path / "app"
+    assert find_source_dir(run_root=tmp_path, source_root="") == tmp_path / "src"
+    assert find_source_dir(run_root=tmp_path / "src", source_root="") == tmp_path / "src"
+    assert find_source_dir(run_root=tmp_path / "empty", source_root="") == tmp_path / "empty"

@@ -41,6 +41,15 @@ def _project(root: Path, config: str = "") -> Path:
     return root
 
 
+def _build_sub_region(root: Path, config: str) -> Path:
+    """A project with a nested ``sub/`` region carrying *config*; return ``sub``."""
+    _project(root)
+    sub = root / "sub"
+    sub.mkdir()
+    (sub / "lanorme.toml").write_text(config, encoding="utf-8")
+    return sub
+
+
 # --------------------------------------------------------------------------- #
 # meta audits the collected results instead of re-running the suite
 # --------------------------------------------------------------------------- #
@@ -71,10 +80,9 @@ def test_check_meta_under_nested_regions_still_audits_every_check(
 ):
     """Selecting the auditor alone must still run the checks it judges."""
     # Arrange: a two-region tree and a check whose result carries the wrong name.
-    _project(tmp_path)
-    sub = tmp_path / "sub"
-    sub.mkdir()
-    (sub / "lanorme.toml").write_text("[file_limits]\nparam_warn = 7\n", encoding="utf-8")
+    # The nested file sets a run key: with the registry swapped below, a check
+    # table would name an unknown check.
+    _build_sub_region(tmp_path, 'select = ["META"]\n')
 
     @dataclass
     class _Impostor(_Counting):
@@ -521,3 +529,218 @@ def test_usage_errors_surface_as_exit_2_from_one_place(tmp_path: Path, capsys):
     # Assert: the library's UsageError became the CLI's ERROR line and exit 2.
     assert code == 2
     assert err.startswith("ERROR: path '") and "does not exist" in err
+
+
+# --------------------------------------------------------------------------- #
+# a subtree scan runs from the project root, confined to the subtree
+# --------------------------------------------------------------------------- #
+
+_DUP_FUNCTION = "def compute():\n    a = 1\n    b = 2\n    c = a + b\n    d = c * 2\n    return d\n"
+
+
+def _build_subtree_project(tmp_path: Path) -> Path:
+    """A project whose tests/ subtree has a TYPE-003 bait and an EVAL-001 hit.
+
+    The root holds an EVAL-001 hit too, so a subtree scan that leaked outside
+    the subtree would show it.
+    """
+    _project(tmp_path)
+    (tmp_path / "loud.py").write_text("eval(input())\n", encoding="utf-8")
+    tests = tmp_path / "tests"
+    tests.mkdir()
+    (tests / "helpers.py").write_text(
+        "def f(**kwargs):\n    return eval(kwargs)\n",
+        encoding="utf-8",
+    )
+    return tests
+
+
+def _run_records(argv: list[str], capsys) -> list[dict]:
+    """Run ``check`` with ndjson output and return the finding records."""
+    _run(["check", *argv, "--output-format", "ndjson"])
+    return [json.loads(line) for line in capsys.readouterr().out.splitlines()]
+
+
+def test_subtree_scan_keeps_path_exemptions_and_project_relative_paths(tmp_path: Path, capsys):
+    """``lanorme check tests`` hands the checks ``tests/helpers.py``, not ``helpers.py``."""
+    # Arrange.
+    tests = _build_subtree_project(tmp_path)
+
+    # Act.
+    records = _run_records([str(tests)], capsys)
+
+    # Assert: no TYPE finding on a tests/ file, the path is project-relative,
+    # and nothing outside the subtree is reported.
+    assert [(r["code"], r["file"]) for r in records] == [("EVAL-001", "tests/helpers.py")]
+
+
+def test_file_target_in_a_subtree_keeps_path_exemptions(tmp_path: Path, capsys):
+    # Arrange.
+    tests = _build_subtree_project(tmp_path)
+
+    # Act.
+    records = _run_records([str(tests / "helpers.py"), "--check", "strong_types"], capsys)
+
+    # Assert: the tests/ exemption of TYPE-002 / TYPE-003 holds for a file target too.
+    assert records == []
+
+
+def test_file_target_still_finds_a_duplicate_elsewhere_in_the_project(tmp_path: Path, capsys):
+    """Tree-scoped checks see the whole project; the report is narrowed to the target."""
+    # Arrange: the duplicate pair straddles two top-level packages.
+    _project(tmp_path)
+    for directory, name in (("pkg", "a.py"), ("other", "b.py")):
+        (tmp_path / directory).mkdir()
+        (tmp_path / directory / name).write_text(_DUP_FUNCTION, encoding="utf-8")
+
+    # Act.
+    records = _run_records([str(tmp_path / "pkg" / "a.py"), "--check", "DRY-001"], capsys)
+
+    # Assert: the pair is found, reported on the target alone, naming its partner.
+    assert [(r["code"], r["file"]) for r in records] == [("DRY-001", "pkg/a.py")]
+    assert "other/b.py:1" in records[0]["message"]
+
+
+def test_subtree_scan_honours_the_nested_region_config(tmp_path: Path, capsys):
+    """The region at the scanned subtree still governs its files."""
+    # Arrange: tests/ lowers the file warn threshold to catch a four-line file.
+    tests = _build_nested_project(tmp_path)
+    (tests / "lanorme.toml").write_text("[file_limits]\nfile_warn_lines = 1\n", encoding="utf-8")
+    (tests / "long.py").write_text("a = 1\nb = 2\nc = 3\n", encoding="utf-8")
+
+    # Act.
+    records = _run_records([str(tests), "--check", "SIZE-001"], capsys)
+
+    # Assert: the nested threshold applied, to the subtree's files only.
+    assert {r["file"] for r in records} == {"tests/helpers.py", "tests/long.py"}
+
+
+# --------------------------------------------------------------------------- #
+# the opt-in note counts the selected checks only
+# --------------------------------------------------------------------------- #
+
+
+def test_opt_in_note_counts_only_the_selected_checks(tmp_path: Path, capsys):
+    # Arrange.
+    _project(tmp_path)
+
+    # Act: a default-on selection, an opt-in selection, and the full run.
+    _run(["check", str(tmp_path), "--check", "file_limits"])
+    default_on = capsys.readouterr().out
+    _run(["check", str(tmp_path), "--check", "named_args"])
+    opt_in = capsys.readouterr().out
+    _run(["check", str(tmp_path)])
+    full = capsys.readouterr().out
+
+    # Assert: nothing to count, the one selected, and every registered one.
+    assert "Opt-in checks not enabled" not in default_on
+    assert "Opt-in checks not enabled: 1 (" in opt_in
+    registered = sum(
+        1 for c in lanorme.get_all_checks().values() if not getattr(c, "enabled", True)
+    )
+    assert f"Opt-in checks not enabled: {registered} (" in full
+
+
+def test_run_notes_count_the_registry_when_no_selection_is_given():
+    # Arrange.
+    from lanorme.reports import RunNotes
+
+    _load_builtin_checks()
+    registered = sum(
+        1 for c in lanorme.get_all_checks().values() if not getattr(c, "enabled", True)
+    )
+
+    # Act / Assert.
+    assert RunNotes(project_root=Path()).opt_in_disabled == registered
+    assert RunNotes(project_root=Path(), selected_checks=("file_limits",)).opt_in_disabled == 0
+    assert RunNotes(project_root=Path(), selected_checks=("similarity",)).opt_in_disabled == 1
+
+
+# --------------------------------------------------------------------------- #
+# unknown top-level keys and a prefixed table in a dedicated file are refused
+# --------------------------------------------------------------------------- #
+
+
+def test_unknown_top_level_key_exits_2_and_lists_the_accepted_ones(tmp_path: Path, capsys):
+    # Arrange: a misspelt run key and a misspelt check table.
+    _project(tmp_path, 'selct = ["SIZE"]\n[file_limit]\nparam_warn = 3\n')
+
+    # Act.
+    code = _run(["check", str(tmp_path)])
+    err = capsys.readouterr().err
+
+    # Assert.
+    assert code == 2
+    assert "unknown key in [tool.lanorme]: 'file_limit', 'selct'." in err
+    assert "Run keys: baseline, exclude, extends, ignore, per-file-ignores" in err
+    assert "Check tables: attribute_access, comments" in err and "file_limits" in err
+
+
+def test_unknown_top_level_key_in_a_nested_region_names_its_file(tmp_path: Path, capsys):
+    # Arrange.
+    _build_sub_region(tmp_path, "[file_limitz]\nparam_warn = 3\n")
+
+    # Act.
+    code = _run(["check", str(tmp_path)])
+    err = capsys.readouterr().err
+
+    # Assert.
+    assert code == 2
+    assert "unknown key in " in err and "sub/lanorme.toml: 'file_limitz'" in err.replace("\\", "/")
+
+
+def test_every_run_key_and_check_table_is_accepted(tmp_path: Path, capsys):
+    # Arrange: each documented run key plus a check table, in one file.
+    _project(
+        tmp_path,
+        'select = ["SIZE"]\nignore = []\nexclude = []\npromote = []\nextends = []\n'
+        'source_root = "."\nplugins = []\nroot = true\n[per-file-ignores]\n'
+        '"x.py" = ["SIZE-001"]\n[file_limits]\nparam_warn = 3\n',
+    )
+    (tmp_path / "debt.json").write_text("{}", encoding="utf-8")
+
+    # Act.
+    code = _run(["check", str(tmp_path)])
+
+    # Assert.
+    assert code == 0
+    assert "ERROR" not in capsys.readouterr().err
+
+
+def test_plugin_check_table_counts_as_a_known_key(tmp_path: Path, capsys, monkeypatch):
+    # Arrange: a plugin module on sys.path whose check is configured at the top level.
+    plugin = tmp_path / "house_plugin.py"
+    plugin.write_text(
+        "from dataclasses import dataclass, field\n"
+        "from lanorme import CheckResult, register\n\n"
+        "@dataclass\nclass House:\n"
+        "    name: str = 'house'\n    description: str = 'house rules'\n"
+        "    rules: list[str] = field(default_factory=lambda: ['HOUSE-001: rule'])\n"
+        "    def run(self, *, src_root):\n"
+        "        return CheckResult.from_findings(check=self.name)\n\n"
+        "register(House())\n",
+        encoding="utf-8",
+    )
+    monkeypatch.syspath_prepend(str(tmp_path))
+    _project(tmp_path, 'plugins = ["house_plugin"]\n[house]\nenabled = true\n')
+
+    # Act.
+    code = _run(["check", str(tmp_path)])
+
+    # Assert: the plugin registered before the keys were checked, so its table is known.
+    assert code == 0
+    assert "unknown key" not in capsys.readouterr().err
+
+
+def test_prefixed_table_in_a_dedicated_file_is_refused(tmp_path: Path, capsys):
+    # Arrange: the pyproject form written into lanorme.toml.
+    _project(tmp_path, '[tool.lanorme]\nselect = ["SIZE"]\n')
+
+    # Act.
+    code = _run(["check", str(tmp_path)])
+    err = capsys.readouterr().err
+
+    # Assert: exit 2 and a message that says where the prefix belongs.
+    assert code == 2
+    assert "lanorme.toml holds a [tool.lanorme] table" in err
+    assert "keys are top level" in err and "pyproject.toml only" in err

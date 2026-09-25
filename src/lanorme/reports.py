@@ -26,6 +26,7 @@ class RunNotes:
     """What the run did around the findings, for the summary and the records."""
 
     project_root: Path
+    selected_checks: tuple[str, ...] | None = None
     suppressed_inline: int = 0
     suppressed_per_file: int = 0
     suppressed_baseline: int = 0
@@ -33,11 +34,17 @@ class RunNotes:
 
     @property
     def opt_in_disabled(self) -> int:
-        """Registered checks that ship off and were not enabled for this run."""
+        """Selected checks that ship off and were not enabled for this run.
+
+        ``selected_checks`` is the run's selection (every check for a full
+        run, the one named under ``--check``); ``None`` counts the registry.
+        """
+        checks = get_all_checks()
+        names = checks if self.selected_checks is None else self.selected_checks
         return sum(
             1
-            for check in get_all_checks().values()
-            if hasattr(check, "enabled") and not check.enabled
+            for name in names
+            if name in checks and hasattr(checks[name], "enabled") and not checks[name].enabled
         )
 
 

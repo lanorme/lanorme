@@ -189,9 +189,9 @@ rules apply whether the check ships inside LaNorme or as your plugin.
 - **Cross-file checks declare `scope = "tree"`.** If a finding depends on
   comparing or aggregating across files, set the class attribute `scope =
   "tree"`. The default `"file"` scope lets a check run once per config region
-  under per-directory configuration; a tree-scoped check runs once at the scan
-  root so a finding split across two regions is not missed. A region pass
-  still starts at the scan root and sees only that region's files, so
+  under per-directory configuration; a tree-scoped check runs once at the
+  project root so a finding split across two regions is not missed. A region
+  pass still starts at the project root and sees only that region's files, so
   `module.relative` keeps the full path (`tests/helpers.py`, not
   `helpers.py`) and a path-based exemption such as `tests/` holds inside a
   nested region.
@@ -260,7 +260,6 @@ $ lanorme check src/ --plugin house_rules --check no_utils_module
 
 Summary: 1 checks — 0 passed, 0 warned, 1 failed.
 Findings: 1 error to fix, 0 advisory warnings.
-Opt-in checks not enabled: 11 ('lanorme check --show-config' lists them).
 ```
 
 The check emitted the bare code `HOUSE-001`; the report shows the full rule
@@ -271,7 +270,6 @@ The exit code is `1`. Rename or remove the file and the run is clean:
 ```console
 $ lanorme check src/ --plugin house_rules --check no_utils_module
 All 1 checks passed.
-Opt-in checks not enabled: 11 ('lanorme check --show-config' lists them).
 ```
 
 The exit code is `0`.
@@ -431,7 +429,6 @@ $ lanorme check . --plugin stray_extensions --check stray_extensions
 
 Summary: 1 checks — 0 passed, 1 warned, 0 failed.
 Findings: 0 errors to fix, 2 advisory warnings.
-Opt-in checks not enabled: 11 ('lanorme check --show-config' lists them).
 ```
 
 A mistyped value or key stops the run before any check starts:
@@ -454,6 +451,12 @@ An opt-in check defaults `enabled` to `false` and returns an empty result
 that has not asked for it. The concise summary counts such checks on its
 `Opt-in checks not enabled:` line, and `--check` on one prints a note saying
 it is off.
+
+When only some of a check's rules wait on a setting, declare them in a class
+attribute `opt_in_rules: frozenset[str]` and, to name the setting, an
+`opt_in_settings: dict[str, str]` from code to key. `lanorme rule CODE` then
+reports the rule as `opt-in via <key> = true in [tool.lanorme.<check>]`
+instead of `on by default`, as `comments` does for `PROSE-001` (`em_dash`).
 
 For a mistake `configure` cannot express as a type, such as two settings that
 contradict each other, raise `lanorme.errors.UsageError`. The CLI reports it

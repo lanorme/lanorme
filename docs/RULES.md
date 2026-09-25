@@ -1149,8 +1149,11 @@ Config:
 test_roots = ["tests/integration", "tests/unit"]
 ```
 
+The production directories are looked up under the top-level
+`[tool.lanorme] source_root` when one is set (`source_root = "src/myapp"`),
+else under the project root and then one level down (a `src/` layout).
 `test_roots` lists the directories (relative to the backend root, the parent
-of `src_root`) scanned for partner test files; it defaults to
+of that source directory) scanned for partner test files; it defaults to
 `["tests/integration"]`. The scanned production directories
 (`api/v1/endpoints`, `application/services`, `application/commands`,
 `application/queries`, `infrastructure/repositories`,

@@ -339,6 +339,9 @@ class CommentsCheck:
             "PROSE-003: No emoji in comments or docstrings (opt-in)",
         ],
     )
+    # The PROSE rules are off until their flag is set; the reference says so.
+    opt_in_rules: ClassVar[frozenset[str]] = frozenset({"PROSE-001", "PROSE-003"})
+    opt_in_settings: ClassVar[dict[str, str]] = {"PROSE-001": "em_dash", "PROSE-003": "emoji"}
     settings_keys: ClassVar[frozenset[str]] = frozenset(
         {
             "commented_code",

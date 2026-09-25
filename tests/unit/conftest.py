@@ -31,11 +31,13 @@ def _reset_global_state(monkeypatch):
     """
     monkeypatch.delenv("GITHUB_ACTIONS", raising=False)
     discovery.set_excludes(())
+    discovery.set_scope("")
     sources.clear_cache()
     yield
     discovery.set_excludes(())
+    discovery.set_scope("")
     sources.clear_cache()
-    for name in ("layer_deps", "port_coverage", "security_patterns"):
+    for name in ("layer_deps", "port_coverage", "security_patterns", "test_coverage"):
         check = get_check(name)
         if check is not None:
             check.source_root = ""

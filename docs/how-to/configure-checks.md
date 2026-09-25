@@ -32,8 +32,9 @@ categories are listed by `lanorme rules`; per-check settings live in the
     `lanorme.toml` / `.lanorme.toml` the `tool.lanorme` prefix is dropped:
     top-level scalar keys go bare (`select = [...]`) and sub-tables lose the
     prefix too, so `[tool.lanorme.per-file-ignores]` becomes
-    `[per-file-ignores]`. A prefixed header in a `lanorme.toml` is a silent
-    no-op: the table is ignored and no error is raised. See the
+    `[per-file-ignores]`. A prefixed header in a `lanorme.toml` is a
+    configuration error (exit `2`), as is any top-level key that is neither a
+    run key nor the name of a check. See the
     [config discovery](../reference/cli.md#config-discovery) note in the CLI
     reference.
 
@@ -107,7 +108,6 @@ $ lanorme check src --check file_limits
 
 Summary: 1 checks — 0 passed, 0 warned, 1 failed.
 Findings: 1 error to fix, 0 advisory warnings.
-Opt-in checks not enabled: 11 ('lanorme check --show-config' lists them).
 ```
 
 Ignoring `PARAM-001` drops it and keeps the rest of the check:
@@ -115,7 +115,6 @@ Ignoring `PARAM-001` drops it and keeps the rest of the check:
 ```console
 $ lanorme check src --check file_limits --ignore PARAM-001
 All 1 checks passed.
-Opt-in checks not enabled: 11 ('lanorme check --show-config' lists them).
 ```
 
 `--select SIZE,COMPLEXITY` narrows a full run to the size and complexity
@@ -345,6 +344,12 @@ $ lanorme check . --select PARAM-001
 ERROR: unknown key in [tool.lanorme.file_limits]: 'param_limit'.
   Keys this check reads: class_method_warn, complexity_error, complexity_warn, file_error_lines, file_warn_lines, func_error_lines, func_warn_lines, param_error, param_warn.
 ```
+
+The top level is strict in the same way: a key that is neither a run key
+(`select`, `promote`, `source_root`, ...) nor the name of a check exits `2`
+and lists both, and a `[tool.lanorme]` table inside a `lanorme.toml` is
+refused with a message saying the keys go top level there. See
+[config discovery](../reference/cli.md#config-discovery).
 
 `lanorme check --show-config` prints each check's effective settings and,
 on a `keys:` line under it, the keys its table accepts:

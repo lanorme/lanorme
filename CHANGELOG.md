@@ -59,9 +59,27 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
   that sets `root = true`) and treats every config between it and the scan
   path as a region, so `lanorme check tests` under a `tests/lanorme.toml`
   applies the project's config with the subtree's overrides instead of the
-  subtree's file alone. Region passes run from the scan root, so a nested
-  region's files keep their `tests/` and `migrations/` exemptions and
-  `per-file-ignores` globs match them.
+  subtree's file alone. Every check runs from the project root: a subtree
+  scan (`lanorme check tests`, `lanorme check tests/helpers.py`) confines the
+  walk to the subtree instead of making it the root, so a nested region's
+  files keep their `tests/` and `migrations/` exemptions, `per-file-ignores`
+  globs match them, and the whole-tree checks (`duplication`, `layer_deps`,
+  `port_coverage`, `test_coverage`) see the whole project, with `source_root`
+  read from it. The report is narrowed to the requested path.
+- `test_coverage` honours the top-level `source_root` and otherwise finds its
+  production directories one level down (a `src/` layout), so `lanorme check .`
+  at the project root reports `TESTFILE-001` for a `src/app/...` tree.
+- A top-level config key that is neither a run key nor the name of a
+  registered check is an exit-2 config error listing both, and a
+  `[tool.lanorme]` table inside a dedicated `lanorme.toml` is refused with a
+  message saying the keys go top level there. Both used to be silently
+  ignored.
+- The concise summary's `Opt-in checks not enabled` note counts the checks
+  the run selected, so `--check file_limits` no longer counts the registry.
+- `lanorme rule CODE` reports a rule that waits on a setting (`PROSE-001` on
+  `em_dash`, `NAMING-001` on `repo_crud`) as `opt-in via <setting> = true`
+  rather than `on by default`. A check declares such rules through
+  `opt_in_rules` and `opt_in_settings`; `rules --json` flags them per rule.
 - Every per-check table is validated: a value of the wrong type (a quoted
   number, a bare string where a list is expected, a float for an int) or a key
   the check does not read is an exit-2 config error naming the table and key.

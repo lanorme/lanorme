@@ -32,7 +32,23 @@ _ALTERNATIVES_RE = re.compile(r"^([A-Z]+)-(\d{3}(?:/\d{3})+)$")
 
 
 def _is_opt_in(check: object) -> bool:
+    """True when the whole check ships off (``enabled = false`` by default)."""
     return hasattr(check, "enabled") and not getattr(check, "enabled")
+
+
+def _is_opt_in_rule(*, check: object, code: str) -> bool:
+    """True when *code* is off unless a setting enables it, or its check is opt-in."""
+    return _is_opt_in(check) or code in getattr(check, "opt_in_rules", frozenset())
+
+
+def _find_opt_in_setting(*, check: object, code: str) -> str | None:
+    """The setting that turns *code* on: ``enabled`` for an opt-in check, else what it declares."""
+    if _is_opt_in(check):
+        return "enabled"
+    if code in getattr(check, "opt_in_rules", frozenset()):
+        setting = getattr(check, "opt_in_settings", {}).get(code)
+        return setting if isinstance(setting, str) else None
+    return None
 
 
 def list_rules() -> list[dict[str, object]]:
@@ -44,7 +60,14 @@ def list_rules() -> list[dict[str, object]]:
                 "check": check.name,
                 "description": check.description,
                 "opt_in": _is_opt_in(check),
-                "rules": [{"code": extract_code(rule), "rule": rule} for rule in check.rules],
+                "rules": [
+                    {
+                        "code": extract_code(rule),
+                        "rule": rule,
+                        "opt_in": _is_opt_in_rule(check=check, code=extract_code(rule)),
+                    }
+                    for rule in check.rules
+                ],
             },
         )
     return listing
@@ -67,11 +90,21 @@ def print_rules(*, as_json: bool = False) -> None:
 
 
 def _find_declaration(code: str) -> dict[str, object] | None:
-    """The registry's view of *code*: its rule string, check and opt-in state."""
+    """The registry's view of *code*: its rule string, check, opt-in state and setting.
+
+    ``opt_in`` is true when the check ships off or the rule itself does (the
+    check's ``opt_in_rules``); ``opt_in_setting`` is the key that turns it on
+    when the check names one, else ``None``.
+    """
     for check in get_all_checks().values():
         for rule in check.rules:
             if extract_code(rule) == code:
-                return {"rule": rule, "check": check.name, "opt_in": _is_opt_in(check)}
+                return {
+                    "rule": rule,
+                    "check": check.name,
+                    "opt_in": _is_opt_in_rule(check=check, code=code),
+                    "opt_in_setting": _find_opt_in_setting(check=check, code=code),
+                }
     return None
 
 
@@ -188,9 +221,22 @@ def describe_rule(*, code: str) -> dict[str, object] | None:
     if declared is None and section is None:
         return None
     detail: dict[str, object] = {"code": wanted}
-    detail.update(declared or {"rule": None, "check": None, "opt_in": None})
+    detail.update(
+        declared or {"rule": None, "check": None, "opt_in": None, "opt_in_setting": None},
+    )
     detail["section"] = section
     return detail
+
+
+def _describe_opt_in(*, opt_in: bool, setting: str | None, check: str) -> str:
+    """How the ``rule`` header words the rule's default state."""
+    if not opt_in:
+        return "on by default"
+    if setting == "enabled":
+        return "opt-in, enable it in config"
+    if setting:
+        return f"opt-in via {setting} = true in [tool.lanorme.{check}]"
+    return "opt-in"
 
 
 def print_rule_detail(*, code: str, as_json: bool = False) -> None:
@@ -205,7 +251,11 @@ def print_rule_detail(*, code: str, as_json: bool = False) -> None:
         print(json.dumps(detail, indent=2))
         return
     if detail["rule"] is not None:
-        opt_in = "opt-in, enable it in config" if detail["opt_in"] else "on by default"
-        print(f"{detail['rule']}\n  check: {detail['check']} ({opt_in})\n")
+        state = _describe_opt_in(
+            opt_in=bool(detail["opt_in"]),
+            setting=detail["opt_in_setting"],
+            check=str(detail["check"]),
+        )
+        print(f"{detail['rule']}\n  check: {detail['check']} ({state})\n")
     if detail["section"] is not None:
         print(detail["section"], end="")

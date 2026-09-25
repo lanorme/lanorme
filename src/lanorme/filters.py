@@ -71,15 +71,15 @@ def _apply_filters(
 def _apply_target_filter(
     *,
     results: list[CheckResult],
-    scan_root: Path,
+    run_root: Path,
     targets: list[Path] | None,
 ) -> list[CheckResult]:
     """Keep only findings for the explicitly requested files/dirs.
 
-    The tree under *scan_root* is walked in full so cross-file checks see the
-    file's directory (the scope a directory target already gives them); this
-    narrows output to the requested paths so a file target reports that file
-    alone. ``None`` (a lone directory request) keeps everything.
+    The checks run from *run_root* (the project root) so cross-file checks see
+    the whole project; this narrows output to the requested paths so a file
+    target reports that file alone. ``None`` (a lone directory request) keeps
+    everything: the discovery scope already confined the walk to it.
     """
     if not targets:
         return results
@@ -90,7 +90,7 @@ def _apply_target_filter(
     def should_keep(finding: Violation) -> bool:
         if not finding.file:
             return True  # a RUN-000 crash notice belongs to no path; never drop it
-        absolute = (scan_root / finding.file).resolve()
+        absolute = (run_root / finding.file).resolve()
         return absolute in files or any(absolute == d or d in absolute.parents for d in dirs)
 
     return [result.filter_findings(should_keep) for result in results]

@@ -325,6 +325,11 @@ class NamingConsistencyCheck:
             "NAMING-004: Boolean functions should use is_/has_/can_/should_ prefix (warning)",
         ],
     )
+    opt_in_rules: ClassVar[frozenset[str]] = frozenset({"NAMING-001", "NAMING-002"})
+    opt_in_settings: ClassVar[dict[str, str]] = {
+        "NAMING-001": "repo_crud",
+        "NAMING-002": "service_crud",
+    }
     settings_keys: ClassVar[frozenset[str]] = frozenset({"repo_crud", "service_crud"})
 
     def configure(self, *, settings: dict[str, object]) -> None:

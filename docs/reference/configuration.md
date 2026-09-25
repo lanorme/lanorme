@@ -11,8 +11,10 @@ Configuration lives in `[tool.lanorme]` in `pyproject.toml`, or in a standalone
 `[tool.lanorme.<check>]`. In a standalone `lanorme.toml` the prefix is dropped: keys
 are top-level (`promote = ["TYPE-004"]`) and a sub-table is bare (`[per-file-ignores]`,
 `[prose]`). The examples below show the `pyproject.toml` form; a `[tool.lanorme]` prefix
-written inside a `lanorme.toml` is silently ignored. Keys also have command-line
-equivalents (`--select`, `--ignore`); the command line wins over config.
+written inside a `lanorme.toml` is a configuration error (exit `2`), as is any
+top-level key that is neither one of the keys below nor the name of a check. Keys
+also have command-line equivalents (`--select`, `--ignore`); the command line wins
+over config.
 
 | Key | Type | Default | Feature |
 | --- | --- | --- | --- |
@@ -23,7 +25,7 @@ equivalents (`--select`, `--ignore`); the command line wins over config.
 | [`promote`](#promote) | list of strings | [] (advisories stay warnings) | Severity |
 | [`extends`](#extends) | string or list of strings | none | Profiles |
 | [`baseline`](#baseline) | string (path) | none | Adoption |
-| [`source_root`](#source_root) | string (path) | the scan root | Architecture |
+| [`source_root`](#source_root) | string (path) | the project root | Architecture |
 | [`plugins`](#plugins) | list of strings | [] (built-in checks only) | Extensibility |
 | [`root`](#root) | boolean | false | Per-directory config |
 
@@ -86,7 +88,7 @@ baseline = "lanorme-baseline.json"
 
 ## `source_root`
 
-The top-level package directory when ports, adapters and layers live under a nested package; the architecture checks interpret their paths relative to it, and `AUTHN-001` finds the `api/` layer under it.
+The top-level package directory when ports, adapters and layers live under a nested package; the architecture checks interpret their paths relative to it, `AUTHN-001` finds the `api/` layer under it, and `TESTFILE-001` its production directories.
 
 ```toml
 source_root = "src/myapp"
@@ -110,7 +112,7 @@ root = true
 
 ## Per-directory config
 
-Any directory below the scan root that carries its own config file (a
+Any directory below the project root that carries its own config file (a
 `lanorme.toml`, a `.lanorme.toml`, or a `pyproject.toml` with a `[tool.lanorme]`
 table) is a region: the files beneath it are checked under that config. A nested
 region inherits every setting from the regions above it and overrides only the
@@ -128,9 +130,8 @@ Cascading governs per-check settings and `source_root`. The run-level filters
 (`select`, `ignore`, `exclude`, `per-file-ignores`, `promote`) are read once at
 the root and apply to the whole run. Checks that compare files across the tree
 (`duplication`, `test_coverage`, `layer_deps`, `port_coverage`, `docs`, `meta`)
-run once at the scan root under the root config, so a region cannot relax them
-for its own subtree. `--check <name>` runs that one check at the root config too,
-without cascading.
+run once at the project root under the root config, so a region cannot relax
+them for its own subtree. `--check <name>` cascades exactly like a full run.
 
 ## Per-check settings
 

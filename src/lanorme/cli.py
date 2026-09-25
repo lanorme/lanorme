@@ -39,7 +39,7 @@ from lanorme import (
     run_audit,
     run_check,
 )
-from lanorme.checkconfig import apply_check_config
+from lanorme.checkconfig import apply_check_config, reject_unknown_top_level_keys
 from lanorme.diagnostics import configure_diagnostics
 from lanorme.errors import UsageError
 from lanorme.filters import _apply_promotions, note_excluded_targets
@@ -336,6 +336,7 @@ def _run_and_report(
     results = _apply_promotions(results=results, promote=promote)
     notes = reports.RunNotes(
         project_root=project_root,
+        selected_checks=collected.selected,
         suppressed_inline=collected.suppressed_inline,
         suppressed_per_file=collected.suppressed_per_file,
         suppressed_baseline=baselined,
@@ -391,6 +392,7 @@ def _run_check_command(*, args: argparse.Namespace) -> None:
     # configured by an earlier invocation in the same process would leak its
     # settings into this run. The cascading runner reuses the snapshot to reset
     # between regions.
+    reject_unknown_top_level_keys(config=config, origin="[tool.lanorme]")
     checks = get_all_checks()
     pristine = snapshot_defaults(checks)
     restore_defaults(checks=checks, snapshot=pristine)
@@ -431,6 +433,7 @@ def _run_baseline_command(*, args: argparse.Namespace) -> None:
         )
 
     _load_plugin_modules(config.get("plugins", []))
+    reject_unknown_top_level_keys(config=config, origin="[tool.lanorme]")
     checks = get_all_checks()
     pristine = snapshot_defaults(checks)
     restore_defaults(checks=checks, snapshot=pristine)
