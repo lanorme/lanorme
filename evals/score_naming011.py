@@ -14,10 +14,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from lanorme.checks.naming_clean_code import NamingCleanCodeCheck
-from lanorme.scan import Scan
 from labelled_corpus import ScoreRecord, Site, evaluate_corpus
 from metrics_report import run_scorer
+
+from lanorme.checks.naming_clean_code import NamingCleanCodeCheck
+from lanorme.scan import Scan
 
 RULE = "NAMING-011"
 CORPUS = "naming_every_verb"

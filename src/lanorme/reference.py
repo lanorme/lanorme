@@ -17,7 +17,7 @@ from dataclasses import dataclass
 from importlib.resources import files as resource_files
 from pathlib import Path
 
-from lanorme import get_all_checks, extract_code
+from lanorme import extract_code, get_all_checks
 from lanorme.errors import UsageError
 
 _TOKEN_RE = re.compile(r"`([^`]+)`")

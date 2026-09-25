@@ -12,10 +12,9 @@ import pytest
 
 from lanorme.checks.naming_shapes import (
     Definition,
-    resolve_decorator_leaves,
     has_opaque_decorator,
-    is_command,
     is_camel_case,
+    is_command,
     is_exception_class,
     is_exempt,
     is_framework_named,
@@ -23,6 +22,7 @@ from lanorme.checks.naming_shapes import (
     iter_definitions,
     list_base_leaves,
     name_setting,
+    resolve_decorator_leaves,
     returns_nested_function,
 )
 

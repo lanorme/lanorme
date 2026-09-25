@@ -14,7 +14,6 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-
 from lanorme import CheckResult, Violation
 from lanorme import baseline as bl
 from lanorme.cli import main

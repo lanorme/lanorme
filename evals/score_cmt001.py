@@ -14,10 +14,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from lanorme.checks.comments import CommentsCheck
-from lanorme.scan import Scan
 from labelled_corpus import ScoreRecord, Site, evaluate_corpus
 from metrics_report import run_scorer
+
+from lanorme.checks.comments import CommentsCheck
+from lanorme.scan import Scan
 
 RULE = "CMT-001"
 CORPUS = "comments_commented_code"

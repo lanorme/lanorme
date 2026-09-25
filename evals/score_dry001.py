@@ -21,10 +21,11 @@ import shutil
 import tempfile
 from pathlib import Path
 
-from lanorme.checks.duplication import DuplicationCheck
-from lanorme.scan import Scan
 from labelled_corpus import ScoreRecord, Site, evaluate_corpus
 from metrics_report import run_scorer
+
+from lanorme.checks.duplication import DuplicationCheck
+from lanorme.scan import Scan
 
 RULE = "DRY-001"
 CORPUS = "duplication_similar"

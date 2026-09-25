@@ -33,7 +33,6 @@ from lanorme.checks.naming_canon import suggest_verb_fix
 from lanorme.checks.naming_shapes import (
     FUNCTION_TYPES,
     Definition,
-    resolve_decorator_leaves,
     is_command,
     is_exempt,
     is_framework_named,
@@ -42,14 +41,15 @@ from lanorme.checks.naming_shapes import (
     iter_modules,
     list_base_leaves,
     name_setting,
+    resolve_decorator_leaves,
     returns_nested_function,
 )
 from lanorme.checks.naming_words import (
     JUNK_MODULES,
     NOISE_WORDS,
+    find_leading_verb_index,
     is_pascal_case,
     is_predicate,
-    find_leading_verb_index,
     split_name,
 )
 from lanorme.scan import Scan

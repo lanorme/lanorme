@@ -14,8 +14,9 @@ the real check sees the registry without depending on the bundled checks.
 
 from __future__ import annotations
 
-import pytest
 from pathlib import Path
+
+import pytest
 
 from lanorme import CheckResult, Status, Violation
 from lanorme.checks import meta as meta_module

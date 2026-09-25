@@ -39,7 +39,7 @@ from pathlib import Path
 from typing import ClassVar
 
 from lanorme import CheckResult, Violation, register
-from lanorme.checkconfig import is_flag_set, read_str_list, read_str
+from lanorme.checkconfig import is_flag_set, read_str, read_str_list
 from lanorme.discovery import iter_files
 from lanorme.markdown import iter_prose_lines, strip_inline_code
 from lanorme.scan import Scan

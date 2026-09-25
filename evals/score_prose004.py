@@ -15,10 +15,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from lanorme.checks.prose import ProseCheck
-from lanorme.scan import Scan
 from labelled_corpus import ScoreRecord, Site, evaluate_corpus
 from metrics_report import run_scorer
+
+from lanorme.checks.prose import ProseCheck
+from lanorme.scan import Scan
 
 RULE = "PROSE-004"
 CORPUS = "prose_em_dash"

@@ -46,13 +46,13 @@ from lanorme.checks.naming_words import (
     COMMAND_SUFFIXES,
     VERB_ONLY,
     WEAK_VERBS,
+    count_modifiers,
+    find_leading_verb_index,
+    find_postposed_verb_index,
     is_noun_phrase,
     is_pascal_case,
-    find_leading_verb_index,
-    count_modifiers,
-    find_postposed_verb_index,
-    split_name,
     move_verb_first,
+    split_name,
 )
 from lanorme.scan import Scan
 from lanorme.sources import locate

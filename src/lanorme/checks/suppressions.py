@@ -47,7 +47,7 @@ from dataclasses import dataclass, field
 from typing import ClassVar
 
 from lanorme import CheckResult, Violation, register
-from lanorme.checkconfig import read_int, is_flag_set
+from lanorme.checkconfig import is_flag_set, read_int
 from lanorme.directives import IGNORE_RE, NOQA_RE
 from lanorme.scan import Scan
 from lanorme.sources import Module, iter_parsed_modules

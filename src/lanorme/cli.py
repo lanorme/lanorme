@@ -26,22 +26,24 @@ from importlib.metadata import entry_points
 from pathlib import Path
 
 import lanorme.checks
-from lanorme import baseline, reference, reports
 from lanorme import (
     Check,
     Status,
     __version__,
+    baseline,
     get_all_checks,
     get_check,
     get_registry,
+    reference,
+    reports,
 )
 from lanorme.diagnostics import configure_diagnostics
 from lanorme.errors import UsageError
 from lanorme.filters import apply_promotions, count_findings, note_excluded_targets
 from lanorme.presets import _resolve_extends
-from lanorme.selectors import checks_for_selector, reject_unknown_selectors
 from lanorme.regions import DiscoveredConfig, discover_config, reject_unknown_top_level_keys
 from lanorme.runner import Filters, RunConfigs, RunOutcome, collect_results
+from lanorme.selectors import checks_for_selector, reject_unknown_selectors
 
 logger = logging.getLogger(__name__)
 

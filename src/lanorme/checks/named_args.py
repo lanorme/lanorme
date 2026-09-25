@@ -8,7 +8,7 @@ Exceptions (skipped silently):
     - Dunder methods (__init__, __str__, __eq__, etc.)
     - Methods decorated ``@override`` (the base class fixes their signature)
     - Dependency-injection markers (``Depends()`` parameters)
-    - Test files (filenames starting with ``test_``)
+    - Test files (see ``lanorme.paths``)
     - Lambda expressions
     - Functions suppressed with ``# noqa: KWARG-001``
 
@@ -20,21 +20,16 @@ from __future__ import annotations
 
 import ast
 from dataclasses import dataclass, field
-from pathlib import Path
 from typing import ClassVar
 
 from lanorme import CheckResult, Violation, register
 from lanorme.checkconfig import is_flag_set
+from lanorme.paths import is_test_file
 from lanorme.scan import Scan
-from lanorme.sources import UnparseableFile, iter_modules, locate, build_unparseable_notice
+from lanorme.sources import UnparseableFile, build_unparseable_notice, iter_modules, locate
 
 # Parameters that are implicit receiver, never counted.
 SELF_CLS_NAMES = {"self", "cls"}
-
-
-def _is_test_file(*, file_path: str) -> bool:
-    """Return True if the file is a test file (name starts with ``test_``)."""
-    return Path(file_path).name.startswith("test_")
 
 
 def _is_dunder(*, name: str) -> bool:
@@ -223,8 +218,8 @@ class NamedArgsCheck:
         for module in iter_modules(scan.root):
             relative_file = module.relative
 
-            # Skip test files entirely.
-            if _is_test_file(file_path=relative_file):
+            # Skip test files entirely (see ``lanorme.paths``).
+            if is_test_file(relative_file):
                 continue
 
             if isinstance(module, UnparseableFile):

@@ -15,7 +15,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-
 from lanorme import Status
 from lanorme.checks.naming_consistency import NamingConsistencyCheck
 from lanorme.scan import Scan

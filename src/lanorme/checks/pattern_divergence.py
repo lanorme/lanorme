@@ -14,15 +14,16 @@ import ast
 from dataclasses import dataclass, field
 
 from lanorme import CheckResult, Violation, register
+from lanorme.paths import is_test_file
 from lanorme.scan import Scan
 from lanorme.sources import (
     TOO_DEEP,
     Module,
     UnparseableFile,
-    iter_modules,
     build_skip_notice,
-    locate,
     build_unparseable_notice,
+    iter_modules,
+    locate,
 )
 
 # ---------------------------------------------------------------------------
@@ -244,8 +245,8 @@ class PatternDivergenceCheck:
         for module in iter_modules(scan.root):
             relative_file = module.relative
 
-            # Skip test files.
-            if module.path.name.startswith("test_"):
+            # Skip test files (see ``lanorme.paths``).
+            if is_test_file(relative_file):
                 continue
 
             if isinstance(module, UnparseableFile):

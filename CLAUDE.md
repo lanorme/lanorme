@@ -37,7 +37,9 @@ to fix, `0` clean or advisory only, `2` a usage or config error.
 - Layout: checks live in `src/lanorme/checks/`, the CLI in `src/lanorme/cli.py`,
   the run pipeline in `src/lanorme/runner.py`, the public API and registry in
   `src/lanorme/__init__.py`, the shared parse layer in `src/lanorme/sources.py`,
-  the shared file walk in `src/lanorme/discovery.py`.
+  the shared file walk in `src/lanorme/discovery.py`, the shared test-file
+  predicates in `src/lanorme/paths.py` (use `is_test_file`; never write
+  another `test_` prefix check).
 
 ## How we build features
 

@@ -48,9 +48,9 @@ from labelled_corpus import (
     FileEntry,
     LabelsDocument,
     SiteLabel,
+    compute_proposed_split,
     find_corpus_files,
     hash_line,
-    compute_proposed_split,
     read_labels,
     write_labels,
 )

@@ -613,17 +613,21 @@ def test_file_target_still_finds_a_duplicate_elsewhere_in_the_project(tmp_path: 
 
 
 def test_subtree_scan_honours_the_nested_region_config(tmp_path: Path, capsys):
-    """The region at the scanned subtree still governs its files."""
-    # Arrange: tests/ lowers the file warn threshold to catch a four-line file.
-    tests = _build_nested_project(tmp_path)
-    (tests / "lanorme.toml").write_text("[file_limits]\nfile_warn_lines = 1\n", encoding="utf-8")
-    (tests / "long.py").write_text("a = 1\nb = 2\nc = 3\n", encoding="utf-8")
+    """The region at the scanned subtree still governs its files.
+
+    The subtree is ``sub/``, not ``tests/``: SIZE-001 exempts test files, so a
+    tests/ region would show nothing whatever threshold it set.
+    """
+    # Arrange: sub/ lowers the file warn threshold to catch a three-line file.
+    sub = _build_sub_region(tmp_path, "[file_limits]\nfile_warn_lines = 1\n")
+    (sub / "long.py").write_text("a = 1\nb = 2\nc = 3\n", encoding="utf-8")
+    (sub / "helpers.py").write_text("def f(**kwargs):\n    return kwargs\n", encoding="utf-8")
 
     # Act.
-    records = _run_records([str(tests), "--check", "SIZE-001"], capsys)
+    records = _run_records([str(sub), "--check", "SIZE-001"], capsys)
 
     # Assert: the nested threshold applied, to the subtree's files only.
-    assert {r["file"] for r in records} == {"tests/helpers.py", "tests/long.py"}
+    assert {r["file"] for r in records} == {"sub/helpers.py", "sub/long.py"}
 
 
 # --------------------------------------------------------------------------- #

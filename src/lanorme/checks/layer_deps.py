@@ -64,9 +64,9 @@ from dataclasses import dataclass, field
 from typing import ClassVar
 
 from lanorme import CheckResult, Violation, register
-from lanorme.checkconfig import read_str_list, read_str
+from lanorme.checkconfig import read_str, read_str_list
 from lanorme.scan import Scan
-from lanorme.sources import Module, UnparseableFile, iter_modules, locate, build_unparseable_notice
+from lanorme.sources import Module, UnparseableFile, build_unparseable_notice, iter_modules, locate
 
 # The architectural layers in a hexagonal backend (default).
 LAYERS = ("domain", "application", "infrastructure", "api")

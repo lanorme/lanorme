@@ -32,7 +32,8 @@ from dataclasses import dataclass, field
 from typing import ClassVar
 
 from lanorme import CheckResult, Violation, register
-from lanorme.checkconfig import read_int, is_flag_set
+from lanorme.checkconfig import is_flag_set, read_int
+from lanorme.checks.file_limits import _measure_cyclomatic_complexity
 from lanorme.comment_code import (
     Comment,
     _find_illustrative_lines,
@@ -41,7 +42,6 @@ from lanorme.comment_code import (
     _looks_like_code,
     _measure_prose_length,
 )
-from lanorme.checks.file_limits import _measure_cyclomatic_complexity
 from lanorme.lexical_scopes import ModuleBindings
 from lanorme.markdown import EMOJI_RE
 from lanorme.scan import Scan

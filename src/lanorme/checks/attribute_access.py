@@ -28,7 +28,8 @@ cases only:
       ``getattr`` on one with a literal name. A ``setattr`` / ``delattr`` on
       a module, or a ``getattr`` through one by a computed name, is not
       detection and is still reported.
-    - Files under ``tests/`` are exempt (tests poke internals on purpose).
+    - Test files (see ``lanorme.paths``) are exempt (tests poke internals
+      on purpose).
 
 Dynamic names (``getattr(x, name)``, ``getattr(x, "_" + n)``) are genuine
 reflection and exempt by default. Enable ``flag_dynamic`` to flag them too::
@@ -45,25 +46,20 @@ from __future__ import annotations
 
 import ast
 from dataclasses import dataclass, field
-from pathlib import Path
 from typing import ClassVar
 
 from lanorme import CheckResult, Violation, register
 from lanorme.checkconfig import is_flag_set
+from lanorme.paths import is_test_file
 from lanorme.scan import Scan
 from lanorme.sources import Module, iter_parsed_modules, locate
 
 _ATTR_BUILTINS = frozenset({"getattr", "hasattr", "setattr", "delattr"})
 
-# Files under these path fragments are skipped (intentional internal poking).
-_EXEMPT_PATH_FRAGMENTS = ("tests/", "test/")
-
 
 def _is_exempt_file(*, relative: str) -> bool:
-    norm = relative.replace("\\", "/")
-    if Path(norm).name.startswith("test_"):
-        return True
-    return any(norm.startswith(p) or f"/{p}" in norm for p in _EXEMPT_PATH_FRAGMENTS)
+    """True for test files (see ``lanorme.paths``): tests poke internals on purpose."""
+    return is_test_file(relative)
 
 
 def _collect_imported_module_names(*, module: Module) -> frozenset[str]:

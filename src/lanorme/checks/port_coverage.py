@@ -42,10 +42,10 @@ from pathlib import Path
 from typing import ClassVar
 
 from lanorme import CheckResult, Violation, register
-from lanorme.checkconfig import read_str_list, read_str
+from lanorme.checkconfig import read_str, read_str_list
 from lanorme.discovery import iter_py_files
 from lanorme.scan import Scan
-from lanorme.sources import Module, parse_module, locate
+from lanorme.sources import Module, locate, parse_module
 
 # Adapter files that are pure utilities or re-exports, not port implementations.
 INFRA_SERVICE_SKIP_FILES = ("__init__.py",)

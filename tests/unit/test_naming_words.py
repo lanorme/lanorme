@@ -14,14 +14,14 @@ from lanorme.checks.naming_words import (
     VERB_CAPABLE,
     VERB_ONLY,
     WEAK_VERBS,
+    find_leading_verb_index,
+    find_postposed_verb_index,
     is_noun_phrase,
     is_pascal_case,
     is_predicate,
     is_verb_capable,
-    find_leading_verb_index,
-    find_postposed_verb_index,
-    split_name,
     move_verb_first,
+    split_name,
 )
 
 

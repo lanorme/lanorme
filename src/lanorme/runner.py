@@ -42,9 +42,9 @@ from lanorme.regions import (
     Region,
     build_child_exclude_globs,
     combine_results,
+    compute_region_prefix,
     discover_regions,
     is_tree_scoped,
-    compute_region_prefix,
 )
 from lanorme.scan import Scan
 from lanorme.selectors import reject_unknown_selectors

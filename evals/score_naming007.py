@@ -15,10 +15,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from lanorme.checks.naming_canon import NamingCanonCheck
-from lanorme.scan import Scan
 from labelled_corpus import ScoreRecord, Site, evaluate_corpus
 from metrics_report import run_scorer
+
+from lanorme.checks.naming_canon import NamingCanonCheck
+from lanorme.scan import Scan
 
 RULE = "NAMING-007"
 CORPUS = "naming_command"

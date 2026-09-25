@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import re
 
-from lanorme import Check, get_all_checks, extract_code
+from lanorme import Check, extract_code, get_all_checks
 from lanorme.errors import UsageError
 
 _CODE_RE = re.compile(r"^([A-Z]+)-\d+")

@@ -19,7 +19,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-
 from lanorme import Status
 from lanorme.checks.port_coverage import PortCoverageCheck
 from lanorme.scan import Scan

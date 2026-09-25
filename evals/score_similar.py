@@ -15,10 +15,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from lanorme.checks.similarity import SimilarityCheck
-from lanorme.scan import Scan
 from labelled_corpus import ScoreRecord, Site, evaluate_corpus
 from metrics_report import run_scorer
+
+from lanorme.checks.similarity import SimilarityCheck
+from lanorme.scan import Scan
 
 RULE = "SIMILAR-001"
 CORPUS = "duplication_similar"

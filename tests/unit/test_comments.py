@@ -16,8 +16,8 @@ import pytest
 
 from lanorme import Status
 from lanorme import comment_code as comments_module
-from lanorme.comment_code import _comment_parses_as_code
 from lanorme.checks.comments import CommentsCheck
+from lanorme.comment_code import _comment_parses_as_code
 from lanorme.scan import Scan
 
 # A single-line expression nested far enough to overflow a recursion-bounded

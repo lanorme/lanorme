@@ -14,10 +14,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from lanorme import run_all
-from lanorme.cli import _load_builtin_checks  # noqa: PLC2701 -- the scorer pins to internals
 from labelled_corpus import ScoreRecord, Site, evaluate_corpus
 from metrics_report import run_scorer
+
+from lanorme import run_all
+from lanorme.cli import _load_builtin_checks  # noqa: PLC2701 -- the scorer pins to internals
 
 RULE = "SQL-001"
 CORPUS = "security_raw_sql"
