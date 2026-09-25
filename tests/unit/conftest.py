@@ -10,43 +10,26 @@ from pathlib import Path
 
 import pytest
 
-from lanorme import discovery, get_check
-from lanorme.checks.layer_deps import TRANSPORT_LAYERS
+from lanorme.scan import Scan
 
 
 @pytest.fixture(autouse=True)
-def _reset_global_state(monkeypatch):
-    """Reset process-global state around every test.
+def _isolate_run_state(monkeypatch):
+    """Give every test a fresh scan and no GitHub Actions auto-detect.
 
-    Two leaks to guard: the module-global exclude list published by the CLI,
-    and the ``source_root`` field on the registry-singleton checks, which
-    ``apply_check_config`` mutates in place (the protocol carries no config).
-    Either would otherwise bleed from one test into the next in the same
-    interpreter.
+    A fresh :class:`~lanorme.scan.Scan` means no exclude glob, scope or parsed
+    tree carries over from one test to the next, whatever the test set
+    through the compatibility setters; the registered checks need no reset,
+    since a run configures copies and never the templates.
 
-    Also clear ``GITHUB_ACTIONS`` so the output-format auto-detect is off by
+    ``GITHUB_ACTIONS`` is cleared so the output-format auto-detect is off by
     default: the suite itself runs inside GitHub Actions, where leaving it set
     would flip the default format to ``github`` and break tests that parse the
     human or JSON output. A test that wants the auto-detect sets it explicitly.
     """
     monkeypatch.delenv("GITHUB_ACTIONS", raising=False)
-    discovery.set_excludes(())
-    yield
-    discovery.set_excludes(())
-    for name in ("layer_deps", "port_coverage", "security_patterns"):
-        check = get_check(name)
-        if check is not None:
-            check.source_root = ""
-    # ``domain_terms`` is a registry singleton whose vocabulary is mutated in
-    # place by ``configure``; clear it so a configured test does not leak rules.
-    domain_terms = get_check("domain_terms")
-    if domain_terms is not None:
-        domain_terms.term_rules = []
-    # ``layer_deps`` likewise carries configured transport layers in place.
-    layer_deps = get_check("layer_deps")
-    if layer_deps is not None:
-        layer_deps.transport_layers = TRANSPORT_LAYERS
-        layer_deps._transport_configured = False
+    with Scan().activate():
+        yield
 
 
 @pytest.fixture

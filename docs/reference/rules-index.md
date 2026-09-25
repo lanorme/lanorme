@@ -41,6 +41,7 @@ notes for each rule are in the [rule reference](../RULES.md).
 | `LAYER-004` | layer_deps | no |
 | `LAYER-005` | layer_deps | no |
 | `LAYER-006` | layer_deps | no |
+| `LAYER-007` | layer_deps | no |
 | `META-001` | meta | no |
 | `META-002` | meta | no |
 | `META-003` | meta | no |

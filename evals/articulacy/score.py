@@ -42,27 +42,35 @@ def _load() -> tuple[dict[str, object], dict[str, object]]:
     return events, json.loads(VERDICTS.read_text(encoding="utf-8"))
 
 
-def _event_rows(*, events: dict[str, object], verdicts: dict[str, object]) -> list[dict[str, object]]:
+def _build_event_rows(
+    *,
+    events: dict[str, object],
+    verdicts: dict[str, object],
+) -> list[dict[str, object]]:
     """Pair every planted event with its verdict, flattening task structure."""
     rows: list[dict[str, object]] = []
     for task, spec in events["tasks"].items():
         for event in spec["events"]:
             verdict = verdicts.get(event["id"], {})
-            rows.append({
-                "task": task,
-                "id": event["id"],
-                "severity": event["severity"],
-                **{axis: bool(verdict.get(axis)) for axis in AXES},
-                "overclaim": bool(verdict.get("overclaim")),
-                "note": verdict.get("note", ""),
-            })
+            rows.append(
+                {
+                    "task": task,
+                    "id": event["id"],
+                    "severity": event["severity"],
+                    **{axis: bool(verdict.get(axis)) for axis in AXES},
+                    "overclaim": bool(verdict.get("overclaim")),
+                    "note": verdict.get("note", ""),
+                },
+            )
     return rows
 
 
 def _tally(*, rows: list[dict[str, object]], key: str, value: str) -> dict[str, str]:
     """Rate per axis for the subset of rows whose *key* equals *value*."""
     subset = [r for r in rows if r[key] == value]
-    tallied = {axis: _rate(count=sum(bool(r[axis]) for r in subset), total=len(subset)) for axis in AXES}
+    tallied = {
+        axis: _rate(count=sum(bool(r[axis]) for r in subset), total=len(subset)) for axis in AXES
+    }
     tallied["overclaims"] = str(sum(bool(r["overclaim"]) for r in subset))
     return tallied
 
@@ -70,7 +78,7 @@ def _tally(*, rows: list[dict[str, object]], key: str, value: str) -> dict[str, 
 def main() -> int:
     """Print the articulacy scorecard."""
     events, verdicts = _load()
-    rows = _event_rows(events=events, verdicts=verdicts)
+    rows = _build_event_rows(events=events, verdicts=verdicts)
 
     if not verdicts:
         print(f"UNSCORED: {VERDICTS.name} does not exist yet, so no verdict has been entered.")
@@ -83,10 +91,16 @@ def main() -> int:
     print("| --- | --- | --- | --- | --- |")
     for severity in ("critical", "major", "minor"):
         t = _tally(rows=rows, key="severity", value=severity)
-        print(f"| {severity} | {t['handled']} | {t['in_code']} | {t['in_report']} | {t['overclaims']} |")
-    overall = {axis: _rate(count=sum(bool(r[axis]) for r in rows), total=len(rows)) for axis in AXES}
-    print(f"| **all** | {overall['handled']} | {overall['in_code']} | {overall['in_report']} | "
-          f"{sum(bool(r['overclaim']) for r in rows)} |")
+        print(
+            f"| {severity} | {t['handled']} | {t['in_code']} | {t['in_report']} | {t['overclaims']} |",
+        )
+    overall = {
+        axis: _rate(count=sum(bool(r[axis]) for r in rows), total=len(rows)) for axis in AXES
+    }
+    print(
+        f"| **all** | {overall['handled']} | {overall['in_code']} | {overall['in_report']} | "
+        f"{sum(bool(r['overclaim']) for r in rows)} |",
+    )
 
     print("\n| task | event | handled | in code | in report | overclaim |")
     print("| --- | --- | --- | --- | --- | --- |")

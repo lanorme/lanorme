@@ -22,33 +22,42 @@ Default-off. Opt in via::
 
 from __future__ import annotations
 
+import ast
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import ClassVar
 
-from lanorme import CheckResult, Status, Violation, register
-from lanorme.checks.naming_canon import verb_fix
+from lanorme import CheckResult, Violation, register
+from lanorme.checkconfig import is_flag_set
+from lanorme.checks.naming_canon import suggest_verb_fix
 from lanorme.checks.naming_shapes import (
     FUNCTION_TYPES,
     Definition,
-    decorator_leaves,
     is_command,
     is_exempt,
     is_framework_named,
     is_raiser,
     iter_definitions,
     iter_modules,
+    list_base_leaves,
     name_setting,
+    resolve_decorator_leaves,
+    returns_nested_function,
 )
 from lanorme.checks.naming_words import (
     JUNK_MODULES,
     NOISE_WORDS,
+    find_leading_verb_index,
     is_pascal_case,
     is_predicate,
-    leading_verb_index,
     split_name,
 )
+from lanorme.scan import Scan
+from lanorme.sources import locate
 
-RULE_009 = "NAMING-009: A class name carries no noise word (Manager, Processor, Data, Info, Helper, Util)"
+RULE_009 = (
+    "NAMING-009: A class name carries no noise word (Manager, Processor, Data, Info, Helper, Util)"
+)
 RULE_010 = "NAMING-010: A module is not a junk drawer (utils, helpers, common, misc)"
 RULE_011 = "NAMING-011: Every function starts with a verb"
 
@@ -61,7 +70,17 @@ class _Settings:
     exempt: frozenset[str]
 
 
-def _noise_findings(*, definition: Definition, file: str, settings: _Settings) -> list[Violation]:
+def _inherits_noise_word(*, node: ast.ClassDef, word: str) -> bool:
+    """True if a base already ends in *word*: ``UserManager(models.Manager)`` inherits the term."""
+    return any(split_name(name=leaf)[-1:] == [word] for leaf in list_base_leaves(node=node))
+
+
+def _collect_noise_findings(
+    *,
+    definition: Definition,
+    file: str,
+    settings: _Settings,
+) -> list[Violation]:
     """NAMING-009: a class whose last word is a job title or a shrug."""
     name = definition.name
     tokens = split_name(name=name)
@@ -71,70 +90,97 @@ def _noise_findings(*, definition: Definition, file: str, settings: _Settings) -
         return []
     if tokens[-2:] == ["meta", "data"] or name.endswith("ContextManager"):
         return []
-    return [Violation(
-        file=file,
-        line=definition.node.lineno,
-        rule=RULE_009,
-        message=f"Class '{name}' ends in '{tokens[-1]}', a noise word that names a job title, not a thing",
-        fix="Say what it is (a Registry, a Pool, a Cache, a Scheduler) or what it holds (an Order, a Profile)",
-    )]
+    if isinstance(definition.node, ast.ClassDef) and _inherits_noise_word(
+        node=definition.node,
+        word=tokens[-1],
+    ):
+        return []
+    return [
+        Violation(
+            file=file,
+            line=definition.node.lineno,
+            rule=RULE_009,
+            message=f"Class '{name}' ends in '{tokens[-1]}', a noise word that names a job title, not a thing",
+            fix="Say what it is (a Registry, a Pool, a Cache, a Scheduler) or what it holds (an Order, a Profile)",
+            **locate(definition.node),
+        ),
+    ]
 
 
-def _junk_module_findings(*, file: str, settings: _Settings) -> list[Violation]:
+def _collect_junk_module_findings(*, file: str, settings: _Settings) -> list[Violation]:
     """NAMING-010: a module or package named for having no name."""
     path = Path(file)
     stem = path.parent.name if path.name == "__init__.py" else path.stem
     if stem not in JUNK_MODULES or is_exempt(name=stem, exempt=settings.exempt):
         return []
     kind = "Package" if path.name == "__init__.py" else "Module"
-    return [Violation(
-        file=file,
-        line=0,
-        rule=RULE_010,
-        message=f"{kind} '{stem}' is a junk drawer: the name promises nothing about what is inside",
-        fix="Split it by responsibility and name each module for what it holds (paths.py, dates.py, ...)",
-    )]
+    return [
+        Violation(
+            file=file,
+            line=0,
+            rule=RULE_010,
+            message=f"{kind} '{stem}' is a junk drawer: the name promises nothing about what is inside",
+            fix="Split it by responsibility and name each module for what it holds (paths.py, dates.py, ...)",
+        ),
+    ]
 
 
-def _verb_findings(*, definition: Definition, file: str, settings: _Settings) -> list[Violation]:
+def _collect_verb_findings(
+    *,
+    definition: Definition,
+    file: str,
+    settings: _Settings,
+) -> list[Violation]:
     """NAMING-011: a query that does not lead with a verb.
 
     Commands are NAMING-007's and a raiser exists to raise, so this rule takes
     the rest: functions that answer with a value, and stubs. Constructors under
-    ``@classmethod`` are named for what they build, and a predicate reads as
-    an assertion.
+    ``@classmethod`` are named for what they build, a decorator is named for
+    what it confers, and a predicate reads as an assertion.
     """
     name = definition.name
     if is_exempt(name=name, exempt=settings.exempt) or is_framework_named(definition=definition):
         return []
     node = definition.node
-    if "classmethod" in decorator_leaves(node=node) or is_command(node=node) or is_raiser(node=node):
+    if (
+        "classmethod" in resolve_decorator_leaves(node=node)
+        or is_command(node=node)
+        or is_raiser(node=node)
+        or returns_nested_function(node=node)
+    ):
         return []
     tokens = split_name(name=name)
-    if not tokens or leading_verb_index(tokens=tokens, extra=settings.verbs) >= 0 or is_predicate(tokens=tokens):
+    if (
+        not tokens
+        or find_leading_verb_index(tokens=tokens, extra=settings.verbs) >= 0
+        or is_predicate(tokens=tokens)
+    ):
         return []
-    return [Violation(
-        file=file,
-        line=node.lineno,
-        rule=RULE_011,
-        message=f"Function '{name}' does not start with a verb",
-        fix=verb_fix(
-            name=name,
-            tokens=tokens,
-            verbs=settings.verbs,
-            otherwise=(
-                "Lead with what it does to get the value (find_, build_, compute_, load_), "
-                "or is_/has_ for a predicate"
+    return [
+        Violation(
+            file=file,
+            line=node.lineno,
+            rule=RULE_011,
+            message=f"Function '{name}' does not start with a verb",
+            fix=suggest_verb_fix(
+                name=name,
+                tokens=tokens,
+                verbs=settings.verbs,
+                otherwise=(
+                    "Lead with what it does to get the value (find_, build_, compute_, load_), "
+                    "or is_/has_ for a predicate"
+                ),
             ),
+            **locate(node),
         ),
-    )]
+    ]
 
 
-def _findings(*, definition: Definition, file: str, settings: _Settings) -> list[Violation]:
+def _collect_findings(*, definition: Definition, file: str, settings: _Settings) -> list[Violation]:
     """Every NAMING-009 and NAMING-011 finding on one definition."""
     if isinstance(definition.node, FUNCTION_TYPES):
-        return _verb_findings(definition=definition, file=file, settings=settings)
-    return _noise_findings(definition=definition, file=file, settings=settings)
+        return _collect_verb_findings(definition=definition, file=file, settings=settings)
+    return _collect_noise_findings(definition=definition, file=file, settings=settings)
 
 
 @dataclass
@@ -150,11 +196,11 @@ class NamingCleanCodeCheck:
     verbs: frozenset[str] = frozenset()
     exempt: frozenset[str] = frozenset()
     rules: list[str] = field(default_factory=lambda: [RULE_009, RULE_010, RULE_011])
+    settings_keys: ClassVar[frozenset[str]] = frozenset({"enabled", "verbs", "exempt"})
 
     def configure(self, *, settings: dict[str, bool | list[str]]) -> None:
         """Apply ``[tool.lanorme.naming_clean_code]`` configuration."""
-        if "enabled" in settings:
-            self.enabled = bool(settings["enabled"])
+        self.enabled = is_flag_set(settings=settings, key="enabled", default=self.enabled)
         verbs = name_setting(settings=settings, key="verbs")
         if verbs is not None:
             self.verbs = frozenset(word.lower() for word in verbs)
@@ -162,19 +208,20 @@ class NamingCleanCodeCheck:
         if exempt is not None:
             self.exempt = frozenset(exempt)
 
-    def run(self, *, src_root: str) -> CheckResult:
+    def check(self, scan: Scan) -> CheckResult:
         """Walk every module and collect NAMING-009..011 warnings, in source order."""
         if not self.enabled:
-            return CheckResult(check=self.name, status=Status.PASS)
+            return CheckResult.from_findings(check=self.name)
         settings = _Settings(verbs=self.verbs, exempt=self.exempt)
         warnings: list[Violation] = []
-        for relative, tree in iter_modules(root=Path(src_root)):
-            warnings.extend(_junk_module_findings(file=relative, settings=settings))
+        for relative, tree in iter_modules(root=scan.root):
+            warnings.extend(_collect_junk_module_findings(file=relative, settings=settings))
             for definition in iter_definitions(tree=tree):
-                warnings.extend(_findings(definition=definition, file=relative, settings=settings))
+                warnings.extend(
+                    _collect_findings(definition=definition, file=relative, settings=settings),
+                )
         warnings.sort(key=lambda warning: (warning.file, warning.line))
-        status = Status.WARN if warnings else Status.PASS
-        return CheckResult(check=self.name, status=status, warnings=warnings)
+        return CheckResult.from_findings(check=self.name, warnings=warnings)
 
 
 register(NamingCleanCodeCheck())

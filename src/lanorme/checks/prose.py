@@ -8,9 +8,12 @@ house style for prose:
     PROSE-003  No emoji.
     PROSE-004  Em-dash density above natural English (advisory warning, opt-in).
 
-Fenced code blocks (``` … ```) and inline ``code`` spans are skipped, so code
-samples that contain ``color`` or ``optimize`` are not flagged. PROSE-004 reuses
-that same stripping and measures density over the remaining prose alone.
+Fenced code blocks (``` … ```), YAML front matter, inline ``code`` spans, URLs,
+link targets and HTML tags are skipped, so code samples that contain ``color``
+or ``optimize`` are not flagged, and the spelling rule further ignores tokens
+that are code rather than words (``--color``, ``settings.color``, ``org-42``).
+PROSE-004 reuses that same stripping and measures density over the remaining
+prose alone.
 
 Off by default, it only runs when enabled, so it never imposes a house style on
 a project that has not opted in::
@@ -44,9 +47,13 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import ClassVar
 
-from lanorme import CheckResult, Status, Violation, register
+from lanorme import CheckResult, Violation, register
+from lanorme.checkconfig import is_flag_set, read_str_list
 from lanorme.discovery import iter_files
+from lanorme.markdown import EMOJI_RE, URL_RE, iter_prose_lines, strip_inline_code
+from lanorme.scan import Scan
 
 _EM_DASH = "—"
 
@@ -54,22 +61,19 @@ _EM_DASH = "—"
 # extensions list, and the spellings / density sub-tables. Spelled as a union of
 # concrete leaves (no bare ``object``) so it reads as the real config shape.
 ProseSettings = dict[
-    str, bool | int | float | list[str] | dict[str, str] | dict[str, float]
+    str,
+    bool | int | float | list[str] | dict[str, str] | dict[str, float],
 ]
 
-# Common emoji code-point ranges. Deliberately excludes plain arrows (←→) and
-# other typographic symbols that appear legitimately in prose and diagrams.
-_EMOJI = re.compile(
-    "["
-    "\U0001f300-\U0001faff"  # symbols, pictographs, emoticons, transport, supplemental
-    "\U00002600-\U000026ff"  # miscellaneous symbols
-    "\U00002700-\U000027bf"  # dingbats
-    "\U0001f1e6-\U0001f1ff"  # regional indicator (flags)
-    "\U00002b00-\U00002bff"  # stars and misc symbols
-    "\U0000fe0f"  # emoji variation selector
-    "\U0000200d"  # zero-width joiner
-    "]"
-)
+# Non-prose that shares a line with prose: a link target, an HTML tag or a
+# single-line HTML comment. Blanked before any rule looks at the line.
+_LINK_TARGET = re.compile(r"\]\([^)]*\)")
+_HTML_TAG = re.compile(r"<[A-Za-z/!][^>]*>")
+
+# A token that is code, not a word, for the spelling rule only: a flag
+# (``--color``), or anything holding a path, an assignment, an underscore, a
+# scope, a dotted name or a digit (``settings.color``, ``org-color-42``).
+_CODE_TOKEN = re.compile(r"(?<!\S)(?:--?\w\S*|\S*(?:[/=_]|::|\w\.\w|\d)\S*)")
 
 # High-confidence American → British spellings. Part-of-speech-ambiguous pairs
 # (license/licence, practice/practise, program) are intentionally omitted.
@@ -119,12 +123,6 @@ _DEFAULT_SPELLINGS: dict[str, str] = {
     "dialog": "dialogue",
 }
 
-# A code span is a run of backticks, then content, then a matching run of the
-# same length (CommonMark). The backreference is what makes double-backtick
-# spans like ``color`` strip correctly; a single-backtick pattern would only
-# blank the delimiter pairs and leave the content exposed to the scanner.
-_INLINE_CODE = re.compile(r"(`+).*?\1")
-
 # Word and sentence segmentation for PROSE-004 density. Sentences split on a
 # terminal ``.!?`` followed by whitespace; segments are kept only when they hold
 # non-whitespace, so trailing or doubled breaks cannot inflate the count.
@@ -144,22 +142,42 @@ _DENSITY_DEFAULTS: dict[str, float] = {
 
 # Vendored / generated directories never scanned for prose.
 _SKIP_PARTS = frozenset(
-    {".git", ".venv", "venv", "node_modules", "__pycache__", "dist", "build"}
+    {".git", ".venv", "venv", "node_modules", "__pycache__", "dist", "build"},
 )
 
 
-def _strip_inline_code(line: str) -> str:
-    """Blank out inline `code` spans, preserving length for column fidelity."""
-    return _INLINE_CODE.sub(lambda m: " " * len(m.group(0)), line)
+def _read_table_setting(*, settings: ProseSettings, key: str) -> dict[str, object] | None:
+    """A sub-table (``[tool.lanorme.prose.<key>]``), or None when absent."""
+    value = settings.get(key)
+    if value is None:
+        return None
+    if not isinstance(value, dict):
+        raise TypeError(f"'{key}' must be a table, got {type(value).__name__}")
+    return value
 
 
-def _status_for(*, violations: list[Violation], warnings: list[Violation]) -> Status:
-    """Map findings to a status: any hard violation fails, an advisory warns."""
-    if violations:
-        return Status.FAIL
-    if warnings:
-        return Status.WARN
-    return Status.PASS
+def _require_number(*, key: str, value: object) -> float:
+    """A density threshold: an int or a float, never a bool or a string."""
+    if isinstance(value, bool) or not isinstance(value, int | float):
+        raise TypeError(f"'{key}' must be a number, got {type(value).__name__}")
+    return value
+
+
+def _blank(match: re.Match[str]) -> str:
+    return " " * len(match.group(0))
+
+
+def _strip_non_prose(line: str) -> str:
+    """Blank inline code, link targets, URLs and HTML tags, keeping the length."""
+    stripped = strip_inline_code(line)
+    for pattern in (_LINK_TARGET, URL_RE, _HTML_TAG):
+        stripped = pattern.sub(_blank, stripped)
+    return stripped
+
+
+def _strip_code_tokens(line: str) -> str:
+    """Blank the tokens that are code rather than words, keeping the length."""
+    return _CODE_TOKEN.sub(_blank, line)
 
 
 def _compile_spellings(spellings: dict[str, str]) -> re.Pattern[str] | None:
@@ -172,6 +190,10 @@ def _compile_spellings(spellings: dict[str, str]) -> re.Pattern[str] | None:
 @dataclass
 class ProseCheck:
     """Opt-in prose style for docs: em dashes, US spelling, emoji."""
+
+    settings_keys: ClassVar[frozenset[str]] = frozenset(
+        {"enabled", "extensions", "em_dash", "emoji", "em_dash_density", "spellings", "density"},
+    )
 
     name: str = "prose"
     description: str = "Prose style for Markdown/docs (em dashes, US spelling, emoji)"
@@ -188,34 +210,35 @@ class ProseCheck:
             "PROSE-002: Use British spelling (no American spellings)",
             "PROSE-003: No emoji in prose",
             "PROSE-004: Em-dash density above natural English",
-        ]
+        ],
     )
 
     def configure(self, *, settings: ProseSettings) -> None:
         """Apply ``[tool.lanorme.prose]`` configuration."""
-        if "enabled" in settings:
-            self.enabled = bool(settings["enabled"])
-        if "em_dash" in settings:
-            self.flag_em_dash = bool(settings["em_dash"])
-        if "emoji" in settings:
-            self.flag_emoji = bool(settings["emoji"])
-        if "em_dash_density" in settings:
-            self.flag_em_dash_density = bool(settings["em_dash_density"])
-        extensions = settings.get("extensions")
-        if isinstance(extensions, list):
-            self.extensions = tuple(ext.lower() for ext in extensions)
-        spellings = settings.get("spellings")
-        if isinstance(spellings, dict):
+        self.enabled = is_flag_set(settings=settings, key="enabled", default=self.enabled)
+        self.flag_em_dash = is_flag_set(settings=settings, key="em_dash", default=self.flag_em_dash)
+        self.flag_emoji = is_flag_set(settings=settings, key="emoji", default=self.flag_emoji)
+        self.flag_em_dash_density = is_flag_set(
+            settings=settings,
+            key="em_dash_density",
+            default=self.flag_em_dash_density,
+        )
+        self.extensions = tuple(
+            ext.lower()
+            for ext in read_str_list(settings=settings, key="extensions", default=self.extensions)
+        )
+        spellings = _read_table_setting(settings=settings, key="spellings")
+        if spellings is not None:
             self.spellings = {**self.spellings, **spellings}
-        density = settings.get("density")
-        if isinstance(density, dict):
+        density = _read_table_setting(settings=settings, key="density")
+        if density is not None:
             self._apply_density(table=density)
 
-    def _apply_density(self, *, table: dict[str, float]) -> None:
+    def _apply_density(self, *, table: dict[str, object]) -> None:
         """Merge a ``[tool.lanorme.prose.density]`` table over the defaults."""
         for key in _DENSITY_DEFAULTS:
             if key in table:
-                self.density[key] = table[key]
+                self.density[key] = _require_number(key=key, value=table[key])
 
     def _scan_line(
         self,
@@ -234,10 +257,10 @@ class ProseCheck:
                     rule="PROSE-001",
                     message="Em dash (—) found in prose",
                     fix="Rewrite with a comma, parentheses, or a full stop",
-                )
+                ),
             )
         if self.flag_emoji:
-            match = _EMOJI.search(line)
+            match = EMOJI_RE.search(line)
             if match is not None:
                 found.append(
                     Violation(
@@ -246,10 +269,10 @@ class ProseCheck:
                         rule="PROSE-003",
                         message=f"Emoji {match.group(0)!r} found in prose",
                         fix="Remove the emoji",
-                    )
+                    ),
                 )
         if spell_re is not None:
-            for match in spell_re.finditer(line):
+            for match in spell_re.finditer(_strip_code_tokens(line)):
                 word = match.group(0)
                 found.append(
                     Violation(
@@ -258,29 +281,22 @@ class ProseCheck:
                         rule="PROSE-002",
                         message=f"American spelling '{word}' found",
                         fix=f"Use British spelling '{self.spellings[word.lower()]}'",
-                    )
+                    ),
                 )
         return found
 
-    def _prose_lines(self, *, text: str) -> list[tuple[int, str]]:
-        """Yield ``(lineno, prose_line)`` with fenced and inline code removed.
+    def _extract_prose_lines(self, *, text: str) -> list[tuple[int, str]]:
+        """Yield ``(lineno, prose_line)`` with everything that is not prose removed.
 
         The single source of truth for what counts as prose: fenced code blocks
-        (``` or ~~~) are dropped and inline code spans are blanked. Both the
-        line scanners (PROSE-001/002/003) and the density measure (PROSE-004)
-        consume this, so they always agree on the prose surface.
+        (``` or ~~~) and front matter are dropped, and inline code, link
+        targets, URLs and HTML tags are blanked. Both the line scanners
+        (PROSE-001/002/003) and the density measure (PROSE-004) consume this,
+        so they always agree on the prose surface.
         """
-        lines: list[tuple[int, str]] = []
-        in_fence = False
-        for lineno, raw in enumerate(text.splitlines(), start=1):
-            stripped = raw.lstrip()
-            if stripped.startswith("```") or stripped.startswith("~~~"):
-                in_fence = not in_fence
-                continue
-            if in_fence:
-                continue
-            lines.append((lineno, _strip_inline_code(raw)))
-        return lines
+        return [
+            (lineno, _strip_non_prose(raw)) for lineno, raw in iter_prose_lines(text.splitlines())
+        ]
 
     def _scan_text(
         self,
@@ -290,18 +306,18 @@ class ProseCheck:
         spell_re: re.Pattern[str] | None,
     ) -> list[Violation]:
         violations: list[Violation] = []
-        for lineno, line in self._prose_lines(text=text):
+        for lineno, line in self._extract_prose_lines(text=text):
             violations.extend(
                 self._scan_line(
                     line=line,
                     lineno=lineno,
                     relative_file=relative_file,
                     spell_re=spell_re,
-                )
+                ),
             )
         return violations
 
-    def _density_warning(self, *, text: str, relative_file: str) -> Violation | None:
+    def _check_density(self, *, text: str, relative_file: str) -> Violation | None:
         """PROSE-004: one advisory warning per file when em-dash density is high.
 
         Measured over prose only (fenced and inline code stripped). Stays silent
@@ -309,7 +325,7 @@ class ProseCheck:
         rate and the fraction of sentences carrying an em dash clear their
         thresholds. The AND is deliberate.
         """
-        prose = "\n".join(line for _, line in self._prose_lines(text=text))
+        prose = "\n".join(line for _, line in self._extract_prose_lines(text=text))
         em = prose.count(_EM_DASH)
         words = len(_WORD.findall(prose))
         segments = [seg for seg in _SENTENCE_SPLIT.split(prose) if seg.strip()]
@@ -357,7 +373,7 @@ class ProseCheck:
         )
         warnings: list[Violation] = []
         if self.flag_em_dash_density:
-            warning = self._density_warning(text=text, relative_file=relative_file)
+            warning = self._check_density(text=text, relative_file=relative_file)
             if warning is not None:
                 warnings.append(warning)
         return violations, warnings
@@ -370,31 +386,28 @@ class ProseCheck:
         # ancestors are the user's filesystem, not the project layout.
         return not any(part in _SKIP_PARTS for part in relative.parts)
 
-    def run(self, *, src_root: str) -> CheckResult:
+    def check(self, scan: Scan) -> CheckResult:
         if not self.enabled:
-            return CheckResult(check=self.name, status=Status.PASS, violations=[])
+            return CheckResult.from_findings(check=self.name)
 
         violations: list[Violation] = []
         warnings: list[Violation] = []
         spell_re = _compile_spellings(self.spellings)
-        root = Path(src_root)
+        root = scan.root
 
         for path in iter_files(root):
             relative = path.relative_to(root)
             if not self._is_doc(path=path, relative=relative):
                 continue
             file_violations, file_warnings = self._scan_file(
-                path=path, relative_file=relative.as_posix(), spell_re=spell_re
+                path=path,
+                relative_file=relative.as_posix(),
+                spell_re=spell_re,
             )
             violations.extend(file_violations)
             warnings.extend(file_warnings)
 
-        return CheckResult(
-            check=self.name,
-            status=_status_for(violations=violations, warnings=warnings),
-            violations=violations,
-            warnings=warnings,
-        )
+        return CheckResult.from_findings(check=self.name, violations=violations, warnings=warnings)
 
 
 register(ProseCheck())

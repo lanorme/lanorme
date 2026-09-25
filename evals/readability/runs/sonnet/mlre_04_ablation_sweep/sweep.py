@@ -322,10 +322,18 @@ def _expand_random(
 def build_run_configs(spec: SweepSpec) -> list[RunConfig]:
     if spec.mode == "grid":
         combos = _expand_grid(spec.axes)
-        combos = [c for c in combos if _constraints_satisfied({**spec.base_config, **c}, spec.constraints)]
+        combos = [
+            c for c in combos if _constraints_satisfied({**spec.base_config, **c}, spec.constraints)
+        ]
     else:
         assert spec.budget is not None
-        combos = _expand_random(spec.axes, spec.budget, spec.seed, spec.constraints, spec.base_config)
+        combos = _expand_random(
+            spec.axes,
+            spec.budget,
+            spec.seed,
+            spec.constraints,
+            spec.base_config,
+        )
 
     run_configs = []
     seen_ids: set[str] = set()
@@ -446,7 +454,9 @@ def _extract_eval_loss(metrics: list[dict[str, Any]]) -> float | None:
 
 
 def _extract_compute(
-    metrics: list[dict[str, Any]], config: dict[str, Any], compute_formula: str | None
+    metrics: list[dict[str, Any]],
+    config: dict[str, Any],
+    compute_formula: str | None,
 ) -> float | None:
     for record in reversed(metrics):
         if "compute" in record:
@@ -494,11 +504,22 @@ def run_one(run_cfg: RunConfig, spec: SweepSpec, gpu_id: int, output_dir: Path) 
     oom_flag = threading.Event()
     start = time.monotonic()
 
-    with open(stdout_path, "w", encoding="utf-8") as stdout_f, open(
-        stderr_path, "w", encoding="utf-8"
-    ) as stderr_f:
+    with (
+        open(stdout_path, "w", encoding="utf-8") as stdout_f,
+        open(
+            stderr_path,
+            "w",
+            encoding="utf-8",
+        ) as stderr_f,
+    ):
         try:
-            proc = subprocess.Popen(cmd, env=env, stdout=stdout_f, stderr=subprocess.PIPE, text=True)
+            proc = subprocess.Popen(
+                cmd,
+                env=env,
+                stdout=stdout_f,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
         except OSError as exc:
             return RunResult(
                 run_id=run_cfg.run_id,
@@ -657,7 +678,9 @@ def _axis_marginals(spec: SweepSpec, completed: list[RunResult]) -> dict[str, li
             losses = [r.eval_loss for r in runs if r.eval_loss is not None]
             if not losses:
                 continue
-            rows.append({"value": value, "mean_eval_loss": statistics.fmean(losses), "n": len(losses)})
+            rows.append(
+                {"value": value, "mean_eval_loss": statistics.fmean(losses), "n": len(losses)},
+            )
         axis_marginals[axis] = rows
     return axis_marginals
 
@@ -678,7 +701,7 @@ def _best_per_axis(spec: SweepSpec, completed: list[RunResult]) -> dict[str, lis
                     "run_id": best.run_id,
                     "eval_loss": best.eval_loss,
                     "config": best.config,
-                }
+                },
             )
         best_per_axis[axis] = rows
     return best_per_axis
@@ -686,7 +709,11 @@ def _best_per_axis(spec: SweepSpec, completed: list[RunResult]) -> dict[str, lis
 
 def fit_scaling_law(completed: list[RunResult]) -> dict[str, Any]:
     """Fit L = a * C ** -b + c over (compute, eval_loss) pairs."""
-    points = [(r.compute, r.eval_loss) for r in completed if r.compute and r.compute > 0 and r.eval_loss is not None]
+    points = [
+        (r.compute, r.eval_loss)
+        for r in completed
+        if r.compute and r.compute > 0 and r.eval_loss is not None
+    ]
     if len(points) < 4:
         return {
             "fit_ok": False,
@@ -707,7 +734,14 @@ def fit_scaling_law(completed: list[RunResult]) -> dict[str, Any]:
     p0 = (a0, 0.1, c0)
     bounds = ([1e-8, 1e-6, 0.0], [np.inf, 5.0, float(losses.max()) + 1e-6])
     try:
-        popt, _pcov = scipy_optimize.curve_fit(model, computes, losses, p0=p0, bounds=bounds, maxfev=20000)
+        popt, _pcov = scipy_optimize.curve_fit(
+            model,
+            computes,
+            losses,
+            p0=p0,
+            bounds=bounds,
+            maxfev=20000,
+        )
     except (RuntimeError, ValueError) as exc:
         return {"fit_ok": False, "reason": str(exc), "n_points": len(points)}
 
@@ -736,9 +770,7 @@ def aggregate_results(spec: SweepSpec, results: list[RunResult]) -> dict[str, An
         "num_runs_total": len(results),
         "num_completed": len(completed),
         "num_failed": len(failed),
-        "failed_runs": [
-            {"run_id": r.run_id, "config": r.config, "error": r.error} for r in failed
-        ],
+        "failed_runs": [{"run_id": r.run_id, "config": r.config, "error": r.error} for r in failed],
         "axis_marginals": _axis_marginals(spec, completed),
         "best_per_axis": _best_per_axis(spec, completed),
         "scaling_law": fit_scaling_law(completed),
@@ -770,7 +802,7 @@ def write_markdown_report(aggregate: dict[str, Any], path: Path) -> None:
     lines.append(
         f"- Total runs: {aggregate['num_runs_total']}\n"
         f"- Completed: {aggregate['num_completed']}\n"
-        f"- Failed: {aggregate['num_failed']}"
+        f"- Failed: {aggregate['num_failed']}",
     )
     lines.append("")
 
@@ -780,7 +812,9 @@ def write_markdown_report(aggregate: dict[str, Any], path: Path) -> None:
         lines.append("| run_id | error | config |")
         lines.append("|---|---|---|")
         for r in aggregate["failed_runs"]:
-            lines.append(f"| {r['run_id']} | {r['error']} | `{json.dumps(r['config'], default=str)}` |")
+            lines.append(
+                f"| {r['run_id']} | {r['error']} | `{json.dumps(r['config'], default=str)}` |",
+            )
         lines.append("")
 
     lines.append("## Per-axis marginal means")
@@ -815,7 +849,9 @@ def write_markdown_report(aggregate: dict[str, Any], path: Path) -> None:
         lines.append(f"- R^2 = {_fmt(law['r_squared'])}")
         lines.append(f"- fitted on {law['n_points']} runs")
     else:
-        lines.append(f"- fit not available: {law.get('reason')} ({law.get('n_points', 0)} usable points)")
+        lines.append(
+            f"- fit not available: {law.get('reason')} ({law.get('n_points', 0)} usable points)",
+        )
     lines.append("")
 
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -865,18 +901,28 @@ def _cmd_aggregate(args: argparse.Namespace) -> int:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="sweep.py", description="Hyperparameter ablation sweep driver.")
+    parser = argparse.ArgumentParser(
+        prog="sweep.py",
+        description="Hyperparameter ablation sweep driver.",
+    )
     parser.add_argument("-v", "--verbose", action="store_true", help="debug logging")
     sub = parser.add_subparsers(dest="command", required=True)
 
     run_p = sub.add_parser("run", help="Run (or resume) the sweep and write the aggregate report.")
     run_p.add_argument("spec", type=Path, help="path to the sweep spec JSON file")
     run_p.add_argument("--output-dir", type=Path, default=Path("sweep_output"))
-    run_p.add_argument("--no-resume", action="store_true", help="ignore existing state and rerun everything")
+    run_p.add_argument(
+        "--no-resume",
+        action="store_true",
+        help="ignore existing state and rerun everything",
+    )
     run_p.add_argument("--dry-run", action="store_true", help="print expanded run configs and exit")
     run_p.set_defaults(func=_cmd_run)
 
-    agg_p = sub.add_parser("aggregate", help="Re-aggregate an existing sweep's state without launching runs.")
+    agg_p = sub.add_parser(
+        "aggregate",
+        help="Re-aggregate an existing sweep's state without launching runs.",
+    )
     agg_p.add_argument("spec", type=Path, help="path to the sweep spec JSON file")
     agg_p.add_argument("--output-dir", type=Path, required=True)
     agg_p.set_defaults(func=_cmd_aggregate)

@@ -28,8 +28,8 @@ Rules:
               are exempt; their annotation shape is an Iterator or Generator,
               which is a separate rule's concern.
 
-Boundary exemptions: this check skips files under ``tests/`` and
-``migrations/``. JSON deserialisation entrypoints (functions decorated
+Boundary exemptions: this check skips test files (see ``lanorme.paths``)
+and ``migrations/``. JSON deserialisation entrypoints (functions decorated
 with the ``@boundary_dict`` marker, if introduced) should also be added
 to ``_EXEMPT_DECORATORS`` below as the codebase grows.
 
@@ -41,13 +41,23 @@ from __future__ import annotations
 
 import ast
 from dataclasses import dataclass, field
-from pathlib import Path
 
-from lanorme import CheckResult, Status, Violation, register
-from lanorme.discovery import iter_py_files
+from lanorme import CheckResult, Violation, register
+from lanorme.astnames import find_decorator_leaf, list_decorator_leaves
+from lanorme.paths import is_test_file
+from lanorme.scan import Scan
+from lanorme.sources import (
+    TOO_DEEP,
+    Module,
+    UnparseableFile,
+    build_skip_notice,
+    build_unparseable_notice,
+    iter_modules,
+    locate,
+)
 
 _BARE_CONTAINERS = frozenset(
-    {"dict", "list", "tuple", "set", "frozenset", "Dict", "List", "Tuple", "Set", "FrozenSet"}
+    {"dict", "list", "tuple", "set", "frozenset", "Dict", "List", "Tuple", "Set", "FrozenSet"},
 )
 # `Any` is "I don't know the type", always a hard fail at signature boundaries.
 _HARD_WEAK_TYPES = frozenset({"Any"})
@@ -60,40 +70,57 @@ _EXEMPT_DECORATORS = frozenset(
     {
         # Add boundary-marker decorators here as the codebase introduces them.
         # e.g. "boundary_dict", "raw_json", "external_payload"
-    }
+    },
 )
-_EXEMPT_PATH_FRAGMENTS = ("tests/", "migrations/")
+_EXEMPT_PATH_FRAGMENTS = ("migrations/",)
 
 
 def _is_exempt_path(*, relative_path: str) -> bool:
+    """True for test files (see ``lanorme.paths``) and migration scaffolding."""
+    if is_test_file(relative_path):
+        return True
     normalised = relative_path.replace("\\", "/")
     return any(normalised.startswith(p) or f"/{p}" in normalised for p in _EXEMPT_PATH_FRAGMENTS)
 
 
 def _has_exempt_decorator(*, func_node: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
-    for dec in func_node.decorator_list:
-        name = _decorator_name(dec)
-        if name in _EXEMPT_DECORATORS:
-            return True
-    return False
+    return any(leaf in _EXEMPT_DECORATORS for leaf in list_decorator_leaves(func_node))
 
 
-def _decorator_name(node: ast.expr) -> str | None:
-    if isinstance(node, ast.Name):
-        return node.id
-    if isinstance(node, ast.Attribute):
-        return node.attr
-    if isinstance(node, ast.Call):
-        return _decorator_name(node.func)
-    return None
+def _render_annotation_text(annotation: ast.expr) -> str:
+    """Render an annotation AST back to source text (best-effort).
 
-
-def _annotation_text(annotation: ast.expr) -> str:
-    """Render an annotation AST back to source text (best-effort)."""
+    A parsed annotation always unparses; only one nested deeper than the
+    unparser's recursion allows fails, and it is named rather than rendered.
+    """
     try:
         return ast.unparse(annotation)
-    except Exception:
+    except RecursionError:
         return "<unparseable>"
+
+
+# TYPE-002 asks for the parameterised form of the container, so the message
+# and the fix name the same remedy: the key/value pair for a mapping, the
+# element type for a sequence or set.
+_MAPPING_CONTAINERS = frozenset({"dict", "Dict"})
+_TYPE_002_FIX = (
+    "Parameterise the container (dict[str, int], list[str]); "
+    "use a TypedDict when the keys are fixed"
+)
+
+
+def _build_bare_container_message(*, name: str) -> str:
+    """The TYPE-002 message for a bare container annotation, naming the passing form."""
+    if name in _MAPPING_CONTAINERS:
+        hint = f"annotate the key and value types, e.g. {name}[str, int]"
+    else:
+        hint = f"annotate the element type, e.g. {name}[str]"
+    return f"Bare '{name}' annotation lacks type parameters — {hint}"
+
+
+def _fix_for(*, rule: str, default: str) -> str:
+    """The fix text for a classified annotation: TYPE-002 names its own remedy."""
+    return _TYPE_002_FIX if rule == "TYPE-002" else default
 
 
 def _classify_annotation(annotation: ast.expr) -> tuple[str, str, str] | None:
@@ -101,60 +128,76 @@ def _classify_annotation(annotation: ast.expr) -> tuple[str, str, str] | None:
 
     Returns a tuple ``(severity, rule_id, message)`` where ``severity`` is
     ``"fail"`` or ``"warn"``, or ``None`` if the annotation is clean. ``Any``
-    leaves are hard fails; ``object`` leaves are placeholder warnings.
+    leaves are hard fails; ``object`` leaves are placeholder warnings. A weak
+    container wrapped in a union or another generic (``dict[str, Any] | None``,
+    ``Optional[dict]``, ``Annotated[dict, ...]``) is the same weak type, so the
+    walk descends through those wrappers to the first container it finds.
     """
-    # Bare container: `dict`, `list`, `Dict`, etc. (no subscript at all).
-    if isinstance(annotation, ast.Name) and annotation.id in _BARE_CONTAINERS:
+    match annotation:
+        # Bare container: `dict`, `list`, `Dict`, etc. (no subscript at all).
+        case ast.Name(id=name) if name in _BARE_CONTAINERS:
+            return ("fail", "TYPE-002", _build_bare_container_message(name=name))
+        case ast.Subscript(value=outer, slice=inner):
+            if find_decorator_leaf(outer) in _BARE_CONTAINERS:
+                return _classify_container(annotation=annotation)
+            return _classify_first(_list_slice_elements(inner))
+        # `X | None` style unions.
+        case ast.BinOp(left=left, right=right):
+            return _classify_first([left, right])
+    return None
+
+
+def _classify_first(parts: list[ast.expr]) -> tuple[str, str, str] | None:
+    """The classification of the first weak annotation among *parts*, if any."""
+    for part in parts:
+        classified = _classify_annotation(part)
+        if classified is not None:
+            return classified
+    return None
+
+
+def _list_slice_elements(node: ast.expr) -> list[ast.expr]:
+    """The type arguments of a subscript: the tuple's elements, or the lone slice."""
+    return list(node.elts) if isinstance(node, ast.Tuple) else [node]
+
+
+def _classify_container(*, annotation: ast.Subscript) -> tuple[str, str, str] | None:
+    """A subscripted container with a weak value type: ``dict[str, Any]``, ``list[object]``."""
+    inner_names = _collect_value_names(annotation.slice)
+    rendered = _render_annotation_text(annotation)
+    if any(name in _HARD_WEAK_TYPES for name in inner_names):
         return (
             "fail",
-            "TYPE-002",
-            f"Bare '{annotation.id}' annotation lacks type parameters — use '{annotation.id}[K, V]' or similar",
+            "TYPE-001",
+            f"Weakly-typed container '{rendered}' (Any leaf) — define a TypedDict, dataclass, or value object",
         )
-
-    # Subscripted container with weak value type: `dict[str, Any]`, `list[Any]`,
-    # `list[object]`, etc.
-    if isinstance(annotation, ast.Subscript):
-        outer = (
-            _decorator_name(annotation.value)
-            if isinstance(annotation.value, ast.Attribute)
-            else (annotation.value.id if isinstance(annotation.value, ast.Name) else None)
+    if any(name in _SOFT_WEAK_TYPES for name in inner_names):
+        return (
+            "warn",
+            "TYPE-001",
+            f"Placeholder container '{rendered}' (object leaf) — replace with the concrete domain type when the entity lands",
         )
-        if outer in _BARE_CONTAINERS:
-            inner = annotation.slice
-            inner_names = _collect_value_names(inner)
-            rendered = _annotation_text(annotation)
-            if any(name in _HARD_WEAK_TYPES for name in inner_names):
-                return (
-                    "fail",
-                    "TYPE-001",
-                    f"Weakly-typed container '{rendered}' (Any leaf) — define a TypedDict, dataclass, or value object",
-                )
-            if any(name in _SOFT_WEAK_TYPES for name in inner_names):
-                return (
-                    "warn",
-                    "TYPE-001",
-                    f"Placeholder container '{rendered}' (object leaf) — replace with the concrete domain type when the entity lands",
-                )
-
     return None
 
 
 def _collect_value_names(node: ast.expr) -> list[str]:
-    """Pull the leaf Name identifiers out of an annotation subtree."""
-    names: list[str] = []
-    if isinstance(node, ast.Name):
-        names.append(node.id)
-    elif isinstance(node, ast.Tuple):
-        for elt in node.elts:
-            names.extend(_collect_value_names(elt))
-    elif isinstance(node, ast.Subscript):
-        # `Optional[Any]` → look at the slice
-        names.extend(_collect_value_names(node.slice))
-    elif isinstance(node, ast.BinOp):
-        # `int | None` style unions
-        names.extend(_collect_value_names(node.left))
-        names.extend(_collect_value_names(node.right))
-    return names
+    """Pull the leaf identifiers out of an annotation subtree.
+
+    A qualified leaf (``typing.Any``, ``t.Any``) contributes its final
+    attribute, so it is read the same as the bare name.
+    """
+    match node:
+        case ast.Name(id=name) | ast.Attribute(attr=name):
+            return [name]
+        case ast.Tuple(elts=elements):
+            return [name for element in elements for name in _collect_value_names(element)]
+        # `Optional[Any]`: look at the slice.
+        case ast.Subscript(slice=inner):
+            return _collect_value_names(inner)
+        # `int | None` style unions.
+        case ast.BinOp(left=left, right=right):
+            return [*_collect_value_names(left), *_collect_value_names(right)]
+    return []
 
 
 def _has_annotated_param(*, func: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
@@ -177,7 +220,7 @@ def _has_annotated_param(*, func: ast.FunctionDef | ast.AsyncFunctionDef) -> boo
     return False
 
 
-def _own_scope_nodes(*, func: ast.FunctionDef | ast.AsyncFunctionDef) -> list[ast.AST]:
+def _collect_own_scope_nodes(*, func: ast.FunctionDef | ast.AsyncFunctionDef) -> list[ast.AST]:
     """Collect the body nodes that live in the function's OWN scope.
 
     The walk descends through ordinary statements and expressions but stops at
@@ -227,10 +270,11 @@ def _returns_real_value(*, own_nodes: list[ast.AST]) -> bool:
     return False
 
 
-_Finding = tuple[str, str, int, str, str]  # (severity, rule, line, message, fix)
+# (severity, rule, anchor node, message, fix); the finding is reported at the anchor's line.
+_Finding = tuple[str, str, ast.AST, str, str]
 
 
-def _param_findings(*, func: ast.FunctionDef | ast.AsyncFunctionDef) -> list[_Finding]:
+def _collect_param_findings(*, func: ast.FunctionDef | ast.AsyncFunctionDef) -> list[_Finding]:
     """TYPE-001/002 findings for weakly-typed parameter annotations."""
     findings: list[_Finding] = []
     for arg in (*func.args.args, *func.args.posonlyargs, *func.args.kwonlyargs):
@@ -243,36 +287,44 @@ def _param_findings(*, func: ast.FunctionDef | ast.AsyncFunctionDef) -> list[_Fi
                 (
                     severity,
                     rule,
-                    arg.lineno,
+                    arg,
                     f"Parameter '{arg.arg}' in '{func.name}': {message}",
-                    "Introduce a domain type (TypedDict, dataclass, or value object) and annotate with it",
-                )
+                    _fix_for(
+                        rule=rule,
+                        default=(
+                            "Introduce a domain type (TypedDict, dataclass, or value object) "
+                            "and annotate with it"
+                        ),
+                    ),
+                ),
             )
     return findings
 
 
-def _kwarg_findings(*, func: ast.FunctionDef | ast.AsyncFunctionDef) -> list[_Finding]:
+def _is_weak_kwargs_annotation(annotation: ast.expr) -> bool:
+    """True for ``Any`` (bare or qualified), a bare ``dict`` or a ``dict[str, Any]``."""
+    if isinstance(annotation, ast.Name | ast.Attribute):
+        return find_decorator_leaf(annotation) in _HARD_WEAK_TYPES | _MAPPING_CONTAINERS
+    classified = _classify_annotation(annotation)
+    return classified is not None and classified[0] == "fail"
+
+
+def _collect_kwarg_findings(*, func: ast.FunctionDef | ast.AsyncFunctionDef) -> list[_Finding]:
     """TYPE-003 finding for a weakly-typed ``**kwargs`` parameter."""
     kw = func.args.kwarg
     if kw is None:
         return []
-    ann_text = _annotation_text(kw.annotation) if kw.annotation else "<missing>"
-    weak = kw.annotation is None or _annotation_text(kw.annotation) in {
-        "Any",
-        "dict",
-        "dict[str, Any]",
-        "Dict[str, Any]",
-    }
-    if not weak:
+    ann_text = _render_annotation_text(kw.annotation) if kw.annotation else "<missing>"
+    if kw.annotation is not None and not _is_weak_kwargs_annotation(kw.annotation):
         return []
     return [
         (
             "fail",
             "TYPE-003",
-            kw.lineno,
+            kw,
             f"'**{kw.arg}' in '{func.name}' is weakly typed ('{ann_text}') — use Unpack[TypedDict]",
             "Define a TypedDict for the kwargs shape and annotate as 'Unpack[YourTypedDict]'",
-        )
+        ),
     ]
 
 
@@ -287,16 +339,19 @@ def _return_findings(*, func: ast.FunctionDef | ast.AsyncFunctionDef) -> list[_F
             (
                 severity,
                 rule,
-                func.lineno,
+                func,
                 f"Return type of '{func.name}': {message}",
-                "Introduce a domain type and annotate the return with it",
-            )
+                _fix_for(
+                    rule=rule,
+                    default="Introduce a domain type and annotate the return with it",
+                ),
+            ),
         ]
     # TYPE-004: a complete-enough signature (annotated params, a real value
     # escaping the function's own scope, not a generator) should also declare
     # its return type. Advisory warning, not a hard failure: this is the
     # high-signal completeness subset of presence enforcement, not blanket ANN.
-    own_nodes = _own_scope_nodes(func=func)
+    own_nodes = _collect_own_scope_nodes(func=func)
     if (
         _has_annotated_param(func=func)
         and not _is_generator(own_nodes=own_nodes)
@@ -306,11 +361,11 @@ def _return_findings(*, func: ast.FunctionDef | ast.AsyncFunctionDef) -> list[_F
             (
                 "warn",
                 "TYPE-004",
-                func.lineno,
+                func,
                 f"'{func.name}' has annotated parameters and returns a value but no "
                 "return annotation. Declare the return type so the signature is complete.",
                 "Add a return annotation (for example '-> ResultType') to the signature",
-            )
+            ),
         ]
     return []
 
@@ -326,13 +381,31 @@ def _check_function(
 
     violations: list[Violation] = []
     warnings: list[Violation] = []
-    for severity, rule, line, message, fix in (
-        *_param_findings(func=func),
-        *_kwarg_findings(func=func),
+    for severity, rule, node, message, fix in (
+        *_collect_param_findings(func=func),
+        *_collect_kwarg_findings(func=func),
         *_return_findings(func=func),
     ):
-        finding = Violation(file=relative_file, line=line, rule=rule, message=message, fix=fix)
+        finding = Violation(
+            file=relative_file,
+            line=node.lineno,
+            rule=rule,
+            message=message,
+            fix=fix,
+            **locate(node),
+        )
         (violations if severity == "fail" else warnings).append(finding)
+    return violations, warnings
+
+
+def _scan_module(*, module: Module) -> tuple[list[Violation], list[Violation]]:
+    """TYPE-001..004 over every function in one parsed module."""
+    violations: list[Violation] = []
+    warnings: list[Violation] = []
+    for node in module.index.functions:
+        found, warned = _check_function(func=node, relative_file=module.relative)
+        violations.extend(found)
+        warnings.extend(warned)
     return violations, warnings
 
 
@@ -348,62 +421,38 @@ class StrongTypesCheck:
             "TYPE-002: No bare 'dict' / 'list' / 'tuple' / 'set' without type parameters",
             "TYPE-003: '**kwargs' must be annotated with a concrete type or 'Unpack[TypedDict]'",
             "TYPE-004: A function with annotated parameters that returns a value should declare a return type (advisory warning)",
-        ]
+        ],
     )
 
-    def run(self, *, src_root: str) -> CheckResult:
+    def check(self, scan: Scan) -> CheckResult:
         violations: list[Violation] = []
         warnings: list[Violation] = []
-        src_path = Path(src_root)
 
-        for py_file in iter_py_files(src_path):
-            relative_file = py_file.relative_to(src_path).as_posix()
-            if _is_exempt_path(relative_path=relative_file):
+        for module in iter_modules(scan.root):
+            if _is_exempt_path(relative_path=module.relative):
                 continue
-
+            if isinstance(module, UnparseableFile):
+                warnings.append(build_unparseable_notice(prefix="TYPE", failure=module))
+                continue
             try:
-                source = py_file.read_text(encoding="utf-8")
-                tree = ast.parse(source, filename=str(py_file))
-                for node in ast.walk(tree):
-                    if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
-                        func_violations, func_warnings = _check_function(
-                            func=node, relative_file=relative_file
-                        )
-                        violations.extend(func_violations)
-                        warnings.extend(func_warnings)
-            except (OSError, UnicodeDecodeError, SyntaxError):
-                warnings.append(
-                    Violation(
-                        file=relative_file,
-                        line=0,
-                        rule="TYPE-000: parse error",
-                        message=f"Could not parse {py_file.name} — skipping",
-                        fix="Fix the syntax error first",
-                    )
-                )
-                continue
+                found, warned = _scan_module(module=module)
             except RecursionError:
                 # A deeply nested annotation (e.g. a union with thousands of
                 # terms) overflows the recursive annotation walk. Skip the file
                 # rather than crash the whole run.
                 warnings.append(
-                    Violation(
-                        file=relative_file,
-                        line=0,
-                        rule="TYPE-000: too deeply nested",
-                        message=f"{py_file.name} is too deeply nested to analyse — skipping",
-                        fix="No action needed; this file is exempt from TYPE-001..003",
-                    )
+                    build_skip_notice(
+                        prefix="TYPE",
+                        file=module.relative,
+                        name=module.path.name,
+                        reason=TOO_DEEP,
+                    ),
                 )
                 continue
+            violations.extend(found)
+            warnings.extend(warned)
 
-        status = Status.FAIL if violations else (Status.WARN if warnings else Status.PASS)
-        return CheckResult(
-            check=self.name,
-            status=status,
-            violations=violations,
-            warnings=warnings,
-        )
+        return CheckResult.from_findings(check=self.name, violations=violations, warnings=warnings)
 
 
 register(StrongTypesCheck())

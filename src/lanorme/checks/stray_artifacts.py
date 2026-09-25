@@ -29,11 +29,14 @@ Run:
 from __future__ import annotations
 
 import fnmatch
-import os
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import ClassVar
 
-from lanorme import CheckResult, Status, Violation, register
+from lanorme import CheckResult, Violation, register
+from lanorme.checkconfig import read_str_list
+from lanorme.discovery import iter_files
+from lanorme.scan import Scan
 
 # Directories never scanned (vendored / generated / VCS).
 _VENDOR_DIRS = frozenset(
@@ -52,11 +55,24 @@ _VENDOR_DIRS = frozenset(
         ".eggs",
         "dist",
         "build",
-    }
+    },
 )
 
 # Directories where images/binaries are expected and therefore not JUNK-002.
-_DEFAULT_ASSET_DIRS = ("assets", "static", "images", "img", "media", "public", "docs", ".github")
+# ``fixtures`` and ``resources`` hold the binaries tests and packages ship on
+# purpose (``tests/fixtures/sample.png``, ``pkg/resources/icon.png``).
+_DEFAULT_ASSET_DIRS = (
+    "assets",
+    "static",
+    "images",
+    "img",
+    "media",
+    "public",
+    "docs",
+    ".github",
+    "fixtures",
+    "resources",
+)
 
 # Name globs that are almost always clutter (JUNK-001), matched on the basename.
 _DEFAULT_NAME_GLOBS = (
@@ -84,12 +100,14 @@ _DEFAULT_NAME_GLOBS = (
     "*.pyc",
     "*.pyo",
     ".coverage",
+    ".coverage.*",
     "coverage.xml",
     ".DS_Store",
     "Thumbs.db",
     "desktop.ini",
     "nohup.out",
-    "core.*",
+    # A core dump is ``core`` plus a pid; ``core.py`` is a module.
+    "core.[0-9]*",
 )
 
 # Image/binary extensions flagged (JUNK-002) when outside an asset directory.
@@ -104,6 +122,10 @@ def _matches_any(*, name: str, globs: tuple[str, ...]) -> bool:
 class StrayArtifactsCheck:
     """Flags stray clutter files (screenshots, scratch, OS junk, stray binaries)."""
 
+    settings_keys: ClassVar[frozenset[str]] = frozenset(
+        {"patterns", "extensions", "assets", "allow", "exclude"},
+    )
+
     name: str = "stray_artifacts"
     description: str = "Stray artifact detection (screenshots, scratch files, OS junk)"
     extra_patterns: tuple[str, ...] = ()
@@ -115,17 +137,22 @@ class StrayArtifactsCheck:
         default_factory=lambda: [
             "JUNK-001: Scratch/temp/screenshot/OS/build artifacts must not pollute the tree",
             "JUNK-002: Images/binaries outside an asset directory are flagged as stray",
-        ]
+        ],
     )
 
-    def configure(self, *, settings: dict[str, list[str]]) -> None:
+    def configure(self, *, settings: dict[str, object]) -> None:
         """Apply ``[tool.lanorme.stray_artifacts]`` configuration."""
-        self.extra_patterns = tuple(settings.get("patterns", []))
-        self.extra_extensions = tuple(e.lower() for e in settings.get("extensions", []))
-        self.allow = tuple(settings.get("allow", []))
-        self.extra_excludes = tuple(settings.get("exclude", []))
+        self.extra_patterns = read_str_list(settings=settings, key="patterns")
+        self.extra_extensions = tuple(
+            e.lower() for e in read_str_list(settings=settings, key="extensions")
+        )
+        self.allow = read_str_list(settings=settings, key="allow")
+        self.extra_excludes = read_str_list(settings=settings, key="exclude")
         if "assets" in settings:
-            self.asset_dirs = (*_DEFAULT_ASSET_DIRS, *settings["assets"])
+            self.asset_dirs = (
+                *_DEFAULT_ASSET_DIRS,
+                *read_str_list(settings=settings, key="assets"),
+            )
 
     def _classify(self, *, rel: Path) -> str | None:
         """Return the rule code a file violates, or None if it is fine."""
@@ -146,22 +173,19 @@ class StrayArtifactsCheck:
 
         return None
 
-    def run(self, *, src_root: str) -> CheckResult:
+    def check(self, scan: Scan) -> CheckResult:
         violations: list[Violation] = []
-        root = Path(src_root)
-        skip = _VENDOR_DIRS | set(self.extra_excludes)
+        root = scan.root
+        skip = _VENDOR_DIRS | frozenset(self.extra_excludes)
 
-        for dirpath, dirnames, filenames in os.walk(root):
-            dirnames[:] = [d for d in dirnames if d not in skip]
-            for filename in filenames:
-                rel = (Path(dirpath) / filename).relative_to(root)
-                code = self._classify(rel=rel)
-                if code is None:
-                    continue
-                violations.append(_build_violation(code=code, rel=rel))
+        for path in iter_files(root, prune=skip):
+            rel = path.relative_to(root)
+            code = self._classify(rel=rel)
+            if code is None:
+                continue
+            violations.append(_build_violation(code=code, rel=rel))
 
-        status = Status.FAIL if violations else Status.PASS
-        return CheckResult(check=self.name, status=status, violations=violations)
+        return CheckResult.from_findings(check=self.name, violations=violations)
 
 
 def _build_violation(*, code: str, rel: Path) -> Violation:
@@ -175,8 +199,8 @@ def _build_violation(*, code: str, rel: Path) -> Violation:
         rule=code,
         message=message,
         fix=(
-            "Delete the file, or — if intentional — add it to "
-            "[tool.lanorme.stray_artifacts] allow/assets/exclude"
+            "Delete the file; if it is intentional, list it under 'allow' (or its "
+            "directory under 'assets' or 'exclude') in [tool.lanorme.stray_artifacts]"
         ),
     )
 

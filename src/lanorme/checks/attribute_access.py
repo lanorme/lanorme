@@ -22,7 +22,14 @@ cases only:
     - Dunder names (``__class__``, ``__name__`` ...) are introspection, exempt.
     - Three-argument ``getattr(x, "name", default)`` is the legitimate
       safe-access idiom, exempt.
-    - Files under ``tests/`` are exempt (tests poke internals on purpose).
+    - ``hasattr`` on a receiver bound by a plain ``import`` (``hasattr(os,
+      "fork")``, ``hasattr(socket, "AF_UNIX")``) is platform feature
+      detection on a module, not duck typing of an object, exempt, and so is
+      ``getattr`` on one with a literal name. A ``setattr`` / ``delattr`` on
+      a module, or a ``getattr`` through one by a computed name, is not
+      detection and is still reported.
+    - Test files (see ``lanorme.paths``) are exempt (tests poke internals
+      on purpose).
 
 Dynamic names (``getattr(x, name)``, ``getattr(x, "_" + n)``) are genuine
 reflection and exempt by default. Enable ``flag_dynamic`` to flag them too::
@@ -39,25 +46,48 @@ from __future__ import annotations
 
 import ast
 from dataclasses import dataclass, field
-from pathlib import Path
+from typing import ClassVar
 
-from lanorme import CheckResult, Status, Violation, register
-from lanorme.discovery import iter_py_files
+from lanorme import CheckResult, Violation, register
+from lanorme.checkconfig import is_flag_set
+from lanorme.paths import is_test_file
+from lanorme.scan import Scan
+from lanorme.sources import Module, iter_parsed_modules, locate
 
 _ATTR_BUILTINS = frozenset({"getattr", "hasattr", "setattr", "delattr"})
 
-# Files under these path fragments are skipped (intentional internal poking).
-_EXEMPT_PATH_FRAGMENTS = ("tests/", "test/")
-
 
 def _is_exempt_file(*, relative: str) -> bool:
-    norm = relative.replace("\\", "/")
-    if Path(norm).name.startswith("test_"):
+    """True for test files (see ``lanorme.paths``): tests poke internals on purpose."""
+    return is_test_file(relative)
+
+
+def _collect_imported_module_names(*, module: Module) -> frozenset[str]:
+    """The local names a plain ``import x`` / ``import x.y as z`` binds to a module."""
+    names: set[str] = set()
+    for node in module.index.collect(ast.Import):
+        for alias in node.names:
+            names.add(alias.asname or alias.name.split(".")[0])
+    return frozenset(names)
+
+
+def _is_module_probe(*, call: ast.Call, builtin: str, module_names: frozenset[str]) -> bool:
+    """True for feature detection on a module the file imported.
+
+    ``hasattr(os, "fork")``, or ``getattr(sys, "getwindowsversion")`` with a
+    literal name. Writing to a module (``setattr(settings, "DEBUG", True)``)
+    or dispatching through one by a computed name (``getattr(handlers,
+    action)()``) is not detection, and keeps its finding.
+    """
+    receiver = call.args[0]
+    if not isinstance(receiver, ast.Name) or receiver.id not in module_names:
+        return False
+    if builtin == "hasattr":
         return True
-    return any(norm.startswith(p) or f"/{p}" in norm for p in _EXEMPT_PATH_FRAGMENTS)
+    return builtin == "getattr" and _extract_literal_name(node=call.args[1]) is not None
 
 
-def _builtin_name(*, call: ast.Call) -> str | None:
+def _extract_builtin_name(*, call: ast.Call) -> str | None:
     """Return the builtin name if *call* is a bare getattr/hasattr/setattr/delattr."""
     func = call.func
     if isinstance(func, ast.Name) and func.id in _ATTR_BUILTINS:
@@ -65,7 +95,7 @@ def _builtin_name(*, call: ast.Call) -> str | None:
     return None
 
 
-def _literal_name(*, node: ast.AST) -> str | None:
+def _extract_literal_name(*, node: ast.AST) -> str | None:
     """Return the string value if *node* is a string-literal attribute name."""
     if isinstance(node, ast.Constant) and isinstance(node.value, str):
         return node.value
@@ -76,20 +106,21 @@ def _is_dunder(name: str) -> bool:
     return name.startswith("__") and name.endswith("__")
 
 
-def _attr001(*, builtin: str, name: str, relative: str, line: int) -> Violation:
+def _check_attr001(*, builtin: str, name: str, relative: str, call: ast.Call) -> Violation:
     return Violation(
         file=relative,
-        line=line,
+        line=call.lineno,
         rule="ATTR-001: Avoid hasattr() for type discrimination",
         message=f"hasattr(..., '{name}') branches on structure (duck typing)",
         fix=(
             "Model the expected shape as a runtime_checkable Protocol and use "
             "isinstance, or use try/except AttributeError (EAFP)"
         ),
+        **locate(call),
     )
 
 
-def _attr002(*, builtin: str, name: str, relative: str, line: int) -> Violation:
+def _check_attr002(*, builtin: str, name: str, relative: str, call: ast.Call) -> Violation:
     access = {
         "getattr": f"obj.{name}",
         "setattr": f"obj.{name} = value",
@@ -97,10 +128,11 @@ def _attr002(*, builtin: str, name: str, relative: str, line: int) -> Violation:
     }[builtin]
     return Violation(
         file=relative,
-        line=line,
+        line=call.lineno,
         rule="ATTR-002: Avoid getattr/setattr/delattr with a literal attribute name",
         message=f"{builtin}(..., '{name}') with a constant name defeats static typing",
         fix=f"Use direct attribute access ({access})",
+        **locate(call),
     )
 
 
@@ -116,34 +148,52 @@ class AttributeAccessCheck:
         default_factory=lambda: [
             "ATTR-001: Avoid hasattr() for type discrimination",
             "ATTR-002: Avoid getattr/setattr/delattr with a literal attribute name",
-        ]
+        ],
     )
+    settings_keys: ClassVar[frozenset[str]] = frozenset({"enabled", "flag_dynamic"})
 
     def configure(self, *, settings: dict[str, object]) -> None:
         """Apply ``[tool.lanorme.attribute_access]`` configuration."""
-        if "enabled" in settings:
-            self.enabled = bool(settings["enabled"])
-        if "flag_dynamic" in settings:
-            self.flag_dynamic = bool(settings["flag_dynamic"])
+        self.enabled = is_flag_set(settings=settings, key="enabled", default=self.enabled)
+        self.flag_dynamic = is_flag_set(
+            settings=settings,
+            key="flag_dynamic",
+            default=self.flag_dynamic,
+        )
 
-    def _call_warning(self, *, call: ast.Call, relative: str) -> Violation | None:
-        builtin = _builtin_name(call=call)
+    def _call_warning(
+        self,
+        *,
+        call: ast.Call,
+        relative: str,
+        module_names: frozenset[str],
+    ) -> Violation | None:
+        builtin = _extract_builtin_name(call=call)
         if builtin is None or len(call.args) < 2:
             return None
         # Three-arg getattr(x, name, default) is the safe-access idiom.
         if builtin == "getattr" and len(call.args) >= 3:
             return None
+        # Probing an imported module (hasattr(os, "fork")) is feature detection.
+        if _is_module_probe(call=call, builtin=builtin, module_names=module_names):
+            return None
 
-        name = _literal_name(node=call.args[1])
+        name = _extract_literal_name(node=call.args[1])
         if name is None:
-            return self._dynamic_warning(builtin=builtin, call=call, relative=relative)
+            return self._build_dynamic_warning(builtin=builtin, call=call, relative=relative)
         if not name.isidentifier() or _is_dunder(name):
             return None
         if builtin == "hasattr":
-            return _attr001(builtin=builtin, name=name, relative=relative, line=call.lineno)
-        return _attr002(builtin=builtin, name=name, relative=relative, line=call.lineno)
+            return _check_attr001(builtin=builtin, name=name, relative=relative, call=call)
+        return _check_attr002(builtin=builtin, name=name, relative=relative, call=call)
 
-    def _dynamic_warning(self, *, builtin: str, call: ast.Call, relative: str) -> Violation | None:
+    def _build_dynamic_warning(
+        self,
+        *,
+        builtin: str,
+        call: ast.Call,
+        relative: str,
+    ) -> Violation | None:
         """Flag a non-literal attribute name only when flag_dynamic is enabled."""
         if not self.flag_dynamic:
             return None
@@ -158,30 +208,28 @@ class AttributeAccessCheck:
             rule=rule,
             message=f"{builtin}(...) with a dynamic attribute name (reflection)",
             fix="Prefer a typed object or Protocol over reflective attribute access",
+            **locate(call),
         )
 
-    def run(self, *, src_root: str) -> CheckResult:
+    def check(self, scan: Scan) -> CheckResult:
         if not self.enabled:
-            return CheckResult(check=self.name, status=Status.PASS, violations=[], warnings=[])
+            return CheckResult.from_findings(check=self.name)
 
         warnings: list[Violation] = []
-        root = Path(src_root)
-        for path in iter_py_files(root):
-            relative = path.relative_to(root).as_posix()
-            if _is_exempt_file(relative=relative):
+        for module in iter_parsed_modules(scan.root):
+            if _is_exempt_file(relative=module.relative):
                 continue
-            try:
-                tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
-            except (OSError, UnicodeDecodeError, SyntaxError):
-                continue
-            for node in ast.walk(tree):
-                if isinstance(node, ast.Call):
-                    warning = self._call_warning(call=node, relative=relative)
-                    if warning is not None:
-                        warnings.append(warning)
+            module_names = _collect_imported_module_names(module=module)
+            for node in module.index.collect(ast.Call):
+                warning = self._call_warning(
+                    call=node,
+                    relative=module.relative,
+                    module_names=module_names,
+                )
+                if warning is not None:
+                    warnings.append(warning)
 
-        status = Status.WARN if warnings else Status.PASS
-        return CheckResult(check=self.name, status=status, violations=[], warnings=warnings)
+        return CheckResult.from_findings(check=self.name, warnings=warnings)
 
 
 # Self-register on import.

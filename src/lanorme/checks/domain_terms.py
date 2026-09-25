@@ -26,10 +26,12 @@ from __future__ import annotations
 import ast
 import re
 from dataclasses import dataclass, field
-from pathlib import Path
+from typing import ClassVar
 
-from lanorme import CheckResult, Status, Violation, register
-from lanorme.discovery import iter_py_files
+from lanorme import CheckResult, Violation, register
+from lanorme.paths import is_test_file
+from lanorme.scan import Scan
+from lanorme.sources import Module, UnparseableFile, build_unparseable_notice, iter_modules, locate
 
 # Each rule maps forbidden terms to a canonical replacement. Empty by default →
 # the check is inert until a project supplies its own vocabulary.
@@ -54,10 +56,10 @@ _SKIP_DIRS = ("migrations",)
 
 
 def _is_exempt_path(*, relative_path: str) -> bool:
-    normalized = relative_path.replace("\\", "/")
-    name = Path(normalized).name
-    if name.startswith("test_"):
+    """True for test files (see ``lanorme.paths``) and migration scaffolding."""
+    if is_test_file(relative_path):
         return True
+    normalized = relative_path.replace("\\", "/")
     return any(normalized.startswith(f"{d}/") or f"/{d}/" in normalized for d in _SKIP_DIRS)
 
 
@@ -66,14 +68,14 @@ def _extract_comment(*, line: str) -> str | None:
     return line[idx:] if idx != -1 else None
 
 
-def _names_from_node(node: ast.AST) -> list[tuple[str, int]]:
-    """Extract (identifier, line) pairs declared or referenced by a single AST node."""
+def _names_from_node(node: ast.AST) -> list[tuple[str, int, ast.AST]]:
+    """Extract (identifier, line, anchor node) declared or referenced by a single AST node."""
     if isinstance(node, ast.ClassDef):
-        return [(node.name, node.lineno)]
+        return [(node.name, node.lineno, node)]
     if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
-        pairs = [(node.name, node.lineno)]
+        pairs = [(node.name, node.lineno, node)]
         pairs.extend(
-            (arg.arg, getattr(arg, "lineno", node.lineno))
+            (arg.arg, getattr(arg, "lineno", node.lineno), arg)
             for arg in node.args.args + node.args.kwonlyargs
         )
         return pairs
@@ -82,48 +84,45 @@ def _names_from_node(node: ast.AST) -> list[tuple[str, int]]:
         # ast.Name children, so ast.walk reaches them here. Handling Assign
         # and AnnAssign separately would visit the same target twice and emit
         # duplicate violations, so we deliberately leave them to this branch.
-        return [(node.id, getattr(node, "lineno", 0))]
+        return [(node.id, getattr(node, "lineno", 0), node)]
     if isinstance(node, ast.Attribute):
-        return [(node.attr, getattr(node, "lineno", 0))]
+        return [(node.attr, getattr(node, "lineno", 0), node)]
     return []
 
 
-def _scan_identifiers(
-    *,
-    tree: ast.Module,
-    relative_file: str,
-    compiled: list[_RuleSpec],
-) -> list[Violation]:
+def _scan_identifiers(*, module: Module, compiled: list[_RuleSpec]) -> list[Violation]:
     """Walk the AST and check identifier names against the compiled rules."""
     violations: list[Violation] = []
 
-    for node in ast.walk(tree):
-        for name, lineno in _names_from_node(node):
+    for node in module.index.collect(
+        ast.ClassDef,
+        ast.FunctionDef,
+        ast.AsyncFunctionDef,
+        ast.Name,
+        ast.Attribute,
+    ):
+        for name, lineno, anchor in _names_from_node(node):
             for rule_id, canonical, pattern in compiled:
                 for match in pattern.finditer(name):
                     matched_term = match.group(1)
                     violations.append(
                         Violation(
-                            file=relative_file,
+                            file=module.relative,
                             line=lineno,
                             rule=f"{rule_id}: Use '{canonical}' instead of '{matched_term}'",
                             message=f"Forbidden term '{matched_term}' in identifier '{name}'",
                             fix=f"Rename — use '{canonical}' instead of '{matched_term}'",
+                            **locate(anchor),
                         ),
                     )
 
     return violations
 
 
-def _scan_comments_and_docstrings(
-    *,
-    source_lines: list[str],
-    tree: ast.Module,
-    relative_file: str,
-    compiled: list[_RuleSpec],
-) -> list[Violation]:
+def _scan_comments_and_docstrings(*, module: Module, compiled: list[_RuleSpec]) -> list[Violation]:
     """Scan inline comments and docstrings for forbidden terms."""
     violations: list[Violation] = []
+    relative_file = module.relative
 
     def _scan_text(*, text: str, line_number: int) -> None:
         for rule_id, canonical, pattern in compiled:
@@ -139,7 +138,7 @@ def _scan_comments_and_docstrings(
                     ),
                 )
 
-    for lineno_0, line in enumerate(source_lines):
+    for lineno_0, line in enumerate(module.lines):
         stripped = line.lstrip()
         if stripped.startswith("import ") or stripped.startswith("from "):
             continue
@@ -147,17 +146,9 @@ def _scan_comments_and_docstrings(
         if comment:
             _scan_text(text=comment, line_number=lineno_0 + 1)
 
-    for node in ast.walk(tree):
-        if (
-            isinstance(node, ast.Module | ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef)
-            and node.body
-            and isinstance(node.body[0], ast.Expr)
-            and isinstance(node.body[0].value, ast.Constant)
-            and isinstance(node.body[0].value.value, str)
-        ):
-            const_node = node.body[0].value
-            for i, doc_line in enumerate(str(const_node.value).splitlines()):
-                _scan_text(text=doc_line, line_number=const_node.lineno + i)
+    for docstring in module.docstrings:
+        for i, doc_line in enumerate(docstring.text.splitlines()):
+            _scan_text(text=doc_line, line_number=docstring.line + i)
 
     return violations
 
@@ -172,60 +163,52 @@ class DomainTermsCheck:
     rules: list[str] = field(
         default_factory=lambda: [
             "TERM-NNN: Use the canonical term instead of a configured forbidden synonym",
-        ]
+        ],
     )
+    settings_keys: ClassVar[frozenset[str]] = frozenset({"rules"})
 
-    def configure(self, *, settings: dict[str, list[dict[str, str | list[str]]]]) -> None:
-        """Apply ``[tool.lanorme.domain_terms]`` configuration."""
-        self.term_rules = list(settings.get("rules", []))
+    def configure(self, *, settings: dict[str, object]) -> None:
+        """Apply ``[tool.lanorme.domain_terms]`` configuration.
 
-    def run(self, *, src_root: str) -> CheckResult:
+        Each ``[[rules]]`` entry needs a string ``id`` and ``canonical`` and a
+        list of ``forbidden`` strings; anything else is refused here, not at
+        run time.
+        """
+        rules = settings.get("rules", [])
+        if not isinstance(rules, list):
+            raise TypeError(f"'rules' must be a list of tables, got {type(rules).__name__}")
+        for rule in rules:
+            if not isinstance(rule, dict):
+                raise TypeError(f"each 'rules' entry must be a table, got {type(rule).__name__}")
+            for key in ("id", "canonical"):
+                if not isinstance(rule.get(key), str):
+                    raise TypeError(f"'rules' entry {rule.get('id', '?')!r} needs a string '{key}'")
+            forbidden = rule.get("forbidden", [])
+            if not isinstance(forbidden, list) or not all(isinstance(t, str) for t in forbidden):
+                raise TypeError(
+                    f"'rules' entry {rule['id']!r}: 'forbidden' must be a list of strings",
+                )
+        self.term_rules = list(rules)
+
+    def check(self, scan: Scan) -> CheckResult:
         violations: list[Violation] = []
         warnings: list[Violation] = []
         compiled = _compile_rules(self.term_rules)
         if not compiled:
-            return CheckResult(check=self.name, status=Status.PASS, violations=[])
+            return CheckResult.from_findings(check=self.name)
 
-        src_path = Path(src_root)
-        for py_file in iter_py_files(src_path):
-            relative_file = py_file.relative_to(src_path).as_posix()
+        for module in iter_modules(scan.root):
+            relative_file = module.relative
             if _is_exempt_path(relative_path=relative_file):
                 continue
-
-            try:
-                source = py_file.read_text(encoding="utf-8")
-                tree = ast.parse(source, filename=str(py_file))
-            except (OSError, UnicodeDecodeError, SyntaxError):
-                warnings.append(
-                    Violation(
-                        file=relative_file,
-                        line=0,
-                        rule="TERM-000: parse error",
-                        message=f"Could not parse {py_file.name} — skipping",
-                        fix="Fix the syntax error first",
-                    ),
-                )
+            if isinstance(module, UnparseableFile):
+                warnings.append(build_unparseable_notice(prefix="TERM", failure=module))
                 continue
 
-            violations.extend(
-                _scan_identifiers(tree=tree, relative_file=relative_file, compiled=compiled),
-            )
-            violations.extend(
-                _scan_comments_and_docstrings(
-                    source_lines=source.splitlines(),
-                    tree=tree,
-                    relative_file=relative_file,
-                    compiled=compiled,
-                ),
-            )
+            violations.extend(_scan_identifiers(module=module, compiled=compiled))
+            violations.extend(_scan_comments_and_docstrings(module=module, compiled=compiled))
 
-        status = Status.FAIL if violations else (Status.WARN if warnings else Status.PASS)
-        return CheckResult(
-            check=self.name,
-            status=status,
-            violations=violations,
-            warnings=warnings,
-        )
+        return CheckResult.from_findings(check=self.name, violations=violations, warnings=warnings)
 
 
 register(DomainTermsCheck())

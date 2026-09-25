@@ -1,25 +1,51 @@
 {
-  "_comment": "Ground truth for NAMING-006. Keys are file:line of a class definition; true means the class is named as an action and should be flagged. Negatives cover a noun head after a verb (FetchOptions, ConnectTimeout), a CQRS suffix, an adjective, and a non-PascalCase ctypes name.",
-  "positives/pos_action_classes.py:4": true,
-  "positives/pos_action_classes.py:11": true,
-  "positives/pos_action_classes.py:21": true,
-  "positives/pos_action_classes.py:29": true,
-  "positives/pos_action_classes.py:39": true,
-  "positives/pos_action_classes.py:46": true,
-  "positives/pos_action_classes.py:53": true,
-  "negatives/neg_thing_classes.py:4": false,
-  "negatives/neg_thing_classes.py:11": false,
-  "negatives/neg_thing_classes.py:17": false,
-  "negatives/neg_thing_classes.py:23": false,
-  "negatives/neg_thing_classes.py:27": false,
-  "negatives/neg_thing_classes.py:33": false,
-  "negatives/neg_thing_classes.py:40": false,
-  "negatives/neg_thing_classes.py:44": false,
-  "negatives/neg_thing_classes.py:50": false,
-  "negatives/neg_thing_classes.py:56": false,
-  "negatives/neg_thing_classes.py:62": false,
-  "negatives/neg_thing_classes.py:68": false,
-  "negatives/neg_thing_classes.py:74": false,
-  "negatives/neg_thing_classes.py:80": false,
-  "negatives/neg_thing_classes.py:84": false
+  "rules": ["NAMING-006"],
+  "unit": "definition",
+  "description": "Ground truth for NAMING-006. Keys are file:line of a class definition; true means the class is named as an action and should be flagged. Negatives cover a noun head after a verb (FetchOptions, ConnectTimeout), a CQRS suffix, an adjective, and a non-PascalCase ctypes name.",
+  "files": {
+    "dev/negatives/neg_thing_classes.py": {
+      "split": "dev",
+      "source": "hand-written",
+      "labelled_by": "Antonio Badilla-Olivas",
+      "labelled_before_rule": "unknown",
+      "added_in": "ee99862",
+      "labels": [
+        {"line": 4, "flag": false, "line_hash": "e8903576"},
+        {"line": 11, "flag": false, "line_hash": "af4a0d31"},
+        {"line": 17, "flag": false, "line_hash": "84a3a8ee"},
+        {"line": 23, "flag": false, "line_hash": "309dd4a9"},
+        {"line": 27, "flag": false, "line_hash": "7a9b339e"},
+        {"line": 33, "flag": false, "line_hash": "753db216"},
+        {"line": 40, "flag": false, "line_hash": "8ce30e4b"},
+        {"line": 44, "flag": false, "line_hash": "4eb40f6e"},
+        {"line": 50, "flag": false, "line_hash": "9626068b"},
+        {"line": 56, "flag": false, "line_hash": "8c5720b1"},
+        {"line": 62, "flag": false, "line_hash": "60086646"},
+        {"line": 68, "flag": false, "line_hash": "d1f9a93e"},
+        {"line": 74, "flag": false, "line_hash": "a755e2a0"},
+        {"line": 80, "flag": false, "line_hash": "b9c03347"},
+        {"line": 84, "flag": false, "line_hash": "e691f222"},
+        {"line": 88, "flag": false, "line_hash": "71f9511d"},
+        {"line": 92, "flag": false, "line_hash": "d7be5696"},
+        {"line": 96, "flag": false, "line_hash": "8124f840"}
+      ]
+    },
+    "dev/positives/pos_action_classes.py": {
+      "split": "dev",
+      "source": "hand-written",
+      "labelled_by": "Antonio Badilla-Olivas",
+      "labelled_before_rule": "unknown",
+      "added_in": "ee99862",
+      "labels": [
+        {"line": 4, "flag": true, "line_hash": "1065cb89"},
+        {"line": 11, "flag": true, "line_hash": "8f670705"},
+        {"line": 21, "flag": true, "line_hash": "3bc46902"},
+        {"line": 29, "flag": true, "line_hash": "1907afa4"},
+        {"line": 39, "flag": true, "line_hash": "e2c56e39"},
+        {"line": 46, "flag": true, "line_hash": "8a66d257"},
+        {"line": 53, "flag": true, "line_hash": "a2370636"},
+        {"line": 60, "flag": true, "line_hash": "3348446b"}
+      ]
+    }
+  }
 }

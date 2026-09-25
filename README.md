@@ -56,8 +56,9 @@ lanorme check . --output-format ndjson # one finding per line, for jq / grep
 lanorme rules                          # list every registered rule
 ```
 
-Exit code is `1` when any check fails, `0` when the tree is clean. By default a
-run reports only the checks that found something, then a summary line:
+The exit code is `0` when the tree is clean or only warnings were found, `1`
+when any check fails, and `2` on a usage or configuration error. By default a
+run reports only the checks that found something, then a summary:
 
 ```console
 $ lanorme check src/
@@ -67,7 +68,9 @@ $ lanorme check src/
     Fix: Read the value from an environment variable, secrets manager, or settings module
 --- secrets: 1 violations, 0 warnings ---
 
-Summary: 30 checks — 29 passed, 0 warnings, 1 failed.
+Summary: 30 checks — 29 passed, 0 warned, 1 failed.
+Findings: 1 error to fix, 0 advisory warnings.
+Opt-in checks not enabled: 11 ('lanorme check --show-config' lists them).
 ```
 
 Every command, flag and output format is documented in the
@@ -96,7 +99,7 @@ On by default, on any project, no config needed:
 | `AUTHN-001` / `SQL-001` / `SECRETPY-001` | mutation endpoints without an auth dependency; raw SQL at a database call; hardcoded secrets in `.py` |
 | `SHELL-001` / `DESERIAL-001` / `EVAL-001` / `CRYPTO-001` / `TLS-001` / `DEBUG-001` | shell injection, unsafe deserialisation, `eval`/`exec`, weak hashes, disabled TLS, debug mode |
 | `JUNK-001/002` | screenshots, scratch files, OS junk, stray binaries |
-| `TESTFILE-001` | a production module with no `test_*.py` partner |
+| `TESTFILE-001` | a production module with no test module partner under the test roots |
 | `META-001..005` | the checks themselves emit well-formed output |
 | `SKILL-001..006` | Agent Skill (`SKILL.md`) frontmatter, naming and link compliance |
 
@@ -114,9 +117,10 @@ each.
 
 ## Configuration
 
-LaNorme walks up from the target path looking for config: a dedicated
-`lanorme.toml`, otherwise a `[tool.lanorme]` table in `pyproject.toml`. Command
-line flags win over both.
+LaNorme reads a dedicated `lanorme.toml` (or `.lanorme.toml`), otherwise a
+`[tool.lanorme]` table in `pyproject.toml`. It walks up from the target path to
+the outermost config, which marks the project root, and a nested config
+cascades over the ones above it. Command line flags win over all of them.
 
 ```toml
 [tool.lanorme]
@@ -170,12 +174,13 @@ codebase (every pre-1.0 breaking change lands here), and a **major** is the
 stability commitment. Every change is listed in [`CHANGELOG.md`](CHANGELOG.md).
 
 A rule's human-readable description is not part of that surface and may be
-reworded in a minor release. A file-level finding anchors on its description,
-so rewording one detaches the matching entries in a committed baseline and
-those findings report again until you run `lanorme baseline write` once. The
-run tells you when this has happened, naming the file and rule rather than
-letting old debt look new, and the changelog entry says so for the release that
-causes it.
+reworded in a minor release. A baseline entry is keyed by file, rule code and
+the text of the finding's own line (a whole-file finding by file and code
+alone), never by the description, so rewording one leaves a committed baseline
+intact. When a release does change how entries are keyed, the matching entries
+detach and those findings report again until you run `lanorme baseline write`
+once; the run tells you when this has happened, naming the file and rule rather
+than letting old debt look new, and the changelog entry says so.
 
 ## Licence
 

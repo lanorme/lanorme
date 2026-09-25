@@ -12,8 +12,8 @@ Configure the stale tokens in ``[tool.lanorme.stale_paths]``::
 
 With no configuration the check is inert (always PASS).
 
-Boundary exemptions: files under ``tests/`` are skipped (fixtures legitimately
-reference legacy layouts).
+Boundary exemptions: test files (see ``lanorme.paths``) are skipped (fixtures
+legitimately reference legacy layouts).
 
 Run:
     lanorme check . --check=stale_paths
@@ -22,18 +22,18 @@ Run:
 from __future__ import annotations
 
 import ast
-import io
 import re
-import tokenize
 from dataclasses import dataclass, field
-from pathlib import Path
+from typing import ClassVar
 
-from lanorme import CheckResult, Status, Violation, register
-from lanorme.discovery import iter_py_files
+from lanorme import CheckResult, Violation, register
+from lanorme.checkconfig import read_str_list
+from lanorme.paths import is_test_file
+from lanorme.scan import Scan
+from lanorme.sources import Module, iter_parsed_modules, locate
 
 # Default is empty → the check is inert until configured.
 _STALE_TOKENS: tuple[str, ...] = ()
-_EXEMPT_PATH_FRAGMENTS = ("tests/",)
 
 
 def _compile_patterns(tokens: tuple[str, ...]) -> list[re.Pattern[str]]:
@@ -47,97 +47,64 @@ def _compile_patterns(tokens: tuple[str, ...]) -> list[re.Pattern[str]]:
 
 
 def _is_exempt(*, relative_path: str) -> bool:
-    normalised = relative_path.replace("\\", "/")
-    return any(normalised.startswith(p) for p in _EXEMPT_PATH_FRAGMENTS)
+    """True for test files (see ``lanorme.paths``): fixtures may quote old paths."""
+    return is_test_file(relative_path)
 
 
-def _scan_text(
+def _scan_docstring(
     *,
-    text: str,
-    line_offset: int,
+    const: ast.Constant,
     relative_file: str,
     patterns: list[re.Pattern[str]],
 ) -> list[Violation]:
     findings: list[Violation] = []
-    for lineno_0, line in enumerate(text.splitlines()):
+    for lineno_0, line in enumerate(const.value.splitlines()):
         for pattern in patterns:
             for match in pattern.finditer(line):
                 findings.append(
                     Violation(
                         file=relative_file,
-                        line=line_offset + lineno_0,
+                        line=const.lineno + lineno_0,
                         rule="STALE-001",
                         message=f"Stale path reference '{match.group(0)}'",
                         fix=f"Update '{match.group(0)}' to the current path",
-                    )
+                        **locate(const),
+                    ),
                 )
     return findings
 
 
-def _iter_comments(source: str) -> list[tuple[int, str]]:
-    """Yield ``(lineno, comment_text)`` for every real comment in *source*.
-
-    Uses :mod:`tokenize` so that a ``#`` inside a string literal is never
-    mistaken for a comment. Un-tokenisable sources yield no comments (a graceful
-    fallback that keeps the check silent rather than risking a false positive).
-    """
-    comments: list[tuple[int, str]] = []
-    try:
-        tokens = tokenize.generate_tokens(io.StringIO(source).readline)
-        for tok in tokens:
-            if tok.type == tokenize.COMMENT:
-                comments.append((tok.start[0], tok.string))
-    except (tokenize.TokenError, IndentationError):
-        return []
-    return comments
-
-
-def _scan_file(
-    *,
-    py_file: Path,
-    relative_file: str,
-    patterns: list[re.Pattern[str]],
-) -> list[Violation]:
-    try:
-        source = py_file.read_text(encoding="utf-8")
-        tree = ast.parse(source, filename=str(py_file))
-    except (OSError, UnicodeDecodeError, SyntaxError):
-        return []
-
+def _scan_file(*, module: Module, patterns: list[re.Pattern[str]]) -> list[Violation]:
+    relative_file = module.relative
     violations: list[Violation] = []
 
     # Inline comments (tokenize-extracted, so a '#' in a string never counts).
-    for lineno, comment_text in _iter_comments(source):
+    # A file the tokeniser cannot read to the end contributes none: a graceful
+    # fallback that keeps the check silent rather than risking a false positive.
+    comments = module.comments if module.has_complete_comments else ()
+    for comment in comments:
         for pattern in patterns:
-            for match in pattern.finditer(comment_text):
+            for match in pattern.finditer(comment.token):
                 violations.append(
                     Violation(
                         file=relative_file,
-                        line=lineno,
+                        line=comment.line,
                         rule="STALE-001",
                         message=f"Stale path reference '{match.group(0)}' in comment",
                         fix=f"Update '{match.group(0)}' to the current path",
-                    )
+                        column=comment.column,
+                    ),
                 )
 
     # Docstrings, module, class, function.
-    for node in ast.walk(tree):
-        if (
-            isinstance(node, ast.Module | ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef)
-            and node.body
-            and isinstance(node.body[0], ast.Expr)
-            and isinstance(node.body[0].value, ast.Constant)
-            and isinstance(node.body[0].value.value, str)
-        ):
-            const = node.body[0].value
-            violations.extend(
-                _scan_text(
-                    text=const.value,
-                    line_offset=const.lineno,
-                    relative_file=relative_file,
-                    patterns=patterns,
-                )
-            )
+    for docstring in module.docstrings:
+        violations.extend(
+            _scan_docstring(
+                const=docstring.node,
+                relative_file=relative_file,
+                patterns=patterns,
+            ),
+        )
 
     return violations
 
@@ -146,36 +113,33 @@ def _scan_file(
 class StalePathsCheck:
     """Catches stale path references in Python docstrings and comments."""
 
+    settings_keys: ClassVar[frozenset[str]] = frozenset({"tokens"})
+
     name: str = "stale_paths"
     description: str = "Stale path references (old directory tokens) in Python source"
     tokens: tuple[str, ...] = _STALE_TOKENS
     rules: list[str] = field(
         default_factory=lambda: [
             "STALE-001: No references to configured stale path tokens in docstrings or comments",
-        ]
+        ],
     )
 
-    def configure(self, *, settings: dict[str, list[str]]) -> None:
+    def configure(self, *, settings: dict[str, object]) -> None:
         """Apply ``[tool.lanorme.stale_paths]`` configuration."""
-        self.tokens = tuple(settings.get("tokens", []))
+        self.tokens = read_str_list(settings=settings, key="tokens")
 
-    def run(self, *, src_root: str) -> CheckResult:
+    def check(self, scan: Scan) -> CheckResult:
         violations: list[Violation] = []
         patterns = _compile_patterns(self.tokens)
         if not patterns:
-            return CheckResult(check=self.name, status=Status.PASS, violations=[])
+            return CheckResult.from_findings(check=self.name)
 
-        src_path = Path(src_root)
-        for py_file in iter_py_files(src_path):
-            relative_file = py_file.relative_to(src_path).as_posix()
-            if _is_exempt(relative_path=relative_file):
+        for module in iter_parsed_modules(scan.root):
+            if _is_exempt(relative_path=module.relative):
                 continue
-            violations.extend(
-                _scan_file(py_file=py_file, relative_file=relative_file, patterns=patterns)
-            )
+            violations.extend(_scan_file(module=module, patterns=patterns))
 
-        status = Status.FAIL if violations else Status.PASS
-        return CheckResult(check=self.name, status=status, violations=violations)
+        return CheckResult.from_findings(check=self.name, violations=violations)
 
 
 register(StalePathsCheck())

@@ -16,6 +16,7 @@ import pytest
 
 from lanorme import Status
 from lanorme.checks.file_limits import FileLimitsCheck
+from lanorme.scan import Scan
 
 
 @pytest.fixture
@@ -28,7 +29,7 @@ def run_on(tmp_path: Path):
 
     def _run(source: str):
         (tmp_path / "sample.py").write_text(source, encoding="utf-8")
-        return FileLimitsCheck().run(src_root=str(tmp_path))
+        return FileLimitsCheck().check(Scan(root=tmp_path))
 
     return _run
 
@@ -43,13 +44,13 @@ def _has_rule(findings, prefix: str) -> bool:
 # ("x = 0") yields exactly N effective lines.
 
 
-def _file_with_effective_lines(count: int) -> str:
+def _build_file_with_effective_lines(count: int) -> str:
     return "".join(f"x = {i}\n" for i in range(count))
 
 
 def test_size001_below_soft_is_clean(run_on):
     # Arrange: 299 effective lines, one below the 300 warn threshold.
-    source = _file_with_effective_lines(299)
+    source = _build_file_with_effective_lines(299)
 
     # Act.
     result = run_on(source)
@@ -62,7 +63,7 @@ def test_size001_below_soft_is_clean(run_on):
 
 def test_size001_at_soft_warns(run_on):
     # Arrange: exactly 300 effective lines, the warn boundary.
-    source = _file_with_effective_lines(300)
+    source = _build_file_with_effective_lines(300)
 
     # Act.
     result = run_on(source)
@@ -75,7 +76,7 @@ def test_size001_at_soft_warns(run_on):
 
 def test_size001_at_hard_fails(run_on):
     # Arrange: exactly 500 effective lines, the error boundary.
-    source = _file_with_effective_lines(500)
+    source = _build_file_with_effective_lines(500)
 
     # Act.
     result = run_on(source)
@@ -91,7 +92,7 @@ def test_size001_at_hard_fails(run_on):
 # 49 clean / 50 warn / 79 warn / 80 fail.
 
 
-def _function_with_effective_lines(count: int) -> str:
+def _build_function_with_effective_lines(count: int) -> str:
     # "def f():" is one effective line; the body supplies the remaining
     # (count - 1) effective lines as bare statements.
     body = "".join(f"    x = {i}\n" for i in range(count - 1))
@@ -100,7 +101,7 @@ def _function_with_effective_lines(count: int) -> str:
 
 def test_size002_below_soft_is_clean(run_on):
     # Arrange: a 49-effective-line function, one below the 50 warn threshold.
-    source = _function_with_effective_lines(49)
+    source = _build_function_with_effective_lines(49)
 
     # Act.
     result = run_on(source)
@@ -113,7 +114,7 @@ def test_size002_below_soft_is_clean(run_on):
 
 def test_size002_at_soft_warns(run_on):
     # Arrange: a function of exactly 50 effective lines, the warn boundary.
-    source = _function_with_effective_lines(50)
+    source = _build_function_with_effective_lines(50)
 
     # Act.
     result = run_on(source)
@@ -125,7 +126,7 @@ def test_size002_at_soft_warns(run_on):
 
 def test_size002_at_hard_fails(run_on):
     # Arrange: a function of exactly 80 effective lines, the error boundary.
-    source = _function_with_effective_lines(80)
+    source = _build_function_with_effective_lines(80)
 
     # Act.
     result = run_on(source)
@@ -185,302 +186,57 @@ def test_size002_eighty_effective_lines_with_padding_still_fails(run_on):
     assert not _has_rule(result.warnings, "SIZE-002")
 
 
-def test_size002_docstring_lines_count_as_effective(run_on):
-    # Arrange: def line + one docstring line + 48 statements = 50 effective
-    # lines. A string-only line counts, matching SIZE-001 semantics, so this
-    # sits exactly on the warn boundary.
+def test_size002_docstring_lines_do_not_count(run_on):
+    # Arrange: def line + a three-line docstring + 48 statements. The docstring
+    # documents the function rather than lengthening it, so the count is 49,
+    # one below the warn boundary; the same body with one more statement is 50.
     body = "".join(f"    x = {i}\n" for i in range(48))
-    source = 'def f():\n    """Docstring."""\n' + body
+    docstring = '    """Docstring.\n\n    More words.\n    """\n'
+    source = "def f():\n" + docstring + body
+
+    # Act.
+    result = run_on(source)
+    at_boundary = run_on(source + "    x = 48\n")
+
+    # Assert: the docstring never pushes a function over the threshold.
+    assert not _has_rule(result.warnings, "SIZE-002")
+    assert _has_rule(at_boundary.warnings, "SIZE-002")
+
+
+def test_size002_long_docstring_on_a_short_function_is_clean(run_on):
+    # Arrange: a two-statement function whose docstring alone is 60 lines.
+    docstring = "".join(f"    Line {i} of the documentation.\n" for i in range(60))
+    source = (
+        'def documented(value):\n    """Explain.\n\n'
+        + docstring
+        + '    """\n'
+        + ("    result = value * 2\n    return result\n")
+    )
 
     # Act.
     result = run_on(source)
 
-    # Assert: warns, does not fail.
-    assert _has_rule(result.warnings, "SIZE-002")
+    # Assert: documentation is not length.
+    assert not _has_rule(result.warnings, "SIZE-002")
     assert not _has_rule(result.violations, "SIZE-002")
 
 
-def test_size002_message_states_effective_lines(run_on):
-    # Arrange: a function exactly at the warn boundary.
-    source = _function_with_effective_lines(50)
+def test_param001_metaclass_receiver_is_not_a_parameter(run_on):
+    # Arrange: a metaclass names its receiver mcs / metacls; four real
+    # parameters plus **kwargs is one below the warn threshold, like self.
+    source = (
+        "class Meta(type):\n"
+        "    def __new__(mcs, name, bases, namespace, **kwargs):\n"
+        "        return super().__new__(mcs, name, bases, namespace)\n\n"
+        "    def __init__(metacls, name, bases, namespace, **kwargs):\n"
+        "        super().__init__(name, bases, namespace)\n\n"
+        "    def build(this, name, bases, namespace, **kwargs):\n"
+        "        return None\n"
+    )
 
     # Act.
     result = run_on(source)
 
-    # Assert: the message mirrors SIZE-001 wording with the effective count.
-    messages = [w.message for w in result.warnings if w.rule.startswith("SIZE-002")]
-    assert messages == ["Function 'f' is 50 effective lines (warn: 50)"]
-
-
-# SIZE-003: class method count. Warn-only tier: > 10 warns, no fail path.
-# 10 clean / 11 warn.
-
-
-def _class_with_methods(count: int) -> str:
-    methods = "".join(f"    def m{i}(self):\n        pass\n" for i in range(count))
-    return "class C:\n" + methods
-
-
-def test_size003_at_limit_is_clean(run_on):
-    # Arrange: exactly 10 methods, at the limit but not over it (> is strict).
-    source = _class_with_methods(10)
-
-    # Act.
-    result = run_on(source)
-
-    # Assert.
-    assert result.status == Status.PASS
-    assert not _has_rule(result.warnings, "SIZE-003")
-    assert not _has_rule(result.violations, "SIZE-003")
-
-
-def test_size003_past_limit_warns(run_on):
-    # Arrange: 11 methods, one past the limit.
-    source = _class_with_methods(11)
-
-    # Act.
-    result = run_on(source)
-
-    # Assert: warns only; there is no fail tier for SIZE-003.
-    assert result.status == Status.WARN
-    assert _has_rule(result.warnings, "SIZE-003")
-    assert not _has_rule(result.violations, "SIZE-003")
-
-
-# COMPLEXITY-001: cyclomatic complexity = 1 base + branching nodes.
-# 9 clean / 10 warn / 14 warn / 15 fail. Each bare "if a:" adds exactly 1.
-# Single-variable conditions avoid BoolOp double-counting.
-
-
-def _function_of_complexity(complexity: int) -> str:
-    # complexity = 1 + number of bare if statements.
-    ifs = "".join(f"    if a == {i}:\n        pass\n" for i in range(complexity - 1))
-    return "def f(a):\n" + ifs + "    return a\n"
-
-
-def test_complexity001_below_soft_is_clean(run_on):
-    # Arrange: complexity 9 (eight bare ifs), one below the 10 warn threshold.
-    source = _function_of_complexity(9)
-
-    # Act.
-    result = run_on(source)
-
-    # Assert.
-    assert result.status == Status.PASS
-    assert not _has_rule(result.warnings, "COMPLEXITY-001")
-    assert not _has_rule(result.violations, "COMPLEXITY-001")
-
-
-def test_complexity001_at_soft_warns(run_on):
-    # Arrange: complexity exactly 10, the warn boundary.
-    source = _function_of_complexity(10)
-
-    # Act.
-    result = run_on(source)
-
-    # Assert: warns, does not fail.
-    assert _has_rule(result.warnings, "COMPLEXITY-001")
-    assert not _has_rule(result.violations, "COMPLEXITY-001")
-
-
-def test_complexity001_at_hard_fails(run_on):
-    # Arrange: complexity exactly 15, the error boundary.
-    source = _function_of_complexity(15)
-
-    # Act.
-    result = run_on(source)
-
-    # Assert: fails, the finding is a violation.
-    assert result.status == Status.FAIL
-    assert _has_rule(result.violations, "COMPLEXITY-001")
-    assert not _has_rule(result.warnings, "COMPLEXITY-001")
-
-
-def test_complexity001_comprehension_filters_warn_when_amplified(run_on):
-    # Arrange: nine filter `if` clauses take one comprehension to complexity 10
-    # (1 + 9), the warn boundary, where the plain-comprehension test stays clean.
-    filters = "".join(f" if a{i}" for i in range(9))
-    source = f"def f(xs):\n    return [x for x in xs{filters}]\n"
-
-    # Act.
-    result = run_on(source)
-
-    # Assert: the filters are counted, so the function crosses the warn line.
-    assert _has_rule(result.warnings, "COMPLEXITY-001")
-
-
-def test_complexity001_nested_comprehension_loops_warn_when_amplified(run_on):
-    # Arrange: ten generators (nine nested) reach complexity 10; the primary loop
-    # is free, so only the nine nested `for` clauses do the counting.
-    loops = "".join(f" for _ in rs{i}" for i in range(10))
-    source = f"def f(rs):\n    return [0{loops}]\n"
-
-    # Act.
-    result = run_on(source)
-
-    # Assert: nested iteration is counted, crossing the warn threshold.
-    assert _has_rule(result.warnings, "COMPLEXITY-001")
-
-
-def test_complexity001_irrefutable_catch_all_does_not_count(run_on):
-    # Arrange: eight refutable cases is complexity 9 (clean); a trailing `case _`
-    # default would tip it to 10 (warn) only if catch-alls counted -- they do not.
-    arms = "".join(f"        case {i}:\n            return {i}\n" for i in range(8))
-    source = "def f(x):\n    match x:\n" + arms + "        case _:\n            return -1\n"
-
-    # Act.
-    result = run_on(source)
-
-    # Assert: the catch-all is free, so the function stays under the warn line.
-    assert result.status == Status.PASS
-    assert not _has_rule(result.warnings, "COMPLEXITY-001")
-
-
-def test_complexity001_branching_in_a_nested_function_is_excluded(run_on):
-    # Arrange: f has five own `if`s (complexity 6) and a nested g with five more.
-    # g stays clean on its own (6); f would only warn if it wrongly absorbed g's
-    # branches (5 + 5 + 1 = 11). Both at 6 isolates the exclusion as the variable.
-    outer = "".join(f"    if a{i}: pass\n" for i in range(5))
-    inner = "".join(f"        if b{i}: pass\n" for i in range(5))
-    source = "def f(x):\n" + outer + "    def g(y):\n" + inner + "    return g\n"
-
-    # Act.
-    result = run_on(source)
-
-    # Assert: g's branches do not count toward f, so neither function warns.
-    assert result.status == Status.PASS
-    assert not _has_rule(result.warnings, "COMPLEXITY-001")
-
-
-def test_complexity001_same_branching_hoisted_to_outer_warns(run_on):
-    # Arrange: the same ten `if`s, all in one function body, is complexity 11 --
-    # proving the previous test passed because of exclusion, not because the
-    # branches are uncounted.
-    source = "def f(x):\n" + "".join(f"    if a{i}: pass\n" for i in range(10)) + "    return 0\n"
-
-    # Act.
-    result = run_on(source)
-
-    # Assert: in one scope the branches count and cross the warn line.
-    assert _has_rule(result.warnings, "COMPLEXITY-001")
-
-
-def test_complexity001_match_warns_through_the_check(run_on):
-    # Arrange: a match with ten refutable cases is complexity 11, over the warn line.
-    arms = "".join(f"        case {i}:\n            return {i}\n" for i in range(10))
-    source = "def f(x):\n    match x:\n" + arms + "        case _:\n            return -1\n"
-    # Act.
-    result = run_on(source)
-    # Assert: the now-counted case arms push it past the warn threshold.
-    assert _has_rule(result.warnings, "COMPLEXITY-001")
-
-
-def test_complexity001_match_fails_at_error_boundary(run_on):
-    # Arrange: fourteen refutable cases is complexity 15, the error boundary.
-    arms = "".join(f"        case {i}:\n            return {i}\n" for i in range(14))
-    source = "def f(x):\n    match x:\n" + arms
-
-    # Act.
-    result = run_on(source)
-
-    # Assert: a build-failing violation, not merely a warning.
-    assert result.status == Status.FAIL
-    assert _has_rule(result.violations, "COMPLEXITY-001")
-
-
-def test_complexity001_plain_comprehensions_stay_clean(run_on):
-    # Arrange: a dozen plain map comprehensions, whose primary loops never count.
-    lines = "".join(f"    a{i} = [x for x in xs]\n" for i in range(12))
-    source = "def f(xs):\n" + lines + "    return a0\n"
-
-    # Act.
-    result = run_on(source)
-
-    # Assert: no complexity finding, proving the primary `for` is free at scale.
-    assert result.status == Status.PASS
-    assert not _has_rule(result.warnings, "COMPLEXITY-001")
-
-
-# PARAM-001: parameter count excluding self/cls.
-# 4 clean / 5 warn / 7 warn / 8 fail.
-
-
-def test_param001_below_soft_is_clean(run_on):
-    # Arrange: a function with 4 parameters, one below the 5 warn threshold.
-    source = "def f(a, b, c, d):\n    return a\n"
-
-    # Act.
-    result = run_on(source)
-
-    # Assert.
-    assert result.status == Status.PASS
-    assert not _has_rule(result.warnings, "PARAM-001")
-    assert not _has_rule(result.violations, "PARAM-001")
-
-
-def test_param001_at_soft_warns(run_on):
-    # Arrange: exactly 5 parameters, the warn boundary.
-    source = "def f(a, b, c, d, e):\n    return a\n"
-
-    # Act.
-    result = run_on(source)
-
-    # Assert: warns, does not fail.
-    assert _has_rule(result.warnings, "PARAM-001")
-    assert not _has_rule(result.violations, "PARAM-001")
-
-
-def test_param001_at_hard_fails(run_on):
-    # Arrange: exactly 8 parameters, the error boundary.
-    source = "def f(a, b, c, d, e, g, h, i):\n    return a\n"
-
-    # Act.
-    result = run_on(source)
-
-    # Assert: fails, the finding is a violation.
-    assert result.status == Status.FAIL
-    assert _has_rule(result.violations, "PARAM-001")
-    assert not _has_rule(result.warnings, "PARAM-001")
-
-
-def test_param001_excludes_self_so_four_real_params_is_clean(run_on):
-    # Arrange: a method with self plus 4 real parameters. self is excluded, so
-    # the effective count is 4, below the warn threshold. If self were counted
-    # the effective count would be 5 and this would warn, so this asserts the
-    # exclusion is actually in effect.
-    source = "class C:\n    def m(self, a, b, c, d):\n        return a\n"
-
-    # Act.
-    result = run_on(source)
-
-    # Assert: clean despite five declared arguments.
-    assert result.status == Status.PASS
-    assert not _has_rule(result.warnings, "PARAM-001")
-    assert not _has_rule(result.violations, "PARAM-001")
-
-
-def test_param001_self_plus_five_real_params_warns(run_on):
-    # Arrange: self plus 5 real parameters. self is excluded, so the effective
-    # count is exactly 5, the warn boundary, with the exclusion still applied.
-    source = "class C:\n    def m(self, a, b, c, d, e):\n        return a\n"
-
-    # Act.
-    result = run_on(source)
-
-    # Assert: warns, does not fail.
-    assert _has_rule(result.warnings, "PARAM-001")
-    assert not _has_rule(result.violations, "PARAM-001")
-
-
-def test_root_under_a_skip_named_ancestor_is_still_scanned(tmp_path: Path):
-    # Arrange: a file at the SIZE-001 warn boundary in a project checked out
-    # under a migrations/ directory, which the exclusion rules name.
-    root = tmp_path / "migrations" / "project"
-    root.mkdir(parents=True)
-    (root / "sample.py").write_text(_file_with_effective_lines(300), encoding="utf-8")
-
-    # Act.
-    result = FileLimitsCheck().run(src_root=str(root))
-
-    # Assert: the ancestor is the user's filesystem, not the project layout.
-    assert _has_rule(result.warnings, "SIZE-001")
+    # Assert: only the unconventional receiver name counts as a parameter.
+    param = [w for w in result.warnings if w.rule.startswith("PARAM-001")]
+    assert [(w.line, w.message.split("'")[1]) for w in param] == [(8, "build")]

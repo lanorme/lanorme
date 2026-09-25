@@ -12,10 +12,19 @@ from __future__ import annotations
 
 import ast
 from dataclasses import dataclass, field
-from pathlib import Path
 
-from lanorme import CheckResult, Status, Violation, register
-from lanorme.discovery import iter_py_files
+from lanorme import CheckResult, Violation, register
+from lanorme.paths import is_test_file
+from lanorme.scan import Scan
+from lanorme.sources import (
+    TOO_DEEP,
+    Module,
+    UnparseableFile,
+    build_skip_notice,
+    build_unparseable_notice,
+    iter_modules,
+    locate,
+)
 
 # ---------------------------------------------------------------------------
 # IMPORT-001: No inline imports inside functions
@@ -84,13 +93,9 @@ def _line_has_noqa(*, source_lines: list[str], lineno: int, rule: str) -> bool:
     return False
 
 
-def _check_inline_imports(
-    *,
-    tree: ast.AST,
-    source_lines: list[str],
-    relative_file: str,
-) -> list[Violation]:
+def _check_inline_imports(*, module: Module) -> list[Violation]:
     """IMPORT-001: Find import statements inside function bodies."""
+    relative_file = module.relative
     # Exempt paths where conditional imports are legitimate.
     normalized = relative_file.replace("\\", "/")
     for exempt in _PATTERN_001_EXEMPT_PATHS:
@@ -98,12 +103,10 @@ def _check_inline_imports(
             return []
 
     violations: list[Violation] = []
-    parents = _build_parent_map(tree=tree)
+    source_lines = module.lines
+    parents = _build_parent_map(tree=module.tree)
 
-    for node in ast.walk(tree):
-        if not isinstance(node, ast.Import | ast.ImportFrom):
-            continue
-
+    for node in module.index.collect(ast.Import, ast.ImportFrom):
         if not _is_inside_function(node=node, parents=parents):
             continue
 
@@ -131,6 +134,7 @@ def _check_inline_imports(
                 rule="IMPORT-001: No inline imports inside functions",
                 message=f"Import '{module_name}' found inside a function body",
                 fix="Move this import to the top of the file, at module level",
+                **locate(node),
             ),
         )
 
@@ -157,38 +161,32 @@ _NESTING_NODES = (
 )
 
 
-def _max_nesting_depth(*, node: ast.AST, depth: int = 0) -> int:
+def _measure_max_nesting_depth(*, node: ast.AST, depth: int = 0) -> int:
     """Recursively compute the maximum nesting depth of control-flow nodes."""
     max_depth = depth
 
     for child in ast.iter_child_nodes(node):
         if isinstance(child, _NESTING_NODES):
-            child_depth = _max_nesting_depth(node=child, depth=depth + 1)
+            child_depth = _measure_max_nesting_depth(node=child, depth=depth + 1)
         else:
-            child_depth = _max_nesting_depth(node=child, depth=depth)
+            child_depth = _measure_max_nesting_depth(node=child, depth=depth)
         max_depth = max(max_depth, child_depth)
 
     return max_depth
 
 
-def _check_endpoint_nesting(
-    *,
-    tree: ast.AST,
-    source_lines: list[str],
-    relative_file: str,
-) -> list[Violation]:
+def _check_endpoint_nesting(*, module: Module) -> list[Violation]:
     """ENDPOINT-001: Flag endpoint functions with nesting > 4 levels."""
+    relative_file = module.relative
     normalized = relative_file.replace("\\", "/")
     if not normalized.startswith(_ENDPOINTS_DIR):
         return []
 
     warnings: list[Violation] = []
+    source_lines = module.lines
 
-    for node in ast.walk(tree):
-        if not isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
-            continue
-
-        depth = _max_nesting_depth(node=node)
+    for node in module.index.functions:
+        depth = _measure_max_nesting_depth(node=node)
         if depth <= _MAX_NESTING_DEPTH:
             continue
 
@@ -212,6 +210,7 @@ def _check_endpoint_nesting(
                     "Extract deeply nested logic into private helper functions "
                     "or service methods to reduce cognitive complexity"
                 ),
+                **locate(node),
             ),
         )
 
@@ -238,59 +237,38 @@ class PatternDivergenceCheck:
         ],
     )
 
-    def run(self, *, src_root: str) -> CheckResult:
+    def check(self, scan: Scan) -> CheckResult:
         """Scan Python files under src/ for pattern divergence."""
         violations: list[Violation] = []
         warnings: list[Violation] = []
-        src_path = Path(src_root)
 
-        for py_file in iter_py_files(src_path):
-            relative_file = py_file.relative_to(src_path).as_posix()
+        for module in iter_modules(scan.root):
+            relative_file = module.relative
 
-            # Skip test files.
-            if Path(relative_file).name.startswith("test_"):
+            # Skip test files (see ``lanorme.paths``).
+            if is_test_file(relative_file):
+                continue
+
+            if isinstance(module, UnparseableFile):
+                warnings.append(build_unparseable_notice(prefix="PATTERN", failure=module))
                 continue
 
             try:
-                source = py_file.read_text(encoding="utf-8")
-                tree = ast.parse(source, filename=str(py_file))
-                source_lines = source.splitlines()
-
                 # IMPORT-001: inline imports (violation)
-                file_violations = _check_inline_imports(
-                    tree=tree,
-                    source_lines=source_lines,
-                    relative_file=relative_file,
-                )
+                file_violations = _check_inline_imports(module=module)
 
                 # ENDPOINT-001: endpoint nesting depth (warning)
-                file_warnings = _check_endpoint_nesting(
-                    tree=tree,
-                    source_lines=source_lines,
-                    relative_file=relative_file,
-                )
-            except (OSError, UnicodeDecodeError, SyntaxError):
-                warnings.append(
-                    Violation(
-                        file=relative_file,
-                        line=0,
-                        rule="PATTERN-000: parse error",
-                        message=f"Could not parse {py_file.name} — skipping",
-                        fix="Fix the syntax error first",
-                    ),
-                )
-                continue
+                file_warnings = _check_endpoint_nesting(module=module)
             except RecursionError:
                 # A deeply nested AST (for example a very long attribute chain in
                 # an endpoint) overflows the recursive depth walk. Skip the file
                 # rather than crash the whole run.
                 warnings.append(
-                    Violation(
-                        file=relative_file,
-                        line=0,
-                        rule="ENDPOINT-000: too deeply nested",
-                        message=f"{py_file.name} is too deeply nested to analyse — skipping",
-                        fix="No action needed; this file is exempt from pattern_divergence",
+                    build_skip_notice(
+                        prefix="ENDPOINT",
+                        file=module.relative,
+                        name=module.path.name,
+                        reason=TOO_DEEP,
                     ),
                 )
                 continue
@@ -298,13 +276,7 @@ class PatternDivergenceCheck:
             violations.extend(file_violations)
             warnings.extend(file_warnings)
 
-        status = Status.FAIL if violations else (Status.WARN if warnings else Status.PASS)
-        return CheckResult(
-            check=self.name,
-            status=status,
-            violations=violations,
-            warnings=warnings,
-        )
+        return CheckResult.from_findings(check=self.name, violations=violations, warnings=warnings)
 
 
 # Self-register on import.

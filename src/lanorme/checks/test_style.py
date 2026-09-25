@@ -1,8 +1,9 @@
 """AAA-001 and AAA-002: test-style enforcement for pytest-style suites.
 
-The check applies only to test functions in test files. A test function is a
-function whose name starts with ``test_`` defined inside a file whose stem
-starts with ``test_`` or ends with ``_test``.
+The check applies only to test functions in test modules. A test function is a
+function whose name starts with ``test_`` defined inside a module pytest
+collects by name (``lanorme.paths.is_test_module``: a ``test_*.py`` or
+``*_test.py`` stem); ``conftest.py``, fixtures and helpers are never judged.
 
     AAA-001  Each non-trivial test function must have inline AAA section
              comments (Arrange/Act/Assert, or Given/When/Then). The default
@@ -31,10 +32,13 @@ from __future__ import annotations
 import ast
 import re
 from dataclasses import dataclass, field
-from pathlib import Path
+from typing import ClassVar
 
-from lanorme import CheckResult, Status, Violation, register
-from lanorme.discovery import iter_py_files
+from lanorme import CheckResult, Violation, register
+from lanorme.checkconfig import is_flag_set, read_int, read_str_list
+from lanorme.paths import is_test_module
+from lanorme.scan import Scan
+from lanorme.sources import Module, iter_parsed_modules, locate
 
 # Default marker vocabulary. AAA + BDD + a few common aliases.
 _DEFAULT_MARKERS = ("arrange", "act", "assert", "given", "when", "then")
@@ -47,19 +51,6 @@ _SECTION_ALIASES: dict[str, frozenset[str]] = {
     "assert": frozenset({"assert", "then", "expect", "verify"}),
 }
 
-# Directories that look like tests but are not (fixtures, factories, conftest).
-_TEST_NON_TEST_STEMS = frozenset({"conftest", "__init__", "fixtures", "factories"})
-
-_SKIP_DIRS = frozenset({".git", ".venv", "venv", "node_modules", "__pycache__", "dist", "build"})
-
-
-def _is_test_file(*, path: Path) -> bool:
-    """True if *path* looks like a pytest test module."""
-    stem = path.stem
-    if stem in _TEST_NON_TEST_STEMS:
-        return False
-    return stem.startswith("test_") or stem.endswith("_test")
-
 
 def _is_test_function(*, node: ast.AST) -> bool:
     if not isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
@@ -70,20 +61,28 @@ def _is_test_function(*, node: ast.AST) -> bool:
     for dec in node.decorator_list:
         if isinstance(dec, ast.Attribute) and dec.attr == "fixture":
             return False
-        if isinstance(dec, ast.Call) and isinstance(dec.func, ast.Attribute) and dec.func.attr == "fixture":
+        if (
+            isinstance(dec, ast.Call)
+            and isinstance(dec.func, ast.Attribute)
+            and dec.func.attr == "fixture"
+        ):
             return False
     return True
 
 
-def _statements_in(*, node: ast.FunctionDef | ast.AsyncFunctionDef) -> list[ast.stmt]:
+def _list_statements(
+    *,
+    node: ast.FunctionDef | ast.AsyncFunctionDef,
+    module: Module,
+) -> list[ast.stmt]:
     """Body statements minus a leading docstring (which is documentation, not setup)."""
     body = list(node.body)
-    if body and isinstance(body[0], ast.Expr) and isinstance(body[0].value, ast.Constant) and isinstance(body[0].value.value, str):
+    if module.find_docstring(node) is not None:
         body = body[1:]
     return body
 
 
-def _section_markers_in(
+def _collect_section_markers(
     *,
     node: ast.FunctionDef | ast.AsyncFunctionDef,
     source_lines: list[str],
@@ -120,6 +119,10 @@ class TestStyleCheck:
     # class is the check implementation, not a test class.
     __test__ = False
 
+    settings_keys: ClassVar[frozenset[str]] = frozenset(
+        {"enabled", "min_statements", "required_markers", "dry_prefix_statements", "synonyms"},
+    )
+
     name: str = "test_style"
     description: str = "AAA-style and DRY enforcement for pytest test suites"
     # Ships default-off: the audit flagged AAA-001's comment-marker
@@ -134,23 +137,32 @@ class TestStyleCheck:
         default_factory=lambda: [
             "AAA-001: Test functions must carry AAA (or Given/When/Then) section comments",
             "AAA-002: Test functions in the same file must not share an identical arrange prefix",
-        ]
+        ],
     )
 
-    def configure(self, *, settings: dict[str, bool | int | list[str]]) -> None:
+    def configure(self, *, settings: dict[str, object]) -> None:
         """Apply ``[tool.lanorme.test_style]`` configuration."""
-        if "enabled" in settings:
-            self.enabled = bool(settings["enabled"])
-        if "min_statements" in settings:
-            self.min_statements = int(settings["min_statements"])  # type: ignore[arg-type]
-        if "required_markers" in settings:
-            value = int(settings["required_markers"])  # type: ignore[arg-type]
-            self.required_markers = max(1, min(3, value))
-        if "dry_prefix_statements" in settings:
-            self.dry_prefix_statements = int(settings["dry_prefix_statements"])  # type: ignore[arg-type]
-        synonyms = settings.get("synonyms")
-        if isinstance(synonyms, list):
-            self.extra_synonyms = tuple(s.lower() for s in synonyms if isinstance(s, str))
+        self.enabled = is_flag_set(settings=settings, key="enabled", default=self.enabled)
+        self.min_statements = read_int(
+            settings=settings,
+            key="min_statements",
+            default=self.min_statements,
+        )
+        markers = read_int(settings=settings, key="required_markers", default=self.required_markers)
+        self.required_markers = max(1, min(3, markers))
+        self.dry_prefix_statements = read_int(
+            settings=settings,
+            key="dry_prefix_statements",
+            default=self.dry_prefix_statements,
+        )
+        self.extra_synonyms = tuple(
+            synonym.lower()
+            for synonym in read_str_list(
+                settings=settings,
+                key="synonyms",
+                default=self.extra_synonyms,
+            )
+        )
 
     def _build_alias_map(self) -> tuple[re.Pattern[str], dict[str, str]]:
         """Compile the comment-marker regex and the alias-to-section table."""
@@ -173,23 +185,22 @@ class TestStyleCheck:
         )
         return pattern, alias_to_section
 
-    def _aaa_violations(
+    def _find_aaa_violations(
         self,
         *,
-        tree: ast.Module,
-        source_lines: list[str],
-        relative_file: str,
+        module: Module,
         marker_re: re.Pattern[str],
         alias_to_section: dict[str, str],
     ) -> list[Violation]:
         found: list[Violation] = []
-        for node in ast.walk(tree):
+        source_lines = module.lines
+        for node in module.index.functions:
             if not _is_test_function(node=node):
                 continue
-            statements = _statements_in(node=node)
+            statements = _list_statements(node=node, module=module)
             if len(statements) <= self.min_statements:
                 continue
-            sections = _section_markers_in(
+            sections = _collect_section_markers(
                 node=node,
                 source_lines=source_lines,
                 marker_re=marker_re,
@@ -200,7 +211,7 @@ class TestStyleCheck:
             present = ", ".join(sorted(sections)) if sections else "none"
             found.append(
                 Violation(
-                    file=relative_file,
+                    file=module.relative,
                     line=node.lineno,
                     rule="AAA-001",
                     message=(
@@ -209,25 +220,21 @@ class TestStyleCheck:
                         f"need >= {self.required_markers}"
                     ),
                     fix="Add inline '# Arrange', '# Act', '# Assert' (or Given/When/Then) markers",
-                )
+                    **locate(node),
+                ),
             )
         return found
 
-    def _dry_violations(
-        self,
-        *,
-        tree: ast.Module,
-        relative_file: str,
-    ) -> list[Violation]:
+    def _find_dry_violations(self, *, module: Module) -> list[Violation]:
         """Flag any two test functions that share the same arrange prefix."""
         per_prefix: dict[str, list[ast.FunctionDef | ast.AsyncFunctionDef]] = {}
-        for node in ast.walk(tree):
+        for node in module.index.functions:
             if not _is_test_function(node=node):
                 continue
-            assert isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef)
-            statements = _statements_in(node=node)
+            statements = _list_statements(node=node, module=module)
             digest = _normalize_prefix(
-                statements=statements, prefix_len=self.dry_prefix_statements
+                statements=statements,
+                prefix_len=self.dry_prefix_statements,
             )
             if digest is None:
                 continue
@@ -239,7 +246,7 @@ class TestStyleCheck:
             for node in nodes:
                 found.append(
                     Violation(
-                        file=relative_file,
+                        file=module.relative,
                         line=node.lineno,
                         rule="AAA-002",
                         message=(
@@ -248,43 +255,28 @@ class TestStyleCheck:
                             f"{len(nodes) - 1} other test(s) in this file"
                         ),
                         fix="Extract the repeated arrange block into a pytest fixture or helper",
-                    )
+                        **locate(node),
+                    ),
                 )
         return found
 
-    def run(self, *, src_root: str) -> CheckResult:
+    def check(self, scan: Scan) -> CheckResult:
         if not self.enabled:
-            return CheckResult(check=self.name, status=Status.PASS, violations=[])
+            return CheckResult.from_findings(check=self.name)
         marker_re, alias_to_section = self._build_alias_map()
         violations: list[Violation] = []
-        root = Path(src_root)
-        for path in iter_py_files(root):
-            # Match skip directories inside the root only: the absolute path's
-            # ancestors are the user's filesystem, not the project layout.
-            relative = path.relative_to(root)
-            if any(part in _SKIP_DIRS for part in relative.parts):
+        for module in iter_parsed_modules(scan.root):
+            if not is_test_module(module.relative):
                 continue
-            if not _is_test_file(path=path):
-                continue
-            try:
-                source = path.read_text(encoding="utf-8")
-                tree = ast.parse(source, filename=str(path))
-            except (OSError, UnicodeDecodeError, SyntaxError):
-                continue
-            relative_file = relative.as_posix()
-            source_lines = source.splitlines()
             violations.extend(
-                self._aaa_violations(
-                    tree=tree,
-                    source_lines=source_lines,
-                    relative_file=relative_file,
+                self._find_aaa_violations(
+                    module=module,
                     marker_re=marker_re,
                     alias_to_section=alias_to_section,
-                )
+                ),
             )
-            violations.extend(self._dry_violations(tree=tree, relative_file=relative_file))
-        status = Status.FAIL if violations else Status.PASS
-        return CheckResult(check=self.name, status=status, violations=violations)
+            violations.extend(self._find_dry_violations(module=module))
+        return CheckResult.from_findings(check=self.name, violations=violations)
 
 
 register(TestStyleCheck())

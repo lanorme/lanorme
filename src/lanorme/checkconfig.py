@@ -1,85 +1,262 @@
-"""Apply a discovered config to the registered checks.
+"""Apply a discovered config to copies of the registered checks.
 
 The CLI resolves configuration (discovery, ``extends``, per-directory regions)
 and this module hands the result to the checks: each ``[tool.lanorme.<check>]``
-sub-table goes to that check's ``configure()``. Both the single-config run and
-the cascading runner come through here, so a value the user got wrong is
-reported the same way wherever it was written.
+sub-table goes to the ``configure()`` of a deep copy of that check, so the
+registered templates never change. Both the single-config run and the
+cascading runner come through here, so a value the user got wrong is reported
+the same way wherever it was written.
+
+The typed readers (``read_int``, ``read_str``, ``read_str_list`` and
+``is_flag_set``) are for ``configure()`` bodies: each returns the typed value
+or raises :class:`SettingError` (a ``TypeError``) naming the key, which the
+plumbing below turns into the usual exit-2 :class:`~lanorme.errors.ConfigError`.
+A check that reads its table through them never carries a mistyped value into
+``run()``. A ``configure()`` that validates a value itself raises
+``TypeError`` or ``ValueError``, which is reported the same way; any other
+exception is a bug in the check and is left to surface as one.
 """
 
 from __future__ import annotations
 
-import sys
+import copy
+from collections.abc import Mapping
+from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
-from lanorme import Configurable, get_all_checks
+from lanorme.errors import ConfigError, UsageError
+
+if TYPE_CHECKING:
+    from lanorme import Check
+
+Settings = dict[str, object]
+
+
+@runtime_checkable
+class ConfigurableCheck(Protocol):
+    """A check that accepts a ``[tool.lanorme.<name>]`` settings table.
+
+    Import it from ``lanorme``; it is defined here so this module, which the
+    package imports, needs nothing from the package itself.
+    """
+
+    def configure(self, *, settings: dict[str, object]) -> None:
+        """Apply configuration to the check before it runs."""
+        ...
+
+
+# What a ``configure()`` may raise for a value the user wrote wrong. Anything
+# else (an ``AttributeError``, a ``KeyError``) is a bug in the check, not in
+# the config, and is not dressed up as a usage error.
+_REJECTED_VALUE = (TypeError, ValueError)
+
+
+class SettingError(TypeError):
+    """A setting of the wrong type, raised by the typed readers naming the key."""
+
+    def __init__(self, message: str, *, key: str) -> None:
+        super().__init__(message)
+        self.key = key
+
+
+def _reject(*, key: str, expected: str, value: object) -> SettingError:
+    return SettingError(f"'{key}' must be {expected}, got {type(value).__name__}", key=key)
+
+
+def is_flag_set(*, settings: Settings, key: str, default: bool) -> bool:
+    """A boolean flag; ``true``/``false`` in TOML, nothing else."""
+    value = settings.get(key, default)
+    if not isinstance(value, bool):
+        raise _reject(key=key, expected="true or false", value=value)
+    return value
+
+
+def read_int(*, settings: Settings, key: str, default: int) -> int:
+    """An integer threshold; a bool or a float is refused rather than coerced."""
+    value = settings.get(key, default)
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise _reject(key=key, expected="an integer", value=value)
+    return value
+
+
+def read_str(*, settings: Settings, key: str, default: str) -> str:
+    """A single string, such as a path."""
+    value = settings.get(key, default)
+    if not isinstance(value, str):
+        raise _reject(key=key, expected="a string", value=value)
+    return value
+
+
+def read_str_list(
+    *,
+    settings: Settings,
+    key: str,
+    default: tuple[str, ...] = (),
+) -> tuple[str, ...]:
+    """A list of strings; a bare string is refused so it is never iterated by character."""
+    value = settings.get(key, default)
+    if isinstance(value, tuple):
+        value = list(value)
+    if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
+        raise _reject(key=key, expected="a list of strings", value=value)
+    return tuple(value)
+
+
+# The top-level keys the run itself reads. Every other top-level key must be
+# the name of a registered check, or it is a mistake.
+RUN_KEYS: frozenset[str] = frozenset(
+    {
+        "select",
+        "ignore",
+        "exclude",
+        "promote",
+        "extends",
+        "baseline",
+        "source_root",
+        "plugins",
+        "per-file-ignores",
+        "root",
+    },
+)
+
 
 # Top-level ``source_root`` is injected into these layout-aware checks only;
 # every other check scans the full target tree.
-_SOURCE_ROOT_CHECKS = frozenset({"layer_deps", "port_coverage", "security_patterns"})
+_SOURCE_ROOT_CHECKS = frozenset(
+    {"layer_deps", "port_coverage", "security_patterns", "test_coverage"},
+)
 
 
-def _offending_key(*, check: Configurable, settings: dict[str, object]) -> str | None:
+def _find_offending_key(*, template: ConfigurableCheck, settings: Settings) -> str | None:
     """The first key in *settings* the check rejects, when it can be isolated.
 
-    Each key is replayed against a throwaway instance so a partly-configured
-    check never reaches the run. A check that cannot be reconstructed with no
-    arguments gives no answer, and the caller reports the table alone.
+    Each key is replayed against its own copy of the unconfigured *template*,
+    so a partly-configured check never reaches the run.
     """
     for key, value in settings.items():
         try:
-            probe = type(check)()
-        except Exception:  # noqa: BLE001 - an exotic check is not worth probing
-            return None
-        try:
-            probe.configure(settings={key: value})
-        except (TypeError, ValueError):
+            copy.deepcopy(template).configure(settings={key: value})
+        except _REJECTED_VALUE:
             return key
     return None
 
 
-def _configure_or_fail(*, check: Configurable, name: str, settings: dict[str, object]) -> None:
-    """Configure one check, turning a rejected value into a usage error.
+def _reject_unknown_keys(
+    *,
+    check: Check,
+    name: str,
+    settings: dict[str, object],
+) -> None:
+    """Refuse a table that names a key the check does not declare.
+
+    A check that declares ``settings_keys`` (the TOML keys its ``configure()``
+    reads) gets a mistyped key reported like a mistyped value, instead of the
+    key being ignored and the default silently kept. A check without the
+    declaration accepts anything, as before.
+    """
+    declared = getattr(check, "settings_keys", None)
+    if declared is None:
+        return
+    unknown = sorted(key for key in settings if key not in declared)
+    if not unknown:
+        return
+    listed = ", ".join(repr(key) for key in unknown)
+    raise ConfigError(
+        f"unknown key in [tool.lanorme.{name}]: {listed}.\n"
+        f"  Keys this check reads: {', '.join(sorted(declared))}.",
+        key=unknown[0],
+        source=f"[tool.lanorme.{name}]",
+    )
+
+
+def _configure_or_fail(
+    *,
+    check: ConfigurableCheck,
+    template: ConfigurableCheck,
+    name: str,
+    settings: Settings,
+) -> None:
+    """Configure one check, turning a rejected value into a config error.
 
     Settings arrive from a TOML table the user wrote by hand, so a value of the
     wrong type is a configuration mistake rather than a bug. Report it the way
     every other config failure is reported (exit 2) instead of unwinding a
-    traceback from inside the check.
+    traceback from inside the check. Only a rejected value is reported so: an
+    ``AttributeError`` or a ``KeyError`` out of ``configure()`` is the check's
+    own bug and propagates as one.
     """
+    _reject_unknown_keys(check=check, name=name, settings=settings)
     try:
         check.configure(settings=settings)
-    except (TypeError, ValueError) as error:
-        key = _offending_key(check=check, settings=settings)
-        location = f"[tool.lanorme.{name}] {key}" if key else f"[tool.lanorme.{name}]"
-        print(
-            f"ERROR: invalid value for {location}: {error}\n"
+    except _REJECTED_VALUE as error:
+        key = _find_offending_key(template=template, settings=settings)
+        table = f"[tool.lanorme.{name}]"
+        location = f"{table} {key}" if key else table
+        raise ConfigError(
+            f"invalid value for {location}: {error}\n"
             f"  Run 'lanorme check . --show-config' to see the effective settings "
             f"for every check.",
-            file=sys.stderr,
-        )
-        sys.exit(2)
+            key=key,
+            source=table,
+        ) from error
 
 
-def apply_check_config(*, config: dict[str, object]) -> None:
-    """Pass each ``[tool.lanorme.<check>]`` sub-table to that check's configure().
+def _build_settings(*, name: str, config: Settings) -> Settings:
+    """The settings table for check *name*, with the top-level ``source_root`` injected.
 
     The top-level ``source_root`` is merged into the settings of the
-    layout-aware checks (``layer_deps`` / ``port_coverage``, and
-    ``security_patterns`` for the ``api/`` layer AUTHN-001 scans) so a single
+    layout-aware checks (``layer_deps`` / ``port_coverage``,
+    ``security_patterns`` for the ``api/`` layer AUTHN-001 scans, and
+    ``test_coverage`` for its production directories) so a single
     ``lanorme check .`` from the repo root can locate layers under a nested
     package directory while every other check keeps scanning the whole tree.
     """
+    section = config.get(name)
+    settings = dict(section) if isinstance(section, dict) else {}
     source_root = config.get("source_root")
-    for name, check in get_all_checks().items():
-        if not isinstance(check, Configurable):
-            continue
-        section = config.get(name)
-        settings = dict(section) if isinstance(section, dict) else {}
-        if (
-            name in _SOURCE_ROOT_CHECKS
-            and isinstance(source_root, str)
-            and source_root
-            and "source_root" not in settings
-        ):
-            settings["source_root"] = source_root
-        if settings:
-            _configure_or_fail(check=check, name=name, settings=settings)
+    if (
+        name in _SOURCE_ROOT_CHECKS
+        and isinstance(source_root, str)
+        and source_root
+        and "source_root" not in settings
+    ):
+        settings["source_root"] = source_root
+    return settings
+
+
+def _copy_template(*, name: str, template: Check) -> Check:
+    """A deep copy of *template*, or a usage error naming the check that cannot be copied.
+
+    Every pass configures its own copies, so a check must survive
+    :func:`copy.deepcopy`. A plugin check holding a lock, an open file or a
+    connection does not, and the raw ``TypeError`` from deep inside ``copy``
+    named neither the check nor the fix.
+    """
+    try:
+        return copy.deepcopy(template)
+    except Exception as error:  # whatever the plugin's state raises, the fix is the same
+        kind = f"{type(template).__module__}.{type(template).__qualname__}"
+        raise UsageError(
+            f"check {name!r} ({kind}) cannot be copied for a run: "
+            f"{type(error).__name__}: {error}.\n"
+            "  A check must be deep-copyable: create locks, files and connections in run(), "
+            "not on the instance, or define __deepcopy__.",
+        ) from error
+
+
+def configure_checks(*, templates: Mapping[str, Check], config: Settings) -> dict[str, Check]:
+    """A deep copy of each of *templates*, configured from its ``[tool.lanorme.<name>]`` table.
+
+    The templates are never touched, so the same registered checks serve every
+    region of a run and every run in a process. A value a check rejects is a
+    :class:`~lanorme.errors.ConfigError` naming the table and, where it can be
+    isolated, the key.
+    """
+    configured: dict[str, Check] = {}
+    for name, template in templates.items():
+        check = _copy_template(name=name, template=template)
+        if isinstance(check, ConfigurableCheck):
+            settings = _build_settings(name=name, config=config)
+            if settings:
+                _configure_or_fail(check=check, template=template, name=name, settings=settings)
+        configured[name] = check
+    return configured

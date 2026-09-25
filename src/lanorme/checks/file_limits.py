@@ -5,7 +5,7 @@ Checks:
     SIZE-002  Functions/methods warn and error on effective line count
     SIZE-003  Classes past the method limit are a warning (decomposition candidate)
     COMPLEXITY-001  Cyclomatic complexity warn and error per function
-    PARAM-001  Parameter count warn and error (excluding self/cls)
+    PARAM-001  Parameter count warn and error (excluding the receiver: self/cls/mcs)
 
 Effective lines = non-blank, non-comment lines.
 
@@ -14,7 +14,7 @@ project through ``[tool.lanorme.file_limits]``. Rule strings carry no number so
 that a configured threshold does not change a finding's baseline anchor; the
 number a finding was measured against lives in its message.
 
-Excludes: __init__.py, conftest.py, alembic/, migrations/, test_* prefixed files.
+Excludes: __init__.py, alembic/, migrations/, and test files (see lanorme.paths).
 
 Run:
     lanorme check . --check=file_limits
@@ -26,9 +26,13 @@ import ast
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import ClassVar
 
-from lanorme import CheckResult, Status, Violation, register
-from lanorme.discovery import iter_py_files
+from lanorme import CheckResult, Violation, register
+from lanorme.checkconfig import read_int
+from lanorme.paths import is_test_file
+from lanorme.scan import Scan
+from lanorme.sources import Module, UnparseableFile, build_unparseable_notice, iter_modules, locate
 
 # Default thresholds. Each is the default of the matching ``FileLimitsCheck``
 # field, so ``[tool.lanorme.file_limits]`` overrides them per project.
@@ -52,9 +56,12 @@ COMPLEXITY_ERROR = 15
 PARAM_WARN = 5
 PARAM_ERROR = 8
 
-# Files and directories excluded from scanning.
-EXCLUDED_FILENAMES = {"__init__.py", "conftest.py"}
+# Files and directories excluded from scanning (test files: ``lanorme.paths``).
+EXCLUDED_FILENAMES = {"__init__.py"}
 EXCLUDED_DIR_PARTS = {"alembic", "migrations"}
+
+# The implicit receiver of a method: never a parameter the caller supplies.
+_RECEIVER_NAMES = frozenset({"self", "cls", "mcs", "mcls", "metacls"})
 
 
 @dataclass(frozen=True)
@@ -81,23 +88,51 @@ def _should_exclude(*, relative: Path) -> bool:
     user's filesystem above the root out of it: a checkout that happens to
     live under a ``migrations/`` directory is scanned like any other.
     """
-    if relative.name in EXCLUDED_FILENAMES:
-        return True
-    if relative.name.startswith("test_"):
+    if relative.name in EXCLUDED_FILENAMES or is_test_file(relative):
         return True
     return any(part in EXCLUDED_DIR_PARTS for part in relative.parts)
 
 
 def _count_effective_lines(*, source: str) -> int:
     """Count non-blank, non-comment-only lines in source code."""
+    return sum(1 for line in source.splitlines() if _is_effective_line(line=line))
+
+
+def _is_effective_line(*, line: str) -> bool:
+    """True for a line that is neither blank nor a comment."""
+    stripped = line.strip()
+    return bool(stripped) and not stripped.startswith("#")
+
+
+def _find_docstring_span(*, node: ast.FunctionDef | ast.AsyncFunctionDef) -> tuple[int, int] | None:
+    """The 1-based first and last line of the function's docstring, if it has one."""
+    if not node.body:
+        return None
+    first = node.body[0]
+    if (
+        isinstance(first, ast.Expr)
+        and isinstance(first.value, ast.Constant)
+        and isinstance(first.value.value, str)
+        and first.end_lineno is not None
+    ):
+        return first.lineno, first.end_lineno
+    return None
+
+
+def _count_function_lines(*, node: ast.FunctionDef | ast.AsyncFunctionDef, lines: list[str]) -> int:
+    """SIZE-002's measure: the function's effective lines, its docstring left out.
+
+    A docstring documents the function rather than lengthening it, so its lines
+    do not count; a one-line docstring sharing the ``def`` line keeps that line.
+    """
+    end = node.end_lineno or node.lineno
+    docstring = _find_docstring_span(node=node)
     count = 0
-    for line in source.splitlines():
-        stripped = line.strip()
-        if not stripped:
+    for lineno in range(node.lineno, end + 1):
+        if docstring and docstring[0] <= lineno <= docstring[1] and lineno != node.lineno:
             continue
-        if stripped.startswith("#"):
-            continue
-        count += 1
+        if _is_effective_line(line=lines[lineno - 1]):
+            count += 1
     return count
 
 
@@ -138,35 +173,30 @@ def _check_file_size(
 
 def _check_function_lengths(
     *,
-    tree: ast.AST,
-    source: str,
-    relative_file: str,
+    module: Module,
     bounds: _Bounds,
 ) -> tuple[list[Violation], list[Violation]]:
     """SIZE-002: Warn and error on a function's effective line count.
 
     Effective lines mirror SIZE-001: non-blank, non-comment-only lines within
     the function's span, so comments and blank lines never push a function
-    over a threshold.
+    over a threshold. The docstring is left out too: it documents the function
+    rather than lengthening it.
     """
     violations: list[Violation] = []
     warnings: list[Violation] = []
-    source_lines = source.splitlines()
+    source_lines = module.lines
 
-    for node in ast.walk(tree):
-        if not isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
-            continue
-
+    for node in module.index.functions:
         if node.end_lineno is None:
             continue
 
-        span = "\n".join(source_lines[node.lineno - 1 : node.end_lineno])
-        length = _count_effective_lines(source=span)
+        length = _count_function_lines(node=node, lines=source_lines)
 
         if length >= bounds.error:
             violations.append(
                 Violation(
-                    file=relative_file,
+                    file=module.relative,
                     line=node.lineno,
                     rule="SIZE-002: Function exceeds the line limit",
                     message=(
@@ -174,19 +204,20 @@ def _check_function_lengths(
                         f"(limit: {bounds.error})"
                     ),
                     fix="Extract helper functions or simplify control flow",
+                    **locate(node),
                 ),
             )
         elif length >= bounds.warn:
             warnings.append(
                 Violation(
-                    file=relative_file,
+                    file=module.relative,
                     line=node.lineno,
                     rule="SIZE-002: Function approaching the line limit",
                     message=(
-                        f"Function '{node.name}' is {length} effective lines "
-                        f"(warn: {bounds.warn})"
+                        f"Function '{node.name}' is {length} effective lines (warn: {bounds.warn})"
                     ),
                     fix="Consider extracting helper functions before it grows further",
+                    **locate(node),
                 ),
             )
 
@@ -195,17 +226,13 @@ def _check_function_lengths(
 
 def _check_class_method_count(
     *,
-    tree: ast.AST,
-    relative_file: str,
+    module: Module,
     limit: int,
 ) -> list[Violation]:
     """SIZE-003: Classes past the method limit are candidates for decomposition."""
     warnings: list[Violation] = []
 
-    for node in ast.walk(tree):
-        if not isinstance(node, ast.ClassDef):
-            continue
-
+    for node in module.index.collect(ast.ClassDef):
         method_count = sum(
             1 for child in node.body if isinstance(child, ast.FunctionDef | ast.AsyncFunctionDef)
         )
@@ -213,11 +240,12 @@ def _check_class_method_count(
         if method_count > limit:
             warnings.append(
                 Violation(
-                    file=relative_file,
+                    file=module.relative,
                     line=node.lineno,
                     rule="SIZE-003: Class has too many methods",
                     message=f"Class '{node.name}' has {method_count} methods (warn: {limit})",
                     fix="Consider decomposing into smaller, focused classes",
+                    **locate(node),
                 ),
             )
 
@@ -245,14 +273,12 @@ def _match_case_is_refutable(*, case: ast.match_case) -> bool:
     """
     pattern = case.pattern
     irrefutable = (
-        isinstance(pattern, ast.MatchAs)
-        and pattern.pattern is None
-        and case.guard is None
+        isinstance(pattern, ast.MatchAs) and pattern.pattern is None and case.guard is None
     )
     return not irrefutable
 
 
-def _node_complexity_increment(*, node: ast.AST) -> int:
+def _count_node_branches(*, node: ast.AST) -> int:
     """Extra paths one node introduces, not counting its descendants.
 
     Comprehensions count a branch per filter ``if`` and per nested ``for``
@@ -271,7 +297,7 @@ def _node_complexity_increment(*, node: ast.AST) -> int:
     return 0
 
 
-def _cyclomatic_complexity(*, func_node: ast.FunctionDef | ast.AsyncFunctionDef) -> int:
+def _measure_cyclomatic_complexity(*, func_node: ast.FunctionDef | ast.AsyncFunctionDef) -> int:
     """Calculate cyclomatic complexity for a single function.
 
     Walks only direct descendants, nested function bodies are excluded. Base
@@ -288,7 +314,7 @@ def _cyclomatic_complexity(*, func_node: ast.FunctionDef | ast.AsyncFunctionDef)
         node = nodes_to_visit.pop()
         if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
             continue
-        complexity += _node_complexity_increment(node=node)
+        complexity += _count_node_branches(node=node)
         nodes_to_visit.extend(ast.iter_child_nodes(node))
 
     return complexity
@@ -312,19 +338,16 @@ class _MetricSpec:
 
 def _check_function_metric(
     *,
-    tree: ast.AST,
-    relative_file: str,
+    module: Module,
     spec: _MetricSpec,
     bounds: _Bounds,
 ) -> tuple[list[Violation], list[Violation]]:
     """Apply a metric to every function and bucket the result into warn/error."""
     violations: list[Violation] = []
     warnings: list[Violation] = []
+    relative_file = module.relative
 
-    for node in ast.walk(tree):
-        if not isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
-            continue
-
+    for node in module.index.functions:
         value = spec.metric(func_node=node)
 
         if value >= bounds.error:
@@ -335,6 +358,7 @@ def _check_function_metric(
                     rule=spec.error_rule,
                     message=f"Function '{node.name}' has {spec.noun} {value} (limit: {bounds.error})",
                     fix=spec.fix_error,
+                    **locate(node),
                 ),
             )
         elif value >= bounds.warn:
@@ -345,6 +369,7 @@ def _check_function_metric(
                     rule=spec.warn_rule,
                     message=f"Function '{node.name}' has {spec.noun} {value} (warn: {bounds.warn})",
                     fix=spec.fix_warn,
+                    **locate(node),
                 ),
             )
 
@@ -352,12 +377,12 @@ def _check_function_metric(
 
 
 def _count_parameters(*, func_node: ast.FunctionDef | ast.AsyncFunctionDef) -> int:
-    """Count function parameters, excluding self and cls."""
+    """Count function parameters, excluding the receiver (self, cls, mcs, metacls)."""
     params = func_node.args.posonlyargs + func_node.args.args + func_node.args.kwonlyargs
     count = len(params)
 
-    # Exclude self/cls (first positional arg in methods).
-    if params and params[0].arg in ("self", "cls"):
+    # Exclude the receiver (self / cls, or mcs / metacls in a metaclass).
+    if params and params[0].arg in _RECEIVER_NAMES:
         count -= 1
 
     # Count *args and **kwargs if present.
@@ -370,7 +395,7 @@ def _count_parameters(*, func_node: ast.FunctionDef | ast.AsyncFunctionDef) -> i
 
 
 _COMPLEXITY_SPEC = _MetricSpec(
-    metric=_cyclomatic_complexity,
+    metric=_measure_cyclomatic_complexity,
     error_rule="COMPLEXITY-001: Function exceeds the complexity limit",
     warn_rule="COMPLEXITY-001: Function approaching the complexity limit",
     noun="cyclomatic complexity",
@@ -429,6 +454,7 @@ class FileLimitsCheck:
             "PARAM-001: Parameter count warn at 5 by default, error at 8 (excluding self/cls)",
         ],
     )
+    settings_keys: ClassVar[frozenset[str]] = frozenset(_THRESHOLD_KEYS)
 
     def configure(self, *, settings: dict[str, object]) -> None:
         """Apply ``[tool.lanorme.file_limits]`` configuration.
@@ -438,8 +464,7 @@ class FileLimitsCheck:
         rather than switch the rules off.
         """
         for key in _THRESHOLD_KEYS:
-            if key in settings:
-                setattr(self, key, int(settings[key]))  # type: ignore[call-overload]
+            setattr(self, key, read_int(settings=settings, key=key, default=getattr(self, key)))
 
     def _bounds(self) -> tuple[_Bounds, _Bounds, _Bounds, _Bounds]:
         """The file, function, complexity and parameter pairs for this run."""
@@ -450,13 +475,7 @@ class FileLimitsCheck:
             _Bounds.of(warn=self.param_warn, error=self.param_error),
         )
 
-    def _scan_source(
-        self,
-        *,
-        tree: ast.AST,
-        source: str,
-        relative_file: str,
-    ) -> tuple[list[Violation], list[Violation]]:
+    def _scan_source(self, *, module: Module) -> tuple[list[Violation], list[Violation]]:
         """Every rule in this check, applied to one parsed file."""
         violations: list[Violation] = []
         warnings: list[Violation] = []
@@ -464,88 +483,46 @@ class FileLimitsCheck:
 
         # SIZE-001: File effective line count.
         found, warned = _check_file_size(
-            source=source,
-            relative_file=relative_file,
+            source=module.source,
+            relative_file=module.relative,
             bounds=file_bounds,
         )
         violations.extend(found)
         warnings.extend(warned)
 
         # SIZE-002: Function/method effective length.
-        found, warned = _check_function_lengths(
-            tree=tree,
-            source=source,
-            relative_file=relative_file,
-            bounds=func_bounds,
-        )
+        found, warned = _check_function_lengths(module=module, bounds=func_bounds)
         violations.extend(found)
         warnings.extend(warned)
 
         # SIZE-003: Class method count.
-        warnings.extend(
-            _check_class_method_count(
-                tree=tree,
-                relative_file=relative_file,
-                limit=self.class_method_warn,
-            ),
-        )
+        warnings.extend(_check_class_method_count(module=module, limit=self.class_method_warn))
 
         # COMPLEXITY-001 and PARAM-001: per-function numeric metrics.
         for spec, bounds in ((_COMPLEXITY_SPEC, complexity_bounds), (_PARAM_SPEC, param_bounds)):
-            found, warned = _check_function_metric(
-                tree=tree,
-                relative_file=relative_file,
-                spec=spec,
-                bounds=bounds,
-            )
+            found, warned = _check_function_metric(module=module, spec=spec, bounds=bounds)
             violations.extend(found)
             warnings.extend(warned)
 
         return violations, warnings
 
-    def run(self, *, src_root: str) -> CheckResult:
+    def check(self, scan: Scan) -> CheckResult:
         """Scan all Python files under src/ and enforce size limits."""
         violations: list[Violation] = []
         warnings: list[Violation] = []
-        src_path = Path(src_root)
 
-        for py_file in iter_py_files(src_path):
-            relative = py_file.relative_to(src_path)
-            if _should_exclude(relative=relative):
+        for module in iter_modules(scan.root):
+            if _should_exclude(relative=Path(module.relative)):
+                continue
+            if isinstance(module, UnparseableFile):
+                warnings.append(build_unparseable_notice(prefix="SIZE", failure=module))
                 continue
 
-            relative_file = relative.as_posix()
-
-            try:
-                source = py_file.read_text(encoding="utf-8")
-                tree = ast.parse(source, filename=str(py_file))
-            except (OSError, UnicodeDecodeError, SyntaxError):
-                warnings.append(
-                    Violation(
-                        file=relative_file,
-                        line=0,
-                        rule="SIZE-000: parse error",
-                        message=f"Could not parse {py_file.name} — skipping",
-                        fix="Fix the syntax error first",
-                    ),
-                )
-                continue
-
-            found, warned = self._scan_source(
-                tree=tree,
-                source=source,
-                relative_file=relative_file,
-            )
+            found, warned = self._scan_source(module=module)
             violations.extend(found)
             warnings.extend(warned)
 
-        status = Status.FAIL if violations else (Status.WARN if warnings else Status.PASS)
-        return CheckResult(
-            check=self.name,
-            status=status,
-            violations=violations,
-            warnings=warnings,
-        )
+        return CheckResult.from_findings(check=self.name, violations=violations, warnings=warnings)
 
 
 # Self-register on import.

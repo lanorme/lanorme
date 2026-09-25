@@ -156,7 +156,10 @@ def configure_optimizer(model: torch.nn.Module, cfg: TrainConfig) -> torch.optim
         try:
             extra_kwargs["fused"] = True
             return torch.optim.AdamW(
-                param_groups, lr=cfg.max_lr, betas=(cfg.beta1, cfg.beta2), **extra_kwargs
+                param_groups,
+                lr=cfg.max_lr,
+                betas=(cfg.beta1, cfg.beta2),
+                **extra_kwargs,
             )
         except TypeError:
             pass  # older torch without `fused` support
@@ -256,12 +259,12 @@ def log_console_line(record: dict[str, Any]) -> None:
         print(
             f"step {record['step']:7d} | loss {record['loss']:.4f} | "
             f"lr {record['lr']:.3e} | {record['tokens_per_sec']:,.0f} tok/s | "
-            f"mfu {mfu_str}"
+            f"mfu {mfu_str}",
         )
     else:
         print(
             f"step {record['step']:7d} | eval loss {record['eval_loss']:.4f} | "
-            f"ppl {record['perplexity']:.2f}"
+            f"ppl {record['perplexity']:.2f}",
         )
 
 
@@ -406,7 +409,7 @@ def main(argv: list[str] | None = None) -> None:
     print(
         f"batch schedule: micro_batch_size={micro_batch_size} "
         f"grad_accum_steps={grad_accum_steps} -> {tokens_per_step:,} tokens/step "
-        f"(target was {cfg.tokens_per_step:,})"
+        f"(target was {cfg.tokens_per_step:,})",
     )
 
     model_config = argparse.Namespace(

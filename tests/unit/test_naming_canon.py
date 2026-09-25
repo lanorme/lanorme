@@ -14,7 +14,8 @@ from pathlib import Path
 import pytest
 
 from lanorme import Status
-from lanorme.checks.naming_canon import NamingCanonCheck, agent_noun
+from lanorme.checks.naming_canon import NamingCanonCheck, derive_agent_noun
+from lanorme.scan import Scan
 
 
 def _run(*, root: Path, body: str, check: NamingCanonCheck | None = None, name: str = "sample.py"):
@@ -22,15 +23,15 @@ def _run(*, root: Path, body: str, check: NamingCanonCheck | None = None, name: 
     path = root / name
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(body, encoding="utf-8")
-    return (check or NamingCanonCheck()).run(src_root=str(root))
+    return (check or NamingCanonCheck()).check(Scan(root=root))
 
 
-def _codes(result) -> list[str]:
+def _collect_codes(result) -> list[str]:
     """The rule codes of all warnings on *result*."""
     return [w.code for w in result.warnings]
 
 
-def _configured(**settings) -> NamingCanonCheck:
+def _configure_check(**settings) -> NamingCanonCheck:
     """A check with *settings* applied."""
     check = NamingCanonCheck()
     check.configure(settings=settings)
@@ -47,18 +48,28 @@ def test_verb_first_class_is_a_warning(tmp_path: Path) -> None:
     result = _run(root=tmp_path, body="class FetchUsers:\n    pass\n")
 
     # Assert: a warning, not a violation, and the check reports WARN.
-    assert _codes(result) == ["NAMING-006"]
+    assert _collect_codes(result) == ["NAMING-006"]
     assert result.violations == [] and result.status is Status.WARN
 
 
 def test_noun_phrase_classes_pass(tmp_path: Path) -> None:
     body = "".join(
         f"class {name}:\n    pass\n"
-        for name in ("UserFetcher", "FetchOptions", "ConnectTimeout", "CompileError", "DeleteView",
-                     "SaveTest2", "Configurable", "BuildResult", "CONSOLE_INFO", "Fetch")
+        for name in (
+            "UserFetcher",
+            "FetchOptions",
+            "ConnectTimeout",
+            "CompileError",
+            "DeleteView",
+            "SaveTest2",
+            "ConfigurableCheck",
+            "BuildResult",
+            "CONSOLE_INFO",
+            "Fetch",
+        )
     )
     result = _run(root=tmp_path, body=body)
-    assert _codes(result) == []
+    assert _collect_codes(result) == []
 
 
 def test_command_object_suffixes_are_exempt_and_extensible(tmp_path: Path) -> None:
@@ -67,16 +78,24 @@ def test_command_object_suffixes_are_exempt_and_extensible(tmp_path: Path) -> No
 
     # Act
     default = _run(root=tmp_path, body=body)
-    extended = _run(root=tmp_path, body=body, check=_configured(command_suffixes=["Interactor"]))
+    extended = _run(
+        root=tmp_path,
+        body=body,
+        check=_configure_check(command_suffixes=["Interactor"]),
+    )
 
     # Assert: the bundled suffix survives the extension.
     assert [w.line for w in default.warnings] == [3]
-    assert _codes(extended) == []
+    assert _collect_codes(extended) == []
 
 
 @pytest.mark.parametrize(
     ("name", "suggested"),
-    [("ValidateOrder", "OrderValidator"), ("_Send2Users", "_UsersSender2"), ("EmitMetrics", "MetricsEmitter")],
+    [
+        ("ValidateOrder", "OrderValidator"),
+        ("_Send2Users", "_UsersSender2"),
+        ("EmitMetrics", "MetricsEmitter"),
+    ],
 )
 def test_class_fix_names_the_thing(tmp_path: Path, name: str, suggested: str) -> None:
     result = _run(root=tmp_path, body=f"class {name}:\n    pass\n")
@@ -85,11 +104,18 @@ def test_class_fix_names_the_thing(tmp_path: Path, name: str, suggested: str) ->
 
 @pytest.mark.parametrize(
     ("verb", "noun"),
-    [("validate", "validator"), ("parse", "parser"), ("get", "getter"), ("notify", "notifier"),
-     ("execute", "executor"), ("collect", "collector"), ("send", "sender")],
+    [
+        ("validate", "validator"),
+        ("parse", "parser"),
+        ("get", "getter"),
+        ("notify", "notifier"),
+        ("execute", "executor"),
+        ("collect", "collector"),
+        ("send", "sender"),
+    ],
 )
 def test_agent_noun(verb: str, noun: str) -> None:
-    assert agent_noun(verb=verb) == noun
+    assert derive_agent_noun(verb=verb) == noun
 
 
 # --------------------------------------------------------------------------- #
@@ -99,7 +125,7 @@ def test_agent_noun(verb: str, noun: str) -> None:
 
 def test_noun_named_command_is_flagged(tmp_path: Path) -> None:
     result = _run(root=tmp_path, body="def layout(root):\n    root.write_text('x')\n")
-    assert _codes(result) == ["NAMING-007"]
+    assert _collect_codes(result) == ["NAMING-007"]
 
 
 def test_verb_first_commands_pass(tmp_path: Path) -> None:
@@ -112,7 +138,7 @@ def test_verb_first_commands_pass(tmp_path: Path) -> None:
         "def setUp(self):\n    self.x.clear()\n"
     )
     result = _run(root=tmp_path, body=body)
-    assert _codes(result) == []
+    assert _collect_codes(result) == []
 
 
 def test_queries_named_for_their_value_pass(tmp_path: Path) -> None:
@@ -122,14 +148,22 @@ def test_queries_named_for_their_value_pass(tmp_path: Path) -> None:
         "def rows():\n    yield 1\n"
     )
     result = _run(root=tmp_path, body=body)
-    assert _codes(result) == []
+    assert _collect_codes(result) == []
 
 
 @pytest.mark.parametrize(
     ("name", "suggested"),
-    [("_cert_verify", "_verify_cert"), ("user_count_update", "update_user_count"), ("bulk_cert_verify", "bulk_verify_cert")],
+    [
+        ("_cert_verify", "_verify_cert"),
+        ("user_count_update", "update_user_count"),
+        ("bulk_cert_verify", "bulk_verify_cert"),
+    ],
 )
-def test_command_fix_puts_the_trailing_verb_first(tmp_path: Path, name: str, suggested: str) -> None:
+def test_command_fix_puts_the_trailing_verb_first(
+    tmp_path: Path,
+    name: str,
+    suggested: str,
+) -> None:
     result = _run(root=tmp_path, body=f"def {name}(conn):\n    conn.clear()\n")
     assert f"'{suggested}'" in result.warnings[0].fix
 
@@ -140,8 +174,11 @@ def test_command_message_names_the_judged_word_not_the_modifier(tmp_path: Path) 
 
 
 def test_non_ascii_names_are_not_judged(tmp_path: Path) -> None:
-    result = _run(root=tmp_path, body="def résumé_thing(x):\n    x.clear()\nclass Envoyé:\n    pass\n")
-    assert _codes(result) == []
+    result = _run(
+        root=tmp_path,
+        body="def résumé_thing(x):\n    x.clear()\nclass Envoyé:\n    pass\n",
+    )
+    assert _collect_codes(result) == []
 
 
 def test_framework_named_functions_pass(tmp_path: Path) -> None:
@@ -163,7 +200,7 @@ def test_framework_named_functions_pass(tmp_path: Path) -> None:
     result = _run(root=tmp_path, body=body)
 
     # Assert
-    assert _codes(result) == []
+    assert _collect_codes(result) == []
 
 
 def test_closures_stubs_and_raisers_pass(tmp_path: Path) -> None:
@@ -174,12 +211,16 @@ def test_closures_stubs_and_raisers_pass(tmp_path: Path) -> None:
         "def placeholder():\n    pass\n"
     )
     result = _run(root=tmp_path, body=body)
-    assert _codes(result) == []
+    assert _collect_codes(result) == []
 
 
 def test_generated_migration_trees_are_skipped(tmp_path: Path) -> None:
-    result = _run(root=tmp_path, body="def schema_step(op):\n    op.clear()\n", name="migrations/0001.py")
-    assert _codes(result) == []
+    result = _run(
+        root=tmp_path,
+        body="def schema_step(op):\n    op.clear()\n",
+        name="migrations/0001.py",
+    )
+    assert _collect_codes(result) == []
 
 
 def test_a_migrations_directory_above_the_root_does_not_silence_the_check(tmp_path: Path) -> None:
@@ -190,7 +231,7 @@ def test_a_migrations_directory_above_the_root_does_not_silence_the_check(tmp_pa
     result = _run(root=root, body="def schema_step(op):\n    op.clear()\n")
 
     # Assert
-    assert _codes(result) == ["NAMING-007"]
+    assert _collect_codes(result) == ["NAMING-007"]
 
 
 def test_unparseable_and_bom_files(tmp_path: Path) -> None:
@@ -199,7 +240,7 @@ def test_unparseable_and_bom_files(tmp_path: Path) -> None:
     (tmp_path / "bom.py").write_bytes(b"\xef\xbb\xbfdef layout(root):\n    root.clear()\n")
 
     # Act
-    result = NamingCanonCheck().run(src_root=str(tmp_path))
+    result = NamingCanonCheck().check(Scan(root=tmp_path))
 
     # Assert
     assert [(w.code, w.file) for w in result.warnings] == [("NAMING-007", "bom.py")]
@@ -217,20 +258,28 @@ def test_verbs_config_extends_the_vocabulary(tmp_path: Path) -> None:
 
     # Act
     default = _run(root=tmp_path, body=body)
-    extended = _run(root=tmp_path, body=body, check=_configured(verbs=["frob"]))
+    extended = _run(root=tmp_path, body=body, check=_configure_check(verbs=["frob"]))
 
     # Assert
-    assert _codes(default) == ["NAMING-007"]
-    assert _codes(extended) == []
+    assert _collect_codes(default) == ["NAMING-007"]
+    assert _collect_codes(extended) == []
 
 
 def test_exempt_config_silences_a_name_with_or_without_underscores(tmp_path: Path) -> None:
-    result = _run(root=tmp_path, body="def _layout(root):\n    root.clear()\n", check=_configured(exempt=["layout"]))
-    assert _codes(result) == []
+    result = _run(
+        root=tmp_path,
+        body="def _layout(root):\n    root.clear()\n",
+        check=_configure_check(exempt=["layout"]),
+    )
+    assert _collect_codes(result) == []
 
 
 def test_findings_carry_a_root_relative_posix_path(tmp_path: Path) -> None:
-    result = _run(root=tmp_path, body="def layout(root):\n    root.clear()\n", name="pkg/sub/mod.py")
+    result = _run(
+        root=tmp_path,
+        body="def layout(root):\n    root.clear()\n",
+        name="pkg/sub/mod.py",
+    )
     assert result.warnings[0].file == "pkg/sub/mod.py" and result.warnings[0].line == 1
 
 
@@ -247,7 +296,7 @@ def test_weak_verbs_are_flagged(tmp_path: Path) -> None:
     result = _run(root=tmp_path, body=body)
 
     # Assert: both fire, and the fix names the object after 'deal with'.
-    assert _codes(result) == ["NAMING-008", "NAMING-008"]
+    assert _collect_codes(result) == ["NAMING-008", "NAMING-008"]
     assert "parse_error" in result.warnings[1].fix
 
 
@@ -264,7 +313,7 @@ def test_weak_verb_exemptions(tmp_path: Path) -> None:
     result = _run(root=tmp_path, body=body)
 
     # Assert
-    assert _codes(result) == []
+    assert _collect_codes(result) == []
 
 
 def test_weak_verbs_config_replaces_the_default(tmp_path: Path) -> None:
@@ -272,7 +321,7 @@ def test_weak_verbs_config_replaces_the_default(tmp_path: Path) -> None:
     body = "def handle_data(d):\n    d.clear()\ndef frob_data(d):\n    d.clear()\n"
 
     # Act
-    result = _run(root=tmp_path, body=body, check=_configured(weak_verbs=["frob"]))
+    result = _run(root=tmp_path, body=body, check=_configure_check(weak_verbs=["frob"]))
 
     # Assert: only the configured verb fires, and as a weak verb rather than a missing one.
     assert [(w.code, w.line) for w in result.warnings] == [("NAMING-008", 3)]
@@ -283,3 +332,200 @@ def test_malformed_config_is_rejected() -> None:
         NamingCanonCheck().configure(settings={"verbs": "frobnicate"})
     with pytest.raises(ValueError):
         NamingCanonCheck().configure(settings={"exempt": ["two words"]})
+
+
+# --------------------------------------------------------------------------- #
+# Red-team additions
+# --------------------------------------------------------------------------- #
+
+
+def test_exception_and_outcome_classes_are_things(tmp_path: Path) -> None:
+    # Arrange: a verb-first exception, a participle head on a custom base, and an attribute head.
+    body = (
+        "class SendFailed(RuntimeError):\n    pass\n"
+        "class DecodeFailed(AppBase):\n    pass\n"
+        "class DeleteBehaviour(Enum):\n    CASCADE = 1\n"
+        "class EmitMetrics:\n    pass\n"
+    )
+
+    # Act.
+    result = _run(root=tmp_path, body=body)
+
+    # Assert: only the class that acts on its object is reported.
+    assert [(w.line, w.code) for w in result.warnings] == [(7, "NAMING-006")]
+
+
+def test_stdlib_protocol_hooks_and_framework_methods_are_not_commands(tmp_path: Path) -> None:
+    # Arrange: asyncio, socketserver, ast, sax, cmd, Django, DRF, Scrapy and pydantic names.
+    body = (
+        "class P(asyncio.Protocol):\n"
+        "    def connection_made(self, transport):\n        self.t = transport\n"
+        "    def data_received(self, data):\n        self.buf += data\n"
+        "class S(socketserver.TCPServer):\n"
+        "    def server_bind(self):\n        self.socket.bind(())\n"
+        "class V(ast.NodeVisitor):\n"
+        "    def generic_visit(self, node):\n        self.depth += 1\n"
+        "class H(xml.sax.ContentHandler):\n"
+        "    def characters(self, content):\n        self.text += content\n"
+        "class C(cmd.Cmd):\n"
+        "    def emptyline(self):\n        self.count += 1\n"
+        "class A(AppConfig):\n"
+        "    def ready(self):\n        import signals\n"
+        "class M(BaseModel):\n"
+        "    def model_post_init(self, ctx):\n        self.ready = True\n"
+        "class Sp(scrapy.Spider):\n"
+        "    def closed(self, reason):\n        self.log(reason)\n"
+        "    def spider_opened(self, spider):\n        self.started = True\n"
+        "def ready():\n    store.clear()\n"
+    )
+
+    # Act.
+    result = _run(root=tmp_path, body=body)
+
+    # Assert: every method passes; the module-level ``ready()`` is the author's and is reported.
+    assert [(w.line, w.code) for w in result.warnings] == [(29, "NAMING-007")]
+
+
+def test_camel_case_methods_on_a_subclass_are_the_base_apis(tmp_path: Path) -> None:
+    # Arrange: Qt and Twisted handlers on subclasses, and the same shape on a plain class and at module level.
+    body = (
+        "class W(QWidget):\n"
+        "    def mousePressEvent(self, event):\n        self.pressed = True\n"
+        "    def dataReceived(self, data):\n        self.buf += data\n"
+        "class L:\n"
+        "    def onMessage(self, msg):\n        self.inbox.append(msg)\n"
+        "    def userSync(self):\n        self.users.refresh()\n"
+        "def userSync(session):\n    session.refresh()\n"
+    )
+
+    # Act.
+    result = _run(root=tmp_path, body=body)
+
+    # Assert: the subclass methods and the hook-prefixed name pass; the rest are reported.
+    assert [(w.line, w.code) for w in result.warnings] == [(9, "NAMING-007"), (11, "NAMING-007")]
+
+
+def test_bare_callback_and_server_entry_points_pass(tmp_path: Path) -> None:
+    # Arrange: a callback handed to apply_async, a signal handler, a WSGI and an ASGI callable.
+    body = (
+        "def callback(result):\n    results.append(result)\n"
+        "def handler(signum, frame):\n    flags.stop = True\n"
+        "async def app(scope, receive, send):\n    await send({})\n"
+        "def application(environ, start_response):\n    start_response('200', [])\n"
+    )
+
+    # Act.
+    result = _run(root=tmp_path, body=body)
+
+    # Assert.
+    assert result.status == Status.PASS
+
+
+def test_domain_verbs_are_verbs(tmp_path: Path) -> None:
+    # Arrange: business, moderation and security verbs the list once lacked.
+    body = (
+        "def refund_order(order):\n    order.refunded = True\n"
+        "def invite_member(team, user):\n    team.invites.append(user)\n"
+        "def unban_user(user):\n    user.banned = False\n"
+        "def redact_secrets(text):\n    text.value = '***'\n"
+        "def rehydrate_cache(cache):\n    cache.load()\n"
+    )
+
+    # Act.
+    result = _run(root=tmp_path, body=body)
+
+    # Assert.
+    assert result.status == Status.PASS
+
+
+def test_drf_and_django_command_hooks_are_not_weak_verbs_on_a_plain_class(tmp_path: Path) -> None:
+    # Arrange: DRF's perform_* on a mixin without bases, Django's handle_label, and an author-chosen name.
+    body = (
+        "class OwnerMixin:\n"
+        "    def perform_create(self, serializer):\n        serializer.save()\n"
+        "    def handle_label(self, label, **options):\n        run(label)\n"
+        "    def handle_event(self, event):\n        self.events.append(event)\n"
+    )
+
+    # Act.
+    result = _run(root=tmp_path, body=body)
+
+    # Assert.
+    assert [(w.line, w.code) for w in result.warnings] == [(6, "NAMING-008")]
+
+
+def test_camel_case_method_on_a_subclass_of_a_local_base_is_the_authors(tmp_path: Path) -> None:
+    # Arrange: ``BaseService`` is defined here, so ``userData`` is no inherited API.
+    body = (
+        "class BaseService:\n"
+        "    pass\n"
+        "class X(BaseService):\n"
+        "    def userData(self):\n        self.cache.clear()\n"
+    )
+
+    # Act.
+    result = _run(root=tmp_path, body=body)
+
+    # Assert.
+    assert [(w.code, w.file, w.line) for w in result.warnings] == [("NAMING-007", "sample.py", 4)]
+
+
+def test_camel_case_method_on_a_nameless_base_is_the_authors(tmp_path: Path) -> None:
+    # Arrange: ``ABC`` and ``Generic[T]`` carry no method names to override.
+    body = "class X(ABC, Generic[T]):\n    def userData(self):\n        self.cache.clear()\n"
+
+    # Act.
+    result = _run(root=tmp_path, body=body)
+
+    # Assert.
+    assert [(w.code, w.file, w.line) for w in result.warnings] == [("NAMING-007", "sample.py", 2)]
+
+
+def test_camel_case_method_through_a_local_base_on_an_external_one_passes(
+    tmp_path: Path,
+) -> None:
+    # Arrange: the local ``Base`` extends Qt's ``QWidget``, so the name is still Qt's.
+    body = (
+        "class Base(QWidget):\n"
+        "    pass\n"
+        "class W(Base):\n"
+        "    def mousePressEvent(self, event):\n        self.pressed = True\n"
+    )
+
+    # Act.
+    result = _run(root=tmp_path, body=body)
+
+    # Assert.
+    assert result.warnings == []
+
+
+def test_weak_verb_method_on_a_subclass_of_a_local_base_is_reported(tmp_path: Path) -> None:
+    # Arrange: NAMING-008 skipped every method with a base; ``BaseService`` is this module's.
+    body = (
+        "class BaseService:\n"
+        "    pass\n"
+        "class X(BaseService):\n"
+        "    def handle_order(self, order):\n        return order.total\n"
+    )
+
+    # Act.
+    result = _run(root=tmp_path, body=body)
+
+    # Assert.
+    assert [(w.code, w.file, w.line) for w in result.warnings] == [("NAMING-008", "sample.py", 4)]
+
+
+def test_override_of_a_local_base_method_leaves_the_finding_on_the_base(tmp_path: Path) -> None:
+    # Arrange: ``Child`` overrides the name ``Base`` chose; only ``Base`` owns it.
+    body = (
+        "class Base:\n"
+        "    def handle_order(self, order):\n        return order.total\n"
+        "class Child(Base):\n"
+        "    def handle_order(self, order):\n        return order.total * 2\n"
+    )
+
+    # Act.
+    result = _run(root=tmp_path, body=body)
+
+    # Assert.
+    assert [(w.code, w.file, w.line) for w in result.warnings] == [("NAMING-008", "sample.py", 2)]

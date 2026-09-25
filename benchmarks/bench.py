@@ -21,9 +21,10 @@ from pathlib import Path
 
 from lanorme import Check, get_all_checks
 from lanorme.cli import _load_builtin_checks
+from lanorme.scan import Scan
 
 
-def _corpus_stats(*, root: Path) -> tuple[int, int]:
+def _measure_corpus_size(*, root: Path) -> tuple[int, int]:
     """Return (file count, total line count) for *.py under root."""
     files = list(root.rglob("*.py"))
     lines = 0
@@ -51,7 +52,7 @@ def _time_check(*, check: Check, root: str, runs: int) -> float:
     samples: list[float] = []
     for _ in range(runs):
         start = time.perf_counter()
-        check.run(src_root=root)
+        check.check(Scan(root=Path(root)))
         samples.append(time.perf_counter() - start)
     return statistics.median(samples)
 
@@ -67,15 +68,18 @@ def main(argv: list[str]) -> None:
     _load_builtin_checks()
     checks = get_all_checks()
 
-    n_files, n_lines = _corpus_stats(root=root)
+    n_files, n_lines = _measure_corpus_size(root=root)
     parse = _parse_pass(root=root)
 
     # Warm the filesystem cache before timing.
     for check in checks.values():
-        check.run(src_root=str(root))
+        check.check(Scan(root=root))
 
     rows = sorted(
-        ((name, _time_check(check=check, root=str(root), runs=runs)) for name, check in checks.items()),
+        (
+            (name, _time_check(check=check, root=str(root), runs=runs))
+            for name, check in checks.items()
+        ),
         key=lambda row: row[1],
         reverse=True,
     )
@@ -83,7 +87,7 @@ def main(argv: list[str]) -> None:
 
     print(
         f"LaNorme benchmark — Python {platform.python_version()} "
-        f"on {platform.system()} {platform.machine()}"
+        f"on {platform.system()} {platform.machine()}",
     )
     print(f"corpus: {root}  ({n_files} .py files, {n_lines:,} lines)  runs={runs} (median)")
     print(f"single walk+parse pass: {parse * 1000:.1f} ms\n")
@@ -103,7 +107,7 @@ def main(argv: list[str]) -> None:
             f"\n~{parsing_checks} checks each parse the tree independently. A shared parse "
             f"cache could save ≈ {redundant * 1000:.0f} ms "
             f"({redundant / total_no_meta * 100:.0f}% of the non-meta cost) — "
-            f"the cost/benefit of giving up check independence."
+            f"the cost/benefit of giving up check independence.",
         )
 
 

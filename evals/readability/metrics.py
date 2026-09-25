@@ -25,7 +25,9 @@ from pathlib import Path
 
 # Single letters that are conventional and readable in their idiom: loop
 # counters, throwaway targets, and the maths-style axes used in numeric code.
-CONVENTIONAL_SHORT_NAMES = frozenset({"_", "i", "j", "k", "n", "x", "y", "z", "db", "id", "fh", "op", "lr", "pk"})
+CONVENTIONAL_SHORT_NAMES = frozenset(
+    {"_", "i", "j", "k", "n", "x", "y", "z", "db", "id", "fh", "op", "lr", "pk"},
+)
 
 # A comment that instructs tooling rather than a reader.
 PRAGMA = re.compile(r"^#\s*(noqa|type:|pragma|pylint|mypy|ruff|fmt:|lanorme:|!)")
@@ -71,10 +73,16 @@ class FileMetrics:
         return {
             "path": self.path,
             "effective_lines": self.effective_lines,
-            "short_name_rate": _ratio(subset=self.short_identifiers, total=self.identifiers),
+            "short_name_rate": _compute_ratio(
+                subset=self.short_identifiers,
+                total=self.identifiers,
+            ),
             "short_names": sorted(set(self.short_identifiers)),
             "comments_per_100_lines": round(self.explanatory_comments * per_hundred, 2),
-            "docstring_coverage": _ratio_counts(part=self.documented_definitions, total=self.definitions),
+            "docstring_coverage": _compute_count_ratio(
+                part=self.documented_definitions,
+                total=self.definitions,
+            ),
             "undocumented_definitions": self.undocumented_definitions,
             "trivial_docstrings": self.trivial_docstrings,
             "heavy_comprehensions": len(self.heavy_comprehensions),
@@ -83,12 +91,12 @@ class FileMetrics:
         }
 
 
-def _ratio(*, subset: list[str], total: int) -> float:
+def _compute_ratio(*, subset: list[str], total: int) -> float:
     """Fraction of *total* covered by *subset*, 0.0 when there is nothing to divide."""
     return round(len(subset) / total, 3) if total else 0.0
 
 
-def _ratio_counts(*, part: int, total: int) -> float:
+def _compute_count_ratio(*, part: int, total: int) -> float:
     """Fraction *part* of *total*, 0.0 when there is nothing to divide."""
     return round(part / total, 3) if total else 0.0
 
@@ -100,15 +108,15 @@ def _is_short(*, name: str) -> bool:
     return len(name.lstrip("_")) <= 2
 
 
-def _expression_depth(*, node: ast.AST, depth: int = 0) -> int:
+def _measure_expression_depth(*, node: ast.AST, depth: int = 0) -> int:
     """Deepest chain of nested expression nodes reachable from *node*."""
     children = [c for c in ast.iter_child_nodes(node) if isinstance(c, ast.expr)]
     if not children:
         return depth
-    return max(_expression_depth(node=c, depth=depth + 1) for c in children)
+    return max(_measure_expression_depth(node=c, depth=depth + 1) for c in children)
 
 
-def _declared_names(*, node: ast.AST) -> list[str]:
+def _collect_declared_names(*, node: ast.AST) -> list[str]:
     """Names *node* introduces: parameters, assignment targets, definitions."""
     if isinstance(node, ast.arg):
         return [node.arg]
@@ -122,7 +130,7 @@ def _declared_names(*, node: ast.AST) -> list[str]:
 def _collect_names(*, tree: ast.Module, into: FileMetrics) -> None:
     """Count every declared identifier and record the ones too short to read."""
     for node in ast.walk(tree):
-        for name in _declared_names(node=node):
+        for name in _collect_declared_names(node=node):
             into.identifiers += 1
             if _is_short(name=name):
                 into.short_identifiers.append(name)
@@ -142,7 +150,7 @@ def _collect_docstrings(*, tree: ast.Module, into: FileMetrics) -> None:
             into.trivial_docstrings += 1
 
 
-def _comprehension_load(*, node: ast.expr) -> int:
+def _measure_comprehension_load(*, node: ast.expr) -> int:
     """Steps a reader must hold at once to follow one comprehension."""
     generators = getattr(node, "generators", [])
     inner = list(ast.walk(node))
@@ -157,12 +165,12 @@ def _collect_expressions(*, tree: ast.Module, into: FileMetrics) -> None:
     """Record comprehension load and the deepest single expression."""
     for node in ast.walk(tree):
         if isinstance(node, _COMPREHENSION_TYPES):
-            load = _comprehension_load(node=node)
+            load = _measure_comprehension_load(node=node)
             into.max_comprehension_load = max(into.max_comprehension_load, load)
             if load > COMPREHENSION_LOAD_BUDGET:
                 into.heavy_comprehensions.append(load)
         if isinstance(node, ast.stmt):
-            depth = _expression_depth(node=node)
+            depth = _measure_expression_depth(node=node)
             into.max_expression_depth = max(into.max_expression_depth, depth)
 
 
@@ -174,7 +182,13 @@ def _collect_comments(*, source: str, into: FileMetrics) -> None:
         if token.type == tokenize.COMMENT:
             if not PRAGMA.match(token.string.strip()):
                 into.explanatory_comments += 1
-        elif token.type not in (tokenize.NL, tokenize.NEWLINE, tokenize.INDENT, tokenize.DEDENT, tokenize.ENDMARKER):
+        elif token.type not in (
+            tokenize.NL,
+            tokenize.NEWLINE,
+            tokenize.INDENT,
+            tokenize.DEDENT,
+            tokenize.ENDMARKER,
+        ):
             code_lines.add(token.start[0])
     into.effective_lines = len(code_lines)
 

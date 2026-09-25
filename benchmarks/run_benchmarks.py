@@ -74,7 +74,7 @@ def _ensure_corpus(*, name: str, spec: str) -> Path | None:
     return dest
 
 
-def _corpus_size(*, root: Path) -> tuple[int, int]:
+def _measure_corpus_size(*, root: Path) -> tuple[int, int]:
     files = list(root.rglob("*.py"))
     lines = 0
     for path in files:
@@ -112,10 +112,13 @@ def main(argv: list[str]) -> None:
         root = _ensure_corpus(name=name, spec=spec)
         if root is None:
             continue
-        n_files, n_lines = _corpus_size(root=root)
+        n_files, n_lines = _measure_corpus_size(root=root)
         seconds = _time_end_to_end(root=root, runs=args.runs)
         klps = (n_lines / 1000) / seconds if seconds else 0.0
-        print(f"{name:14}{n_files:>8}{n_lines:>12,}{seconds * 1000:>11.0f} ms{klps:>11.1f}", flush=True)
+        print(
+            f"{name:14}{n_files:>8}{n_lines:>12,}{seconds * 1000:>11.0f} ms{klps:>11.1f}",
+            flush=True,
+        )
 
     print("-" * 60)
     print("end-to-end = full `lanorme check` process incl. meta; see bench.py for per-check.")

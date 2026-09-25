@@ -1,7 +1,7 @@
 # CMT-005 — Restating / redundant comment detector (design)
 
-Status: design only. The current implementation (`_restates` /
-`_restating_violations` in `src/lanorme/checks/comments.py`) is a placeholder,
+Status: design only. The current implementation (`_is_restating` /
+`_find_restating_violations` in `src/lanorme/checks/comments.py`) is a placeholder,
 off by default, and false-positive-prone. This document specifies the detector
 that should replace it.
 
@@ -92,7 +92,7 @@ adjacent to a simple statement — but the gating set and its short-circuit
 semantics are identical: failing any one gate drops the comment.
 
 This is self-contained: every helper lives in `comments.py` alongside the
-existing `_restates` / `_restating_violations`, using only `ast`, `tokenize`,
+existing `_is_restating` / `_find_restating_violations`, using only `ast`, `tokenize`,
 `re` (all already imported there). No new module, no shared cross-check
 infrastructure, no pip dependencies.
 
@@ -138,7 +138,7 @@ C/D. Categories are checked with short-circuit OR: first hit exempts.
 
 **(a) Lexical token overlap (bag-of-words).** Compare the set of comment words
 to the set of code-line words; flag on high overlap. *This is what the
-placeholder does* (`_restates`). Cheap, but precision-poor: it has no notion of
+placeholder does* (`_is_restating`). Cheap, but precision-poor: it has no notion of
 *adjacency* (it text-steps to the next line via `_next_code_line`, which breaks
 on multi-line statements, blank lines, and decorators), no asymmetry (it treats
 `word in ident or ident in word`, which makes `id` match `identifier`,
@@ -277,27 +277,30 @@ Notes:
 
 ```python
 # Tunables (section 5) ----------------------------------------------------
-MAX_CONTENT_WORDS = 4        # comment longer than this in content words: skip
-MIN_STEM_LEN      = 4        # do not stem below this many remaining chars
-COVERAGE_FLOOR    = 1.0      # require FULL subsumption (no fuzzy fraction)
-ALLOW_TRAILING    = True     # consider `code  # restatement` too
+MAX_CONTENT_WORDS = 4  # comment longer than this in content words: skip
+MIN_STEM_LEN = 4  # do not stem below this many remaining chars
+COVERAGE_FLOOR = 1.0  # require FULL subsumption (no fuzzy fraction)
+ALLOW_TRAILING = True  # consider `code  # restatement` too
 
 # Reused from the existing module:
 #   _PRAGMA_PREFIXES, _STOPWORDS, _WORD, _Comment (with .standalone),
 #   the standalone-block-collapse logic from _block_violations.
 
+
 def _statement_at_line(stmt_index: dict[int, ast.stmt], line: int) -> ast.stmt | None:
     """Top-level statement whose lineno == line (built once per file)."""
     return stmt_index.get(line)
+
 
 def _build_stmt_index(tree) -> dict[int, ast.stmt]:
     index = {}
     for node in ast.walk(tree):
         if isinstance(node, ast.stmt):
-            index.setdefault(node.lineno, node)        # first wins
+            index.setdefault(node.lineno, node)  # first wins
     return index
 
-def _adjacent_statement(comment, stmt_index, stmt_lines):
+
+def _find_adjacent_statement(comment, stmt_index, stmt_lines):
     # standalone comment: the next statement that STARTS strictly below it,
     #                     with no other statement starting in between.
     # trailing comment:   the statement that STARTS on the comment's own line.
@@ -306,6 +309,7 @@ def _adjacent_statement(comment, stmt_index, stmt_lines):
         return stmt_index[min(below)] if below else None
     return stmt_index.get(comment.line)
 
+
 def _is_simple_statement(s) -> bool:
     # Exempts def/class/decorated/compound; allows the leaf statements that a
     # one-line restating comment could plausibly paraphrase.
@@ -313,12 +317,25 @@ def _is_simple_statement(s) -> bool:
         return False
     if getattr(s, "decorator_list", None):
         return False
-    return isinstance(s, (
-        ast.Assign, ast.AnnAssign, ast.AugAssign, ast.Return, ast.Delete,
-        ast.Raise, ast.Assert, ast.Import, ast.ImportFrom,
-        ast.For, ast.AsyncFor, ast.While,
-        ast.Expr,                       # bare call / expression statement
-    ))
+    return isinstance(
+        s,
+        (
+            ast.Assign,
+            ast.AnnAssign,
+            ast.AugAssign,
+            ast.Return,
+            ast.Delete,
+            ast.Raise,
+            ast.Assert,
+            ast.Import,
+            ast.ImportFrom,
+            ast.For,
+            ast.AsyncFor,
+            ast.While,
+            ast.Expr,  # bare call / expression statement
+        ),
+    )
+
 
 def _in_comment_block(comment, all_standalone_comments) -> bool:
     # True if a neighbouring standalone comment is directly above or below
@@ -326,49 +343,55 @@ def _in_comment_block(comment, all_standalone_comments) -> bool:
     # prose; never restatements.
     ...
 
+
 def _restates_v2(comment, s) -> tuple[bool, float]:
     text = comment.text
-    low  = text.lower()
+    low = text.lower()
     # GATE B: allowlist (returns early; never flagged)
-    if _is_pragma(text) or _is_allowlisted(low):     # categories 1-10
+    if _is_pragma(text) or _is_allowlisted(low):  # categories 1-10
         return (False, 0.0)
     words = [w for w in _WORD.findall(low) if w not in _STOPWORDS]
-    verbs   = [w for w in words if w in _VERB_TABLE]
+    verbs = [w for w in words if w in _VERB_TABLE]
     content = [w for w in words if w not in _VERB_TABLE]
     if not words or len(content) + len(verbs) > MAX_CONTENT_WORDS:
-        return (False, 0.0)            # GATE A: too long / empty
-    code_tokens = _code_tokens(s)      # set of stemmed identifier/keyword words
+        return (False, 0.0)  # GATE A: too long / empty
+    code_tokens = _collect_code_tokens(s)  # set of stemmed identifier/keyword words
     covered_w = sum(any(stem_match(w, t) for t in code_tokens) for w in content)
-    covered_v = sum(_VERB_TABLE[v](s) for v in verbs)   # predicate on node type
+    covered_v = sum(_VERB_TABLE[v](s) for v in verbs)  # predicate on node type
     n = len(content) + len(verbs)
     coverage = (covered_w + covered_v) / n
     return (coverage >= COVERAGE_FLOOR, coverage)
 
-def _restating_violations(comments, tree, source_lines, relative_file):
-    stmt_index   = _build_stmt_index(tree)
-    stmt_lines   = sorted(stmt_index)
-    standalone   = [c for c in comments if c.standalone]
+
+def _find_restating_violations(comments, tree, source_lines, relative_file):
+    stmt_index = _build_stmt_index(tree)
+    stmt_lines = sorted(stmt_index)
+    standalone = [c for c in comments if c.standalone]
     out = []
     for c in comments:
         if c.standalone and _in_comment_block(c, standalone):
-            continue                                   # GATE A: prose block
+            continue  # GATE A: prose block
         if not c.standalone and not ALLOW_TRAILING:
             continue
-        s = _adjacent_statement(c, stmt_index, stmt_lines)   # GATE C
-        if s is None or not _is_simple_statement(s):         # GATE D + cat 11
+        s = _find_adjacent_statement(c, stmt_index, stmt_lines)  # GATE C
+        if s is None or not _is_simple_statement(s):  # GATE D + cat 11
             continue
         flag, _ = _restates_v2(c, s)
         if flag:
-            out.append(_violation(
-                relative_file=relative_file, line=c.line, code="CMT-005",
-                message=f"Comment restates the code: {c.text[:50]}",
-                fix="Remove it, or explain the why rather than the what",
-            ))
+            out.append(
+                _build_violation(
+                    relative_file=relative_file,
+                    line=c.line,
+                    code="CMT-005",
+                    message=f"Comment restates the code: {c.text[:50]}",
+                    fix="Remove it, or explain the why rather than the what",
+                )
+            )
     return out
 ```
 
 The only signature change versus the placeholder is passing `tree` into
-`_restating_violations` (the AST is already parsed in `run` and already passed to
+`_find_restating_violations` (the AST is already parsed in `run` and already passed to
 `_scan_file`), so the change is local and self-contained.
 
 ---
@@ -429,7 +452,7 @@ The recurring pattern: **valuable comments fail a gate or drop below coverage
 
 ## 7. Why this is more precise than the placeholder
 
-The placeholder (`_restates`) fails on all four axes; the design fixes each:
+The placeholder (`_is_restating`) fails on all four axes; the design fixes each:
 
 1. **Adjacency.** `_next_code_line` text-steps to the next non-blank line, which
    misattributes the comment when statements span lines, follow blanks, or are

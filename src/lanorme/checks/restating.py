@@ -24,47 +24,125 @@ Run:
 from __future__ import annotations
 
 import ast
-import io
 import re
-import tokenize
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from pathlib import Path
+from typing import ClassVar
 
-from lanorme import CheckResult, Status, Violation, register
-from lanorme.discovery import iter_py_files
+from lanorme import CheckResult, Violation, register
+from lanorme.checkconfig import is_flag_set
+from lanorme.comment_code import _PRAGMA_PREFIXES, Comment
+from lanorme.scan import Scan
+from lanorme.sources import iter_parsed_modules
 
 MAX_CONTENT_WORDS = 4
 MIN_STEM_LEN = 4
 COVERAGE_FLOOR = 1.0
 ALLOW_TRAILING = True
 
-_PRAGMA_PREFIXES = (
-    "noqa", "type:", "pragma", "pylint:", "mypy:", "ruff:", "isort:", "fmt:",
-    "!", "-*-", "region", "endregion",
+_STOPWORDS = frozenset(
+    {
+        "the",
+        "a",
+        "an",
+        "to",
+        "of",
+        "and",
+        "or",
+        "for",
+        "in",
+        "on",
+        "is",
+        "be",
+        "this",
+        "that",
+        "it",
+        "with",
+        "by",
+        "as",
+        "at",
+        "from",
+        "into",
+        "are",
+        "was",
+        "were",
+        "we",
+        "you",
+        "they",
+        "its",
+        "any",
+        "all",
+        "some",
+    },
 )
-
-_STOPWORDS = frozenset({
-    "the", "a", "an", "to", "of", "and", "or", "for", "in", "on", "is", "be",
-    "this", "that", "it", "with", "by", "as", "at", "from", "into", "are",
-    "was", "were", "we", "you", "they", "its", "any", "all", "some",
-})
 
 _ALLOWLIST_TAGS = frozenset(
-    {"todo", "fixme", "xxx", "hack", "note", "bug", "review", "warning", "optimize", "deprecated"}
+    {"todo", "fixme", "xxx", "hack", "note", "bug", "review", "warning", "optimize", "deprecated"},
 )
 _ALLOWLIST_PHRASES: tuple[str, ...] = (
-    "so that", "so we", "in order to", "to avoid", "to prevent", "on purpose",
-    "due to", "caused by", "that's why", "which is why", "work around",
-    "do not", "don't", "must ", "must not", "not thread", "side effect", "in place",
-    "(c)", "all rights reserved", "mit license",
-    "http://", "https://", "www.", "see ", "see:", "cf.", "ref:", "ref ", "refs ",
-    "per ", "pep ", "pep-", "bug #", "issue #", "gh-",
-    "e.g.", "i.e.", "eg.", "for example", "for instance", "example:", "examples:", "such as",
-    ":param", ":type", ":returns", ":return:", ":rtype", ":raises",
-    "args:", "returns:", "raises:", "yields:", "params:", "usage:",
-    "public:", "internal:",
-    "0-based", "1-based", "zero-based", "one-based", "null-terminated",
+    "so that",
+    "so we",
+    "in order to",
+    "to avoid",
+    "to prevent",
+    "on purpose",
+    "due to",
+    "caused by",
+    "that's why",
+    "which is why",
+    "work around",
+    "do not",
+    "don't",
+    "must ",
+    "must not",
+    "not thread",
+    "side effect",
+    "in place",
+    "(c)",
+    "all rights reserved",
+    "mit license",
+    "http://",
+    "https://",
+    "www.",
+    "see ",
+    "see:",
+    "cf.",
+    "ref:",
+    "ref ",
+    "refs ",
+    "per ",
+    "pep ",
+    "pep-",
+    "bug #",
+    "issue #",
+    "gh-",
+    "e.g.",
+    "i.e.",
+    "eg.",
+    "for example",
+    "for instance",
+    "example:",
+    "examples:",
+    "such as",
+    ":param",
+    ":type",
+    ":returns",
+    ":return:",
+    ":rtype",
+    ":raises",
+    "args:",
+    "returns:",
+    "raises:",
+    "yields:",
+    "params:",
+    "usage:",
+    "public:",
+    "internal:",
+    "0-based",
+    "1-based",
+    "zero-based",
+    "one-based",
+    "null-terminated",
 )
 _ALLOWLIST_WORD_RE = re.compile(
     r"\b(?:"
@@ -77,17 +155,23 @@ _ALLOWLIST_WORD_RE = re.compile(
     re.IGNORECASE,
 )
 _SECTION_HEADER_DASH = re.compile(r"^[-=#*~ ]{2,}$")
+# ``--- Setup ---`` and ``== Totals``: a title framed or led by a rule.
+_SECTION_HEADER_FRAMED = re.compile(r"^[-=#*~]{2,}\s+\S")
 _NUMERIC_REF = re.compile(r"#\d+")
 _CAMEL_SPLIT = re.compile(r"[A-Z]+(?=[A-Z][a-z])|[A-Z]?[a-z]+|[A-Z]+|[0-9]+")
 _WORD = re.compile(r"[A-Za-z]+")
 
 _STMT_KEYWORD: dict[type, str] = {
-    ast.Return: "return", ast.Delete: "del", ast.Assert: "assert", ast.Raise: "raise",
-    ast.Import: "import", ast.ImportFrom: "import",
-    ast.For: "for", ast.AsyncFor: "for", ast.While: "while",
+    ast.Return: "return",
+    ast.Delete: "del",
+    ast.Assert: "assert",
+    ast.Raise: "raise",
+    ast.Import: "import",
+    ast.ImportFrom: "import",
+    ast.For: "for",
+    ast.AsyncFor: "for",
+    ast.While: "while",
 }
-
-_SKIP_DIRS = frozenset({".git", ".venv", "venv", "node_modules", "__pycache__", "dist", "build"})
 
 
 def _split_identifier(*, name: str) -> list[str]:
@@ -97,7 +181,7 @@ def _split_identifier(*, name: str) -> list[str]:
     return [token.lower() for token in out if token]
 
 
-def _stem(*, word: str) -> str:
+def _strip_suffix(*, word: str) -> str:
     for suffix in ("ing", "tion", "ies", "es", "ed", "er", "s"):
         if word.endswith(suffix) and len(word) - len(suffix) >= MIN_STEM_LEN:
             return word[: -len(suffix)]
@@ -124,7 +208,11 @@ def _is_print_like(s: ast.stmt) -> bool:
     if not isinstance(s, ast.Expr) or not isinstance(s.value, ast.Call):
         return False
     func = s.value.func
-    name = func.id if isinstance(func, ast.Name) else (func.attr if isinstance(func, ast.Attribute) else "")
+    name = (
+        func.id
+        if isinstance(func, ast.Name)
+        else (func.attr if isinstance(func, ast.Attribute) else "")
+    )
     return name == "print" or name.startswith("log")
 
 
@@ -135,7 +223,10 @@ _VERB_TABLE: dict[str, Callable[[ast.stmt], bool]] = {
     **dict.fromkeys(("yield", "yields"), _contains_yield),
     **dict.fromkeys(("raise", "throw", "throws"), _is_node_type(types=(ast.Raise,))),
     **dict.fromkeys(("import", "imports"), _is_node_type(types=(ast.Import, ast.ImportFrom))),
-    **dict.fromkeys(("loop", "iterate", "iterates", "iterating"), _is_node_type(types=(ast.For, ast.AsyncFor, ast.While))),
+    **dict.fromkeys(
+        ("loop", "iterate", "iterates", "iterating"),
+        _is_node_type(types=(ast.For, ast.AsyncFor, ast.While)),
+    ),
     **dict.fromkeys(("assign", "set", "store"), _is_node_type(types=(ast.Assign, ast.AnnAssign))),
     **dict.fromkeys(("delete", "del", "remove"), _is_node_type(types=(ast.Delete,))),
     **dict.fromkeys(("assert", "check", "verify"), _is_node_type(types=(ast.Assert,))),
@@ -146,7 +237,7 @@ _VERB_TABLE: dict[str, Callable[[ast.stmt], bool]] = {
 
 def _is_section_header(text: str) -> bool:
     stripped = text.strip()
-    if _SECTION_HEADER_DASH.fullmatch(stripped):
+    if _SECTION_HEADER_DASH.fullmatch(stripped) or _SECTION_HEADER_FRAMED.match(stripped):
         return True
     words = stripped.split()
     return len(words) >= 2 and all(word.isupper() and len(word) >= 2 for word in words)
@@ -183,14 +274,24 @@ def _is_simple_statement(*, s: ast.stmt) -> bool:
     return isinstance(
         s,
         (
-            ast.Assign, ast.AnnAssign, ast.AugAssign, ast.Return, ast.Delete,
-            ast.Raise, ast.Assert, ast.Import, ast.ImportFrom,
-            ast.For, ast.AsyncFor, ast.While, ast.Expr,
+            ast.Assign,
+            ast.AnnAssign,
+            ast.AugAssign,
+            ast.Return,
+            ast.Delete,
+            ast.Raise,
+            ast.Assert,
+            ast.Import,
+            ast.ImportFrom,
+            ast.For,
+            ast.AsyncFor,
+            ast.While,
+            ast.Expr,
         ),
     )
 
 
-def _code_tokens(*, s: ast.stmt) -> set[str]:
+def _collect_code_tokens(*, s: ast.stmt) -> set[str]:
     raw: set[str] = set()
     for node in ast.walk(s):
         if isinstance(node, ast.Name):
@@ -204,14 +305,7 @@ def _code_tokens(*, s: ast.stmt) -> set[str]:
     keyword = _STMT_KEYWORD.get(type(s))
     if keyword:
         raw.add(keyword)
-    return {_stem(word=token) for token in raw if token}
-
-
-@dataclass(frozen=True)
-class _Comment:
-    line: int
-    text: str
-    standalone: bool
+    return {_strip_suffix(word=token) for token in raw if token}
 
 
 @dataclass(frozen=True)
@@ -221,7 +315,7 @@ class _Context:
     standalone_lines: set[int]
 
 
-def _adjacent_statement(*, comment: _Comment, ctx: _Context) -> ast.stmt | None:
+def _find_adjacent_statement(*, comment: Comment, ctx: _Context) -> ast.stmt | None:
     if comment.standalone:
         for line in ctx.stmt_lines:
             if line > comment.line:
@@ -230,7 +324,7 @@ def _adjacent_statement(*, comment: _Comment, ctx: _Context) -> ast.stmt | None:
     return ctx.stmt_index.get(comment.line)
 
 
-def _restates(*, comment: _Comment, s: ast.stmt) -> bool:
+def _is_restating(*, comment: Comment, s: ast.stmt) -> bool:
     text = comment.text
     low = text.lower()
     if _is_allowlisted(text=text, low=low):
@@ -240,30 +334,19 @@ def _restates(*, comment: _Comment, s: ast.stmt) -> bool:
         return False
     verbs = [w for w in words if w in _VERB_TABLE]
     content = [w for w in words if w not in _VERB_TABLE]
-    code = _code_tokens(s=s)
-    covered_w = sum(1 for w in content if _stem(word=w) in code)
+    code = _collect_code_tokens(s=s)
+    covered_w = sum(1 for w in content if _strip_suffix(word=w) in code)
     covered_v = sum(1 for v in verbs if _VERB_TABLE[v](s))
     total = len(content) + len(verbs)
     return total > 0 and (covered_w + covered_v) / total >= COVERAGE_FLOOR
 
 
-def _collect_comments(*, source: str, source_lines: list[str]) -> list[_Comment]:
-    comments: list[_Comment] = []
-    try:
-        for token in tokenize.generate_tokens(io.StringIO(source).readline):
-            if token.type != tokenize.COMMENT:
-                continue
-            row, col = token.start
-            before = source_lines[row - 1][:col] if 0 <= row - 1 < len(source_lines) else ""
-            comments.append(
-                _Comment(line=row, text=token.string.lstrip("#").strip(), standalone=not before.strip())
-            )
-    except (tokenize.TokenError, IndentationError, SyntaxError):
-        pass
-    return comments
-
-
-def _restating_violations(*, tree: ast.Module, comments: list[_Comment], file: str) -> list[Violation]:
+def _find_restating_violations(
+    *,
+    tree: ast.Module,
+    comments: list[Comment],
+    file: str,
+) -> list[Violation]:
     stmt_index = _build_stmt_index(tree=tree)
     ctx = _Context(
         stmt_index=stmt_index,
@@ -278,10 +361,10 @@ def _restating_violations(*, tree: ast.Module, comments: list[_Comment], file: s
             continue
         if not comment.standalone and not ALLOW_TRAILING:
             continue
-        s = _adjacent_statement(comment=comment, ctx=ctx)
+        s = _find_adjacent_statement(comment=comment, ctx=ctx)
         if s is None or not _is_simple_statement(s=s):
             continue
-        if _restates(comment=comment, s=s):
+        if _is_restating(comment=comment, s=s):
             found.append(
                 Violation(
                     file=file,
@@ -289,7 +372,8 @@ def _restating_violations(*, tree: ast.Module, comments: list[_Comment], file: s
                     rule="CMT-005",
                     message=f"Comment restates the code: {comment.text[:50]}",
                     fix="Remove it, or explain the why rather than the what",
-                )
+                    column=comment.column,
+                ),
             )
     return found
 
@@ -304,37 +388,28 @@ class RestatingCheck:
     rules: list[str] = field(
         default_factory=lambda: [
             "CMT-005: No comments that restate the next line of code (experimental)",
-        ]
+        ],
     )
+    settings_keys: ClassVar[frozenset[str]] = frozenset({"enabled"})
 
-    def configure(self, *, settings: dict[str, bool]) -> None:
+    def configure(self, *, settings: dict[str, object]) -> None:
         """Apply ``[tool.lanorme.restating]`` configuration."""
-        if "enabled" in settings:
-            self.enabled = bool(settings["enabled"])
+        self.enabled = is_flag_set(settings=settings, key="enabled", default=self.enabled)
 
-    def run(self, *, src_root: str) -> CheckResult:
+    def check(self, scan: Scan) -> CheckResult:
         if not self.enabled:
-            return CheckResult(check=self.name, status=Status.PASS, violations=[])
+            return CheckResult.from_findings(check=self.name)
         violations: list[Violation] = []
-        root = Path(src_root)
-        for path in iter_py_files(root):
-            # Match skip directories inside the root only: the absolute path's
-            # ancestors are the user's filesystem, not the project layout.
-            relative = path.relative_to(root)
-            if any(part in _SKIP_DIRS for part in relative.parts):
-                continue
-            try:
-                source = path.read_text(encoding="utf-8")
-                tree = ast.parse(source, filename=str(path))
-            except (OSError, UnicodeDecodeError, SyntaxError):
-                continue
-            source_lines = source.splitlines()
-            comments = _collect_comments(source=source, source_lines=source_lines)
+        for module in iter_parsed_modules(scan.root):
+            comments = list(module.comments)
             violations.extend(
-                _restating_violations(tree=tree, comments=comments, file=relative.as_posix())
+                _find_restating_violations(
+                    tree=module.tree,
+                    comments=comments,
+                    file=module.relative,
+                ),
             )
-        status = Status.FAIL if violations else Status.PASS
-        return CheckResult(check=self.name, status=status, violations=violations)
+        return CheckResult.from_findings(check=self.name, violations=violations)
 
 
 register(RestatingCheck())

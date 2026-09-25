@@ -1,0 +1,1285 @@
+{
+  "rules": ["SIMILAR-001", "DRY-001"],
+  "unit": "file",
+  "description": "Ground truth for SIMILAR-001 and DRY-001, labelled per file: each file holds two top-level functions, and flag true means they are near-duplicates a reviewer would extract into one helper; false means they look alike but are legitimately distinct. DRY-001 is exact-clone only, so its recall against these near-duplicate labels is low by design.",
+  "files": {
+    "dev/negatives/boilerplate-neg_01_config_builder.py": {
+      "split": "dev",
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "flag": false,
+      "note": "two config-dict builders; the keys and values carry the meaning, so the parallel shape is intentional boilerplate, not an extractable clone."
+    },
+    "dev/negatives/boilerplate-neg_02_dispatch_table.py": {
+      "split": "dev",
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "flag": false,
+      "note": "two dispatch tables mapping distinct event names to distinct handlers; the string keys and target callables carry the meaning, so identical shape is not duplication."
+    },
+    "dev/negatives/boilerplate-neg_03_field_mapper.py": {
+      "split": "dev",
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "flag": false,
+      "note": "two field mappers translating distinct external API shapes onto our model; the attribute and key names are the actual logic, so the parallel assignments are meaningful not clonable."
+    },
+    "dev/negatives/boilerplate-neg_05_same_shape_different_operator.py": {
+      "split": "dev",
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "flag": false,
+      "note": "identical statement skeleton but different arithmetic operators and comparison directions; the semantics diverge, so this is same-shape-different-meaning, not a near-duplicate."
+    },
+    "dev/negatives/boilerplate-neg_07_fastapi_endpoints.py": {
+      "split": "dev",
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "flag": false,
+      "note": "two FastAPI endpoint handlers over different resources; the route shape is framework boilerplate but each touches a distinct repository and response model."
+    },
+    "dev/negatives/boilerplate-neg_08_dunder_boilerplate.py": {
+      "split": "dev",
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "flag": false,
+      "note": "two __eq__-style structural-equality helpers over different field sets; dunder/equality boilerplate is parallel by nature and the compared attributes carry the meaning."
+    },
+    "dev/negatives/boilerplate-neg_09_sql_column_specs.py": {
+      "split": "dev",
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "flag": false,
+      "note": "two ORM table column-spec builders; each lists the real columns of a different table, so the parallel append calls are schema definitions whose strings are the meaning."
+    },
+    "dev/negatives/boilerplate-neg_13_unit_conversions.py": {
+      "split": "dev",
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "flag": false,
+      "note": "two converters whose control flow genuinely diverges; one clamps an absolute-zero floor, the other rejects negatives and rounds differently, so neither factors into the other."
+    },
+    "dev/negatives/boilerplate-neg_14_serialiser_methods.py": {
+      "split": "dev",
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "flag": false,
+      "note": "two to_dict serialisers over different models; the selected fields and key names define each public payload, so the parallel assignments are the contract not a clone."
+    },
+    "dev/negatives/boundary-mixed_03_coincidental_guard_skeleton.py": {
+      "split": "dev",
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "flag": false,
+      "note": "short coincidental match just over the floor; a balance debit and a circle-area calc happen to share a guard-compute-return skeleton from unrelated domains."
+    },
+    "dev/negatives/boundary-mixed_04_unrelated_same_structure.py": {
+      "split": "dev",
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "flag": false,
+      "note": "identical control-flow skeleton but the identifiers carry all the meaning; one paginates an API, the other walks a binary tree, no shared helper exists."
+    },
+    "dev/negatives/boundary-mixed_05_field_mapper_boilerplate.py": {
+      "split": "dev",
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "flag": false,
+      "note": "two field mappers where the keys and source attributes carry the meaning; parallel shape is intentional DTO boilerplate, not an extractable clone."
+    },
+    "dev/negatives/boundary-mixed_06_and_vs_or_gate.py": {
+      "split": "dev",
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "flag": false,
+      "note": "same gate shape but one requires all conditions (and) and the other any condition (or); the boolean operator change inverts the access policy, no shared helper."
+    },
+    "dev/negatives/boundary-mixed_07_coincidental_short_io.py": {
+      "split": "dev",
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "flag": false,
+      "note": "short coincidental match just over the floor; reading a config file and seeding a random generator share an open-read-parse-return skeleton but are unrelated tasks."
+    },
+    "dev/negatives/boundary-mixed_08_plus_vs_minus_step.py": {
+      "split": "dev",
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "flag": false,
+      "note": "identical stepping loop but one advances forward and the other rewinds; the plus vs minus operator makes them inverse cursor operations, no shared helper."
+    },
+    "dev/negatives/copypaste-edits_13_first_vs_all.py": {
+      "split": "dev",
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "flag": false,
+      "note": "same shape but one returns the FIRST match and exits early while the other accumulates ALL matches; different contract, not a copy-paste."
+    },
+    "dev/negatives/copypaste-edits_14_raise_vs_default.py": {
+      "split": "dev",
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "flag": false,
+      "note": "parallel shape but one RAISES on a missing key while the other returns a default and continues; divergent error contract, must not merge."
+    },
+    "dev/negatives/fp-hunt_01_same_key_envelope_mapper.py": {
+      "split": "dev",
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "flag": false,
+      "note": "two DTO mappers projecting unrelated domains (user vs invoice) into a shared response envelope; the keys are a fixed output schema while the per-field source attributes carry the distinct domain meaning, so no single helper extracts cleanly."
+    },
+    "dev/negatives/fp-hunt_02_same_key_settings_builder.py": {
+      "split": "dev",
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "flag": false,
+      "note": "two settings builders writing the same generic config keys but pulling from unrelated subsystems (mail vs object storage); the shared key names are a common config schema while the per-field source options carry the real distinction, so a helper would just re-thread every option through as a parameter."
+    },
+    "dev/negatives/framework-neg_01_field_mappers.py": {
+      "split": "dev",
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "flag": false,
+      "note": "two serialisers whose per-line attribute mappings ARE the content; each line maps a distinct field, so extracting a helper would just thread every difference through as a parameter with no real saving."
+    },
+    "dev/negatives/framework-neg_02_property_operators.py": {
+      "split": "dev",
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "flag": false,
+      "note": "two property getters share scaffolding but compute genuinely different geometry (product vs scaled sum, different operators); the formulae carry the meaning and cannot be merged."
+    },
+    "dev/negatives/framework-neg_04_fastapi_get_post.py": {
+      "split": "dev",
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "flag": false,
+      "note": "a read endpoint (fetch-or-404) and a write endpoint (create + commit) share the router shape but have opposite side effects and control flow; they are not collapsible."
+    },
+    "dev/negatives/framework-neg_05_fastapi_list_stats.py": {
+      "split": "dev",
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "flag": false,
+      "note": "a paginated list endpoint and an aggregation/stats endpoint look alike (both query then return) but build different result shapes via different reductions; the per-line logic differs throughout."
+    },
+    "dev/negatives/framework-neg_06_pydantic_field_validators.py": {
+      "split": "dev",
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "flag": false,
+      "note": "two pydantic field validators share the validator scaffold but enforce unrelated rules (length plus character classes vs strip/lower plus reserved-word check); each branch encodes a distinct policy."
+    },
+    "dev/negatives/framework-neg_07_pydantic_field_vs_model.py": {
+      "split": "dev",
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "flag": false,
+      "note": "a single-field coercion validator and a cross-field model validator look superficially similar but operate on different scopes (one value vs the whole model) with different return contracts."
+    },
+    "dev/negatives/framework-neg_08_dunder_init_repr.py": {
+      "split": "dev",
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "flag": false,
+      "note": "__init__ assigns fields and __repr__ formats them; they walk the same attribute list but one stores and one renders, so the bodies are structurally different and not mergeable."
+    },
+    "dev/negatives/framework-neg_09_dunder_eq_hash.py": {
+      "split": "dev",
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "flag": false,
+      "note": "__eq__ guards type then compares a key tuple while __hash__ hashes that tuple; the equality/hashing contract pairs them by convention but their bodies do different things."
+    },
+    "dev/negatives/framework-neg_11_property_pricing.py": {
+      "split": "dev",
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "flag": false,
+      "note": "two computed-price properties share a getter shape but apply different arithmetic semantics (tax-inclusive total vs tiered discount); the pricing rules are the content."
+    },
+    "dev/negatives/framework-neg_12_row_parsers.py": {
+      "split": "dev",
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "flag": false,
+      "note": "request and response row parsers map distinct column sets with distinct coercions; every assignment differs, so the mapping itself is the meaning rather than shared logic."
+    },
+    "dev/negatives/framework-neg_13_settings_env_vs_file.py": {
+      "split": "dev",
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "flag": false,
+      "note": "one loader reads from the environment and another parses a file; they share the goal of producing a config dict but use different sources, parsing and control flow."
+    },
+    "dev/negatives/recall-gaps_01_different_operator.py": {
+      "split": "dev",
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "flag": false,
+      "note": "same shape as a number-only positive, but the differing token is an OPERATOR, not a literal. Min vs max and < vs > change the meaning, so these are genuinely distinct and must not be flagged as duplicates."
+    },
+    "dev/negatives/recall-gaps_03_framework_handlers.py": {
+      "split": "dev",
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "flag": false,
+      "note": "two route handlers that share framework scaffolding but have genuinely different control flow: the order path has an extra branch and builds its payload by iterating line items, while the user path is flat. The shape difference survives name and literal normalisation."
+    },
+    "dev/negatives/recall-gaps_05_different_algorithm.py": {
+      "split": "dev",
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "flag": false,
+      "note": "same loop scaffolding and same attribute names as a positive, but the accumulation differs in kind: one sums weighted amounts, the other counts distinct buckets. Different algorithm, so not an extractable clone."
+    },
+    "dev/negatives/recall-gaps_06_dispatch_mapper.py": {
+      "split": "dev",
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "flag": false,
+      "note": "two field-mapper / dispatch routines. They share a flat map shape, but the per-key transforms differ and the keys carry the meaning; there is no common helper, so flagging would be a boilerplate false hit."
+    },
+    "dev/positives/boundary-mixed_02_validate_attr_drift.py": {
+      "split": "dev",
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "flag": true,
+      "note": "two field validators copy-pasted then drifted by a different attribute name and one reordered guard; reviewer would extract a shared range-check helper."
+    },
+    "dev/positives/boundary-mixed_03_accumulate_method_drift.py": {
+      "split": "dev",
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "flag": true,
+      "note": "two collection builders copy-pasted then drifted only by the accumulator container and its add method (.append vs .add); reviewer would extract a shared collect helper."
+    },
+    "dev/positives/boundary-mixed_05_normalise_kwarg_drift.py": {
+      "split": "dev",
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "flag": true,
+      "note": "two text normalisers copy-pasted then drifted by a different keyword-arg name and one numeric literal; reviewer would extract a shared normalise helper."
+    },
+    "dev/positives/copypaste-edits_01_extra_log_line.py": {
+      "split": "dev",
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "flag": true,
+      "note": "second function is the first with one extra logging statement spliced in mid-body, classic copy-paste drift a reviewer would extract."
+    },
+    "dev/positives/copypaste-edits_03_numeric_literal.py": {
+      "split": "dev",
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "flag": true,
+      "note": "copy-paste pair differing only by a numeric retry budget (3 vs 5); DRY-001 does not normalise numbers so it misses this near-dupe."
+    },
+    "dev/positives/copypaste-edits_04_removed_stmt.py": {
+      "split": "dev",
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "flag": true,
+      "note": "second function is the first with one validation statement removed; otherwise byte-identical copy-paste, an obvious extract-helper case."
+    },
+    "dev/positives/copypaste-edits_06_method_rename.py": {
+      "split": "dev",
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "flag": true,
+      "note": "copy-paste pair where a single method call was renamed on an object (.commit vs .flush); attribute names are invisible to DRY-001."
+    },
+    "dev/positives/copypaste-edits_08_attr_and_log.py": {
+      "split": "dev",
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "flag": true,
+      "note": "copy-paste drift combining an attribute swap (.read vs .write) with one extra metric line; both are incidental edits over a shared body."
+    },
+    "dev/positives/copypaste-edits_10_two_added_stmts.py": {
+      "split": "dev",
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "flag": true,
+      "note": "second function adds two incidental statements (a counter bump and a cache touch) to an otherwise copied parser body."
+    },
+    "dev/positives/fn-hunt_01_log_message_drift.py": {
+      "split": "dev",
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "flag": true,
+      "note": "two identical aggregation loops copy-pasted then drifted only by their debug log message text; the log strings are incidental, the body should be a shared helper."
+    },
+    "dev/positives/fn-hunt_05_added_log_and_number.py": {
+      "split": "dev",
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "flag": true,
+      "note": "two pagination builders copy-pasted then drifted by a different page-size number and one extra log statement carrying a distinct message; reviewer would extract a shared paginate helper."
+    },
+    "dev/positives/framework-neg_15_fastapi_fetch_drift.py": {
+      "split": "dev",
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "flag": true,
+      "note": "two FastAPI fetch-or-404 handlers are copy-paste drift differing by one added statement and a renamed attribute; a shared get_or_404 helper removes real duplicated logic."
+    },
+    "dev/positives/framework-neg_16_validator_drift.py": {
+      "split": "dev",
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "flag": true,
+      "note": "two pydantic validators are the same trim-validate-bounds routine copy-pasted with one numeric bound changed and one extra clamp statement; a shared helper would remove the duplicated body."
+    },
+    "dev/positives/framework-neg_17_settings_drift.py": {
+      "split": "dev",
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "flag": true,
+      "note": "two settings loaders are the same read-coerce-validate routine copy-pasted with one numeric default changed and a single extra guard; the shared body should be a parametrised helper."
+    },
+    "dev/positives/recall-gaps_01_reorder_independent.py": {
+      "split": "dev",
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "flag": true,
+      "note": "two report builders copy-pasted then independent assignment lines reordered, so DRY-001's exact AST dump differs but the bodies are the same near-duplicate a reviewer would extract into one helper."
+    },
+    "dev/positives/recall-gaps_02_reorder_validation.py": {
+      "split": "dev",
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "flag": true,
+      "note": "two guard-clause validators, identical checks but the independent early-return blocks were pasted in a different order, so DRY-001's exact-dump miss; the dedupe target is one shared validator."
+    },
+    "dev/positives/recall-gaps_04_number_retry.py": {
+      "split": "dev",
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "flag": true,
+      "note": "two retry loops identical except for numeric limits (attempts and backoff base); DRY-001 keeps numbers distinct so it misses them, yet this is textbook copy-paste that should be one parametrised retry."
+    },
+    "dev/positives/recall-gaps_06_attr_name_geometry.py": {
+      "split": "dev",
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "flag": true,
+      "note": "two bounding-box computations identical in structure, only the attribute names on the point objects differ (x/y vs lon/lat). Numbers and ops match; DRY-001 misses it because attribute names stay in the dump."
+    },
+    "dev/positives/recall-gaps_07_kwarg_name_request.py": {
+      "split": "dev",
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "flag": true,
+      "note": "two HTTP wrappers built by copy-paste; the only difference is a keyword-argument name passed to the client call. DRY-001 keeps kwarg names in the dump so it misses this; the fix is a single shared wrapper."
+    },
+    "dev/positives/recall-gaps_08_kwarg_name_query.py": {
+      "split": "dev",
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "flag": true,
+      "note": "two query builders copy-pasted; they differ only by the keyword-argument names handed to the filter call. DRY-001 misses kwarg drift, but a reviewer would collapse these into one parametrised query."
+    },
+    "dev/positives/recall-gaps_09_renamed_call.py": {
+      "split": "dev",
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "flag": true,
+      "note": "two persistence routines copy-pasted; one method call was renamed (save vs persist) during drift. DRY-001 keeps the call name in the dump so it misses it; the obvious fix is a single shared writer."
+    },
+    "dev/positives/recall-gaps_10_added_statement.py": {
+      "split": "dev",
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "flag": true,
+      "note": "two normalisers that are copy-paste twins except the second gained one extra logging statement during drift. One added statement is enough to break DRY-001's exact dump; the shared body should be extracted."
+    },
+    "dev/positives/recall-gaps_11_attr_and_number.py": {
+      "split": "dev",
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "flag": true,
+      "note": "realistic drift combining two misses: a different attribute name and a different numeric threshold. Each alone defeats DRY-001, and together they still describe one helper a reviewer would extract."
+    },
+    "dev/positives/recall-gaps_12_reorder_and_kwarg.py": {
+      "split": "dev",
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "flag": true,
+      "note": "two notification senders that drifted by reordering two independent setup lines and renaming one keyword argument. Both edits are DRY-001 blind spots; the bodies remain one extractable send routine."
+    },
+    "dev/positives/redteam_02_sync_async_twins.py": {
+      "split": "dev",
+      "source": "hand-written",
+      "labelled_by": "Claude",
+      "labelled_before_rule": "unknown",
+      "added_in": "03173b5",
+      "flag": true,
+      "note": "a sync/async twin pair copied line for line (only `await` differs); the shared logic belongs in one helper or a generated twin."
+    },
+    "holdout/generated/gen_add_branch_check_date_fields.py": {
+      "split": "holdout",
+      "source": "generated:add_branch",
+      "labelled_by": "evals/generate_adversarial.py",
+      "labelled_before_rule": true,
+      "seed": "cpython@v3.13.12:Lib/_pydatetime.py:_check_date_fields",
+      "flag": false,
+      "note": "label-breaking transform add_branch: no longer duplicates"
+    },
+    "holdout/generated/gen_add_branch_checknetloc.py": {
+      "split": "holdout",
+      "source": "generated:add_branch",
+      "labelled_by": "evals/generate_adversarial.py",
+      "labelled_before_rule": true,
+      "seed": "cpython@v3.13.12:Lib/urllib/parse.py:_checknetloc",
+      "flag": false,
+      "note": "label-breaking transform add_branch: no longer duplicates"
+    },
+    "holdout/generated/gen_add_branch_cleandoc.py": {
+      "split": "holdout",
+      "source": "generated:add_branch",
+      "labelled_by": "evals/generate_adversarial.py",
+      "labelled_before_rule": true,
+      "seed": "cpython@v3.13.12:Lib/inspect.py:cleandoc",
+      "flag": false,
+      "note": "label-breaking transform add_branch: no longer duplicates"
+    },
+    "holdout/generated/gen_add_branch_copyfileobj.py": {
+      "split": "holdout",
+      "source": "generated:add_branch",
+      "labelled_by": "evals/generate_adversarial.py",
+      "labelled_before_rule": true,
+      "seed": "cpython@v3.13.12:Lib/tarfile.py:copyfileobj",
+      "flag": false,
+      "note": "label-breaking transform add_branch: no longer duplicates"
+    },
+    "holdout/generated/gen_add_branch_covariance.py": {
+      "split": "holdout",
+      "source": "generated:add_branch",
+      "labelled_by": "evals/generate_adversarial.py",
+      "labelled_before_rule": true,
+      "seed": "cpython@v3.13.12:Lib/statistics.py:covariance",
+      "flag": false,
+      "note": "label-breaking transform add_branch: no longer duplicates"
+    },
+    "holdout/generated/gen_add_branch_long_has_args.py": {
+      "split": "holdout",
+      "source": "generated:add_branch",
+      "labelled_by": "evals/generate_adversarial.py",
+      "labelled_before_rule": true,
+      "seed": "cpython@v3.13.12:Lib/getopt.py:long_has_args",
+      "flag": false,
+      "note": "label-breaking transform add_branch: no longer duplicates"
+    },
+    "holdout/generated/gen_add_branch_make_msgid.py": {
+      "split": "holdout",
+      "source": "generated:add_branch",
+      "labelled_by": "evals/generate_adversarial.py",
+      "labelled_before_rule": true,
+      "seed": "cpython@v3.13.12:Lib/email/utils.py:make_msgid",
+      "flag": false,
+      "note": "label-breaking transform add_branch: no longer duplicates"
+    },
+    "holdout/generated/gen_add_branch_parse257.py": {
+      "split": "holdout",
+      "source": "generated:add_branch",
+      "labelled_by": "evals/generate_adversarial.py",
+      "labelled_before_rule": true,
+      "seed": "cpython@v3.13.12:Lib/ftplib.py:parse257",
+      "flag": false,
+      "note": "label-breaking transform add_branch: no longer duplicates"
+    },
+    "holdout/generated/gen_change_called_name_check_date_fields.py": {
+      "split": "holdout",
+      "source": "generated:change_called_name",
+      "labelled_by": "evals/generate_adversarial.py",
+      "labelled_before_rule": true,
+      "seed": "cpython@v3.13.12:Lib/_pydatetime.py:_check_date_fields",
+      "flag": false,
+      "note": "label-breaking transform change_called_name: no longer duplicates"
+    },
+    "holdout/generated/gen_change_called_name_checknetloc.py": {
+      "split": "holdout",
+      "source": "generated:change_called_name",
+      "labelled_by": "evals/generate_adversarial.py",
+      "labelled_before_rule": true,
+      "seed": "cpython@v3.13.12:Lib/urllib/parse.py:_checknetloc",
+      "flag": false,
+      "note": "label-breaking transform change_called_name: no longer duplicates"
+    },
+    "holdout/generated/gen_change_called_name_cleandoc.py": {
+      "split": "holdout",
+      "source": "generated:change_called_name",
+      "labelled_by": "evals/generate_adversarial.py",
+      "labelled_before_rule": true,
+      "seed": "cpython@v3.13.12:Lib/inspect.py:cleandoc",
+      "flag": false,
+      "note": "label-breaking transform change_called_name: no longer duplicates"
+    },
+    "holdout/generated/gen_change_called_name_copyfileobj.py": {
+      "split": "holdout",
+      "source": "generated:change_called_name",
+      "labelled_by": "evals/generate_adversarial.py",
+      "labelled_before_rule": true,
+      "seed": "cpython@v3.13.12:Lib/tarfile.py:copyfileobj",
+      "flag": false,
+      "note": "label-breaking transform change_called_name: no longer duplicates"
+    },
+    "holdout/generated/gen_change_called_name_covariance.py": {
+      "split": "holdout",
+      "source": "generated:change_called_name",
+      "labelled_by": "evals/generate_adversarial.py",
+      "labelled_before_rule": true,
+      "seed": "cpython@v3.13.12:Lib/statistics.py:covariance",
+      "flag": false,
+      "note": "label-breaking transform change_called_name: no longer duplicates"
+    },
+    "holdout/generated/gen_change_called_name_long_has_args.py": {
+      "split": "holdout",
+      "source": "generated:change_called_name",
+      "labelled_by": "evals/generate_adversarial.py",
+      "labelled_before_rule": true,
+      "seed": "cpython@v3.13.12:Lib/getopt.py:long_has_args",
+      "flag": false,
+      "note": "label-breaking transform change_called_name: no longer duplicates"
+    },
+    "holdout/generated/gen_change_called_name_mac_ver_xml.py": {
+      "split": "holdout",
+      "source": "generated:change_called_name",
+      "labelled_by": "evals/generate_adversarial.py",
+      "labelled_before_rule": true,
+      "seed": "cpython@v3.13.12:Lib/platform.py:_mac_ver_xml",
+      "flag": false,
+      "note": "label-breaking transform change_called_name: no longer duplicates"
+    },
+    "holdout/generated/gen_change_called_name_make_msgid.py": {
+      "split": "holdout",
+      "source": "generated:change_called_name",
+      "labelled_by": "evals/generate_adversarial.py",
+      "labelled_before_rule": true,
+      "seed": "cpython@v3.13.12:Lib/email/utils.py:make_msgid",
+      "flag": false,
+      "note": "label-breaking transform change_called_name: no longer duplicates"
+    },
+    "holdout/generated/gen_change_called_name_parse257.py": {
+      "split": "holdout",
+      "source": "generated:change_called_name",
+      "labelled_by": "evals/generate_adversarial.py",
+      "labelled_before_rule": true,
+      "seed": "cpython@v3.13.12:Lib/ftplib.py:parse257",
+      "flag": false,
+      "note": "label-breaking transform change_called_name: no longer duplicates"
+    },
+    "holdout/generated/gen_change_called_name_urlunsplit.py": {
+      "split": "holdout",
+      "source": "generated:change_called_name",
+      "labelled_by": "evals/generate_adversarial.py",
+      "labelled_before_rule": true,
+      "seed": "cpython@v3.13.12:Lib/urllib/parse.py:urlunsplit",
+      "flag": false,
+      "note": "label-breaking transform change_called_name: no longer duplicates"
+    },
+    "holdout/generated/gen_change_string_literals_check_date_fields.py": {
+      "split": "holdout",
+      "source": "generated:change_string_literals",
+      "labelled_by": "evals/generate_adversarial.py",
+      "labelled_before_rule": true,
+      "seed": "cpython@v3.13.12:Lib/_pydatetime.py:_check_date_fields",
+      "flag": {"DRY-001": true, "SIMILAR-001": false},
+      "note": "label-preserving for DRY-001, label-breaking for SIMILAR-001 transform change_string_literals: still duplicates to DRY-001 and no longer duplicates to SIMILAR-001"
+    },
+    "holdout/generated/gen_change_string_literals_checknetloc.py": {
+      "split": "holdout",
+      "source": "generated:change_string_literals",
+      "labelled_by": "evals/generate_adversarial.py",
+      "labelled_before_rule": true,
+      "seed": "cpython@v3.13.12:Lib/urllib/parse.py:_checknetloc",
+      "flag": {"DRY-001": true, "SIMILAR-001": false},
+      "note": "label-preserving for DRY-001, label-breaking for SIMILAR-001 transform change_string_literals: still duplicates to DRY-001 and no longer duplicates to SIMILAR-001"
+    },
+    "holdout/generated/gen_change_string_literals_cleandoc.py": {
+      "split": "holdout",
+      "source": "generated:change_string_literals",
+      "labelled_by": "evals/generate_adversarial.py",
+      "labelled_before_rule": true,
+      "seed": "cpython@v3.13.12:Lib/inspect.py:cleandoc",
+      "flag": {"DRY-001": true, "SIMILAR-001": false},
+      "note": "label-preserving for DRY-001, label-breaking for SIMILAR-001 transform change_string_literals: still duplicates to DRY-001 and no longer duplicates to SIMILAR-001"
+    },
+    "holdout/generated/gen_change_string_literals_copyfileobj.py": {
+      "split": "holdout",
+      "source": "generated:change_string_literals",
+      "labelled_by": "evals/generate_adversarial.py",
+      "labelled_before_rule": true,
+      "seed": "cpython@v3.13.12:Lib/tarfile.py:copyfileobj",
+      "flag": {"DRY-001": true, "SIMILAR-001": false},
+      "note": "label-preserving for DRY-001, label-breaking for SIMILAR-001 transform change_string_literals: still duplicates to DRY-001 and no longer duplicates to SIMILAR-001"
+    },
+    "holdout/generated/gen_change_string_literals_covariance.py": {
+      "split": "holdout",
+      "source": "generated:change_string_literals",
+      "labelled_by": "evals/generate_adversarial.py",
+      "labelled_before_rule": true,
+      "seed": "cpython@v3.13.12:Lib/statistics.py:covariance",
+      "flag": {"DRY-001": true, "SIMILAR-001": false},
+      "note": "label-preserving for DRY-001, label-breaking for SIMILAR-001 transform change_string_literals: still duplicates to DRY-001 and no longer duplicates to SIMILAR-001"
+    },
+    "holdout/generated/gen_change_string_literals_long_has_args.py": {
+      "split": "holdout",
+      "source": "generated:change_string_literals",
+      "labelled_by": "evals/generate_adversarial.py",
+      "labelled_before_rule": true,
+      "seed": "cpython@v3.13.12:Lib/getopt.py:long_has_args",
+      "flag": {"DRY-001": true, "SIMILAR-001": false},
+      "note": "label-preserving for DRY-001, label-breaking for SIMILAR-001 transform change_string_literals: still duplicates to DRY-001 and no longer duplicates to SIMILAR-001"
+    },
+    "holdout/generated/gen_change_string_literals_mac_ver_xml.py": {
+      "split": "holdout",
+      "source": "generated:change_string_literals",
+      "labelled_by": "evals/generate_adversarial.py",
+      "labelled_before_rule": true,
+      "seed": "cpython@v3.13.12:Lib/platform.py:_mac_ver_xml",
+      "flag": {"DRY-001": true, "SIMILAR-001": false},
+      "note": "label-preserving for DRY-001, label-breaking for SIMILAR-001 transform change_string_literals: still duplicates to DRY-001 and no longer duplicates to SIMILAR-001"
+    },
+    "holdout/generated/gen_change_string_literals_make_msgid.py": {
+      "split": "holdout",
+      "source": "generated:change_string_literals",
+      "labelled_by": "evals/generate_adversarial.py",
+      "labelled_before_rule": true,
+      "seed": "cpython@v3.13.12:Lib/email/utils.py:make_msgid",
+      "flag": {"DRY-001": true, "SIMILAR-001": false},
+      "note": "label-preserving for DRY-001, label-breaking for SIMILAR-001 transform change_string_literals: still duplicates to DRY-001 and no longer duplicates to SIMILAR-001"
+    },
+    "holdout/generated/gen_change_string_literals_parse257.py": {
+      "split": "holdout",
+      "source": "generated:change_string_literals",
+      "labelled_by": "evals/generate_adversarial.py",
+      "labelled_before_rule": true,
+      "seed": "cpython@v3.13.12:Lib/ftplib.py:parse257",
+      "flag": {"DRY-001": true, "SIMILAR-001": false},
+      "note": "label-preserving for DRY-001, label-breaking for SIMILAR-001 transform change_string_literals: still duplicates to DRY-001 and no longer duplicates to SIMILAR-001"
+    },
+    "holdout/generated/gen_change_string_literals_urlunsplit.py": {
+      "split": "holdout",
+      "source": "generated:change_string_literals",
+      "labelled_by": "evals/generate_adversarial.py",
+      "labelled_before_rule": true,
+      "seed": "cpython@v3.13.12:Lib/urllib/parse.py:urlunsplit",
+      "flag": {"DRY-001": true, "SIMILAR-001": false},
+      "note": "label-preserving for DRY-001, label-breaking for SIMILAR-001 transform change_string_literals: still duplicates to DRY-001 and no longer duplicates to SIMILAR-001"
+    },
+    "holdout/generated/gen_flip_operator_check_date_fields.py": {
+      "split": "holdout",
+      "source": "generated:flip_operator",
+      "labelled_by": "evals/generate_adversarial.py",
+      "labelled_before_rule": true,
+      "seed": "cpython@v3.13.12:Lib/_pydatetime.py:_check_date_fields",
+      "flag": false,
+      "note": "label-breaking transform flip_operator: no longer duplicates"
+    },
+    "holdout/generated/gen_flip_operator_checknetloc.py": {
+      "split": "holdout",
+      "source": "generated:flip_operator",
+      "labelled_by": "evals/generate_adversarial.py",
+      "labelled_before_rule": true,
+      "seed": "cpython@v3.13.12:Lib/urllib/parse.py:_checknetloc",
+      "flag": false,
+      "note": "label-breaking transform flip_operator: no longer duplicates"
+    },
+    "holdout/generated/gen_flip_operator_cleandoc.py": {
+      "split": "holdout",
+      "source": "generated:flip_operator",
+      "labelled_by": "evals/generate_adversarial.py",
+      "labelled_before_rule": true,
+      "seed": "cpython@v3.13.12:Lib/inspect.py:cleandoc",
+      "flag": false,
+      "note": "label-breaking transform flip_operator: no longer duplicates"
+    },
+    "holdout/generated/gen_flip_operator_copyfileobj.py": {
+      "split": "holdout",
+      "source": "generated:flip_operator",
+      "labelled_by": "evals/generate_adversarial.py",
+      "labelled_before_rule": true,
+      "seed": "cpython@v3.13.12:Lib/tarfile.py:copyfileobj",
+      "flag": false,
+      "note": "label-breaking transform flip_operator: no longer duplicates"
+    },
+    "holdout/generated/gen_flip_operator_covariance.py": {
+      "split": "holdout",
+      "source": "generated:flip_operator",
+      "labelled_by": "evals/generate_adversarial.py",
+      "labelled_before_rule": true,
+      "seed": "cpython@v3.13.12:Lib/statistics.py:covariance",
+      "flag": false,
+      "note": "label-breaking transform flip_operator: no longer duplicates"
+    },
+    "holdout/generated/gen_flip_operator_long_has_args.py": {
+      "split": "holdout",
+      "source": "generated:flip_operator",
+      "labelled_by": "evals/generate_adversarial.py",
+      "labelled_before_rule": true,
+      "seed": "cpython@v3.13.12:Lib/getopt.py:long_has_args",
+      "flag": false,
+      "note": "label-breaking transform flip_operator: no longer duplicates"
+    },
+    "holdout/generated/gen_flip_operator_mac_ver_xml.py": {
+      "split": "holdout",
+      "source": "generated:flip_operator",
+      "labelled_by": "evals/generate_adversarial.py",
+      "labelled_before_rule": true,
+      "seed": "cpython@v3.13.12:Lib/platform.py:_mac_ver_xml",
+      "flag": false,
+      "note": "label-breaking transform flip_operator: no longer duplicates"
+    },
+    "holdout/generated/gen_flip_operator_make_msgid.py": {
+      "split": "holdout",
+      "source": "generated:flip_operator",
+      "labelled_by": "evals/generate_adversarial.py",
+      "labelled_before_rule": true,
+      "seed": "cpython@v3.13.12:Lib/email/utils.py:make_msgid",
+      "flag": false,
+      "note": "label-breaking transform flip_operator: no longer duplicates"
+    },
+    "holdout/generated/gen_flip_operator_parse257.py": {
+      "split": "holdout",
+      "source": "generated:flip_operator",
+      "labelled_by": "evals/generate_adversarial.py",
+      "labelled_before_rule": true,
+      "seed": "cpython@v3.13.12:Lib/ftplib.py:parse257",
+      "flag": false,
+      "note": "label-breaking transform flip_operator: no longer duplicates"
+    },
+    "holdout/generated/gen_flip_operator_urlunsplit.py": {
+      "split": "holdout",
+      "source": "generated:flip_operator",
+      "labelled_by": "evals/generate_adversarial.py",
+      "labelled_before_rule": true,
+      "seed": "cpython@v3.13.12:Lib/urllib/parse.py:urlunsplit",
+      "flag": false,
+      "note": "label-breaking transform flip_operator: no longer duplicates"
+    },
+    "holdout/generated/gen_rename_identifiers_check_date_fields.py": {
+      "split": "holdout",
+      "source": "generated:rename_identifiers",
+      "labelled_by": "evals/generate_adversarial.py",
+      "labelled_before_rule": true,
+      "seed": "cpython@v3.13.12:Lib/_pydatetime.py:_check_date_fields",
+      "flag": true,
+      "note": "label-preserving transform rename_identifiers: still duplicates"
+    },
+    "holdout/generated/gen_rename_identifiers_checknetloc.py": {
+      "split": "holdout",
+      "source": "generated:rename_identifiers",
+      "labelled_by": "evals/generate_adversarial.py",
+      "labelled_before_rule": true,
+      "seed": "cpython@v3.13.12:Lib/urllib/parse.py:_checknetloc",
+      "flag": true,
+      "note": "label-preserving transform rename_identifiers: still duplicates"
+    },
+    "holdout/generated/gen_rename_identifiers_cleandoc.py": {
+      "split": "holdout",
+      "source": "generated:rename_identifiers",
+      "labelled_by": "evals/generate_adversarial.py",
+      "labelled_before_rule": true,
+      "seed": "cpython@v3.13.12:Lib/inspect.py:cleandoc",
+      "flag": true,
+      "note": "label-preserving transform rename_identifiers: still duplicates"
+    },
+    "holdout/generated/gen_rename_identifiers_copyfileobj.py": {
+      "split": "holdout",
+      "source": "generated:rename_identifiers",
+      "labelled_by": "evals/generate_adversarial.py",
+      "labelled_before_rule": true,
+      "seed": "cpython@v3.13.12:Lib/tarfile.py:copyfileobj",
+      "flag": true,
+      "note": "label-preserving transform rename_identifiers: still duplicates"
+    },
+    "holdout/generated/gen_rename_identifiers_covariance.py": {
+      "split": "holdout",
+      "source": "generated:rename_identifiers",
+      "labelled_by": "evals/generate_adversarial.py",
+      "labelled_before_rule": true,
+      "seed": "cpython@v3.13.12:Lib/statistics.py:covariance",
+      "flag": true,
+      "note": "label-preserving transform rename_identifiers: still duplicates"
+    },
+    "holdout/generated/gen_rename_identifiers_long_has_args.py": {
+      "split": "holdout",
+      "source": "generated:rename_identifiers",
+      "labelled_by": "evals/generate_adversarial.py",
+      "labelled_before_rule": true,
+      "seed": "cpython@v3.13.12:Lib/getopt.py:long_has_args",
+      "flag": true,
+      "note": "label-preserving transform rename_identifiers: still duplicates"
+    },
+    "holdout/generated/gen_rename_identifiers_mac_ver_xml.py": {
+      "split": "holdout",
+      "source": "generated:rename_identifiers",
+      "labelled_by": "evals/generate_adversarial.py",
+      "labelled_before_rule": true,
+      "seed": "cpython@v3.13.12:Lib/platform.py:_mac_ver_xml",
+      "flag": true,
+      "note": "label-preserving transform rename_identifiers: still duplicates"
+    },
+    "holdout/generated/gen_rename_identifiers_make_msgid.py": {
+      "split": "holdout",
+      "source": "generated:rename_identifiers",
+      "labelled_by": "evals/generate_adversarial.py",
+      "labelled_before_rule": true,
+      "seed": "cpython@v3.13.12:Lib/email/utils.py:make_msgid",
+      "flag": true,
+      "note": "label-preserving transform rename_identifiers: still duplicates"
+    },
+    "holdout/generated/gen_rename_identifiers_parse257.py": {
+      "split": "holdout",
+      "source": "generated:rename_identifiers",
+      "labelled_by": "evals/generate_adversarial.py",
+      "labelled_before_rule": true,
+      "seed": "cpython@v3.13.12:Lib/ftplib.py:parse257",
+      "flag": true,
+      "note": "label-preserving transform rename_identifiers: still duplicates"
+    },
+    "holdout/generated/gen_rename_identifiers_urlunsplit.py": {
+      "split": "holdout",
+      "source": "generated:rename_identifiers",
+      "labelled_by": "evals/generate_adversarial.py",
+      "labelled_before_rule": true,
+      "seed": "cpython@v3.13.12:Lib/urllib/parse.py:urlunsplit",
+      "flag": true,
+      "note": "label-preserving transform rename_identifiers: still duplicates"
+    },
+    "holdout/generated/gen_reorder_statements_cleandoc.py": {
+      "split": "holdout",
+      "source": "generated:reorder_statements",
+      "labelled_by": "evals/generate_adversarial.py",
+      "labelled_before_rule": true,
+      "seed": "cpython@v3.13.12:Lib/inspect.py:cleandoc",
+      "flag": true,
+      "note": "label-preserving transform reorder_statements: still duplicates"
+    },
+    "holdout/generated/gen_reorder_statements_mac_ver_xml.py": {
+      "split": "holdout",
+      "source": "generated:reorder_statements",
+      "labelled_by": "evals/generate_adversarial.py",
+      "labelled_before_rule": true,
+      "seed": "cpython@v3.13.12:Lib/platform.py:_mac_ver_xml",
+      "flag": true,
+      "note": "label-preserving transform reorder_statements: still duplicates"
+    },
+    "holdout/generated/gen_reorder_statements_parse257.py": {
+      "split": "holdout",
+      "source": "generated:reorder_statements",
+      "labelled_by": "evals/generate_adversarial.py",
+      "labelled_before_rule": true,
+      "seed": "cpython@v3.13.12:Lib/ftplib.py:parse257",
+      "flag": true,
+      "note": "label-preserving transform reorder_statements: still duplicates"
+    },
+    "holdout/negatives/boilerplate-neg_04_two_constructors.py": {
+      "split": "holdout",
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "flag": false,
+      "note": "two N-field constructors for genuinely different value objects; same arity but each sets distinct attributes on a distinct type, so they should not collapse to one helper."
+    },
+    "holdout/negatives/boilerplate-neg_06_pydantic_validators.py": {
+      "split": "holdout",
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "flag": false,
+      "note": "two framework-shaped pydantic field validators; each enforces a distinct field rule, the parallel try/raise shape is dictated by the framework not by copy-paste."
+    },
+    "holdout/negatives/boilerplate-neg_10_argparse_subcommands.py": {
+      "split": "holdout",
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "flag": false,
+      "note": "two argparse subcommand registrations; the flag names, help text and defaults are the specification of distinct commands, so the parallel add_argument calls are not clonable."
+    },
+    "holdout/negatives/boilerplate-neg_11_state_machine_transitions.py": {
+      "split": "holdout",
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "flag": false,
+      "note": "two state-transition guards comparing distinct enum members; the allowed state pairs carry the whole rule and use different enum types, so merging would erase the rules."
+    },
+    "holdout/negatives/boilerplate-neg_12_metric_emitters.py": {
+      "split": "holdout",
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "flag": false,
+      "note": "two metrics emitters reporting distinct named gauges with distinct tag sets; the metric names and tags are the payload, so the parallel emit calls are configuration not duplication."
+    },
+    "holdout/negatives/boundary-mixed_01_clamp_opposite_operator.py": {
+      "split": "holdout",
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "flag": false,
+      "note": "same loop shape but opposite comparison operators give opposite meaning (clamp-to-floor vs clamp-to-ceiling); no shared helper, they are inverses."
+    },
+    "holdout/negatives/boundary-mixed_02_sum_vs_product.py": {
+      "split": "holdout",
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "flag": false,
+      "note": "identical accumulate shape but one folds with addition and the other with multiplication; running-sum and running-product are distinct operations, no shared helper."
+    },
+    "holdout/negatives/copypaste-edits_15_mutate_vs_copy.py": {
+      "split": "holdout",
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "flag": false,
+      "note": "same loop shape but one mutates the argument in place and returns None while the other builds and returns a fresh list; opposite semantics."
+    },
+    "holdout/negatives/fp-hunt_03_same_key_event_payload.py": {
+      "split": "holdout",
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "flag": false,
+      "note": "two analytics event builders sharing a fixed wire schema of key names but sourcing unrelated domains (page view vs purchase); the keys are the shared event contract while each per-field attribute carries the distinct semantics, so extraction saves nothing."
+    },
+    "holdout/negatives/fp-hunt_04_same_key_coerced_mapper.py": {
+      "split": "holdout",
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "flag": false,
+      "note": "two row mappers into a shared report schema, each applying a str() coercion per field but over unrelated domains (sensor reading vs ledger entry); the keys and the coercion are common formatting while the per-field source columns carry the real meaning, so no helper extracts cleanly."
+    },
+    "holdout/negatives/framework-neg_03_settings_loaders.py": {
+      "split": "holdout",
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "flag": false,
+      "note": "two settings loaders differ by attribute names, numeric defaults, coercion calls and key count; the differences survive string/name normalisation and represent genuinely distinct config sets."
+    },
+    "holdout/negatives/framework-neg_10_dunder_init_eq.py": {
+      "split": "holdout",
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "flag": false,
+      "note": "__init__ stores fields and __eq__ compares a subset of them; constructor assignment and equality comparison are different operations that only appear parallel."
+    },
+    "holdout/negatives/framework-neg_14_dunder_repr_str.py": {
+      "split": "holdout",
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "flag": false,
+      "note": "__repr__ builds a debug representation and __str__ builds a human label from the same object; they format different field subsets for different audiences and are not duplicates."
+    },
+    "holdout/negatives/recall-gaps_02_config_builders.py": {
+      "split": "holdout",
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "flag": false,
+      "note": "parallel config/dict builders. The shape repeats but the keys and attribute names ARE the payload; there is no shared algorithm to extract, so flagging this would be a false positive against boilerplate."
+    },
+    "holdout/negatives/recall-gaps_04_dunder_boilerplate.py": {
+      "split": "holdout",
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "flag": false,
+      "note": "two equality helpers that look parallel but use genuinely different structural shapes: one short-circuits with sequential guards, the other does a single tuple compare. The divergence survives name, string and number normalisation, so it is a real distinction not drift."
+    },
+    "holdout/negatives/redteam_01_validators_different_bounds.py": {
+      "split": "holdout",
+      "source": "hand-written",
+      "labelled_by": "Claude",
+      "labelled_before_rule": "unknown",
+      "added_in": "03173b5",
+      "flag": false,
+      "note": "two validators of one shape whose error messages and bounds differ (percent vs byte); the strings and numbers carry the rule, no shared helper beyond a range check."
+    },
+    "holdout/positives/boundary-mixed_01_retry_drifted_count.py": {
+      "split": "holdout",
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "flag": true,
+      "note": "two retry loops copy-pasted then drifted by a different numeric backoff and one extra log statement; reviewer would extract a shared retry helper."
+    },
+    "holdout/positives/boundary-mixed_04_parse_extra_statement.py": {
+      "split": "holdout",
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "flag": true,
+      "note": "two header parsers copy-pasted then drifted by one added normalisation statement; reviewer would extract a shared key-value parse helper."
+    },
+    "holdout/positives/boundary-mixed_06_reordered_independent.py": {
+      "split": "holdout",
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "flag": true,
+      "note": "two summary builders copy-pasted with two independent assignment statements reordered and one numeric literal changed; reviewer would extract a shared summary helper."
+    },
+    "holdout/positives/boundary-mixed_07_pipeline_removed_statement.py": {
+      "split": "holdout",
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "flag": true,
+      "note": "two ETL transforms copy-pasted then drifted by one removed filtering statement and a changed attribute; reviewer would extract a shared transform helper."
+    },
+    "holdout/positives/boundary-mixed_08_dispatch_numeric_drift.py": {
+      "split": "holdout",
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "flag": true,
+      "note": "two scoring loops copy-pasted then drifted by different numeric weights and one extra accumulate statement; reviewer would extract a shared weighted-score helper."
+    },
+    "holdout/positives/copypaste-edits_02_attr_rename.py": {
+      "split": "holdout",
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "flag": true,
+      "note": "identical body except a single attribute access differs (.celsius vs .fahrenheit); DRY-001 ignores attribute names so it misses this near-dupe."
+    },
+    "holdout/positives/copypaste-edits_05_reordered_stmts.py": {
+      "split": "holdout",
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "flag": true,
+      "note": "same computation with two independent setup statements reordered; semantically identical copy-paste, reviewer would extract a helper."
+    },
+    "holdout/positives/copypaste-edits_07_added_guard.py": {
+      "split": "holdout",
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "flag": true,
+      "note": "second function adds one early-return guard clause to an otherwise copied body; same core algorithm, an extract-helper candidate."
+    },
+    "holdout/positives/copypaste-edits_09_const_and_attr.py": {
+      "split": "holdout",
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "flag": true,
+      "note": "paginator copy-paste differing by a page-size literal (20 vs 50) and an attribute name (.items vs .entries); both invisible to DRY-001."
+    },
+    "holdout/positives/copypaste-edits_11_literal_set_change.py": {
+      "split": "holdout",
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "flag": true,
+      "note": "validation pair differing only by the numeric bound checked (18 vs 65) and a removed upper clamp; copy-paste with a tweaked constant."
+    },
+    "holdout/positives/copypaste-edits_12_attr_chain_swap.py": {
+      "split": "holdout",
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "flag": true,
+      "note": "aggregation pair where a single attribute in a chain differs (.gross vs .nett) and one debug append was dropped; copy-paste drift."
+    },
+    "holdout/positives/fn-hunt_02_error_text_and_attr.py": {
+      "split": "holdout",
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "flag": true,
+      "note": "two validators that are the same trim-check-bounds routine copy-pasted with a different error message and one attribute swap (.title vs .body); a shared helper would remove the duplicated body."
+    },
+    "holdout/positives/fn-hunt_03_reorder_and_log_drift.py": {
+      "split": "holdout",
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "flag": true,
+      "note": "two retry loops copy-pasted then drifted by two reordered independent setup lines and a different warning message; reviewer would extract a shared retry helper."
+    },
+    "holdout/positives/fn-hunt_04_nested_loop_log_drift.py": {
+      "split": "holdout",
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "flag": true,
+      "note": "two nested-loop flatteners copy-pasted then drifted only by an incidental log line message; the nested structure and calls match exactly, the body should be shared."
+    },
+    "holdout/positives/recall-gaps_03_number_pagination.py": {
+      "split": "holdout",
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "flag": true,
+      "note": "two pagination helpers identical except for the numeric page size literal; DRY-001 does not normalise numbers so it misses this, but the obvious fix is one helper taking page_size as a parameter."
+    },
+    "holdout/positives/recall-gaps_05_attr_name_serialise.py": {
+      "split": "holdout",
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "flag": true,
+      "note": "two serialisers reading the same shaped object; only the attribute names accessed differ. DRY-001 leaves attribute names in the dump so it misses this; the fix is one helper over a shared protocol."
+    }
+  }
+}

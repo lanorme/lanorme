@@ -12,24 +12,28 @@ import pytest
 
 from lanorme.checks.naming_shapes import (
     Definition,
-    decorator_leaves,
     has_opaque_decorator,
+    is_camel_case,
     is_command,
+    is_exception_class,
     is_exempt,
     is_framework_named,
     is_raiser,
     iter_definitions,
+    list_base_leaves,
     name_setting,
+    resolve_decorator_leaves,
+    returns_nested_function,
 )
 
 
-def _function(source: str) -> ast.FunctionDef:
+def _find_function(source: str) -> ast.FunctionDef:
     """The first function defined in *source*."""
     tree = ast.parse(source)
     return next(node for node in ast.walk(tree) if isinstance(node, ast.FunctionDef))
 
 
-def _definition(source: str) -> Definition:
+def _find_definition(source: str) -> Definition:
     """The first definition ``iter_definitions`` yields for *source*."""
     return next(iter_definitions(tree=ast.parse(source)))
 
@@ -58,7 +62,7 @@ def test_iter_definitions_yields_top_level_and_methods_but_not_closures() -> Non
         "            pass\n"
         "for _ in range(1):\n"
         "    def looped():\n"
-        "        pass\n"
+        "        pass\n",
     )
 
     # Act
@@ -71,8 +75,8 @@ def test_iter_definitions_yields_top_level_and_methods_but_not_closures() -> Non
 
 
 def test_may_override_needs_a_base_class() -> None:
-    plain = _definition("class A:\n    pass\n")
-    derived = _definition("class B(A):\n    pass\n")
+    plain = _find_definition("class A:\n    pass\n")
+    derived = _find_definition("class B(A):\n    pass\n")
     assert not plain.may_override and Definition(node=plain.node, owner=derived.node).may_override
 
 
@@ -98,12 +102,12 @@ def test_may_override_needs_a_base_class() -> None:
     ],
 )
 def test_is_command(body: str, expected: bool) -> None:
-    assert is_command(node=_function(f"def f(x):\n{body}")) is expected
+    assert is_command(node=_find_function(f"def f(x):\n{body}")) is expected
 
 
 def test_is_raiser_looks_at_the_last_statement() -> None:
-    assert is_raiser(node=_function("def f(x):\n    x.clear()\n    raise KeyError(x)\n"))
-    assert not is_raiser(node=_function("def f(x):\n    raise KeyError(x)\n    x.clear()\n"))
+    assert is_raiser(node=_find_function("def f(x):\n    x.clear()\n    raise KeyError(x)\n"))
+    assert not is_raiser(node=_find_function("def f(x):\n    raise KeyError(x)\n    x.clear()\n"))
 
 
 # --------------------------------------------------------------------------- #
@@ -112,43 +116,61 @@ def test_is_raiser_looks_at_the_last_statement() -> None:
 
 
 def test_decorator_leaves_resolve_calls_attributes_and_subscripts() -> None:
-    node = _function('@app.route("/")\n@x.setter\n@property\n@deco[0]\n@(lambda f: f)\ndef f():\n    pass\n')
-    assert decorator_leaves(node=node) == {"route", "setter", "property", "deco", ""}
+    node = _find_function(
+        '@app.route("/")\n@x.setter\n@property\n@deco[0]\n@(lambda f: f)\ndef f():\n    pass\n',
+    )
+    assert resolve_decorator_leaves(node=node) == {"route", "setter", "property", "deco", ""}
 
 
 @pytest.mark.parametrize("decorator", ["@abc.abstractmethod", "@typing.override", "@staticmethod"])
 def test_transparent_decorators_are_transparent_when_dotted(decorator: str) -> None:
-    assert not has_opaque_decorator(node=_function(f"{decorator}\ndef f():\n    pass\n"))
+    assert not has_opaque_decorator(node=_find_function(f"{decorator}\ndef f():\n    pass\n"))
 
 
 @pytest.mark.parametrize("decorator", ["@deco[0]", "@(lambda f: f)", "@a.b(c)(d)", "@x.setter"])
 def test_other_decorator_shapes_are_opaque(decorator: str) -> None:
-    assert has_opaque_decorator(node=_function(f"{decorator}\ndef f():\n    pass\n"))
+    assert has_opaque_decorator(node=_find_function(f"{decorator}\ndef f():\n    pass\n"))
 
 
 @pytest.mark.parametrize(
     "name",
-    ["__init__", "and_", "_repr_mimebundle_", "on_click", "_before_request", "pytest_configure",
-     "from_dict", "to_json", "as_tuple", "with_capacity", "dict_to_rows", "main", "cli",
-     "process_request", "_env_file_callback"],
+    [
+        "__init__",
+        "and_",
+        "_repr_mimebundle_",
+        "on_click",
+        "_before_request",
+        "pytest_configure",
+        "from_dict",
+        "to_json",
+        "as_tuple",
+        "with_capacity",
+        "dict_to_rows",
+        "main",
+        "cli",
+        "process_request",
+        "_env_file_callback",
+    ],
 )
 def test_reserved_function_names(name: str) -> None:
-    assert is_framework_named(definition=_definition(f"def {name}():\n    pass\n"))
+    assert is_framework_named(definition=_find_definition(f"def {name}():\n    pass\n"))
 
 
 @pytest.mark.parametrize("name", ["write_layout", "layout", "keys"])
 def test_ordinary_module_functions_are_the_authors(name: str) -> None:
-    assert not is_framework_named(definition=_definition(f"def {name}():\n    pass\n"))
+    assert not is_framework_named(definition=_find_definition(f"def {name}():\n    pass\n"))
 
 
 def test_protocol_names_are_reserved_on_methods_only() -> None:
-    method = list(iter_definitions(tree=ast.parse("class C:\n    def keys(self):\n        pass\n")))[1]
+    method = list(
+        iter_definitions(tree=ast.parse("class C:\n    def keys(self):\n        pass\n")),
+    )[1]
     assert is_framework_named(definition=method)
 
 
 def test_registering_decorators_reserve_the_name_but_transparent_ones_do_not() -> None:
-    routed = _definition('@app.route("/")\ndef index():\n    pass\n')
-    static = _definition("@staticmethod\ndef index():\n    pass\n")
+    routed = _find_definition('@app.route("/")\ndef index():\n    pass\n')
+    static = _find_definition("@staticmethod\ndef index():\n    pass\n")
     assert is_framework_named(definition=routed) and not is_framework_named(definition=static)
 
 
@@ -177,3 +199,106 @@ def test_exempt_matches_with_or_without_leading_underscores() -> None:
     assert is_exempt(name="_cert_verify", exempt=frozenset({"cert_verify"}))
     assert is_exempt(name="_cert_verify", exempt=frozenset({"_cert_verify"}))
     assert not is_exempt(name="cert_verify_all", exempt=frozenset({"cert_verify"}))
+
+
+# --------------------------------------------------------------------------- #
+# Red-team additions: hook words, protocol and framework methods, camelCase, shapes
+# --------------------------------------------------------------------------- #
+
+
+@pytest.mark.parametrize("name", ["onMessage", "callback", "handler", "application", "app"])
+def test_camel_hooks_bare_roles_and_server_entry_points_are_reserved(name: str) -> None:
+    assert is_framework_named(definition=_find_definition(f"def {name}():\n    pass\n"))
+
+
+@pytest.mark.parametrize("name", ["after", "before", "ready", "closed", "form_valid", "readable"])
+def test_module_level_names_that_are_only_reserved_as_methods(name: str) -> None:
+    assert not is_framework_named(definition=_find_definition(f"def {name}():\n    pass\n"))
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "connection_made",
+        "server_bind",
+        "generic_visit",
+        "characters",
+        "emptyline",
+        "ready",
+        "perform_create",
+        "closed",
+    ],
+)
+def test_protocol_and_framework_methods_are_reserved(name: str) -> None:
+    definition = list(
+        iter_definitions(tree=ast.parse(f"class C:\n    def {name}(self):\n        pass\n")),
+    )[1]
+    assert is_framework_named(definition=definition)
+
+
+def test_camel_case_is_reserved_on_a_subclass_only() -> None:
+    # Arrange: the same camelCase method on a subclass, on a plain class, and at module level.
+    on_subclass = list(
+        iter_definitions(tree=ast.parse("class C(Base):\n    def userSync(self):\n        pass\n")),
+    )[1]
+    on_plain = list(
+        iter_definitions(tree=ast.parse("class C:\n    def userSync(self):\n        pass\n")),
+    )[1]
+    # Act / Assert: only the subclass method is the base API's.
+    assert is_framework_named(definition=on_subclass)
+    assert not is_framework_named(definition=on_plain)
+    assert not is_framework_named(definition=_find_definition("def userSync():\n    pass\n"))
+
+
+@pytest.mark.parametrize(
+    ("name", "expected"),
+    [
+        ("mousePressEvent", True),
+        ("setUp", True),
+        ("set_up", False),
+        ("setup", False),
+        ("SetUp", False),
+        ("_", False),
+    ],
+)
+def test_is_camel_case(name: str, expected: bool) -> None:
+    assert is_camel_case(name=name) is expected
+
+
+@pytest.mark.parametrize(
+    ("body", "expected"),
+    [
+        ("def deco(f):\n    def w():\n        return f()\n    return w\n", True),
+        ("def deco(f):\n    return lambda: f()\n", True),
+        (
+            "def deco(f):\n    if f:\n        def w():\n            pass\n        return w\n    return None\n",
+            True,
+        ),
+        ("def deco(f):\n    actual = build()\n    return actual\n", False),
+        ("def deco(f):\n    def w():\n        return w\n    return f\n", False),
+    ],
+)
+def test_returns_nested_function(body: str, expected: bool) -> None:
+    assert returns_nested_function(node=_find_function(body)) is expected
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        ("class E(RuntimeError):\n    pass\n", True),
+        ("class E(errors.BaseAppException):\n    pass\n", True),
+        ("class E(UserWarning, Generic[T]):\n    pass\n", True),
+        ("class E(Base):\n    pass\n", False),
+        ("class E:\n    pass\n", False),
+    ],
+)
+def test_is_exception_class(source: str, expected: bool) -> None:
+    node = next(iter_definitions(tree=ast.parse(source))).node
+    assert is_exception_class(node=node) is expected
+
+
+def test_list_base_leaves_unwraps_attributes_and_subscripts() -> None:
+    node = next(
+        iter_definitions(tree=ast.parse("class M(models.Manager, Generic[T], (x)):\n    pass\n")),
+    ).node
+    assert list_base_leaves(node=node) == ["Manager", "Generic", "x"]

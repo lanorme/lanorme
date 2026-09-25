@@ -35,7 +35,7 @@ def _project(tmp_path: Path) -> Path:
     return pkg
 
 
-def _domain_terms_findings(capsys) -> list[dict]:
+def _parse_domain_terms_findings(capsys) -> list[dict]:
     """Parse the captured ``--json`` output into the domain_terms violation list."""
     payload = json.loads(capsys.readouterr().out)
     by_name = {result["check"]: result for result in payload}
@@ -47,10 +47,10 @@ def _run(target: Path | list[Path], capsys) -> list[dict]:
     targets = [str(target)] if isinstance(target, Path) else [str(t) for t in target]
     with pytest.raises(SystemExit):  # nonzero exit on the findings we expect
         main(["check", *targets, "--check", "domain_terms", "--json"])
-    return _domain_terms_findings(capsys)
+    return _parse_domain_terms_findings(capsys)
 
 
-def _signature(findings: list[dict], *, basename: str | None = None) -> set[tuple[int, str]]:
+def _read_signature(findings: list[dict], *, basename: str | None = None) -> set[tuple[int, str]]:
     """Reduce findings to (line, rule) keys, optionally restricted to one file."""
     chosen = findings if basename is None else [f for f in findings if f["file"].endswith(basename)]
     return {(f["line"], f["rule"]) for f in chosen}
@@ -66,8 +66,8 @@ def test_file_target_reports_what_the_directory_reports(tmp_path: Path, capsys):
 
     # Assert: the file target fires (issue #17 = it silently found zero) and its
     # findings equal what the directory run found for that same file.
-    assert _signature(from_file)
-    assert _signature(from_file) == _signature(from_dir, basename="models.py")
+    assert _read_signature(from_file)
+    assert _read_signature(from_file) == _read_signature(from_dir, basename="models.py")
 
 
 def test_file_target_excludes_sibling_findings(tmp_path: Path, capsys):
@@ -132,7 +132,7 @@ def test_subdir_target_honours_project_root_per_file_ignores(tmp_path: Path, cap
         main(["check", str(pkg), "--check", "domain_terms", "--json"])
     except SystemExit:
         pass
-    findings = _domain_terms_findings(capsys)
+    findings = _parse_domain_terms_findings(capsys)
 
     # Assert: the root-relative ``pkg/*.py`` ignore matched the re-anchored path,
     # so TERM is silenced (without re-anchoring it would not match and fire).

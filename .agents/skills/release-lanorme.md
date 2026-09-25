@@ -25,16 +25,25 @@ Every release records the same evidence so a green tag is auditable later:
    the configuration reference, JSON schema, rule index, and llms files.
 3. **A eval audit is recorded** to `evals/results/vX.Y.Z.json`: the
    accuracy metrics (precision, recall, F1 per scored rule against the labelled
-   corpora) and the end-to-end performance numbers, each stamped with the
+   corpora, for the dev split, the sealed holdout split and the gap between
+   them) and the end-to-end performance numbers, each stamped with the
    LaNorme version, the git commit, the Python version, and the hardware
    (platform and processor). Accuracy is deterministic and is the audit's
    backbone; performance is informative and machine-dependent (the hardware
    stamp is what makes it interpretable).
-4. **RULES.md reflects the measured F1** for every rule that has a corpus. If a
+4. **No holdout regression.** The audit runs with `--gate latest`: it fails
+   when any rule's holdout precision or recall falls more than 0.02 below the
+   best value any comparable committed `evals/results/v*.json` recorded (one
+   that scored the same holdout files), not merely the latest, and lists the
+   rules. It also fails when a holdout file the newest recorded audit digested
+   was removed or changed, unless `evals/holdout_revisions.json` accepts that
+   exact new digest with a reason. Dev numbers are informational and never
+   block.
+5. **RULES.md reflects the measured F1** for every rule that has a corpus. If a
    rule's F1 moved, update its line before tagging.
 
-`scripts/release.sh` enforces steps 1 to 3 (it refuses to tag if any gate fails
-or the docs are stale); step 4 is a human check on the audit output.
+`scripts/release.sh` enforces steps 1 to 4 (it refuses to tag if any gate fails
+or the docs are stale); step 5 is a human check on the audit output.
 
 ## Versioning
 
@@ -60,11 +69,12 @@ The README "Versioning" section is canonical; keep them in step.
 
    ```
    uv run python scripts/gen_docs.py
-   uv run python evals/audit.py --version X.Y.Z --output /tmp/preview.json
+   uv run python evals/audit.py --version X.Y.Z --output /tmp/preview.json --gate latest
    ```
 
    Read the preview; if any F1 changed, update that rule's line in
-   `docs/RULES.md`. Commit the regenerated docs and any RULES.md change. Do not
+   `docs/RULES.md`. A holdout regression fails the preview and the release: fix
+   the rule, never the holdout files (see `CONTRIBUTING.md`). Commit the regenerated docs and any RULES.md change. Do not
    commit the audit file yourself: `release.sh` records the committed
    `evals/results/vX.Y.Z.json` for you, against the release commit (step 4), so
    its version and commit stamp match the released tree.
@@ -76,7 +86,7 @@ The README "Versioning" section is canonical; keep them in step.
 
    It refuses unless you are on `main`, the CHANGELOG section exists, the docs
    are in sync, and the gates pass (including an eval-audit precheck that the
-   corpora are not stale). Then it bumps the version in `pyproject.toml` and
+   corpora are complete and not stale and that no holdout number regressed). Then it bumps the version in `pyproject.toml` and
    `src/lanorme/__init__.py`, builds, runs `twine check`, commits the release,
    records the eval audit against that commit (a second `Record X.Y.Z eval
    audit` commit), tags `vX.Y.Z`, pushes, and creates the GitHub Release.
@@ -101,9 +111,20 @@ The README "Versioning" section is canonical; keep them in step.
 - `uv publish` is never run by hand. PyPI publishing is OIDC Trusted Publishing,
   fired only by the GitHub Release.
 - The eval audit's accuracy step is strict: if a scorer sees a finding that
-  is not in its corpus `labels.json`, it errors rather than scoring a wrong
-  number. That means a fixture went stale, not that the release is blocked on
-  performance; fix the labels.
+  is not in its corpus `labels.json`, or `validate_corpora.py` finds an
+  unlabelled file or comment, a label whose line hash is missing or no longer
+  matches its line, a label of the wrong polarity for its directory, or a
+  file off its recorded split, it errors rather than scoring a wrong number.
+  That means a fixture went stale, not that the release is blocked on
+  performance; fix the labels. The split is recorded per file in
+  `labels.json` (the name hash only proposes one for a new file), and
+  `uv run python evals/validate_corpora.py --stamp` fills a missing split or
+  line hash.
+- The holdout gate holds each rule to the best comparable release over the
+  whole history of `evals/results/v*.json`, not the newest alone. A rule no
+  comparable audit has holdout numbers for is skipped, not failed, and the
+  gate prints a note when it gated nothing, so the first release after a
+  corpus gains a holdout split records the baseline the next one is held to.
 - Performance numbers are machine-dependent. The audit stamps the hardware so
   they are interpretable, but do not compare them across machines.
 
@@ -113,6 +134,11 @@ The README "Versioning" section is canonical; keep them in step.
   and re-run.
 - The eval audit's accuracy step fails (a scorer flags an unlabelled
   finding): the corpus is out of date. Fix the labels or the fixture, re-run.
+- The holdout gate fails: a change since the last release made a rule worse on
+  data it was not tuned on, or a holdout file changed. Fix or revert the rule
+  change; do not edit the holdout files to pass. A holdout edit that is right
+  on its own merits (a label proved wrong) goes in its own reviewed change with
+  an `evals/holdout_revisions.json` entry naming the new digest and the reason.
 - The publish workflow fails (for example a PyPI outage): the tag and release
   already exist, so do not re-tag. Re-run with `gh run rerun <id>` or
   `gh workflow run release.yml`.
@@ -123,7 +149,7 @@ Edit `CHANGELOG.md`, run `uv run python scripts/gen_docs.py`, `uv run --group
 dev pytest tests/unit`, and `uv run lanorme check .`. Bump `version` in
 `pyproject.toml` and `__version__` in `src/lanorme/__init__.py`, then `uv
 build`, `git commit -m "Release X.Y.Z"`. Now record the audit against that
-commit: `uv run python evals/audit.py --version X.Y.Z` and `git commit -m
+commit: `uv run python evals/audit.py --version X.Y.Z --gate latest` and `git commit -m
 "Record X.Y.Z eval audit" evals/results/`. Finally `git tag -a vX.Y.Z`, `git
 push origin main`, `git push origin vX.Y.Z`, and `gh release create vX.Y.Z
 dist/* --notes "..."`.

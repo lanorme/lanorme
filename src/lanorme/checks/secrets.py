@@ -12,13 +12,16 @@ priority for security rules: do not produce a false sense of security):
    ``Bearer`` header literals, DB / cache URLs with embedded
    ``user:pass@host`` credentials, and vendor-prefixed credentials (AWS AKIA
    / ASIA, GitHub ``ghp_`` / ``gho_`` / ``github_pat_``, Slack ``xox*``,
-   Stripe ``sk_live_`` / ``sk_test_``). These betray themselves regardless of
-   where they sit.
-3. **Implicit exclusions**: files matching ``conftest.py``, ``seed_dev.py``,
-   or starting with ``test_`` are skipped wholesale; names whose first segment
+   Stripe ``sk_live_`` / ``sk_test_``, Django ``django-insecure-``). These
+   betray themselves regardless of where they sit, including as the fallback
+   default of an ``os.environ.get(...)`` call.
+3. **Implicit exclusions**: ``seed_dev.py`` and test files (see
+   ``lanorme.paths``) are skipped wholesale; names whose first segment
    is ``help_`` / ``hint_`` / ``msg_`` / etc. are documentation; names whose
    last segment is structural (``pattern``, ``endpoint``, ``header``,
-   ``name``, ``len``, ...) are not credentials.
+   ``name``, ``len``, ``env``, ``id``, ``file``, ``algorithm``, ...) are not
+   credentials unless the whole name is a credential phrase
+   (``access_key_id``).
 
 Scope is Python source only; ``.env`` / ``*.yaml`` / ``*.ipynb`` / ``*.tf``
 are out of scope until a separate non-Python rule lands. The rule code is
@@ -33,57 +36,169 @@ from __future__ import annotations
 import ast
 import re
 from dataclasses import dataclass, field
-from pathlib import Path
 
-from lanorme import CheckResult, Status, Violation, register
-from lanorme.discovery import iter_py_files
+from lanorme import CheckResult, Violation, register
+from lanorme.astnames import read_str_constant
+from lanorme.paths import is_test_file
+from lanorme.scan import Scan
+from lanorme.sources import Module, iter_parsed_modules, locate
 
 # A name suggests a credential when (i) it matches one of these multi-segment
 # phrases as the whole name or as a ``_``-anchored suffix, OR (ii) one of its
 # ``_``-separated segments is a bare credential token.
-_CRED_NAME_PHRASES = frozenset({
-    "api_key", "apikey",
-    "access_key", "access_key_id",
-    "secret_key", "secret_access_key",
-    "private_key", "ssh_private_key", "signing_key", "encryption_key",
-    "client_secret", "oauth_secret", "jwt_secret", "auth_secret", "signing_secret",
-    "aws_access_key", "aws_access_key_id",
-    "aws_secret_key", "aws_secret_access_key", "aws_session_token",
-    "session_token", "access_token", "refresh_token", "bearer_token", "auth_token",
-    "github_token", "github_pat", "slack_token",
-})
-_CRED_TOKEN_SEGMENTS = frozenset({
-    "password", "passwd", "pwd",
-    "secret", "token", "jwt", "passphrase", "apikey",
-})
-_NON_CRED_NAME_PREFIXES = (
-    "help_", "hint_", "msg_", "prompt_", "description_", "example_", "usage_",
-    "label_", "docs_", "info_", "title_", "placeholder_", "tooltip_",
+_CRED_NAME_PHRASES = frozenset(
+    {
+        "api_key",
+        "apikey",
+        "access_key",
+        "access_key_id",
+        "secret_key",
+        "secret_access_key",
+        "private_key",
+        "ssh_private_key",
+        "signing_key",
+        "encryption_key",
+        "client_secret",
+        "oauth_secret",
+        "jwt_secret",
+        "auth_secret",
+        "signing_secret",
+        "aws_access_key",
+        "aws_access_key_id",
+        "aws_secret_key",
+        "aws_secret_access_key",
+        "aws_session_token",
+        "session_token",
+        "access_token",
+        "refresh_token",
+        "bearer_token",
+        "auth_token",
+        "github_token",
+        "github_pat",
+        "slack_token",
+    },
 )
-_NON_CRED_LAST_SEGMENTS = frozenset({
-    "help", "hint", "msg", "prompt", "description", "example", "usage",
-    "label", "docs", "info", "title", "placeholder", "tooltip",
-    "pattern", "regex", "re", "pat",
-    "endpoint", "header", "name", "path", "url", "uri",
-    "format", "kind", "type", "len", "length", "max", "min", "fmt",
-    "field", "column", "default", "alias",
-})
+_CRED_TOKEN_SEGMENTS = frozenset(
+    {
+        "password",
+        "passwd",
+        "pwd",
+        "secret",
+        "token",
+        "jwt",
+        "passphrase",
+        "apikey",
+    },
+)
+_NON_CRED_NAME_PREFIXES = (
+    "help_",
+    "hint_",
+    "msg_",
+    "prompt_",
+    "description_",
+    "example_",
+    "usage_",
+    "label_",
+    "docs_",
+    "info_",
+    "title_",
+    "placeholder_",
+    "tooltip_",
+)
+_NON_CRED_LAST_SEGMENTS = frozenset(
+    {
+        "help",
+        "hint",
+        "msg",
+        "prompt",
+        "description",
+        "example",
+        "usage",
+        "label",
+        "docs",
+        "info",
+        "title",
+        "placeholder",
+        "tooltip",
+        "pattern",
+        "regex",
+        "re",
+        "pat",
+        "endpoint",
+        "header",
+        "name",
+        "path",
+        "url",
+        "uri",
+        "format",
+        "kind",
+        "type",
+        "len",
+        "length",
+        "max",
+        "min",
+        "fmt",
+        "field",
+        "column",
+        "default",
+        "alias",
+        # The variable, file or service that holds the secret, or the scheme
+        # that protects it, not the secret itself.
+        "env",
+        "envvar",
+        "var",
+        "variable",
+        "setting",
+        "option",
+        "arg",
+        "flag",
+        "param",
+        "id",
+        "file",
+        "filename",
+        "dir",
+        "algorithm",
+        "algo",
+        "hasher",
+        "scheme",
+        "method",
+        "backend",
+        "provider",
+        "handler",
+        "store",
+        "manager",
+        "service",
+    },
+)
 # Substrings in the value that mark a placeholder rather than a real secret.
 # Excludes ``fake`` / ``dummy``: an attacker labelling a high-entropy literal
 # ``fake-token-xyz`` is not a reason to skip it.
 _PLACEHOLDER_MARKERS = (
-    "<", "your-", "your_", "replace", "change", "example",
-    "placeholder", "xxxxx", "*****", "tbd", "todo", "_here", "fixme",
-    "redacted", "sample",
+    "<",
+    "your-",
+    "your_",
+    "replace",
+    "change",
+    "example",
+    "placeholder",
+    "xxxxx",
+    "*****",
+    "tbd",
+    "todo",
+    "_here",
+    "fixme",
+    "redacted",
+    "sample",
 )
 
-_SCAN_EXCLUDES = {"conftest.py", "seed_dev.py"}
+# Skipped wholesale; test files are skipped through ``lanorme.paths``.
+_SCAN_EXCLUDES = {"seed_dev.py"}
 
 _PEM_BLOCK_RE = re.compile(r"-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----")
 _JWT_RE = re.compile(r"\beyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b")
 _URL_WITH_CREDS_RE = re.compile(
     r"\b(postgres(?:ql)?|mysql|mariadb|mongodb(?:\+srv)?|redis|rediss|amqp|amqps)"
-    r"://[^:/?#@]*:[^@/?#]+@"
+    r"://[^:/?#@]*:[^@/?#]+@",
 )
 _BEARER_RE = re.compile(r"\bBearer\s+[A-Za-z0-9\-._~+/]{20,}=*")
 # Vendor-prefixed credential shapes. Length thresholds keep them past common
@@ -95,6 +210,10 @@ _VENDOR_TOKEN_PATTERNS = (
     (re.compile(r"\bgithub_pat_[A-Za-z0-9_]{40,}\b"), "GitHub fine-grained PAT literal"),
     (re.compile(r"\bxox[abps]-[A-Za-z0-9-]{20,}\b"), "Slack token literal (xox...)"),
     (re.compile(r"\bsk_(?:live|test)_[A-Za-z0-9]{24,}\b"), "Stripe API key literal"),
+    (
+        re.compile(r"\bdjango-insecure-[A-Za-z0-9!@#$%^&*()_=+\-]{40,}"),
+        "Django-generated SECRET_KEY literal (django-insecure-...)",
+    ),
 )
 
 _MIN_CRED_LITERAL_LEN = 8
@@ -102,8 +221,6 @@ _HIGH_ENTROPY_LEN = 32
 
 _RULE = "SECRETPY-001: No hardcoded secrets in source code"
 _FIX = "Read the value from an environment variable, secrets manager, or settings module"
-
-_SKIP_DIRS = frozenset({".git", ".venv", "venv", "node_modules", "__pycache__", "dist", "build"})
 
 
 def _normalise_name(name: str) -> str:
@@ -115,16 +232,17 @@ def _name_is_credential(name: str) -> bool:
     norm = _normalise_name(name)
     if norm.startswith(_NON_CRED_NAME_PREFIXES):
         return False
+    # A whole phrase wins over its last segment: ``access_key_id`` is the
+    # credential, ``secret_id`` the Secrets Manager reference to one.
+    if any(norm == phrase or norm.endswith("_" + phrase) for phrase in _CRED_NAME_PHRASES):
+        return True
     segments = norm.split("_")
-    if not segments or segments[-1] in _NON_CRED_LAST_SEGMENTS:
+    if segments[-1] in _NON_CRED_LAST_SEGMENTS:
         return False
-    for phrase in _CRED_NAME_PHRASES:
-        if norm == phrase or norm.endswith("_" + phrase):
-            return True
     return any(seg in _CRED_TOKEN_SEGMENTS for seg in segments)
 
 
-def _value_looks_high_entropy(text: str) -> bool:
+def _is_high_entropy_value(text: str) -> bool:
     """True when *text* has enough variety to be a real key rather than a placeholder."""
     if len(text) < _HIGH_ENTROPY_LEN:
         return False
@@ -135,47 +253,75 @@ def _value_looks_high_entropy(text: str) -> bool:
 
 
 def _value_is_real_secret(value: ast.expr) -> str | None:
-    """Return the string content of *value* if it looks like a real secret, else ``None``."""
-    if not (isinstance(value, ast.Constant) and isinstance(value.value, str)):
-        return None
-    text = value.value
+    """Return the string content of *value* if it looks like a real secret, else ``None``.
+
+    A ``bytes`` literal (``hmac_secret = b"..."``) is read as latin-1 text so
+    the same length, marker and entropy tests apply.
+    """
+    match value:
+        case ast.Constant(value=bytes() as raw):
+            text = raw.decode("latin-1")
+        case ast.Constant(value=str() as literal):
+            text = literal
+        case _:
+            return None
     if len(text) < _MIN_CRED_LITERAL_LEN:
         return None
     lowered = text.lower()
     if any(marker in lowered for marker in _PLACEHOLDER_MARKERS):
-        if not _value_looks_high_entropy(text):
+        if not _is_high_entropy_value(text):
             return None
     return text
 
 
-def _violation(*, file: str, lineno: int, message: str) -> Violation:
-    return Violation(file=file, line=lineno, rule=_RULE, message=message, fix=_FIX)
+def _build_violation(*, file: str, node: ast.AST, message: str) -> Violation:
+    """The SECRETPY-001 finding anchored at *node*."""
+    return Violation(
+        file=file,
+        line=node.lineno,
+        rule=_RULE,
+        message=message,
+        fix=_FIX,
+        **locate(node),
+    )
 
 
 def _flag_assignment(
-    *, name: str, value: ast.expr, lineno: int, file: str
+    *,
+    name: str,
+    value: ast.expr,
+    node: ast.AST,
+    file: str,
 ) -> Violation | None:
-    """Flag ``<credname> = "<literal>"`` style bindings."""
+    """Flag ``<credname> = "<literal>"`` style bindings, reported at *node*."""
     if not _name_is_credential(name):
         return None
     if _value_is_real_secret(value) is None:
         return None
-    return _violation(file=file, lineno=lineno, message=f"Hardcoded credential value bound to '{name}'")
+    return _build_violation(
+        file=file,
+        node=node,
+        message=f"Hardcoded credential value bound to '{name}'",
+    )
 
 
-def _shape_violation(*, value: str, lineno: int, file: str) -> Violation | None:
+def _shape_violation(*, value: str, node: ast.Constant, file: str) -> Violation | None:
     """Flag SECRET-shape literals that betray themselves regardless of variable name."""
     if _PEM_BLOCK_RE.search(value):
-        return _violation(file=file, lineno=lineno, message="PEM-formatted private key in source")
+        return _build_violation(file=file, node=node, message="PEM-formatted private key in source")
     if _JWT_RE.search(value):
-        return _violation(file=file, lineno=lineno, message="JWT-shaped token literal in source")
+        return _build_violation(file=file, node=node, message="JWT-shaped token literal in source")
     if _URL_WITH_CREDS_RE.search(value):
-        return _violation(file=file, lineno=lineno, message="Database / cache URL with embedded credentials")
+        return _build_violation(
+            file=file,
+            node=node,
+            message="Database / cache URL with embedded credentials",
+        )
     if _BEARER_RE.search(value):
-        return _violation(file=file, lineno=lineno, message="Bearer-token literal in source")
+        return _build_violation(file=file, node=node, message="Bearer-token literal in source")
     for pattern, description in _VENDOR_TOKEN_PATTERNS:
         if pattern.search(value):
-            return _violation(file=file, lineno=lineno, message=description)
+            return _build_violation(file=file, node=node, message=description)
     return None
 
 
@@ -184,7 +330,7 @@ def _from_assign(node: ast.Assign, *, file: str) -> list[Violation]:
     for target in node.targets:
         if not isinstance(target, ast.Name):
             continue
-        hit = _flag_assignment(name=target.id, value=node.value, lineno=node.lineno, file=file)
+        hit = _flag_assignment(name=target.id, value=node.value, node=node, file=file)
         if hit is not None:
             found.append(hit)
     return found
@@ -193,16 +339,17 @@ def _from_assign(node: ast.Assign, *, file: str) -> list[Violation]:
 def _from_annassign(node: ast.AnnAssign, *, file: str) -> list[Violation]:
     if not isinstance(node.target, ast.Name) or node.value is None:
         return []
-    hit = _flag_assignment(name=node.target.id, value=node.value, lineno=node.lineno, file=file)
+    hit = _flag_assignment(name=node.target.id, value=node.value, node=node, file=file)
     return [hit] if hit is not None else []
 
 
 def _from_dict(node: ast.Dict, *, file: str) -> list[Violation]:
     found: list[Violation] = []
     for key, value in zip(node.keys, node.values, strict=False):
-        if not (isinstance(key, ast.Constant) and isinstance(key.value, str)):
+        name = read_str_constant(key)
+        if name is None:
             continue
-        hit = _flag_assignment(name=key.value, value=value, lineno=key.lineno, file=file)
+        hit = _flag_assignment(name=name, value=value, node=key, file=file)
         if hit is not None:
             found.append(hit)
     return found
@@ -213,22 +360,24 @@ def _from_call_kwargs(node: ast.Call, *, file: str) -> list[Violation]:
     for kw in node.keywords:
         if kw.arg is None:
             continue
-        hit = _flag_assignment(name=kw.arg, value=kw.value, lineno=kw.value.lineno, file=file)
+        hit = _flag_assignment(name=kw.arg, value=kw.value, node=kw.value, file=file)
         if hit is not None:
             found.append(hit)
     return found
 
 
 def _from_string_constant(node: ast.Constant, *, file: str) -> list[Violation]:
-    if not isinstance(node.value, str):
+    text = read_str_constant(node)
+    if text is None:
         return []
-    hit = _shape_violation(value=node.value, lineno=node.lineno, file=file)
+    hit = _shape_violation(value=text, node=node, file=file)
     return [hit] if hit is not None else []
 
 
-def _scan_tree(*, tree: ast.AST, file: str) -> list[Violation]:
+def _scan_tree(*, module: Module) -> list[Violation]:
+    file = module.relative
     found: list[Violation] = []
-    for node in ast.walk(tree):
+    for node in module.index.collect(ast.Assign, ast.AnnAssign, ast.Dict, ast.Call, ast.Constant):
         if isinstance(node, ast.Assign):
             found.extend(_from_assign(node, file=file))
         elif isinstance(node, ast.AnnAssign):
@@ -254,29 +403,16 @@ class SecretsCheck:
     rules: list[str] = field(
         default_factory=lambda: [
             "SECRETPY-001: No hardcoded secrets in source code",
-        ]
+        ],
     )
 
-    def run(self, *, src_root: str) -> CheckResult:
+    def check(self, scan: Scan) -> CheckResult:
         violations: list[Violation] = []
-        root = Path(src_root)
-        for path in iter_py_files(root):
-            # Match skip directories inside the root only: the absolute path's
-            # ancestors are the user's filesystem, not the project layout.
-            relative = path.relative_to(root)
-            if any(part in _SKIP_DIRS for part in relative.parts):
+        for module in iter_parsed_modules(scan.root):
+            if module.path.name in _SCAN_EXCLUDES or is_test_file(module.relative):
                 continue
-            file_name = path.name
-            if file_name in _SCAN_EXCLUDES or file_name.startswith("test_"):
-                continue
-            try:
-                source = path.read_text(encoding="utf-8")
-                tree = ast.parse(source, filename=str(path))
-            except (OSError, UnicodeDecodeError, SyntaxError):
-                continue
-            violations.extend(_scan_tree(tree=tree, file=relative.as_posix()))
-        status = Status.FAIL if violations else Status.PASS
-        return CheckResult(check=self.name, status=status, violations=violations)
+            violations.extend(_scan_tree(module=module))
+        return CheckResult.from_findings(check=self.name, violations=violations)
 
 
 register(SecretsCheck())

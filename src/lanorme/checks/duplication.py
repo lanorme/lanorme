@@ -5,12 +5,19 @@ Checks:
              are flagged as duplication candidates.
 
 Normalization: variable names and string literals are replaced with placeholders
-so that functions differing only in naming are detected as duplicates. The match
-is exact modulo those placeholders: a single added statement, a reordering, a
-changed number, or a renamed attribute defeats it. For the fuzzier near-duplicate
-cases see the ``similarity`` check (SIMILAR-001).
+so that functions differing only in naming are detected as duplicates. The name
+a call targets is kept, like an attribute name: ``min`` against ``max`` or
+``any`` against ``all`` is a different operation, not a renamed variable. A
+call to a name the function binds itself (a parameter, a local variable, a
+nested definition) targets data, so that name is abstracted like any other
+variable; builtins and imported names stay literal. The match is exact modulo
+those placeholders: a single added statement, a reordering, a changed number,
+a renamed attribute or a renamed call defeats it. A leading docstring is
+documentation, not a statement: it is left out of the body before the
+five-statement floor and the comparison. For the fuzzier
+near-duplicate cases see the ``similarity`` check (SIMILAR-001).
 
-Excludes: __init__.py, conftest.py, alembic/, migrations/, test_* prefixed files.
+Excludes: __init__.py, alembic/, migrations/, and test files (see lanorme.paths).
 
 Run:
     lanorme check . --check=duplication
@@ -19,19 +26,29 @@ Run:
 from __future__ import annotations
 
 import ast
-import copy
 from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from lanorme import CheckResult, Status, Violation, register
-from lanorme.discovery import iter_py_files
+from lanorme import CheckResult, Violation, register
+from lanorme.function_body import collect_local_bindings, list_body_statements
+from lanorme.paths import is_test_file
+from lanorme.scan import Scan
+from lanorme.sources import (
+    TOO_DEEP,
+    Module,
+    UnparseableFile,
+    build_skip_notice,
+    build_unparseable_notice,
+    iter_modules,
+    locate,
+)
 
 # Minimum number of statements in a function body to consider for duplication.
 MIN_BODY_STATEMENTS = 5
 
-# Files and directories excluded from scanning.
-EXCLUDED_FILENAMES = {"__init__.py", "conftest.py"}
+# Files and directories excluded from scanning (test files: ``lanorme.paths``).
+EXCLUDED_FILENAMES = {"__init__.py"}
 EXCLUDED_DIR_PARTS = {"alembic", "migrations"}
 
 
@@ -42,75 +59,81 @@ def _should_exclude(*, relative: Path) -> bool:
     user's filesystem above the root out of it: a checkout that happens to
     live under a ``migrations/`` directory is scanned like any other.
     """
-    if relative.name in EXCLUDED_FILENAMES:
-        return True
-    if relative.name.startswith("test_"):
+    if relative.name in EXCLUDED_FILENAMES or is_test_file(relative):
         return True
     return any(part in EXCLUDED_DIR_PARTS for part in relative.parts)
 
 
-class _AstNormalizer(ast.NodeTransformer):
-    """Replace variable names and string literals with placeholders.
+# Fields whose value is a name the normaliser replaces with a placeholder.
+_NAME_FIELDS: dict[type[ast.AST], str] = {
+    ast.Name: "id",
+    ast.arg: "arg",
+    ast.FunctionDef: "name",
+    ast.AsyncFunctionDef: "name",
+}
 
-    This makes structurally identical functions match even when they use
-    different variable names or string constants.
+
+class _NormalisedDump:
+    """Render a body as a dump with names and string literals abstracted away.
+
+    Structurally identical functions produce the same string even when they
+    use different variable names or string constants. Names are replaced by
+    sequential placeholders in first-seen order and every string literal by
+    one token. The tree is read, never copied or mutated: it is shared with
+    every other check this run.
+
+    *local_names* are the names the function binds: a call to one of them is
+    a call through a variable, so the callee is abstracted with the variable;
+    any other callee (a builtin, an import, a module-level function) is kept
+    literal.
     """
 
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, *, local_names: frozenset[str] = frozenset()) -> None:
         self._name_map: dict[str, str] = {}
-        self._name_counter: int = 0
+        self._local_names = local_names
 
-    def _normalize_name(self, *, name: str) -> str:
-        """Map a variable name to a sequential placeholder."""
+    def _resolve_placeholder(self, name: str) -> str:
+        """Map a name to a sequential placeholder."""
         if name not in self._name_map:
-            self._name_map[name] = f"_var{self._name_counter}"
-            self._name_counter += 1
+            self._name_map[name] = f"_var{len(self._name_map)}"
         return self._name_map[name]
 
-    def visit_Name(self, node: ast.Name) -> ast.Name:  # noqa: N802
-        """Normalize variable references."""
-        node.id = self._normalize_name(name=node.id)
-        self.generic_visit(node)
-        return node
+    def render(self, value: object) -> str:
+        """The normalised dump of a node, a list of nodes, or a leaf value."""
+        if isinstance(value, ast.AST):
+            name_field = _NAME_FIELDS.get(type(value))
+            parts: list[str] = []
+            for field_name, child in ast.iter_fields(value):
+                if field_name == name_field:
+                    rendered = self._resolve_placeholder(str(child))
+                elif isinstance(value, ast.Constant) and isinstance(child, str):
+                    rendered = "_STR_"
+                elif self._is_fixed_callee(parent=value, field_name=field_name, child=child):
+                    # The callee is what the statement does; keep it literal, as
+                    # a method's attribute name already is.
+                    rendered = f"Called({child.id!r})"
+                else:
+                    rendered = self.render(child)
+                parts.append(f"{field_name}={rendered}")
+            return f"{type(value).__name__}({', '.join(parts)})"
+        if isinstance(value, list):
+            return "[" + ", ".join(self.render(item) for item in value) + "]"
+        return repr(value)
 
-    def visit_arg(self, node: ast.arg) -> ast.arg:
-        """Normalize function argument names."""
-        node.arg = self._normalize_name(name=node.arg)
-        self.generic_visit(node)
-        return node
-
-    def visit_Constant(self, node: ast.Constant) -> ast.Constant:  # noqa: N802
-        """Replace string literals with a placeholder."""
-        if isinstance(node.value, str):
-            node.value = "_STR_"
-        return node
-
-    def visit_FunctionDef(self, node: ast.FunctionDef) -> ast.FunctionDef:  # noqa: N802
-        """Normalize the function name itself."""
-        node.name = self._normalize_name(name=node.name)
-        self.generic_visit(node)
-        return node
-
-    def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> ast.AsyncFunctionDef:  # noqa: N802
-        """Normalize async function name."""
-        node.name = self._normalize_name(name=node.name)
-        self.generic_visit(node)
-        return node
+    def _is_fixed_callee(self, *, parent: ast.AST, field_name: str, child: object) -> bool:
+        """True when *child* is the bare name a call targets and it is not bound locally."""
+        return (
+            isinstance(parent, ast.Call)
+            and field_name == "func"
+            and isinstance(child, ast.Name)
+            and child.id not in self._local_names
+        )
 
 
 def _normalize_function_body(*, func_node: ast.FunctionDef | ast.AsyncFunctionDef) -> str:
-    """Return a normalized AST dump of a function's body for comparison.
-
-    Creates a deep copy to avoid mutating the original tree, then strips
-    variable names and string literals so structurally identical functions
-    produce the same dump string.
-    """
-    body_copy = copy.deepcopy(func_node.body)
-    wrapper = ast.Module(body=body_copy, type_ignores=[])
-    normalizer = _AstNormalizer()
-    normalized = normalizer.visit(wrapper)
-    return ast.dump(normalized)
+    """Return a normalized dump of a function's body for comparison."""
+    dump = _NormalisedDump(local_names=collect_local_bindings(func=func_node))
+    return dump.render(list_body_statements(func=func_node))
 
 
 @dataclass(frozen=True)
@@ -120,30 +143,27 @@ class _FunctionLocation:
     file: str
     line: int
     name: str
+    column: int | None = None
+    end_line: int | None = None
+    end_column: int | None = None
 
 
-def _collect_functions(
-    *,
-    tree: ast.AST,
-    relative_file: str,
-) -> list[tuple[str, _FunctionLocation]]:
+def _collect_functions(*, module: Module) -> list[tuple[str, _FunctionLocation]]:
     """Walk the AST and return (normalized_hash, location) for qualifying functions."""
     results: list[tuple[str, _FunctionLocation]] = []
 
-    for node in ast.walk(tree):
-        if not isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
+    for node in module.index.functions:
+        # Skip functions with fewer statements than the threshold; the
+        # docstring is documentation and does not count towards it.
+        if len(list_body_statements(func=node)) < MIN_BODY_STATEMENTS:
             continue
 
-        # Skip functions with fewer statements than the threshold.
-        if len(node.body) < MIN_BODY_STATEMENTS:
-            continue
-
-        # Skip if the entire body is a single docstring + pass or similar trivial patterns.
         normalized = _normalize_function_body(func_node=node)
         location = _FunctionLocation(
-            file=relative_file,
+            file=module.relative,
             line=node.lineno,
             name=node.name,
+            **locate(node),
         )
         results.append((normalized, location))
 
@@ -177,6 +197,9 @@ def _build_violations(
                         f"matching: {', '.join(peers)}"
                     ),
                     fix="Extract shared logic into a common helper function",
+                    column=loc.column,
+                    end_line=loc.end_line,
+                    end_column=loc.end_column,
                 ),
             )
 
@@ -196,46 +219,33 @@ class DuplicationCheck:
         ],
     )
 
-    def run(self, *, src_root: str) -> CheckResult:
+    def check(self, scan: Scan) -> CheckResult:
         """Scan all Python files under src/ and detect near-duplicate functions."""
         warnings: list[Violation] = []
-        src_path = Path(src_root)
 
         # Map normalized body hash -> list of locations.
         body_groups: dict[str, list[_FunctionLocation]] = defaultdict(list)
 
-        for py_file in iter_py_files(src_path):
-            relative = py_file.relative_to(src_path)
-            if _should_exclude(relative=relative):
+        for module in iter_modules(scan.root):
+            if _should_exclude(relative=Path(module.relative)):
+                continue
+            if isinstance(module, UnparseableFile):
+                warnings.append(build_unparseable_notice(prefix="DRY", failure=module))
                 continue
 
-            relative_file = relative.as_posix()
+            relative_file = module.relative
 
             try:
-                source = py_file.read_text(encoding="utf-8")
-                tree = ast.parse(source, filename=str(py_file))
-                collected = _collect_functions(tree=tree, relative_file=relative_file)
-            except (OSError, UnicodeDecodeError, SyntaxError):
-                warnings.append(
-                    Violation(
-                        file=relative_file,
-                        line=0,
-                        rule="DRY-000: parse error",
-                        message=f"Could not parse {py_file.name} — skipping",
-                        fix="Fix the syntax error first",
-                    ),
-                )
-                continue
+                collected = _collect_functions(module=module)
             except RecursionError:
                 # A deeply nested AST overflows the deepcopy used to normalise a
                 # body. Skip the file rather than crash the whole run.
                 warnings.append(
-                    Violation(
+                    build_skip_notice(
+                        prefix="DRY",
                         file=relative_file,
-                        line=0,
-                        rule="DRY-000: too deeply nested",
-                        message=f"{py_file.name} is too deeply nested to normalise — skipping",
-                        fix="No action needed; this file is exempt from DRY-001",
+                        name=module.path.name,
+                        reason=TOO_DEEP,
                     ),
                 )
                 continue
@@ -245,13 +255,7 @@ class DuplicationCheck:
 
         violations = _build_violations(groups=body_groups)
 
-        status = Status.FAIL if violations else (Status.WARN if warnings else Status.PASS)
-        return CheckResult(
-            check=self.name,
-            status=status,
-            violations=violations,
-            warnings=warnings,
-        )
+        return CheckResult.from_findings(check=self.name, violations=violations, warnings=warnings)
 
 
 # Self-register on import.

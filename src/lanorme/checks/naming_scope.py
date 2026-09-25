@@ -35,11 +35,15 @@ Run:
 from __future__ import annotations
 
 import ast
+from collections.abc import Iterator
 from dataclasses import dataclass, field
-from pathlib import Path
+from typing import ClassVar
 
-from lanorme import CheckResult, Status, Violation, register
-from lanorme.discovery import iter_py_files
+from lanorme import CheckResult, Violation, register
+from lanorme.checkconfig import is_flag_set, read_int, read_str_list
+from lanorme.paths import is_test_file
+from lanorme.scan import Scan
+from lanorme.sources import iter_parsed_modules, locate
 
 # Beyond this many lines between binding and last use, a short name stops
 # paying for itself. Roughly one screen: see the calibration above.
@@ -52,28 +56,54 @@ DEFAULT_MAX_SHORT_LENGTH = 2
 # meaning: loop counters, throwaway targets, maths axes, and a few two-letter
 # conventions. Projects extend this through the ``allow`` setting rather than
 # raising the span, so the exemption stays visible in config.
-DEFAULT_ALLOW = frozenset({
-    "_", "i", "j", "k", "n", "x", "y", "z",
-    "db", "id", "fd", "fh", "ok", "lo", "hi", "lr", "ax", "df", "ts",
-})
-
-_SKIP_DIRS = frozenset(
-    {".git", ".venv", "venv", "node_modules", "__pycache__", "dist", "build", "alembic", "migrations"}
+DEFAULT_ALLOW = frozenset(
+    {
+        "_",
+        "i",
+        "j",
+        "k",
+        "n",
+        "x",
+        "y",
+        "z",
+        "db",
+        "id",
+        "fd",
+        "fh",
+        "ok",
+        "lo",
+        "hi",
+        "lr",
+        "ax",
+        "df",
+        "ts",
+    },
 )
-_FUNCTION_TYPES = (ast.FunctionDef, ast.AsyncFunctionDef)
+
+_SKIP_DIRS = frozenset({"alembic", "migrations"})
 
 
 @dataclass
 class _Extent:
-    """Where a name is first bound and last referenced, in line numbers."""
+    """Where a name is first bound and last referenced, in line numbers.
+
+    ``node`` is the earliest binding or reference seen, where the finding is placed.
+    """
 
     first: int
     last: int
+    node: ast.AST
 
     @property
     def span(self) -> int:
         """Lines a reader must carry the name across, inclusive."""
         return self.last - self.first + 1
+
+    def extend(self, *, line: int, node: ast.AST) -> None:
+        """Widen the extent to *line*; an earlier line moves the anchor to *node*."""
+        if line < self.first:
+            self.first, self.node = line, node
+        self.last = max(self.last, line)
 
 
 def _is_short(*, name: str, max_short_length: int, allow: frozenset[str]) -> bool:
@@ -83,52 +113,138 @@ def _is_short(*, name: str, max_short_length: int, allow: frozenset[str]) -> boo
     return len(name.lstrip("_")) <= max_short_length
 
 
-def _local_extents(*, func: ast.AST) -> dict[str, _Extent]:
-    """Line extent of every name *func* binds, keyed by name.
+_SCOPES = (
+    ast.FunctionDef,
+    ast.AsyncFunctionDef,
+    ast.Lambda,
+    ast.ListComp,
+    ast.SetComp,
+    ast.DictComp,
+    ast.GeneratorExp,
+)
 
-    Only names the function itself binds are tracked: parameters and assignment
-    targets. A referenced-but-not-bound name is a module import or a global
-    (``np``, ``re``), where the short name is the library's choice and not this
-    function's to make.
+
+def _collect_own_bindings(*, scope: ast.AST) -> set[str]:
+    """Names *scope* binds itself: parameters, comprehension targets, stores, captures.
+
+    Bindings inside a nested scope are that scope's own and are not included.
     """
     bound: set[str] = set()
-    extents: dict[str, _Extent] = {}
-    for node in ast.walk(func):
-        name = None
+    pending: list[ast.AST] = list(ast.iter_child_nodes(scope))
+    while pending:
+        node = pending.pop()
         if isinstance(node, ast.arg):
-            name = node.arg
-            bound.add(name)
+            bound.add(node.arg)
+        elif isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store):
+            bound.add(node.id)
+        elif isinstance(node, (ast.MatchAs, ast.MatchStar)) and node.name is not None:
+            bound.add(node.name)
+        if isinstance(node, _SCOPES):
+            # A comprehension's iterable and a lambda's defaults are evaluated
+            # outside it; its arguments and targets are its own.
+            pending.extend(_list_outer_parts(scope=node))
+            continue
+        pending.extend(ast.iter_child_nodes(node))
+    return bound
+
+
+def _list_outer_parts(*, scope: ast.AST) -> list[ast.AST]:
+    """The children of a nested scope that belong to the enclosing one."""
+    if isinstance(scope, (ast.FunctionDef, ast.AsyncFunctionDef)):
+        return [*scope.decorator_list, *_list_defaults(args=scope.args)]
+    if isinstance(scope, ast.Lambda):
+        return _list_defaults(args=scope.args)
+    return [scope.generators[0].iter] if scope.generators else []
+
+
+def _list_defaults(*, args: ast.arguments) -> list[ast.AST]:
+    """Default expressions of *args*; a keyword-only argument without one holds ``None``."""
+    return [node for node in (*args.defaults, *args.kw_defaults) if node is not None]
+
+
+def _iter_name_uses(*, scope: ast.AST, shadowed: frozenset[str]) -> Iterator[tuple[str, ast.AST]]:
+    """Every name mention in *scope* that refers to the enclosing function's binding.
+
+    A nested function, lambda or comprehension is walked too, but a name it
+    binds itself (*shadowed*) is its own and is skipped, so an inner ``s`` does
+    not stretch the outer ``s``.
+    """
+    pending: list[tuple[ast.AST, frozenset[str]]] = [
+        (child, shadowed) for child in ast.iter_child_nodes(scope)
+    ]
+    while pending:
+        node, hidden = pending.pop()
+        if isinstance(node, ast.arg):
+            if node.arg not in hidden:
+                yield node.arg, node
         elif isinstance(node, ast.Name):
-            name = node.id
-            if isinstance(node.ctx, ast.Store):
-                bound.add(name)
-        if name is None:
+            if node.id not in hidden:
+                yield node.id, node
+        elif (
+            isinstance(node, (ast.MatchAs, ast.MatchStar)) and node.name and node.name not in hidden
+        ):
+            yield node.name, node
+        if isinstance(node, _SCOPES):
+            inner = hidden | _collect_own_bindings(scope=node)
+            pending.extend((child, inner) for child in ast.iter_child_nodes(node))
+            continue
+        pending.extend((child, hidden) for child in ast.iter_child_nodes(node))
+
+
+def _collect_local_extents(*, func: ast.AST) -> dict[str, _Extent]:
+    """Line extent of every name *func* binds, keyed by name.
+
+    Only names the function itself binds are tracked: parameters, assignment
+    targets and ``match`` captures. A referenced-but-not-bound name is a module
+    import or a global (``np``, ``re``), where the short name is the library's
+    choice and not this function's to make. A name a nested function, lambda
+    or comprehension binds is that scope's own and does not count.
+    """
+    bound = _collect_own_bindings(scope=func)
+    extents: dict[str, _Extent] = {}
+    for name, node in _iter_name_uses(scope=func, shadowed=frozenset()):
+        if name not in bound:
             continue
         line = getattr(node, "lineno", None)
         if line is None:
             continue
         seen = extents.get(name)
-        extents[name] = _Extent(first=min(seen.first, line), last=max(seen.last, line)) if seen else _Extent(first=line, last=line)
-    return {name: extent for name, extent in extents.items() if name in bound}
+        if seen is None:
+            extents[name] = _Extent(first=line, last=line, node=node)
+        else:
+            seen.extend(line=line, node=node)
+    return extents
 
 
-def _function_violations(*, func: ast.AST, file: str, settings: _Settings) -> list[Violation]:
+def _collect_function_violations(
+    *,
+    func: ast.AST,
+    file: str,
+    settings: _Settings,
+) -> list[Violation]:
     """Flag every short name in *func* held over more than the allowed span."""
     violations: list[Violation] = []
-    for name, extent in sorted(_local_extents(func=func).items()):
-        short = _is_short(name=name, max_short_length=settings.max_short_length, allow=settings.allow)
+    for name, extent in sorted(_collect_local_extents(func=func).items()):
+        short = _is_short(
+            name=name,
+            max_short_length=settings.max_short_length,
+            allow=settings.allow,
+        )
         if not short or extent.span <= settings.max_span:
             continue
-        violations.append(Violation(
-            file=file,
-            line=extent.first,
-            rule="NAMING-005: A short name must not be carried across a long span",
-            message=(
-                f"Name '{name}' is bound here and still in use {extent.span} lines later "
-                f"in '{getattr(func, 'name', '?')}' (limit: {settings.max_span})"
+        violations.append(
+            Violation(
+                file=file,
+                line=extent.first,
+                rule="NAMING-005: A short name must not be carried across a long span",
+                message=(
+                    f"Name '{name}' is bound here and still in use {extent.span} lines later "
+                    f"in '{getattr(func, 'name', '?')}' (limit: {settings.max_span})"
+                ),
+                fix="Give it a name that reads at the point of use, or shorten the span it lives across",
+                **locate(extent.node),
             ),
-            fix="Give it a name that reads at the point of use, or shorten the span it lives across",
-        ))
+        )
     return violations
 
 
@@ -154,48 +270,47 @@ class NamingScopeCheck:
     rules: list[str] = field(
         default_factory=lambda: [
             "NAMING-005: A short name must not be carried across a long span",
-        ]
+        ],
+    )
+    settings_keys: ClassVar[frozenset[str]] = frozenset(
+        {"enabled", "max_span", "max_short_length", "allow"},
     )
 
-    def configure(self, *, settings: dict[str, bool | int | list[str]]) -> None:
+    def configure(self, *, settings: dict[str, object]) -> None:
         """Apply ``[tool.lanorme.naming_scope]`` configuration."""
-        if "enabled" in settings:
-            self.enabled = bool(settings["enabled"])
-        if "max_span" in settings:
-            self.max_span = int(settings["max_span"])
-        if "max_short_length" in settings:
-            self.max_short_length = int(settings["max_short_length"])
-        extra = settings.get("allow")
-        if isinstance(extra, list):
-            self.allow = DEFAULT_ALLOW | {str(item) for item in extra}
+        self.enabled = is_flag_set(settings=settings, key="enabled", default=self.enabled)
+        self.max_span = read_int(settings=settings, key="max_span", default=self.max_span)
+        self.max_short_length = read_int(
+            settings=settings,
+            key="max_short_length",
+            default=self.max_short_length,
+        )
+        if "allow" in settings:
+            extra = read_str_list(settings=settings, key="allow")
+            self.allow = DEFAULT_ALLOW | frozenset(extra)
 
-    def run(self, *, src_root: str) -> CheckResult:
+    def check(self, scan: Scan) -> CheckResult:
         """Walk every Python file and collect NAMING-005 violations."""
         if not self.enabled:
-            return CheckResult(check=self.name, status=Status.PASS, violations=[])
+            return CheckResult.from_findings(check=self.name)
         resolved = _Settings(
             max_span=self.max_span,
             max_short_length=self.max_short_length,
             allow=frozenset(self.allow),
         )
         violations: list[Violation] = []
-        root = Path(src_root)
-        for path in iter_py_files(root):
+        for module in iter_parsed_modules(scan.root):
             # Match skip directories inside the root only: the absolute path's
             # ancestors are the user's filesystem, not the project layout.
-            relative = path.relative_to(root)
-            if any(part in _SKIP_DIRS for part in relative.parts) or path.name.startswith("test_"):
+            in_skip_dir = any(part in _SKIP_DIRS for part in module.relative.split("/"))
+            if in_skip_dir or is_test_file(module.relative):
                 continue
-            try:
-                tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
-            except (OSError, UnicodeDecodeError, SyntaxError):
-                continue
-            file = relative.as_posix()
-            for node in ast.walk(tree):
-                if isinstance(node, _FUNCTION_TYPES):
-                    violations.extend(_function_violations(func=node, file=file, settings=resolved))
-        status = Status.FAIL if violations else Status.PASS
-        return CheckResult(check=self.name, status=status, violations=violations)
+            file = module.relative
+            for node in module.index.functions:
+                violations.extend(
+                    _collect_function_violations(func=node, file=file, settings=resolved),
+                )
+        return CheckResult.from_findings(check=self.name, violations=violations)
 
 
 register(NamingScopeCheck())

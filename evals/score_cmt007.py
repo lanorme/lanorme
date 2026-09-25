@@ -1,67 +1,49 @@
 """Score CMT-007 (vacuous docstrings) against evals/corpora/docstrings_vacuous/.
 
-Run directly for a human-readable report:
+Labels sit on definition lines: flag true when the docstring says nothing the
+signature does not; out-of-scope definitions are labelled false.
 
+The corpus is split into dev/ and holdout/ (see evals/README.md); the scorer
+reports each split and the gap between them.
+
+Run:
     uv run python evals/score_cmt007.py
 """
 
 from __future__ import annotations
 
-import json
-import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
+from labelled_corpus import ScoreRecord, Site, evaluate_corpus
+from metrics_report import run_scorer
 
-from lanorme.checks.docstrings import DocstringsCheck  # noqa: E402
+from lanorme.checks.docstrings import DocstringsCheck
+from lanorme.scan import Scan
 
 RULE = "CMT-007"
-CORPUS = Path(__file__).resolve().parent / "corpora" / "docstrings_vacuous"
+CORPUS = "docstrings_vacuous"
 
 
-def _findings() -> set[str]:
-    """Run the check over the corpus and return the flagged 'file:line' keys."""
+def find_flagged(root: Path) -> set[Site]:
+    """Run the docstrings check on one split and return its CMT-007 sites."""
     check = DocstringsCheck()
     check.configure(settings={"enabled": True})
-    result = check.run(src_root=str(CORPUS))
+    result = check.check(Scan(root=root))
     return {
-        f"{violation.file}:{violation.line}"
-        for violation in result.violations
-        if violation.code == RULE
+        (finding.file.replace("\\", "/"), finding.line)
+        for finding in result.violations
+        if finding.code == RULE
     }
 
 
-def score() -> dict:
-    """Return {rule, corpus, tp, fp, fn, tn, precision, recall, f1}.
+def score() -> ScoreRecord:
+    """Return the combined, dev and holdout metrics and the gap for CMT-007.
 
-    Raises ValueError if the corpus is stale: a finding on a definition that
-    labels.json does not cover, naming the offending file:line.
+    Raises ValueError if the corpus is stale: a finding on a site that
+    labels.json does not cover.
     """
-    labels = {k: v for k, v in json.loads((CORPUS / "labels.json").read_text()).items()
-              if not k.startswith("_")}
-    flagged = _findings()
-
-    unknown = sorted(flagged - labels.keys())
-    if unknown:
-        raise ValueError(f"{RULE} corpus is stale, unlabelled finding at {unknown[0]}")
-
-    tp = sum(1 for key, want in labels.items() if want and key in flagged)
-    fp = sum(1 for key, want in labels.items() if not want and key in flagged)
-    fn = sum(1 for key, want in labels.items() if want and key not in flagged)
-    tn = sum(1 for key, want in labels.items() if not want and key not in flagged)
-
-    precision = tp / (tp + fp) if tp + fp else 0.0
-    recall = tp / (tp + fn) if tp + fn else 0.0
-    f1 = 2 * precision * recall / (precision + recall) if precision + recall else 0.0
-    return {
-        "rule": RULE, "corpus": CORPUS.name,
-        "tp": tp, "fp": fp, "fn": fn, "tn": tn,
-        "precision": round(precision, 3), "recall": round(recall, 3), "f1": round(f1, 3),
-    }
+    return evaluate_corpus(rule=RULE, corpus_name=CORPUS, find_flagged=find_flagged).record
 
 
 if __name__ == "__main__":
-    report = score()
-    print(f"{RULE} on {report['corpus']}: "
-          f"P = {report['precision']:.3f} / R = {report['recall']:.3f} / F1 = {report['f1']:.3f}")
-    print(f"  TP = {report['tp']}, FP = {report['fp']}, FN = {report['fn']}, TN = {report['tn']}")
+    raise SystemExit(run_scorer(rule=RULE, corpus_name=CORPUS, find_flagged=find_flagged))

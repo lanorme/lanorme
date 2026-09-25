@@ -68,12 +68,14 @@ Without promotion, `TYPE-004` reports as a warning and the run still passes:
 ```console
 $ lanorme check orders.py --select TYPE-004
 [WARN] strong_types
-  VIOLATION: orders.py:1 — 'total_price' has annotated parameters and returns a value but no return annotation. Declare the return type so the signature is complete.
-    Rule: TYPE-004
+  WARNING: orders.py:1 — 'total_price' has annotated parameters and returns a value but no return annotation. Declare the return type so the signature is complete.
+    Rule: TYPE-004: A function with annotated parameters that returns a value should declare a return type (advisory warning)
     Fix: Add a return annotation (for example '-> ResultType') to the signature
 --- strong_types: 0 violations, 1 warnings ---
 
-Summary: 30 checks — 29 passed, 1 warnings, 0 failed.
+Summary: 30 checks — 29 passed, 1 warned, 0 failed.
+Findings: 0 errors to fix, 1 advisory warning.
+Opt-in checks not enabled: 11 ('lanorme check --show-config' lists them).
 $ echo $?
 0
 ```
@@ -84,17 +86,20 @@ Promote it, and the same finding becomes a failure with exit code `1`:
 $ lanorme check orders.py --select TYPE-004 --promote TYPE-004
 [FAIL] strong_types
   VIOLATION: orders.py:1 — 'total_price' has annotated parameters and returns a value but no return annotation. Declare the return type so the signature is complete.
-    Rule: TYPE-004
+    Rule: TYPE-004: A function with annotated parameters that returns a value should declare a return type (advisory warning)
     Fix: Add a return annotation (for example '-> ResultType') to the signature
 --- strong_types: 1 violations, 0 warnings ---
 
-Summary: 30 checks — 29 passed, 0 warnings, 1 failed.
+Summary: 30 checks — 29 passed, 0 warned, 1 failed.
+Findings: 1 error to fix, 0 advisory warnings.
+Opt-in checks not enabled: 11 ('lanorme check --show-config' lists them).
 $ echo $?
 1
 ```
 
-The exit code is the signal CI reads: `0` clean, `1` findings, `2` usage or
-config error. See the [configuration reference](../reference/configuration.md)
+In the `json` and `ndjson` output the promoted finding carries
+`"promoted": true`, so a tool can tell it from a native error. The exit code
+is the signal CI reads: `0` clean, `1` findings, `2` usage or config error. See the [configuration reference](../reference/configuration.md)
 for the full table of keys and their command-line equivalents.
 
 ## Promotion runs after suppression
@@ -115,6 +120,8 @@ def total_price(quantity: int, unit_price: float):  # noqa: TYPE-004
 ```console
 $ lanorme check orders.py --select TYPE-004 --promote ALL
 All 30 checks passed.
+Suppressed: 1 by inline ignores, 0 by per-file-ignores, 0 by the baseline.
+Opt-in checks not enabled: 11 ('lanorme check --show-config' lists them).
 $ echo $?
 0
 ```
@@ -125,6 +132,7 @@ nothing to promote:
 ```console
 $ lanorme check orders.py --select TYPE-004 --ignore TYPE-004 --promote TYPE-004
 All 30 checks passed.
+Opt-in checks not enabled: 11 ('lanorme check --show-config' lists them).
 $ echo $?
 0
 ```
@@ -134,23 +142,37 @@ $ echo $?
     deliberately suppressed. If you want a suppressed warning to fail the
     build, remove the suppression first, then promote.
 
+The baseline is a suppression too, and it matches before promotion, on the
+severity the check reported. A finding recorded as a warning stays quiet when
+you later promote its code; `lanorme check --no-baseline` shows it. See
+[the adoption tutorial](../tutorials/adopt-on-existing-codebase.md#step-11-see-what-a-severity-change-does).
+
 ## Skip notices are never promoted
 
 A `-000` code (for example `TYPE-000`, `DRY-000`, `LAYER-000`) is a
-skip or parse-error notice, not a finding. It means "could not analyse this
-file, skipping", typically because of a syntax error. These notices stay
-warnings even under `promote = ["ALL"]`, so promotion never fails a build on
-a non-issue.
+skip notice, not a finding. It means "could not analyse this file,
+skipping", for one of three reasons named in the rule string:
 
-Running a check over a file with a syntax error, with `--promote ALL`:
+- `parse error`: the file has a syntax error, or the decoder rejected it.
+  Files are decoded the way the interpreter decodes them, so a UTF-8 BOM and
+  a `coding:` cookie are honoured.
+- `too deeply nested`: the parser overflowed on the file.
+- `unreadable`: the file could not be read.
+
+These notices stay warnings even under `promote = ["ALL"]`, so promotion
+never fails a build on a non-issue.
+
+Running a check over a file with a syntax error, with `--promote ALL`
+(the `full` format prints no summary):
 
 ```console
 $ lanorme check broken.py --check strong_types --promote ALL --output-format full
 [WARN] strong_types
-  VIOLATION: broken.py:0 — Could not parse broken.py — skipping
+  WARNING: broken.py:0 — Could not parse broken.py — skipping
     Rule: TYPE-000: parse error
     Fix: Fix the syntax error first
 --- strong_types: 0 violations, 1 warnings ---
+
 $ echo $?
 0
 ```

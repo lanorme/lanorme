@@ -15,10 +15,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
 from lanorme import Status
 from lanorme.checks.naming_consistency import NamingConsistencyCheck
+from lanorme.scan import Scan
 
 
 def _write(*, root: Path, rel: str, body: str) -> None:
@@ -28,7 +27,7 @@ def _write(*, root: Path, rel: str, body: str) -> None:
     target.write_text(body, encoding="utf-8")
 
 
-def _codes(violations) -> list[str]:
+def _collect_codes(violations) -> list[str]:
     """Bare rule codes (text before the first colon) for the given findings."""
     return [v.rule.split(":")[0] for v in violations]
 
@@ -44,16 +43,13 @@ def test_naming003_flags_get_handler_without_get_or_list_prefix(tmp_path: Path):
         root=tmp_path,
         rel="api/v1/endpoints/users.py",
         body=(
-            "router = object()\n"
-            '@router.get("/users")\n'
-            "async def fetch_users():\n"
-            "    return []\n"
+            'router = object()\n@router.get("/users")\nasync def fetch_users():\n    return []\n'
         ),
     )
     check = NamingConsistencyCheck()
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert: a NAMING-003 warning (not a violation), status WARN.
     assert result.status == Status.WARN
@@ -86,7 +82,7 @@ def test_naming003_silent_on_correct_prefixes_and_exempt_and_unknown_verb(tmp_pa
     check = NamingConsistencyCheck()
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert: nothing fires - good prefixes, an exempt endpoint, an unmapped verb.
     assert result.status == Status.PASS
@@ -100,17 +96,12 @@ def test_naming003_bare_decorator_attribute_does_not_fire(tmp_path: Path):
     _write(
         root=tmp_path,
         rel="api/v1/endpoints/bare.py",
-        body=(
-            "router = object()\n"
-            "@router.get\n"
-            "async def fetch_bare():\n"
-            "    return []\n"
-        ),
+        body=("router = object()\n@router.get\nasync def fetch_bare():\n    return []\n"),
     )
     check = NamingConsistencyCheck()
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert: no NAMING-003 warning for the bare-attribute decorator.
     assert result.status == Status.PASS
@@ -122,17 +113,12 @@ def test_naming003_ignored_for_files_outside_endpoint_dir(tmp_path: Path):
     _write(
         root=tmp_path,
         rel="services/handlers.py",
-        body=(
-            "router = object()\n"
-            '@router.get("/x")\n'
-            "async def fetch_x():\n"
-            "    return []\n"
-        ),
+        body=('router = object()\n@router.get("/x")\nasync def fetch_x():\n    return []\n'),
     )
     check = NamingConsistencyCheck()
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert: out-of-scope path -> NAMING-003 stays silent.
     assert not any(w.rule.startswith("NAMING-003") for w in result.warnings)
@@ -149,7 +135,7 @@ def test_naming004_flags_bool_function_without_boolean_prefix(tmp_path: Path):
     check = NamingConsistencyCheck()
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert: a single NAMING-004 warning, status WARN, no violations.
     assert result.status == Status.WARN
@@ -164,7 +150,7 @@ def test_naming004_flags_string_bool_annotation(tmp_path: Path):
     check = NamingConsistencyCheck()
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert: the string annotation is treated as bool and flagged.
     assert any(w.rule.startswith("NAMING-004") for w in result.warnings)
@@ -187,7 +173,7 @@ def test_naming004_silent_on_prefixed_private_and_nonbool(tmp_path: Path):
     check = NamingConsistencyCheck()
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert: clean run, no NAMING-004 warnings.
     assert result.status == Status.PASS
@@ -209,7 +195,7 @@ def test_naming004_silent_on_optional_and_union_bool(tmp_path: Path):
     check = NamingConsistencyCheck()
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert: no false positive on compound bool annotations.
     assert result.status == Status.PASS
@@ -240,7 +226,7 @@ def test_naming004_silent_on_bool_properties_and_exempt_decorators(tmp_path: Pat
     check = NamingConsistencyCheck()
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert: decorator-exempt booleans stay silent (no NAMING-004 false positive).
     assert result.status == Status.PASS
@@ -269,10 +255,10 @@ def test_naming004_silent_on_protocol_members_but_flags_plain_class_method(tmp_p
     check = NamingConsistencyCheck()
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert: Protocol members are exempt; the ordinary-class method still fires.
-    assert _codes(result.warnings) == ["NAMING-004"]
+    assert _collect_codes(result.warnings) == ["NAMING-004"]
     assert "stale" in result.warnings[0].message
 
 
@@ -292,11 +278,11 @@ def test_naming004_still_flags_plain_module_level_bool_function(tmp_path: Path):
     check = NamingConsistencyCheck()
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert: exactly one NAMING-004 warning, for the module-level function.
     assert result.status == Status.WARN
-    assert _codes(result.warnings) == ["NAMING-004"]
+    assert _collect_codes(result.warnings) == ["NAMING-004"]
     assert "ready" in result.warnings[0].message
 
 
@@ -311,10 +297,10 @@ def test_naming004_fix_strips_leading_verb_instead_of_mangling(tmp_path: Path):
     check = NamingConsistencyCheck()
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert: still flagged, but the suggestion drops the leading verb.
-    assert _codes(result.warnings) == ["NAMING-004"]
+    assert _collect_codes(result.warnings) == ["NAMING-004"]
     assert "is_check_auth_posture" not in result.warnings[0].fix
     assert "is_auth_posture" in result.warnings[0].fix
 
@@ -334,7 +320,7 @@ def test_naming001_default_off_does_not_flag_forbidden_repo_prefix(tmp_path: Pat
     check = NamingConsistencyCheck()  # repo_crud defaults to False
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert: opt-in rule is silent by default - the cardinal precision guarantee.
     assert result.status == Status.PASS
@@ -363,12 +349,12 @@ def test_naming001_opt_in_flags_forbidden_prefixes_but_not_domain_or_private(tmp
     check.configure(settings={"repo_crud": True})
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert: exactly the five forbidden-prefix methods fire as NAMING-001
     # violations (FAIL); approve_loan, get_user and _private_fetch stay silent.
     assert result.status == Status.FAIL
-    assert _codes(result.violations) == ["NAMING-001"] * 5
+    assert _collect_codes(result.violations) == ["NAMING-001"] * 5
     flagged = {v.message.split("'")[1] for v in result.violations}
     assert flagged == {
         "UserRepository.fetch_user",
@@ -390,7 +376,7 @@ def test_naming001_opt_in_still_ignores_files_outside_repo_dirs(tmp_path: Path):
     check.configure(settings={"repo_crud": True})
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert: NAMING-001 is scoped to repository/persistence dirs only.
     assert result.status == Status.PASS
@@ -406,12 +392,93 @@ def test_naming002_default_off_then_opt_in_flags_service_prefix(tmp_path: Path):
     )
 
     # Act: default-off run, then an opted-in run on the same tree.
-    off = NamingConsistencyCheck().run(src_root=str(tmp_path))
+    off = NamingConsistencyCheck().check(Scan(root=tmp_path))
     on_check = NamingConsistencyCheck()
     on_check.configure(settings={"service_crud": True})
-    on = on_check.run(src_root=str(tmp_path))
+    on = on_check.check(Scan(root=tmp_path))
 
     # Assert: silent by default; one NAMING-002 violation once enabled.
     assert off.status == Status.PASS and not off.violations
     assert on.status == Status.FAIL
-    assert _codes(on.violations) == ["NAMING-002"]
+    assert _collect_codes(on.violations) == ["NAMING-002"]
+
+
+# --------------------------------------------------------------------------- #
+# Red-team additions: predicates and protocol names under NAMING-004
+# --------------------------------------------------------------------------- #
+
+
+def test_naming004_silent_on_third_person_fused_and_auxiliary_predicates(tmp_path: Path):
+    # Arrange: assertions about the receiver in every accepted shape.
+    _write(
+        root=tmp_path,
+        rel="b.py",
+        body=(
+            "def exists(path) -> bool:\n    return True\n"
+            "def matches_pattern(text, pattern) -> bool:\n    return True\n"
+            "def contains(items, item) -> bool:\n    return True\n"
+            "def needs_refresh(token) -> bool:\n    return True\n"
+            "def user_is_active(user) -> bool:\n    return True\n"
+            "def does_match(a, b) -> bool:\n    return True\n"
+            "def isdir(path) -> bool:\n    return True\n"
+            "class W(QWidget):\n"
+            "    def isEnabled(self) -> bool:\n        return True\n"
+        ),
+    )
+    check = NamingConsistencyCheck()
+
+    # Act.
+    result = check.check(Scan(root=tmp_path))
+
+    # Assert.
+    assert result.status == Status.PASS
+    assert not result.warnings
+
+
+def test_naming004_silent_on_protocol_and_framework_bool_methods(tmp_path: Path):
+    # Arrange: logging.Filter, io, Django's router and mixin, Qt's eventFilter, and a plain method.
+    _write(
+        root=tmp_path,
+        rel="b.py",
+        body=(
+            "class F(logging.Filter):\n"
+            "    def filter(self, record) -> bool:\n        return True\n"
+            "class S(io.RawIOBase):\n"
+            "    def readable(self) -> bool:\n        return True\n"
+            "class R:\n"
+            "    def allow_migrate(self, db, app_label, **hints) -> bool:\n        return True\n"
+            "    def test_func(self) -> bool:\n        return True\n"
+            "class W(QWidget):\n"
+            "    def eventFilter(self, obj, event) -> bool:\n        return False\n"
+            "class P:\n"
+            "    def stale(self) -> bool:\n        return True\n"
+        ),
+    )
+    check = NamingConsistencyCheck()
+
+    # Act.
+    result = check.check(Scan(root=tmp_path))
+
+    # Assert: only the author-named plain method fires.
+    assert _collect_codes(result.warnings) == ["NAMING-004"]
+    assert "stale" in result.warnings[0].message
+
+
+def test_naming004_still_flags_check_and_verify_prefixes(tmp_path: Path):
+    # Arrange: verb-led names that return bool are the smell the rule targets.
+    _write(
+        root=tmp_path,
+        rel="b.py",
+        body=(
+            "def check_password(raw, encoded) -> bool:\n    return True\n"
+            "def verify_signature(sig) -> bool:\n    return True\n"
+            "def empty(items) -> bool:\n    return True\n"
+        ),
+    )
+    check = NamingConsistencyCheck()
+
+    # Act.
+    result = check.check(Scan(root=tmp_path))
+
+    # Assert.
+    assert _collect_codes(result.warnings) == ["NAMING-004"] * 3

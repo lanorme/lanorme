@@ -21,7 +21,8 @@ from __future__ import annotations
 import re
 
 # Words that can be read as an imperative verb at the head of a function name.
-VERB_CAPABLE: frozenset[str] = frozenset("""
+VERB_CAPABLE: frozenset[str] = frozenset(
+    """
 abort accept access accumulate acquire activate adapt add adjust advance aggregate
 alert align allocate allow alter analyse analyze anchor announce annotate append
 apply approve archive are arrange assemble assert assign associate attach audit
@@ -103,11 +104,17 @@ splitext splitlines squash ssh startswith stat stimulate stipulate submit sunset
 symlink tabulate tail tee tick tolerate transcode transmit triage tunnel unpickle
 unplug unseal untar version violate vote wget writelines zero zoom
 checkin checkout del expunge reap roundtrip
-""".split())
+ban bill book bucket cap charge coalesce collate credit debit debounce decline deflate
+denoise deposit dismiss downsize email enrich enrol enroll greet indent interleave
+invite kick mint mute onboard outdent pay pivot poke redact redeem refund remind
+reserve salt scaffold scrub smooth snooze splice stitch void warmup wire withdraw
+""".split(),
+)
 
 # Words that open a class name as an imperative and almost never as a noun
 # modifier. Precision-first: see the module docstring.
-VERB_ONLY: frozenset[str] = frozenset("""
+VERB_ONLY: frozenset[str] = frozenset(
+    """
 activate add allocate apply assign authenticate authorise authorize calculate
 collect combine compile configure connect convert create deactivate decode decrypt
 delete deserialise deserialize destroy disable disconnect discard do emit enable
@@ -118,7 +125,8 @@ put receive reduce register remove rename replace resize resolve retrieve rotate
 sanitise sanitize save send serialise serialize subscribe synchronise synchronize
 tokenise tokenize transform translate traverse truncate uninstall unregister
 unsubscribe validate verify
-""".split())
+""".split(),
+)
 
 # Verbs that say something happens without saying what (Code Complete, 7.3:
 # HandleCalculation, PerformServices, ProcessInput, DealWithOutput). ``do``
@@ -128,18 +136,28 @@ WEAK_VERBS: frozenset[str] = frozenset({"handle", "process", "perform", "do", "m
 # Class-name words that name a job title rather than a thing (Clean Code, ch. 2:
 # "Avoid words like Manager, Processor, Data, or Info in the name of a class"),
 # plus the junk-drawer pair.
-NOISE_WORDS: frozenset[str] = frozenset({"manager", "processor", "data", "info", "helper", "util", "utils"})
+NOISE_WORDS: frozenset[str] = frozenset(
+    {"manager", "processor", "data", "info", "helper", "util", "utils"},
+)
 
 # Module and package names that promise nothing about their contents (Go,
 # "Package names": avoid util, common, misc).
 JUNK_MODULES: frozenset[str] = frozenset(
-    {"util", "utils", "utilities", "helper", "helpers", "common", "misc", "stuff"}
+    {"util", "utils", "utilities", "helper", "helpers", "common", "misc", "stuff"},
 )
 
 # Suffixes that turn a verb-first class into a message object: a CQRS command
 # or query, an event, the handler for one, or a request and response pair.
 COMMAND_SUFFIXES: tuple[str, ...] = (
-    "Command", "Query", "Event", "Handler", "UseCase", "Request", "Response", "Job", "Task",
+    "Command",
+    "Query",
+    "Event",
+    "Handler",
+    "UseCase",
+    "Request",
+    "Response",
+    "Job",
+    "Task",
 )
 
 # A class whose last word is one of these is a noun phrase whatever its first
@@ -148,7 +166,8 @@ COMMAND_SUFFIXES: tuple[str, ...] = (
 # Words a verb acts on (``User``, ``Order``, ``Token``) stay off the list, or
 # ``CreateUser`` would pass; that is also why the agent nouns at the end are
 # listed by word and not by an ``-er`` ending that ``Order`` shares.
-THING_WORDS: frozenset[str] = frozenset("""
+THING_WORDS: frozenset[str] = frozenset(
+    """
 action adapter address args array base batch binding box button case check client
 command condition confirmation config context count data declaration decoding
 default definition dialog dict encoding engine error event exception factory
@@ -168,47 +187,108 @@ notifier observer parser populator processor producer publisher reader receiver
 registrar renderer resolver runner scheduler sender serialiser serializer subscriber
 tokeniser tokenizer tracker transformer translator validator verifier visitor watcher
 writer
-""".split())
+abc behavior behaviour direction dummy impl modal reason timing wizard
+""".split(),
+)
+
+# A class whose last word is the state an action reached names an outcome, not
+# the action: ``SendFailed`` is what happened, as is ``FetchAborted``.
+STATE_WORDS: frozenset[str] = frozenset(
+    """
+aborted cancelled canceled complete completed denied done expired failed finished
+interrupted pending refused rejected started succeeded
+""".split(),
+)
 
 # Leading words that qualify the verb after them: ``bulk_insert``, ``safe_delete``,
 # ``re_apply``, ``atomic_write``. Skipped before the verb test.
-MODIFIERS: frozenset[str] = frozenset("""
+MODIFIERS: frozenset[str] = frozenset(
+    """
 always async atomic auto batch best blind bulk cold cross deep double dry eager
 fast first force full gently hard hot last lazy live manual mass maybe multi never
 non partial quick quiet raw re really safe self shallow silent slow soft softly
 strict sync try warm
-""".split())
+""".split(),
+)
 
 # Fused prefixes: ``reload``, ``unquote``, ``deregister``, ``preload``, ``autobegin``,
 # ``aclose``. The remainder must itself be a listed verb.
 FUSED_PREFIXES: tuple[str, ...] = (
-    "re", "un", "de", "pre", "post", "auto", "dis", "mis", "over", "under", "co",
-    "inter", "sub", "super", "out", "up", "down", "back", "fore", "self", "a",
+    "re",
+    "un",
+    "de",
+    "pre",
+    "post",
+    "auto",
+    "dis",
+    "mis",
+    "over",
+    "under",
+    "co",
+    "inter",
+    "sub",
+    "super",
+    "out",
+    "up",
+    "down",
+    "back",
+    "fore",
+    "self",
+    "a",
 )
 
 # Verbs Python idiom fuses onto the next word with no underscore: ``getheaders``,
 # ``setdefault``, ``isdigit``, ``iteritems``. Only these heads fuse; ``pass|word``,
 # ``end|point`` and ``check|sum`` are nouns that happen to open with a verb.
 FUSED_VERB_HEADS: frozenset[str] = frozenset(
-    {"get", "set", "is", "has", "add", "del", "iter", "send", "recv", "make", "mk", "rm",
-     "put", "load", "dump", "find", "fetch", "walk", "emit", "print", "parse"}
+    {
+        "get",
+        "set",
+        "is",
+        "has",
+        "add",
+        "del",
+        "iter",
+        "send",
+        "recv",
+        "make",
+        "mk",
+        "rm",
+        "put",
+        "load",
+        "dump",
+        "find",
+        "fetch",
+        "walk",
+        "emit",
+        "print",
+        "parse",
+    },
 )
 
-# Hooks are named for the moment they run, not for what they do.
-HOOK_PREFIXES: tuple[str, ...] = ("on_", "pre_", "post_", "before_", "after_", "pytest_")
-HOOK_SUFFIXES: tuple[str, ...] = ("_hook", "_handler", "_callback", "_listener", "_receiver")
+# Hooks are named for the moment they run (``on_click``, ``onMessage``,
+# ``pytest_configure``) or for their role (``error_handler``, a bare
+# ``callback`` or ``handler`` handed to ``signal.signal`` or ``apply_async``),
+# not for what they do. Matched by word, so camelCase counts.
+HOOK_PREFIX_WORDS: frozenset[str] = frozenset({"on", "pre", "post", "before", "after", "pytest"})
+HOOK_SUFFIX_WORDS: frozenset[str] = frozenset(
+    {"hook", "handler", "callback", "listener", "receiver"},
+)
 
 # Conversions and alternate constructors are named for their product
 # (Rust C-CONV; Clean Code's ``Complex.FromRealNumber``).
 CONVERSION_PREFIXES: tuple[str, ...] = ("from_", "to_", "as_", "into_", "with_")
 CONVERSION_INFIXES: tuple[str, ...] = ("_to_", "_from_", "_as_")
 
-# Names a script or package reserves for its entry point.
-ENTRY_POINTS: frozenset[str] = frozenset({"main", "async_main", "cli"})
+# Names a script, a package or a server reserves for its entry point: PEP 3333
+# calls the WSGI callable ``application`` and the ASGI specification's examples
+# call theirs ``app``.
+ENTRY_POINTS: frozenset[str] = frozenset({"main", "async_main", "cli", "application", "app"})
 
 # Method names fixed by a standard-library protocol: a class that implements
 # one keeps the protocol's name, verb or not.
-PROTOCOL_NAMES: frozenset[str] = frozenset("""
+PROTOCOL_NAMES: frozenset[str] = frozenset(
+    """
 acquire callproc clear close commit copy critical cursor debug default
 difference_update dst emit error exception executemany fetchall fetchmany fetchone
 fileno filter flush format fromkeys fromutc get handle info intersection_update isatty
@@ -216,21 +296,63 @@ items join keys nextset notify pop popitem read readable readline readlines rele
 rollback run seek seekable send setdefault setinputsizes setoutputsize start stop
 symmetric_difference_update tell throw truncate tzname update utcoffset values wait
 warning writable write writelines
-""".split())
+buffer_updated connection_lost connection_made data_received datagram_received
+eof_received error_received get_buffer pause_writing pipe_connection_lost
+pipe_data_received process_exited resume_writing
+server_activate server_bind server_close service_actions verify_request
+generic_visit
+characters endDocument endElement endElementNS endPrefixMapping fatalError
+ignorableWhitespace notationDecl processingInstruction resolveEntity
+setDocumentLocator skippedEntity startDocument startElement startElementNS
+startPrefixMapping unparsedEntityDecl
+completedefault completenames emptyline postcmd postloop precmd preloop
+detach readall readinto readinto1 read1
+formatException formatStack formatTime usesTime
+countTestCases shortDescription
+unknown_decl
+persistent_id persistent_load
+optionxform
+task_done
+difference intersection isdisjoint issubset issuperset union symmetric_difference
+user_call user_exception user_line user_return
+data_open default_open file_open ftp_open http_open http_request http_response
+https_open https_request https_response redirect_request unknown_open
+""".split(),
+)
 
 # Framework hooks on plain classes: Django middleware and Scrapy pipelines are
 # ordinary classes whose method names the framework dictates.
-FRAMEWORK_HOOKS: frozenset[str] = frozenset("""
+FRAMEWORK_HOOKS: frozenset[str] = frozenset(
+    """
 handle_error handle_noargs process_exception process_item process_request
 process_response process_spider_input process_spider_output process_start_requests
 process_template_response process_view
-""".split())
+""".split(),
+)
+
+# Method names a framework fixes on the classes it hands out, kept apart from
+# the hooks above because they are only reserved on a method: a module-level
+# ``ready()`` is the author's. Django (``AppConfig.ready``, routers, fields,
+# views, commands), Django REST framework mixins, Scrapy spiders and signal
+# handlers, pydantic models and SQLAlchemy type decorators.
+FRAMEWORK_METHODS: frozenset[str] = frozenset(
+    """
+allow_migrate allow_relation db_for_read db_for_write db_parameters db_type
+form_invalid form_valid formfield handle_app_config handle_label natural_key
+ready rel_db_type test_func
+perform_authentication perform_content_negotiation perform_create perform_destroy
+perform_update
+closed item_dropped item_scraped spider_closed spider_idle spider_opened
+model_post_init
+bind_expression column_expression
+""".split(),
+)
 
 # A function carrying one of these reads as an assertion about its subject
 # (``line_has_noqa``, ``path_is_ancestor``), the predicate form every school
 # of naming accepts.
 PREDICATE_WORDS: frozenset[str] = frozenset(
-    {"is", "has", "can", "should", "does", "was", "were", "are", "must", "may", "will"}
+    {"is", "has", "can", "should", "does", "was", "were", "are", "must", "may", "will"},
 )
 
 _CAMEL_SPLIT = re.compile(r"[A-Z]+(?=[A-Z][a-z])|[A-Z]?[a-z]+|[A-Z]+|[0-9]+")
@@ -267,22 +389,53 @@ def _is_listed_verb(*, word: str, verbs: frozenset[str]) -> bool:
 # What is left after a verb in a gerund, an agent noun or a participle
 # (``find|ing``, ``log|ger``, ``sort|ed``): an inflection, not a fused word.
 _INFLECTIONS: frozenset[str] = frozenset(
-    {"ing", "ings", "er", "ers", "or", "ors", "ed", "es", "s", "ter", "ters", "ger",
-     "gers", "ting", "tings", "ling", "lings", "ping", "ning", "ding", "ies", "ied", "ier"}
+    {
+        "ing",
+        "ings",
+        "er",
+        "ers",
+        "or",
+        "ors",
+        "ed",
+        "es",
+        "s",
+        "ter",
+        "ters",
+        "ger",
+        "gers",
+        "ting",
+        "tings",
+        "ling",
+        "lings",
+        "ping",
+        "ning",
+        "ding",
+        "ies",
+        "ied",
+        "ier",
+    },
 )
 
 
 def _has_fused_prefix(*, word: str, verbs: frozenset[str]) -> bool:
     """A verb behind a fused prefix or head: ``reload``, ``unquote``, ``getheaders``."""
     for prefix in FUSED_PREFIXES:
-        rest = word[len(prefix):]
+        rest = word[len(prefix) :]
         if word.startswith(prefix) and len(rest) >= 3 and rest in verbs:
             return True
     for head in FUSED_VERB_HEADS:
-        rest = word[len(head):]
+        rest = word[len(head) :]
         if word.startswith(head) and len(rest) >= 2 and rest not in _INFLECTIONS:
             return True
     return False
+
+
+# Nouns that end like a verb: ``enterprise`` and ``premise`` are not ``-ise``
+# verbs, and a ``-size`` compound (``chunksize``, ``bufsize``, ``keysize``) is a
+# measurement. A verb that ends in ``size`` (``resize``, ``downsize``) is listed.
+SUFFIX_NOUNS: frozenset[str] = frozenset(
+    {"enterprise", "expertise", "franchise", "paradise", "premise", "premises"},
+)
 
 
 def is_verb_capable(*, word: str, extra: frozenset[str] = frozenset()) -> bool:
@@ -292,12 +445,14 @@ def is_verb_capable(*, word: str, extra: frozenset[str] = frozenset()) -> bool:
         return True
     if word.endswith("ify") and len(word) > 4:
         return True
+    if word in SUFFIX_NOUNS or word.endswith("size"):
+        return False
     if word.endswith(("ise", "ize")) and len(word) >= 6:
         return True
     return _has_fused_prefix(word=word, verbs=verbs)
 
 
-def modifier_count(*, tokens: list[str]) -> int:
+def count_modifiers(*, tokens: list[str]) -> int:
     """How many leading tokens are modifiers of the word after them: ``bulk_insert`` gives 1."""
     count = 0
     while count < len(tokens) - 1 and tokens[count] in MODIFIERS:
@@ -305,17 +460,17 @@ def modifier_count(*, tokens: list[str]) -> int:
     return count
 
 
-def leading_verb_index(*, tokens: list[str], extra: frozenset[str] = frozenset()) -> int:
+def find_leading_verb_index(*, tokens: list[str], extra: frozenset[str] = frozenset()) -> int:
     """Index of the verb that opens *tokens* once leading modifiers are skipped, or -1.
 
     ``["bulk", "insert", "rows"]`` gives 1; ``["cert", "verify"]`` gives -1 because
     the verb does not lead.
     """
-    index = modifier_count(tokens=tokens)
+    index = count_modifiers(tokens=tokens)
     return index if is_verb_capable(word=tokens[index], extra=extra) else -1
 
 
-def postposed_verb_index(*, tokens: list[str], extra: frozenset[str] = frozenset()) -> int:
+def find_postposed_verb_index(*, tokens: list[str], extra: frozenset[str] = frozenset()) -> int:
     """Index of the last listed verb sitting after the first judged word, or -1.
 
     ``["cert", "verify"]`` gives 1 and ``["user", "count", "update"]`` gives 2:
@@ -324,14 +479,14 @@ def postposed_verb_index(*, tokens: list[str], extra: frozenset[str] = frozenset
     merely might be a verb (``ports``, ``finding``).
     """
     verbs = VERB_CAPABLE | extra
-    start = modifier_count(tokens=tokens)
+    start = count_modifiers(tokens=tokens)
     for index in range(len(tokens) - 1, start, -1):
         if tokens[index] in verbs:
             return index
     return -1
 
 
-def verb_first(*, name: str, tokens: list[str], index: int) -> str:
+def move_verb_first(*, name: str, tokens: list[str], index: int) -> str:
     """*name* rebuilt with the verb at *index* ahead of everything but its modifiers.
 
     Leading underscores are kept and a digit token is reattached to the word
@@ -339,21 +494,42 @@ def verb_first(*, name: str, tokens: list[str], index: int) -> str:
     gives ``bulk_verify_cert``.
     """
     prefix = name[: len(name) - len(name.lstrip("_"))]
-    start = modifier_count(tokens=tokens)
-    order = [*tokens[:start], tokens[index], *tokens[start:index], *tokens[index + 1:]]
+    start = count_modifiers(tokens=tokens)
+    order = [*tokens[:start], tokens[index], *tokens[start:index], *tokens[index + 1 :]]
     joined = ""
     for token in order:
         joined += token if token.isdigit() or not joined else f"_{token}"
     return prefix + joined
 
 
+def _is_third_person(*, word: str) -> bool:
+    """A listed verb in its third-person form: ``matches``, ``exists``, ``applies``."""
+    return word not in VERB_CAPABLE and _is_listed_verb(word=word, verbs=VERB_CAPABLE)
+
+
 def is_predicate(*, tokens: list[str]) -> bool:
-    """True if the name reads as an assertion: ``is_empty``, ``line_has_noqa``."""
-    return any(token in PREDICATE_WORDS for token in tokens)
+    """True if the name reads as an assertion about its subject.
+
+    Three shapes: an auxiliary anywhere (``is_empty``, ``line_has_noqa``), a
+    third-person verb in front (``matches_pattern``, ``exists``, ``contains``:
+    the Swift guideline's "reads as an assertion about the receiver"), or
+    ``is``/``has`` fused onto the next word the way ``os.path`` and ``str``
+    spell them (``isdir``, ``hasattr``, ``isEnabled``).
+    """
+    if any(token in PREDICATE_WORDS for token in tokens):
+        return True
+    if not tokens:
+        return False
+    head = tokens[0]
+    if _is_third_person(word=head):
+        return True
+    return any(head.startswith(fused) and len(head) > len(fused) + 2 for fused in ("is", "has"))
 
 
 def is_noun_phrase(*, tokens: list[str]) -> bool:
-    """True if the last word of a class name is an action's artefact, so the name is a thing."""
+    """True if the last word of a class name is an action's artefact or outcome, so the name is a thing."""
     words = [token for token in tokens if not token.isdigit()] or list(tokens)
     head = words[-1]
-    return head in THING_WORDS or (head.endswith("s") and head[:-1] in THING_WORDS)
+    if head in THING_WORDS or head in STATE_WORDS:
+        return True
+    return head.endswith("s") and head[:-1] in THING_WORDS

@@ -23,7 +23,8 @@ _SECOND_WIDE_FUNCTION = "\n\ndef g(q0, q1, q2, q3, q4, q5, q6, q7, q8):\n    ret
 def _project(root: Path, body: str) -> Path:
     """A one-file project that reports PARAM-001, with a baseline configured."""
     (root / "lanorme.toml").write_text(
-        'select = ["PARAM-001"]\nbaseline = "lanorme-baseline.json"\n', encoding="utf-8"
+        'select = ["PARAM-001"]\nbaseline = "lanorme-baseline.json"\n',
+        encoding="utf-8",
     )
     source = root / "sample.py"
     source.write_text(body, encoding="utf-8")

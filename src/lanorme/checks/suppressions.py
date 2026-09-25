@@ -19,10 +19,13 @@ Used as a ratchet, set ``max_total`` to today's count and lower it as debt is
 paid; CI then fails on the next suppression added rather than on the backlog.
 
 Comments are read through ``tokenize``, so a directive named inside a string or
-a docstring (this module's own prose, for instance) is not counted.
+a docstring (this module's own prose, for instance) is not counted. A ``noqa``
+whose codes all belong to another tool (``# noqa: E501``, ``# noqa: S603``)
+silences no LaNorme rule and is not counted either: the budget prices LaNorme's
+own escape hatches.
 
 **These codes cannot be silenced inline.** A budget an offender can waive on
-the offending line is not a budget, so ``lanorme.filtering`` refuses inline
+the offending line is not a budget, so ``lanorme.filters`` refuses inline
 directives for the ``SUPPRESS`` category. They remain switchable in config,
 which is the point: an escape belongs in a reviewed file, not scattered
 invisibly across source lines.
@@ -39,20 +42,24 @@ Run:
 
 from __future__ import annotations
 
-import io
-import tokenize
+import re
 from dataclasses import dataclass, field
-from pathlib import Path
+from typing import ClassVar
 
-from lanorme import CheckResult, Status, Violation, register
-from lanorme.discovery import iter_py_files
-from lanorme.filtering import _IGNORE_RE, _NOQA_RE
+from lanorme import CheckResult, Violation, register
+from lanorme.checkconfig import is_flag_set, read_int
+from lanorme.directives import IGNORE_RE, NOQA_RE
+from lanorme.scan import Scan
+from lanorme.sources import Module, iter_parsed_modules
 
 # Code lists that name no rule in particular, so the directive covers whatever
 # exists now and whatever lands later.
 _BLANKET_CODES = frozenset({"ALL", "*"})
 
-_SKIP_DIRS = frozenset({".git", ".venv", "venv", "node_modules", "__pycache__", "dist", "build"})
+# A code LaNorme answers to: a rule (``TYPE-001``) or a whole category
+# (``TYPE``). Another tool's code (ruff's ``E501``, bandit's ``S603``) has no
+# hyphen and mixes letters and digits, so it never matches.
+_LANORME_CODE_RE = re.compile(r"^[A-Z]+(?:-\d+)?$")
 
 
 @dataclass(frozen=True)
@@ -61,6 +68,7 @@ class _Directive:
 
     file: str
     line: int
+    column: int
     text: str
     blanket: bool
 
@@ -71,40 +79,50 @@ def _classify(*, comment: str) -> bool | None:
     Anchored at the start of the comment token, not searched within it. Prose
     that names a directive (``# they line up with --exclude / # noqa.``) is
     documentation, not an escape, and counting it would inflate the budget with
-    the very comments that explain the feature.
+    the very comments that explain the feature. A code list that names only
+    another tool's codes (``# noqa: E501``) silences nothing here and is not a
+    directive either.
     """
-    for pattern in (_NOQA_RE, _IGNORE_RE):
+    for pattern in (NOQA_RE, IGNORE_RE):
         match = pattern.match(comment)
         if match is None:
             continue
         if match.group(1) is None:
             return True
         codes = {c.strip().upper() for c in match.group(1).split(",") if c.strip()}
-        return bool(codes & _BLANKET_CODES)
+        if codes & _BLANKET_CODES:
+            return True
+        if any(_LANORME_CODE_RE.match(code) for code in codes):
+            return False
+        return None
     return None
 
 
-def _directives_in(*, path: Path, relative: str) -> list[_Directive]:
-    """Every suppression directive in one file, read from comment tokens only."""
+def _collect_directives(module: Module) -> list[_Directive]:
+    """Every suppression directive in one file, read from comment tokens only.
+
+    A file the tokeniser cannot read to the end yields none.
+    """
     found: list[_Directive] = []
-    try:
-        source = path.read_text(encoding="utf-8")
-        tokens = list(tokenize.generate_tokens(io.StringIO(source).readline))
-    except (OSError, UnicodeDecodeError, SyntaxError, tokenize.TokenError, IndentationError):
+    if not module.has_complete_comments:
         return found
-    for token in tokens:
-        if token.type != tokenize.COMMENT:
-            continue
-        blanket = _classify(comment=token.string)
+    for comment in module.comments:
+        blanket = _classify(comment=comment.token)
         if blanket is None:
             continue
-        found.append(_Directive(
-            file=relative, line=token.start[0], text=token.string.strip(), blanket=blanket
-        ))
+        found.append(
+            _Directive(
+                file=module.relative,
+                line=comment.line,
+                column=comment.column,
+                text=comment.token.strip(),
+                blanket=blanket,
+            ),
+        )
     return found
 
 
-def _budget_violation(*, directives: list[_Directive], max_total: int) -> list[Violation]:
+def _find_budget_violation(*, directives: list[_Directive], max_total: int) -> list[Violation]:
     """SUPPRESS-001: one finding when the project is over its suppression budget."""
     if len(directives) <= max_total:
         return []
@@ -114,27 +132,35 @@ def _budget_violation(*, directives: list[_Directive], max_total: int) -> list[V
         per_file[directive.file] = per_file.get(directive.file, 0) + 1
     worst = sorted(per_file.items(), key=lambda item: (-item[1], item[0]))[:3]
     summary = ", ".join(f"{name} ({count})" for name, count in worst)
-    return [Violation(
-        file=anchor.file,
-        line=anchor.line,
-        rule="SUPPRESS-001: Inline suppressions must stay within the project's budget",
-        message=(
-            f"{len(directives)} inline suppressions across {len(per_file)} files "
-            f"(budget: {max_total}). Most suppressed: {summary}"
+    return [
+        Violation(
+            file=anchor.file,
+            line=anchor.line,
+            column=anchor.column,
+            rule="SUPPRESS-001: Inline suppressions must stay within the project's budget",
+            message=(
+                f"{len(directives)} inline suppressions across {len(per_file)} files "
+                f"(budget: {max_total}). Most suppressed: {summary}"
+            ),
+            fix="Fix the findings, or raise max_total deliberately so the debt is recorded in config",
         ),
-        fix="Fix the findings, or raise max_total deliberately so the debt is recorded in config",
-    )]
+    ]
 
 
-def _blanket_violations(*, directives: list[_Directive]) -> list[Violation]:
+def _find_blanket_violations(*, directives: list[_Directive]) -> list[Violation]:
     """SUPPRESS-002: one finding per directive that names no rule."""
-    return [Violation(
-        file=directive.file,
-        line=directive.line,
-        rule="SUPPRESS-002: A suppression must name the rule it silences",
-        message=f"Blanket directive '{directive.text}' silences every rule, including future ones",
-        fix="Name the codes it needs: '# noqa: TYPE-001' or '# lanorme: ignore[TYPE-001]'",
-    ) for directive in directives if directive.blanket]
+    return [
+        Violation(
+            file=directive.file,
+            line=directive.line,
+            column=directive.column,
+            rule="SUPPRESS-002: A suppression must name the rule it silences",
+            message=f"Blanket directive '{directive.text}' silences every rule, including future ones",
+            fix="Name the codes it needs: '# noqa: TYPE-001' or '# lanorme: ignore[TYPE-001]'",
+        )
+        for directive in directives
+        if directive.blanket
+    ]
 
 
 @dataclass
@@ -142,7 +168,9 @@ class SuppressionsCheck:
     """SUPPRESS-001 / SUPPRESS-002: inline suppressions stay budgeted and specific (opt-in)."""
 
     name: str = "suppressions"
-    description: str = "Inline suppression budget and blanket directives (SUPPRESS-001, SUPPRESS-002)"
+    description: str = (
+        "Inline suppression budget and blanket directives (SUPPRESS-001, SUPPRESS-002)"
+    )
     enabled: bool = False
     max_total: int = 0
     allow_blanket: bool = False
@@ -150,38 +178,33 @@ class SuppressionsCheck:
         default_factory=lambda: [
             "SUPPRESS-001: Inline suppressions must stay within the project's budget",
             "SUPPRESS-002: A suppression must name the rule it silences",
-        ]
+        ],
     )
+    settings_keys: ClassVar[frozenset[str]] = frozenset({"enabled", "max_total", "allow_blanket"})
 
-    def configure(self, *, settings: dict[str, bool | int]) -> None:
+    def configure(self, *, settings: dict[str, object]) -> None:
         """Apply ``[tool.lanorme.suppressions]`` configuration."""
-        if "enabled" in settings:
-            self.enabled = bool(settings["enabled"])
-        if "max_total" in settings:
-            self.max_total = int(settings["max_total"])
-        if "allow_blanket" in settings:
-            self.allow_blanket = bool(settings["allow_blanket"])
+        self.enabled = is_flag_set(settings=settings, key="enabled", default=self.enabled)
+        self.max_total = read_int(settings=settings, key="max_total", default=self.max_total)
+        self.allow_blanket = is_flag_set(
+            settings=settings,
+            key="allow_blanket",
+            default=self.allow_blanket,
+        )
 
-    def run(self, *, src_root: str) -> CheckResult:
+    def check(self, scan: Scan) -> CheckResult:
         """Collect every suppression directive, then price it."""
         if not self.enabled:
-            return CheckResult(check=self.name, status=Status.PASS, violations=[])
-        root = Path(src_root)
+            return CheckResult.from_findings(check=self.name)
         directives: list[_Directive] = []
-        for path in iter_py_files(root):
-            # Match skip directories inside the root only: the absolute path's
-            # ancestors are the user's filesystem, not the project layout.
-            relative = path.relative_to(root)
-            if any(part in _SKIP_DIRS for part in relative.parts):
-                continue
-            directives.extend(_directives_in(path=path, relative=relative.as_posix()))
+        for module in iter_parsed_modules(scan.root):
+            directives.extend(_collect_directives(module))
         directives.sort(key=lambda d: (d.file, d.line))
 
-        violations = _budget_violation(directives=directives, max_total=self.max_total)
+        violations = _find_budget_violation(directives=directives, max_total=self.max_total)
         if not self.allow_blanket:
-            violations.extend(_blanket_violations(directives=directives))
-        status = Status.FAIL if violations else Status.PASS
-        return CheckResult(check=self.name, status=status, violations=violations)
+            violations.extend(_find_blanket_violations(directives=directives))
+        return CheckResult.from_findings(check=self.name, violations=violations)
 
 
 register(SuppressionsCheck())

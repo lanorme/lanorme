@@ -14,9 +14,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import pytest
-
-from lanorme import CheckResult, Status, Violation
+from lanorme import CheckResult, Violation
 from lanorme import baseline as bl
 from lanorme.cli import main
 
@@ -26,6 +24,7 @@ _EVAL = "def f(x):\n    return eval(x)\n"
 
 def _project(tmp_path: Path, files: dict[str, str], config: str = "[tool.lanorme]\n") -> Path:
     """Write a pyproject and the given source files; return the project root."""
+    tmp_path.mkdir(parents=True, exist_ok=True)
     (tmp_path / "pyproject.toml").write_text(config, encoding="utf-8")
     for rel, body in files.items():
         path = tmp_path / rel
@@ -41,6 +40,12 @@ def _run(argv: list[str]) -> int:
     except SystemExit as exit_signal:
         return int(exit_signal.code or 0)
     return 0
+
+
+def _read_findings(capsys) -> list[tuple[str, str, int, str]]:
+    """The ``(code, file, line, severity)`` of every ndjson record printed so far."""
+    records = [json.loads(line) for line in capsys.readouterr().out.splitlines() if line.strip()]
+    return [(r["code"], r["file"], r["line"], r["severity"]) for r in records]
 
 
 _BASELINE_CONFIG = '[tool.lanorme]\nbaseline = "lanorme-baseline.json"\n'
@@ -145,46 +150,75 @@ def test_severity_gate_reports_a_warning_that_escalates_to_error(tmp_path: Path)
     assert code == 1
 
 
-def test_count_budget_never_suppresses_one_more_than_recorded():
-    # Arrange: a baseline recording two occurrences of one key; a run with three.
-    root = Path("/proj")
-    findings = [Violation(file="a.py", line=0, rule="X-001: thing", message="m", fix="")] * 3
-    result = CheckResult(check="x", status=Status.FAIL, violations=list(findings))
-    entries = bl._entries_from_results(results=[result], project_root=root)
-    entries[0]["count"] = 2  # pretend only two were recorded
-
-    # Act: suppress against that smaller budget.
-    index = {(e["file"], e["code"], e["anchor"]): e for e in entries}
-    consumed: dict = {}
-    kept = [
-        v
-        for v in findings
-        if not bl._is_suppressed(
-            index=index, consumed=consumed, project_root=root, finding=v, tier="error", cache={}
-        )
-    ]
-
-    # Assert: the third occurrence is not suppressed.
-    assert len(kept) == 1
+# PARAM-001 on line 1: an error at 9 parameters, a warning at 7. Reported at
+# the line-1 sentinel, so it takes the file-level anchor.
+_WIDE = "def f(\n    a,\n    b,\n    c,\n    d,\n    e,\n    g,\n    h,\n    i,\n):\n    return a\n"
+_NARROW = "def f(\n    a,\n    b,\n    c,\n    d,\n    e,\n    g,\n):\n    return a\n"
 
 
-def test_error_entry_suppresses_its_improved_warning_form():
-    # Arrange: an entry recorded as an error; the same finding now warning-tier.
-    root = Path("/proj")
-    finding = Violation(file="a.py", line=0, rule="X-001: thing", message="m", fix="")
-    [entry] = bl._entries_from_results(
-        results=[CheckResult(check="x", status=Status.FAIL, violations=[finding])],
-        project_root=root,
-    )
-    index = {(entry["file"], entry["code"], entry["anchor"]): entry}
+def test_recorded_error_covers_its_improved_warning(tmp_path: Path, capsys):
+    # Arrange: PARAM-001 at 9 params (error) recorded, then cut to 7 (warning).
+    # The two tiers carry different rule texts ("exceeds" and "approaching"),
+    # so a file-level anchor must not depend on the text.
+    root = _project(tmp_path, {"m.py": _WIDE}, config=_BASELINE_CONFIG)
+    _run(["baseline", "write", str(root)])
+    capsys.readouterr()
+    (root / "m.py").write_text(_NARROW, encoding="utf-8")
 
-    # Act: the finding reappears as a warning (improved tier).
-    suppressed = bl._is_suppressed(
-        index=index, consumed={}, project_root=root, finding=finding, tier="warning", cache={}
-    )
+    # Act
+    code = _run(["check", str(root), "--check", "PARAM-001", "--output-format", "ndjson"])
 
-    # Assert: a recorded error still covers its improved warning form.
-    assert suppressed is True
+    # Assert: the improved finding is still covered; the build passes.
+    assert _read_findings(capsys) == []
+    assert code == 0
+
+
+def test_count_budget_reports_the_one_occurrence_beyond_the_record(tmp_path: Path, capsys):
+    # Arrange: two identical eval lines recorded, a third identical one added.
+    two = "def f(x):\n    return eval(x)\n\n\ndef g(x):\n    return eval(x)\n"
+    root = _project(tmp_path, {"m.py": two}, config=_BASELINE_CONFIG)
+    _run(["baseline", "write", str(root)])
+    capsys.readouterr()
+    (root / "m.py").write_text(two + "\n\ndef h(x):\n    return eval(x)\n", encoding="utf-8")
+
+    # Act
+    code = _run(["check", str(root), "--check", "EVAL-001", "--output-format", "ndjson"])
+
+    # Assert: exactly one EVAL-001 survives, and it fails the build.
+    assert [(c, f) for c, f, _line, _severity in _read_findings(capsys)] == [("EVAL-001", "m.py")]
+    assert code == 1
+
+
+def test_file_level_baseline_entry_survives_an_edit_to_line_one(tmp_path: Path):
+    # Arrange: a SIZE-001 error (510 lines, reported at line 1) baselined.
+    big = "".join(f"x{i} = {i}\n" for i in range(510))
+    root = _project(tmp_path, {"big.py": big}, config=_BASELINE_CONFIG)
+    assert _run(["baseline", "write", str(root)]) == 0
+
+    # Act: change the text on line 1 itself.
+    (root / "big.py").write_text(big.replace("x0 = 0\n", "x0 = 'edited'\n", 1), encoding="utf-8")
+
+    # Assert: a whole-file finding is not anchored to the text on line 1.
+    assert _run(["check", str(root)]) == 0
+
+
+def test_encoding_cookie_file_gets_the_same_line_anchored_fingerprint(tmp_path: Path, capsys):
+    # Arrange: the same eval line in a latin-1 file and in a UTF-8 file of the
+    # same name; the anchor is the decoded line, so the encoding is invisible.
+    body = "# -*- coding: {coding} -*-\n# caf\xe9\ndef f(x):\n    return eval(x)\n"
+    latin1 = _project(tmp_path / "latin1", {"pyproject.toml": "[tool.lanorme]\n"})
+    (latin1 / "a.py").write_bytes(body.format(coding="latin-1").encode("latin-1"))
+    utf8 = _project(tmp_path / "utf8", {"a.py": body.format(coding="utf-8")})
+
+    # Act
+    _run(["check", str(latin1), "--check", "EVAL-001", "--output-format", "ndjson"])
+    [from_latin1] = [json.loads(line) for line in capsys.readouterr().out.splitlines()]
+    _run(["check", str(utf8), "--check", "EVAL-001", "--output-format", "ndjson"])
+    [from_utf8] = [json.loads(line) for line in capsys.readouterr().out.splitlines()]
+
+    # Assert: both fingerprints are the line-anchored one, so they agree.
+    assert (from_latin1["file"], from_latin1["line"]) == ("a.py", 4)
+    assert from_latin1["fingerprint"] == from_utf8["fingerprint"]
 
 
 def test_no_source_text_or_secret_reaches_the_committed_file(tmp_path: Path):
@@ -197,7 +231,7 @@ def test_no_source_text_or_secret_reaches_the_committed_file(tmp_path: Path):
         message="Raw SQL passed to a database sink: SELECT * FROM users WHERE token='sk-LEAK-9999'",
         fix="",
     )
-    result = CheckResult(check="security_patterns", status=Status.FAIL, violations=[leaky])
+    result = CheckResult(check="security_patterns", violations=[leaky])
     baseline_path = tmp_path / "lanorme-baseline.json"
 
     # Act.
@@ -213,7 +247,7 @@ def test_run000_crash_notices_are_never_recorded(tmp_path: Path):
     # Arrange: a RUN-000 crash notice (no file) alongside a real finding.
     crash = Violation(file="", line=0, rule="RUN-000: check raised", message="boom", fix="")
     real = Violation(file="a.py", line=2, rule="EVAL-001: eval", message="m", fix="")
-    result = CheckResult(check="x", status=Status.WARN, warnings=[crash, real])
+    result = CheckResult(check="x", warnings=[crash, real])
     baseline_path = tmp_path / "lanorme-baseline.json"
 
     # Act.
@@ -328,7 +362,9 @@ def test_same_tier_file_size_growth_stays_suppressed(tmp_path: Path):
     # Arrange: a SIZE-001 warning baselined, then the file grows but stays in the
     # same warning tier (its message line-count changes, the tier does not).
     root = _project(
-        tmp_path, {"big.py": "".join(f"v{i} = {i}\n" for i in range(330))}, config=_BASELINE_CONFIG
+        tmp_path,
+        {"big.py": "".join(f"v{i} = {i}\n" for i in range(330))},
+        config=_BASELINE_CONFIG,
     )
     _run(["baseline", "write", str(root)])
     (root / "big.py").write_text("".join(f"v{i} = {i}\n" for i in range(360)), encoding="utf-8")
@@ -340,30 +376,12 @@ def test_same_tier_file_size_growth_stays_suppressed(tmp_path: Path):
     assert code == 0
 
 
-def test_warning_entry_never_suppresses_an_error_finding():
-    # Arrange: an entry recorded as a warning; the same key now error-tier.
-    root = Path("/proj")
-    finding = Violation(file="a.py", line=0, rule="X-001: thing", message="m", fix="")
-    [entry] = bl._entries_from_results(
-        results=[CheckResult(check="x", status=Status.WARN, warnings=[finding])],
-        project_root=root,
-    )
-    index = {(entry["file"], entry["code"], entry["anchor"]): entry}
-
-    # Act: the finding reappears as an error (escalated tier).
-    suppressed = bl._is_suppressed(
-        index=index, consumed={}, project_root=root, finding=finding, tier="error", cache={}
-    )
-
-    # Assert: the severity gate refuses to let a warning hide an error.
-    assert suppressed is False
-
-
 def test_malformed_baseline_entry_exits_two(tmp_path: Path):
     # Arrange: valid JSON, valid version, but an entry missing a required key.
     root = _project(tmp_path, {"a.py": _EVAL}, config=_BASELINE_CONFIG)
     (root / "lanorme-baseline.json").write_text(
-        '{"version": 1, "entries": [{"code": "EVAL-001", "anchor": "sha:x"}]}', encoding="utf-8"
+        '{"version": 1, "entries": [{"code": "EVAL-001", "anchor": "sha:x"}]}',
+        encoding="utf-8",
     )
 
     # Act.

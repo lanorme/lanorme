@@ -1,642 +1,330 @@
 {
-  "positives/pos_sqlalchemy_text.py": [
-    {
-      "line": 15,
-      "label": "raw_sql",
-      "note": "text() wrapping a bare SELECT, no bound params"
+  "rules": ["SQL-001"],
+  "unit": "line",
+  "description": "Ground truth for SQL-001. Keys are the lines a raw-SQL finding would sit on: flag true is a raw SQL string reaching a database call; false covers ORM expressions, parameterised executes, SQL in docstrings, comments, logs, regexes, changelogs and test assertions, non-database execute calls, SQL-looking identifiers and Alembic migrations.",
+  "files": {
+    "dev/negatives/neg_non_db_execute.py": {
+      "split": "dev",
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "labels": [
+        {"line": 15, "flag": false, "note": "subprocess.run with shell args, not SQL", "line_hash": "4407d294"},
+        {"line": 25, "flag": false, "note": "HttpClient.execute method definition (non-DB)", "line_hash": "f4ff27b7"},
+        {"line": 30, "flag": false, "note": "client.execute with HTTP method + path, non-DB object", "line_hash": "1c499fb5"},
+        {"line": 34, "flag": false, "note": "JobRunner.execute method definition (non-DB)", "line_hash": "a61b53b2"},
+        {"line": 39, "flag": false, "note": "runner.execute with job name, non-DB object", "line_hash": "db328e03"},
+        {"line": 43, "flag": false, "note": "subprocess grep for SELECT in a file (shell arg)", "line_hash": "67f54dd3"}
+      ]
     },
-    {
-      "line": 21,
-      "label": "raw_sql",
-      "note": "text() wrapping DROP TABLE DDL"
+    "dev/negatives/neg_orm_expressions.py": {
+      "split": "dev",
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "labels": [
+        {"line": 22, "flag": false, "note": "legacy session.query ORM expression", "line_hash": "9824f89a"},
+        {"line": 26, "flag": false, "note": "SQLAlchemy 2.0 select().where() expression", "line_hash": "2050b7c0"},
+        {"line": 27, "flag": false, "note": "session.execute on an ORM stmt object, not a string", "line_hash": "69b71ba8"},
+        {"line": 31, "flag": false, "note": "select().where() ORM expression", "line_hash": "800d19d5"},
+        {"line": 32, "flag": false, "note": "session.execute on ORM stmt", "line_hash": "d9fdc08b"},
+        {"line": 36, "flag": false, "note": "select with group_by ORM expression", "line_hash": "09f631d0"},
+        {"line": 37, "flag": false, "note": "session.execute on ORM stmt", "line_hash": "3a446c5f"},
+        {"line": 42, "flag": false, "note": "session.query with filter and_ ORM expression", "line_hash": "70ac8bf8"},
+        {"line": 50, "flag": false, "note": "ORM bulk delete via query API", "line_hash": "cdee1b63"}
+      ]
     },
-    {
-      "line": 26,
-      "label": "raw_sql",
-      "note": "text() wrapping SELECT COUNT(*)"
+    "dev/negatives/neg_parameterized_execute.py": {
+      "split": "dev",
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "labels": [
+        {"line": 17, "flag": false, "note": "text() with :id bound param + params dict (safe)", "line_hash": "78868df0"},
+        {"line": 25, "flag": false, "note": "text() with :status :id bound params + dict (safe)", "line_hash": "d6f856b3"},
+        {"line": 33, "flag": false, "note": "DB-API execute with %s placeholders + params tuple", "line_hash": "e7a85dae"},
+        {"line": 42, "flag": false, "note": "DB-API execute with ? placeholders + params tuple", "line_hash": "9ebd7ac4"},
+        {"line": 51, "flag": false, "note": "executemany with ? placeholders + rows seq", "line_hash": "8df6614e"}
+      ]
     },
-    {
-      "line": 32,
-      "label": "raw_sql",
-      "note": "text() wrapping ALTER TABLE DDL"
+    "dev/negatives/neg_sql_in_comments.py": {
+      "split": "dev",
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "labels": [
+        {"line": 12, "flag": false, "note": "comment paraphrases equivalent SELECT", "line_hash": "f35ddb93"},
+        {"line": 17, "flag": false, "note": "TODO comment mentions future bulk UPDATE", "line_hash": "82414894"},
+        {"line": 24, "flag": false, "note": "comment narrates effective DELETE on cache", "line_hash": "6178db73"},
+        {"line": 30, "flag": false, "note": "comment describes a view SELECT", "line_hash": "aa944637"},
+        {"line": 35, "flag": false, "note": "comment with CREATE INDEX hint", "line_hash": "be2dcc5c"}
+      ]
     },
-    {
-      "line": 37,
-      "label": "raw_sql",
-      "note": "text() wrapping TRUNCATE"
+    "dev/negatives/neg_sql_in_docstrings.py": {
+      "split": "dev",
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "labels": [
+        {"line": 8, "flag": false, "note": "SQL in module docstring example block", "line_hash": "b84ea3ae"},
+        {"line": 19, "flag": false, "note": "SQL in function docstring example block", "line_hash": "b84ea3ae"},
+        {"line": 31, "flag": false, "note": "SQL in function docstring example block", "line_hash": "7e4e18f7"},
+        {"line": 43, "flag": false, "note": "SQL in class docstring example block", "line_hash": "44ffb2d4"}
+      ]
     },
-    {
-      "line": 42,
-      "label": "raw_sql",
-      "note": "text() wrapping VACUUM FULL"
+    "dev/negatives/neg_sql_in_log_messages.py": {
+      "split": "dev",
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "labels": [
+        {"line": 16, "flag": false, "note": "logger.info mentions SELECT narratively", "line_hash": "d4a67b90"},
+        {"line": 17, "flag": false, "note": "logger.debug mentions UPDATE narratively", "line_hash": "40cc9338"},
+        {"line": 21, "flag": false, "note": "print() with INSERT in human message", "line_hash": "3d12a72d"},
+        {"line": 25, "flag": false, "note": "logger.warning mentions CREATE INDEX", "line_hash": "0f778df8"},
+        {"line": 29, "flag": false, "note": "RuntimeError message mentions DELETE FROM", "line_hash": "4b5decec"},
+        {"line": 33, "flag": false, "note": "status string mentions SELECT in pipeline name", "line_hash": "963f3dfb"},
+        {"line": 37, "flag": false, "note": "banner string mentions SELECT in pipeline shape", "line_hash": "9b6f8294"}
+      ]
+    },
+    "dev/negatives/neg_sql_in_regex.py": {
+      "split": "dev",
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "labels": [
+        {"line": 12, "flag": false, "note": "regex pattern matching SELECT (not SQL itself)", "line_hash": "31c3d5cd"},
+        {"line": 13, "flag": false, "note": "regex pattern matching INSERT INTO", "line_hash": "f9f1b715"},
+        {"line": 14, "flag": false, "note": "regex pattern matching UPDATE ... SET", "line_hash": "5c745305"},
+        {"line": 15, "flag": false, "note": "regex pattern matching DELETE FROM", "line_hash": "3675fddf"},
+        {"line": 23, "flag": false, "note": "re.findall with FROM-keyword pattern", "line_hash": "d2b84c79"},
+        {"line": 27, "flag": false, "note": "re.sub on CREATE INDEX pattern", "line_hash": "9f042a9a"},
+        {"line": 31, "flag": false, "note": "re.match with INSERT|UPDATE|DELETE alternation", "line_hash": "202c32ea"},
+        {"line": 37, "flag": false, "note": "re.split on statement-boundary keywords", "line_hash": "802bb72b"}
+      ]
+    },
+    "dev/negatives/neg_sql_in_test_assertions.py": {
+      "split": "dev",
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "labels": [
+        {"line": 12, "flag": false, "note": "function returns a SQL string for builder test, not executed", "line_hash": "2abe170f"},
+        {"line": 16, "flag": false, "note": "function returns a SQL string for builder test, not executed", "line_hash": "c22c064b"},
+        {"line": 20, "flag": false, "note": "assertion compares generated SQL to expected literal", "line_hash": "7e1a6be7"},
+        {"line": 24, "flag": false, "note": "expected SQL literal in test assertion", "line_hash": "2f1421a9"},
+        {"line": 29, "flag": false, "note": "rendered SQL literal in test assertion", "line_hash": "e768cc9c"},
+        {"line": 35, "flag": false, "note": "SQL literal compared to in test", "line_hash": "ad5226f6"}
+      ]
+    },
+    "dev/negatives/neg_static_concat_params.py": {
+      "split": "dev",
+      "source": "hand-written",
+      "labelled_by": "Claude",
+      "labelled_before_rule": "unknown",
+      "added_in": "d529f9a",
+      "labels": [
+        {"line": 14, "flag": false, "note": "two literals joined with +, %s placeholder, params tuple", "line_hash": "5941c19d"},
+        {"line": 19, "flag": false, "note": "module constant + literal, :name placeholder, params dict", "line_hash": "d47f361f"},
+        {"line": 24, "flag": false, "note": "three literals joined with + into a local, ? placeholder, params tuple at the sink", "line_hash": "a4136ccb"}
+      ]
+    },
+    "dev/negatives/neg_variable_names.py": {
+      "split": "dev",
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "labels": [
+        {"line": 13, "flag": false, "note": "select_box identifier, not SQL", "line_hash": "ca9e66cf"},
+        {"line": 14, "flag": false, "note": "update_button_label identifier", "line_hash": "94c837f1"},
+        {"line": 15, "flag": false, "note": "delete_modal_id identifier", "line_hash": "9acf3ec6"},
+        {"line": 20, "flag": false, "note": "insert_position settings key", "line_hash": "be2fd80b"},
+        {"line": 21, "flag": false, "note": "drop_zone settings key", "line_hash": "4b15ffbe"},
+        {"line": 22, "flag": false, "note": "create_button settings key", "line_hash": "dfa2cb2a"},
+        {"line": 26, "flag": false, "note": "SELECTION_MODES tuple constant", "line_hash": "c5b365cb"},
+        {"line": 29, "flag": false, "note": "on_update_signal callback handler", "line_hash": "60993ec4"},
+        {"line": 33, "flag": false, "note": "select_from_list function (Python list indexing)", "line_hash": "8df62e45"},
+        {"line": 38, "flag": false, "note": "Widget.update method", "line_hash": "9407cbfb"},
+        {"line": 41, "flag": false, "note": "Widget.delete method", "line_hash": "ce7f861f"}
+      ]
+    },
+    "dev/positives/pos_constant_then_execute.py": {
+      "split": "dev",
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "labels": [
+        {"line": 14, "flag": true, "note": "module-level SQL constant SELECT", "line_hash": "8ff4f06b"},
+        {"line": 16, "flag": true, "note": "module-level triple-quoted SQL constant", "line_hash": "74d93438"},
+        {"line": 23, "flag": true, "note": "module-level DELETE SQL constant", "line_hash": "07e8cbf8"},
+        {"line": 44, "flag": true, "note": "inline cursor.execute UPDATE literal", "line_hash": "651e08df"}
+      ]
+    },
+    "dev/positives/pos_executemany.py": {
+      "split": "dev",
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "labels": [
+        {"line": 13, "flag": true, "note": "executemany with f-string interpolated table name", "line_hash": "52a63d64"},
+        {"line": 19, "flag": true, "note": "executemany with f-string interpolated table name", "line_hash": "5f5ff040"},
+        {"line": 26, "flag": true, "note": "executemany with inline-interpolated key value", "line_hash": "47d64708"},
+        {"line": 33, "flag": true, "note": "executemany with .format()-interpolated schema", "line_hash": "c82669a2"},
+        {"line": 41, "flag": true, "note": "executemany with string concatenation of table name", "line_hash": "b375c46e"}
+      ]
+    },
+    "dev/positives/pos_fstring_interpolation.py": {
+      "split": "dev",
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "labels": [
+        {"line": 13, "flag": true, "note": "f-string interpolating email into SELECT", "line_hash": "e0ef9c81"},
+        {"line": 18, "flag": true, "note": "f-string interpolating user_id into DELETE", "line_hash": "623b1119"},
+        {"line": 23, "flag": true, "note": "%-format interpolating status into SELECT", "line_hash": "ad3c7c7d"},
+        {"line": 29, "flag": true, "note": ".format() interpolating column and value", "line_hash": "19b05b4f"},
+        {"line": 34, "flag": true, "note": "f-string interpolating user_id and role into UPDATE", "line_hash": "6822ee3d"},
+        {"line": 39, "flag": true, "note": "f-string interpolating prefix into LIKE clause", "line_hash": "2477aad4"}
+      ]
+    },
+    "dev/positives/pos_realistic_repo.py": {
+      "split": "dev",
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "labels": [
+        {"line": 22, "flag": true, "note": "text(USER_BY_EMAIL_SQL % email) \u2014 %-interpolation at the execute site", "line_hash": "a4f6b17d"},
+        {"line": 26, "flag": true, "note": "text() wrapping admin SELECT literal", "line_hash": "f537b20d"},
+        {"line": 30, "flag": true, "note": "f-string interpolating search term into SELECT", "line_hash": "145a287c"},
+        {"line": 35, "flag": true, "note": "text() wrapping DELETE literal", "line_hash": "819e7809"},
+        {"line": 39, "flag": true, "note": "text() wrapping UPDATE literal", "line_hash": "bd029fe8"}
+      ]
+    },
+    "dev/positives/pos_sqlalchemy_text.py": {
+      "split": "dev",
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "labels": [
+        {"line": 15, "flag": true, "note": "text() wrapping a bare SELECT, no bound params", "line_hash": "b2c3e336"},
+        {"line": 21, "flag": true, "note": "text() wrapping DROP TABLE DDL", "line_hash": "cb2fd740"},
+        {"line": 26, "flag": true, "note": "text() wrapping SELECT COUNT(*)", "line_hash": "b6f05012"},
+        {"line": 32, "flag": true, "note": "text() wrapping ALTER TABLE DDL", "line_hash": "e64781c8"},
+        {"line": 37, "flag": true, "note": "text() wrapping TRUNCATE", "line_hash": "d0f132ce"},
+        {"line": 42, "flag": true, "note": "text() wrapping VACUUM FULL", "line_hash": "3aa8d95e"}
+      ]
+    },
+    "dev/positives/pos_triple_quoted_multiline.py": {
+      "split": "dev",
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "labels": [
+        {"line": 15, "flag": true, "note": "multi-line triple-quoted SELECT inside text()", "line_hash": "044f8ac5"},
+        {"line": 27, "flag": true, "note": "multi-line triple-quoted cohort SELECT", "line_hash": "044f8ac5"},
+        {"line": 38, "flag": true, "note": "multi-line triple-quoted top-referrers SELECT", "line_hash": "92fc285c"},
+        {"line": 50, "flag": true, "note": "multi-line triple-quoted DELETE", "line_hash": "92fc285c"}
+      ]
+    },
+    "holdout/negatives/alembic/versions/0001_initial.py": {
+      "split": "holdout",
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "labels": [
+        {"line": 19, "flag": false, "note": "op.execute DDL in Alembic versions/ -- exempt by convention", "line_hash": "d85b9d28"},
+        {"line": 20, "flag": false, "note": "op.execute CREATE INDEX in Alembic -- exempt", "line_hash": "2456050c"},
+        {"line": 21, "flag": false, "note": "op.execute INSERT in Alembic -- exempt", "line_hash": "1d497da0"},
+        {"line": 25, "flag": false, "note": "op.execute DROP INDEX in Alembic downgrade -- exempt", "line_hash": "055e7cfc"},
+        {"line": 26, "flag": false, "note": "op.execute DROP TABLE in Alembic downgrade -- exempt", "line_hash": "0fc48e08"}
+      ]
+    },
+    "holdout/negatives/alembic/versions/0002_add_locale.py": {
+      "split": "holdout",
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "labels": [
+        {"line": 17, "flag": false, "note": "op.execute ALTER TABLE in Alembic -- exempt", "line_hash": "333e916e"},
+        {"line": 18, "flag": false, "note": "op.execute UPDATE backfill in Alembic -- exempt", "line_hash": "d631a166"},
+        {"line": 22, "flag": false, "note": "op.execute ALTER TABLE DROP in downgrade -- exempt", "line_hash": "aa130d2c"}
+      ]
+    },
+    "holdout/negatives/neg_changelog_strings.py": {
+      "split": "holdout",
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "labels": [
+        {"line": 12, "flag": false, "note": "changelog entry mentioning SELECT in prose", "line_hash": "fcc1bc08"},
+        {"line": 13, "flag": false, "note": "changelog entry mentioning DROP TABLE in prose", "line_hash": "ac518ec2"},
+        {"line": 14, "flag": false, "note": "changelog entry mentioning ALTER TABLE in prose", "line_hash": "1dc976c2"},
+        {"line": 15, "flag": false, "note": "changelog entry mentioning INSERT in prose", "line_hash": "b43ea8cc"},
+        {"line": 20, "flag": false, "note": "release-notes dict value mentioning SELECT", "line_hash": "2272bbc6"},
+        {"line": 21, "flag": false, "note": "release-notes dict value mentioning CREATE TEMP TABLE", "line_hash": "f7bd6092"},
+        {"line": 22, "flag": false, "note": "release-notes dict value mentioning DELETE FROM", "line_hash": "b503ee01"},
+        {"line": 27, "flag": false, "note": "f-string release banner mentioning UPDATE", "line_hash": "0a9437e5"},
+        {"line": 30, "flag": false, "note": "runbook docstring mentioning SELECT and CREATE INDEX (triple-quote start)", "line_hash": "8b6cc9e8"},
+        {"line": 37, "flag": false, "note": "banner string mentioning DROP / TRUNCATE in prose", "line_hash": "e547d14a"}
+      ]
+    },
+    "holdout/positives/pos_conn_execute_literal.py": {
+      "split": "holdout",
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "labels": [
+        {"line": 13, "flag": true, "note": "bare conn.execute UPDATE literal, no params", "line_hash": "e0d2ba40"},
+        {"line": 18, "flag": true, "note": "cursor.execute DELETE literal, no params", "line_hash": "cdf385bc"},
+        {"line": 23, "flag": true, "note": "conn.execute CREATE INDEX literal", "line_hash": "9238c6c2"},
+        {"line": 28, "flag": true, "note": "cursor.execute SELECT SUM literal", "line_hash": "fe64c096"},
+        {"line": 34, "flag": true, "note": "cursor.execute INSERT literal", "line_hash": "ead8eab9"},
+        {"line": 39, "flag": true, "note": "cursor.execute UPDATE literal, no params", "line_hash": "947c9761"}
+      ]
+    },
+    "holdout/positives/pos_pandas_read_sql.py": {
+      "split": "holdout",
+      "source": "hand-written",
+      "labelled_by": "unknown",
+      "labelled_before_rule": "unknown",
+      "added_in": "9a8132f",
+      "labels": [
+        {"line": 14, "flag": true, "note": "pandas.read_sql with bare SELECT literal", "line_hash": "68f7efb9"},
+        {"line": 19, "flag": true, "note": "pandas.read_sql_query with bare SELECT literal", "line_hash": "e0cdf45a"},
+        {"line": 25, "flag": true, "note": "pandas.read_sql with bare SELECT literal", "line_hash": "999c9f53"},
+        {"line": 30, "flag": true, "note": "pandas.read_sql with f-string interpolation", "line_hash": "1a227cbe"},
+        {"line": 35, "flag": true, "note": "pandas.read_sql with multi-line JOIN literal", "line_hash": "b6d267ef"}
+      ]
+    },
+    "holdout/positives/pos_static_concat_no_params.py": {
+      "split": "holdout",
+      "source": "hand-written",
+      "labelled_by": "Claude",
+      "labelled_before_rule": "unknown",
+      "added_in": "d529f9a",
+      "labels": [
+        {"line": 11, "flag": true, "note": "two literals joined with +, no params: static raw SELECT", "line_hash": "4649f15c"},
+        {"line": 16, "flag": true, "note": "two literals joined with +, no params: static DROP TABLE", "line_hash": "319d5c52"}
+      ]
     }
-  ],
-  "positives/pos_conn_execute_literal.py": [
-    {
-      "line": 13,
-      "label": "raw_sql",
-      "note": "bare conn.execute UPDATE literal, no params"
-    },
-    {
-      "line": 18,
-      "label": "raw_sql",
-      "note": "cursor.execute DELETE literal, no params"
-    },
-    {
-      "line": 23,
-      "label": "raw_sql",
-      "note": "conn.execute CREATE INDEX literal"
-    },
-    {
-      "line": 28,
-      "label": "raw_sql",
-      "note": "cursor.execute SELECT SUM literal"
-    },
-    {
-      "line": 34,
-      "label": "raw_sql",
-      "note": "cursor.execute INSERT literal"
-    },
-    {
-      "line": 39,
-      "label": "raw_sql",
-      "note": "cursor.execute UPDATE literal, no params"
-    }
-  ],
-  "positives/pos_fstring_interpolation.py": [
-    {
-      "line": 13,
-      "label": "raw_sql",
-      "note": "f-string interpolating email into SELECT"
-    },
-    {
-      "line": 18,
-      "label": "raw_sql",
-      "note": "f-string interpolating user_id into DELETE"
-    },
-    {
-      "line": 23,
-      "label": "raw_sql",
-      "note": "%-format interpolating status into SELECT"
-    },
-    {
-      "line": 29,
-      "label": "raw_sql",
-      "note": ".format() interpolating column and value"
-    },
-    {
-      "line": 34,
-      "label": "raw_sql",
-      "note": "f-string interpolating user_id and role into UPDATE"
-    },
-    {
-      "line": 39,
-      "label": "raw_sql",
-      "note": "f-string interpolating prefix into LIKE clause"
-    }
-  ],
-  "positives/pos_triple_quoted_multiline.py": [
-    {
-      "line": 15,
-      "label": "raw_sql",
-      "note": "multi-line triple-quoted SELECT inside text()"
-    },
-    {
-      "line": 27,
-      "label": "raw_sql",
-      "note": "multi-line triple-quoted cohort SELECT"
-    },
-    {
-      "line": 38,
-      "label": "raw_sql",
-      "note": "multi-line triple-quoted top-referrers SELECT"
-    },
-    {
-      "line": 50,
-      "label": "raw_sql",
-      "note": "multi-line triple-quoted DELETE"
-    }
-  ],
-  "positives/pos_constant_then_execute.py": [
-    {
-      "line": 14,
-      "label": "raw_sql",
-      "note": "module-level SQL constant SELECT"
-    },
-    {
-      "line": 16,
-      "label": "raw_sql",
-      "note": "module-level triple-quoted SQL constant"
-    },
-    {
-      "line": 23,
-      "label": "raw_sql",
-      "note": "module-level DELETE SQL constant"
-    },
-    {
-      "line": 44,
-      "label": "raw_sql",
-      "note": "inline cursor.execute UPDATE literal"
-    }
-  ],
-  "positives/pos_pandas_read_sql.py": [
-    {
-      "line": 14,
-      "label": "raw_sql",
-      "note": "pandas.read_sql with bare SELECT literal"
-    },
-    {
-      "line": 19,
-      "label": "raw_sql",
-      "note": "pandas.read_sql_query with bare SELECT literal"
-    },
-    {
-      "line": 25,
-      "label": "raw_sql",
-      "note": "pandas.read_sql with bare SELECT literal"
-    },
-    {
-      "line": 30,
-      "label": "raw_sql",
-      "note": "pandas.read_sql with f-string interpolation"
-    },
-    {
-      "line": 35,
-      "label": "raw_sql",
-      "note": "pandas.read_sql with multi-line JOIN literal"
-    }
-  ],
-  "positives/pos_executemany.py": [
-    {
-      "line": 13,
-      "label": "raw_sql",
-      "note": "executemany with f-string interpolated table name"
-    },
-    {
-      "line": 19,
-      "label": "raw_sql",
-      "note": "executemany with f-string interpolated table name"
-    },
-    {
-      "line": 26,
-      "label": "raw_sql",
-      "note": "executemany with inline-interpolated key value"
-    },
-    {
-      "line": 33,
-      "label": "raw_sql",
-      "note": "executemany with .format()-interpolated schema"
-    },
-    {
-      "line": 41,
-      "label": "raw_sql",
-      "note": "executemany with string concatenation of table name"
-    }
-  ],
-  "positives/pos_realistic_repo.py": [
-    {
-      "line": 22,
-      "label": "raw_sql",
-      "note": "text(USER_BY_EMAIL_SQL % email) \u2014 %-interpolation at the execute site"
-    },
-    {
-      "line": 26,
-      "label": "raw_sql",
-      "note": "text() wrapping admin SELECT literal"
-    },
-    {
-      "line": 30,
-      "label": "raw_sql",
-      "note": "f-string interpolating search term into SELECT"
-    },
-    {
-      "line": 35,
-      "label": "raw_sql",
-      "note": "text() wrapping DELETE literal"
-    },
-    {
-      "line": 39,
-      "label": "raw_sql",
-      "note": "text() wrapping UPDATE literal"
-    }
-  ],
-  "negatives/neg_orm_expressions.py": [
-    {
-      "line": 22,
-      "label": "ok",
-      "note": "legacy session.query ORM expression"
-    },
-    {
-      "line": 26,
-      "label": "ok",
-      "note": "SQLAlchemy 2.0 select().where() expression"
-    },
-    {
-      "line": 27,
-      "label": "ok",
-      "note": "session.execute on an ORM stmt object, not a string"
-    },
-    {
-      "line": 31,
-      "label": "ok",
-      "note": "select().where() ORM expression"
-    },
-    {
-      "line": 32,
-      "label": "ok",
-      "note": "session.execute on ORM stmt"
-    },
-    {
-      "line": 36,
-      "label": "ok",
-      "note": "select with group_by ORM expression"
-    },
-    {
-      "line": 37,
-      "label": "ok",
-      "note": "session.execute on ORM stmt"
-    },
-    {
-      "line": 42,
-      "label": "ok",
-      "note": "session.query with filter and_ ORM expression"
-    },
-    {
-      "line": 50,
-      "label": "ok",
-      "note": "ORM bulk delete via query API"
-    }
-  ],
-  "negatives/neg_parameterized_execute.py": [
-    {
-      "line": 17,
-      "label": "ok",
-      "note": "text() with :id bound param + params dict (safe)"
-    },
-    {
-      "line": 25,
-      "label": "ok",
-      "note": "text() with :status :id bound params + dict (safe)"
-    },
-    {
-      "line": 33,
-      "label": "ok",
-      "note": "DB-API execute with %s placeholders + params tuple"
-    },
-    {
-      "line": 42,
-      "label": "ok",
-      "note": "DB-API execute with ? placeholders + params tuple"
-    },
-    {
-      "line": 51,
-      "label": "ok",
-      "note": "executemany with ? placeholders + rows seq"
-    }
-  ],
-  "negatives/neg_sql_in_docstrings.py": [
-    {
-      "line": 8,
-      "label": "ok",
-      "note": "SQL in module docstring example block"
-    },
-    {
-      "line": 19,
-      "label": "ok",
-      "note": "SQL in function docstring example block"
-    },
-    {
-      "line": 31,
-      "label": "ok",
-      "note": "SQL in function docstring example block"
-    },
-    {
-      "line": 43,
-      "label": "ok",
-      "note": "SQL in class docstring example block"
-    }
-  ],
-  "negatives/neg_sql_in_comments.py": [
-    {
-      "line": 12,
-      "label": "ok",
-      "note": "comment paraphrases equivalent SELECT"
-    },
-    {
-      "line": 17,
-      "label": "ok",
-      "note": "TODO comment mentions future bulk UPDATE"
-    },
-    {
-      "line": 24,
-      "label": "ok",
-      "note": "comment narrates effective DELETE on cache"
-    },
-    {
-      "line": 30,
-      "label": "ok",
-      "note": "comment describes a view SELECT"
-    },
-    {
-      "line": 35,
-      "label": "ok",
-      "note": "comment with CREATE INDEX hint"
-    }
-  ],
-  "negatives/neg_sql_in_log_messages.py": [
-    {
-      "line": 16,
-      "label": "ok",
-      "note": "logger.info mentions SELECT narratively"
-    },
-    {
-      "line": 17,
-      "label": "ok",
-      "note": "logger.debug mentions UPDATE narratively"
-    },
-    {
-      "line": 21,
-      "label": "ok",
-      "note": "print() with INSERT in human message"
-    },
-    {
-      "line": 25,
-      "label": "ok",
-      "note": "logger.warning mentions CREATE INDEX"
-    },
-    {
-      "line": 29,
-      "label": "ok",
-      "note": "RuntimeError message mentions DELETE FROM"
-    },
-    {
-      "line": 33,
-      "label": "ok",
-      "note": "status string mentions SELECT in pipeline name"
-    },
-    {
-      "line": 37,
-      "label": "ok",
-      "note": "banner string mentions SELECT in pipeline shape"
-    }
-  ],
-  "negatives/neg_sql_in_test_assertions.py": [
-    {
-      "line": 12,
-      "label": "ok",
-      "note": "function returns a SQL string for builder test, not executed"
-    },
-    {
-      "line": 16,
-      "label": "ok",
-      "note": "function returns a SQL string for builder test, not executed"
-    },
-    {
-      "line": 20,
-      "label": "ok",
-      "note": "assertion compares generated SQL to expected literal"
-    },
-    {
-      "line": 24,
-      "label": "ok",
-      "note": "expected SQL literal in test assertion"
-    },
-    {
-      "line": 29,
-      "label": "ok",
-      "note": "rendered SQL literal in test assertion"
-    },
-    {
-      "line": 35,
-      "label": "ok",
-      "note": "SQL literal compared to in test"
-    }
-  ],
-  "negatives/neg_sql_in_regex.py": [
-    {
-      "line": 12,
-      "label": "ok",
-      "note": "regex pattern matching SELECT (not SQL itself)"
-    },
-    {
-      "line": 13,
-      "label": "ok",
-      "note": "regex pattern matching INSERT INTO"
-    },
-    {
-      "line": 14,
-      "label": "ok",
-      "note": "regex pattern matching UPDATE ... SET"
-    },
-    {
-      "line": 15,
-      "label": "ok",
-      "note": "regex pattern matching DELETE FROM"
-    },
-    {
-      "line": 23,
-      "label": "ok",
-      "note": "re.findall with FROM-keyword pattern"
-    },
-    {
-      "line": 27,
-      "label": "ok",
-      "note": "re.sub on CREATE INDEX pattern"
-    },
-    {
-      "line": 31,
-      "label": "ok",
-      "note": "re.match with INSERT|UPDATE|DELETE alternation"
-    },
-    {
-      "line": 37,
-      "label": "ok",
-      "note": "re.split on statement-boundary keywords"
-    }
-  ],
-  "negatives/neg_changelog_strings.py": [
-    {
-      "line": 12,
-      "label": "ok",
-      "note": "changelog entry mentioning SELECT in prose"
-    },
-    {
-      "line": 13,
-      "label": "ok",
-      "note": "changelog entry mentioning DROP TABLE in prose"
-    },
-    {
-      "line": 14,
-      "label": "ok",
-      "note": "changelog entry mentioning ALTER TABLE in prose"
-    },
-    {
-      "line": 15,
-      "label": "ok",
-      "note": "changelog entry mentioning INSERT in prose"
-    },
-    {
-      "line": 20,
-      "label": "ok",
-      "note": "release-notes dict value mentioning SELECT"
-    },
-    {
-      "line": 21,
-      "label": "ok",
-      "note": "release-notes dict value mentioning CREATE TEMP TABLE"
-    },
-    {
-      "line": 22,
-      "label": "ok",
-      "note": "release-notes dict value mentioning DELETE FROM"
-    },
-    {
-      "line": 27,
-      "label": "ok",
-      "note": "f-string release banner mentioning UPDATE"
-    },
-    {
-      "line": 30,
-      "label": "ok",
-      "note": "runbook docstring mentioning SELECT and CREATE INDEX (triple-quote start)"
-    },
-    {
-      "line": 37,
-      "label": "ok",
-      "note": "banner string mentioning DROP / TRUNCATE in prose"
-    }
-  ],
-  "negatives/neg_non_db_execute.py": [
-    {
-      "line": 15,
-      "label": "ok",
-      "note": "subprocess.run with shell args, not SQL"
-    },
-    {
-      "line": 25,
-      "label": "ok",
-      "note": "HttpClient.execute method definition (non-DB)"
-    },
-    {
-      "line": 30,
-      "label": "ok",
-      "note": "client.execute with HTTP method + path, non-DB object"
-    },
-    {
-      "line": 34,
-      "label": "ok",
-      "note": "JobRunner.execute method definition (non-DB)"
-    },
-    {
-      "line": 39,
-      "label": "ok",
-      "note": "runner.execute with job name, non-DB object"
-    },
-    {
-      "line": 43,
-      "label": "ok",
-      "note": "subprocess grep for SELECT in a file (shell arg)"
-    }
-  ],
-  "negatives/neg_variable_names.py": [
-    {
-      "line": 13,
-      "label": "ok",
-      "note": "select_box identifier, not SQL"
-    },
-    {
-      "line": 14,
-      "label": "ok",
-      "note": "update_button_label identifier"
-    },
-    {
-      "line": 15,
-      "label": "ok",
-      "note": "delete_modal_id identifier"
-    },
-    {
-      "line": 20,
-      "label": "ok",
-      "note": "insert_position settings key"
-    },
-    {
-      "line": 21,
-      "label": "ok",
-      "note": "drop_zone settings key"
-    },
-    {
-      "line": 22,
-      "label": "ok",
-      "note": "create_button settings key"
-    },
-    {
-      "line": 26,
-      "label": "ok",
-      "note": "SELECTION_MODES tuple constant"
-    },
-    {
-      "line": 29,
-      "label": "ok",
-      "note": "on_update_signal callback handler"
-    },
-    {
-      "line": 33,
-      "label": "ok",
-      "note": "select_from_list function (Python list indexing)"
-    },
-    {
-      "line": 38,
-      "label": "ok",
-      "note": "Widget.update method"
-    },
-    {
-      "line": 41,
-      "label": "ok",
-      "note": "Widget.delete method"
-    }
-  ],
-  "negatives/alembic/versions/0001_initial.py": [
-    {
-      "line": 19,
-      "label": "ok",
-      "note": "op.execute DDL in Alembic versions/ -- exempt by convention"
-    },
-    {
-      "line": 20,
-      "label": "ok",
-      "note": "op.execute CREATE INDEX in Alembic -- exempt"
-    },
-    {
-      "line": 21,
-      "label": "ok",
-      "note": "op.execute INSERT in Alembic -- exempt"
-    },
-    {
-      "line": 25,
-      "label": "ok",
-      "note": "op.execute DROP INDEX in Alembic downgrade -- exempt"
-    },
-    {
-      "line": 26,
-      "label": "ok",
-      "note": "op.execute DROP TABLE in Alembic downgrade -- exempt"
-    }
-  ],
-  "negatives/alembic/versions/0002_add_locale.py": [
-    {
-      "line": 17,
-      "label": "ok",
-      "note": "op.execute ALTER TABLE in Alembic -- exempt"
-    },
-    {
-      "line": 18,
-      "label": "ok",
-      "note": "op.execute UPDATE backfill in Alembic -- exempt"
-    },
-    {
-      "line": 22,
-      "label": "ok",
-      "note": "op.execute ALTER TABLE DROP in downgrade -- exempt"
-    }
-  ]
+  }
 }

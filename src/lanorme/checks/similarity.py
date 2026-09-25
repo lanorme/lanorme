@@ -1,31 +1,57 @@
 """SIMILAR-001: structural near-duplicate detection (advisory, default-off).
 
-A precision-first companion to DRY-001. DRY-001 catches EXACT structural
-clones (identical normalised AST modulo variable/function names and string
-literals) and fails the build. It keeps attribute names and string literals in
-its dump and so misses anything off by one token: a changed number, a renamed
-attribute, an added statement, a reordering.
+The definition. Two functions are near-duplicates when they carry out the same
+operations in the same control-flow positions and differ only in data and in
+drift: variable, attribute and keyword names, numbers, and one or two
+statements inserted, removed or reordered. A pair whose statements differ in
+what they do (an operator flipped, a called name changed, a statement moved
+into a new branch) is two functions. So is a pair that differs in the string
+literals it carries: keys, column names, formats and messages are the content
+a body is about, and parallel builders that share a shape but not their
+strings are boilerplate, not a clone. DRY-001 catches the exact clone
+(identical modulo variable names and strings) and fails the build; SIMILAR-001
+fills the gap the exact match leaves, and only warns.
 
-SIMILAR-001 fills that gap. It compares the two (or more) qualifying functions
-in a file pairwise on two signals:
+Each function is fingerprinted as:
 
-  Signal A (structure): a token sequence over the function body that ABSTRACTS
-  away local variable names, attribute names and numeric literals, so an
-  attribute-renamed or number-changed clone still aligns. Similarity is
-  ``difflib.SequenceMatcher.ratio()``, whose block alignment tolerates one or
-  two added, removed or reordered statements.
+  - a sequence of STATEMENT LINES, one per statement at every nesting depth:
+    the depth, the statement kind, and the abstracted tokens of the
+    statement's own expressions (a name is ``v``, an attribute access
+    ``attr``, a number ``N``, a string ``S``; operator kinds and call arities
+    are kept, keyword names are dropped);
+  - the multiset of OPERATIONS: each statement's depth, kind, operators and
+    calls (as arities: which name is called is the next anchor's business);
+  - the multiset of CALLED NAMES: bare-call ids and method names; a call to a
+    name the function binds itself (a parameter, a local) is a call through a
+    variable and is abstracted, as DRY-001 abstracts it;
+  - the multiset of STRING LITERALS, less the message strings passed
+    positionally to a logging or print call, whose rewording is not drift in
+    what the function does;
+  - the multiset of ACCESSED ATTRIBUTE names.
 
-  Signal B (semantic anchors): three multisets that DRY-001 throws away but
-  that carry meaning - string-literal VALUES, called NAMES (bare-call ids and
-  method attribute names), and operator KINDS. Agreement is a weighted Jaccard
-  over each multiset.
+A pair is flagged when every gate passes:
 
-A pair is flagged only when the structure is highly similar AND all three
-anchor signals agree above their thresholds AND the pair is not
-equality/dunder/property boilerplate. Keeping strings, calls and operators is
-the precision guard that separates real clones from legitimately parallel
-boilerplate (config builders, dispatch tables, field mappers, framework
-handlers) whose shape is identical but whose identifiers carry the meaning.
+  ``struct_ratio``   ``difflib`` ratio over the statement lines: high when
+                     the two bodies align up to a few inserted, removed or
+                     reordered statements.
+  ``op_jaccard``     the share of the smaller side's operations the other side
+                     also carries: 1.0 means every statement keeps its
+                     operators, its calls and its control-flow position, so a
+                     flipped operator, a call replaced by a subscript or a
+                     statement moved into a new branch fails it while an
+                     inserted statement does not.
+  ``call_jaccard``   the same share over called names.
+  ``str_jaccard``    the same share over string literals: an inserted
+                     statement may bring new strings, a changed key may not.
+  ``attr_jaccard``   weighted Jaccard over attribute names, rejecting the
+                     (near) disjoint sets of parallel mappers over different
+                     source objects.
+  ``min_statements`` top-level statements each body must have, the docstring
+                     left out.
+
+The ``*_jaccard`` keys keep their names; the measure behind
+``op_jaccard``, ``call_jaccard`` and ``str_jaccard`` is the containment share
+described above, which unlike a Jaccard does not punish drift.
 
 Ships DEFAULT-OFF and emits WARNINGS, never failing the build. Enable with::
 
@@ -35,8 +61,8 @@ Ships DEFAULT-OFF and emits WARNINGS, never failing the build. Enable with::
     # min_statements = 5
     # struct_ratio = 0.55
     # str_jaccard = 0.60
-    # op_jaccard = 0.60
-    # call_jaccard = 0.35
+    # op_jaccard = 1.0
+    # call_jaccard = 1.0
     # attr_jaccard = 0.10
 
 Run:
@@ -48,18 +74,23 @@ from __future__ import annotations
 import ast
 import difflib
 from collections import Counter
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 from itertools import combinations
 from pathlib import Path
+from typing import ClassVar
 
-from lanorme import CheckResult, Status, Violation, register
-from lanorme.discovery import iter_py_files
+from lanorme import CheckResult, Violation, register
+from lanorme.checkconfig import is_flag_set, read_int
+from lanorme.function_body import collect_local_bindings, list_body_statements
+from lanorme.paths import is_test_file
+from lanorme.scan import Scan
+from lanorme.sources import Module, iter_parsed_modules, locate
 
-_SKIP_DIRS = frozenset({".git", ".venv", "venv", "node_modules", "__pycache__", "dist", "build"})
-
-# Files exempt from near-duplicate analysis (mirrors DRY-001): test functions
-# and migrations are legitimately parallel by nature.
-_EXCLUDED_FILENAMES = frozenset({"__init__.py", "conftest.py"})
+# Files exempt from near-duplicate analysis (mirrors DRY-001): package markers
+# and migrations are legitimately parallel by nature; test files are exempt
+# through ``lanorme.paths``.
+_EXCLUDED_FILENAMES = frozenset({"__init__.py"})
 _EXCLUDED_DIR_PARTS = frozenset({"alembic", "migrations"})
 
 
@@ -69,135 +100,144 @@ def _should_skip(*, relative: Path) -> bool:
     *relative* is the path inside the scan root. Matching its parts, not the
     absolute path's, keeps the user's filesystem above the root out of it.
     """
-    if any(part in _SKIP_DIRS for part in relative.parts):
-        return True
-    if relative.name in _EXCLUDED_FILENAMES or relative.name.startswith("test_"):
+    if relative.name in _EXCLUDED_FILENAMES or is_test_file(relative):
         return True
     return any(part in _EXCLUDED_DIR_PARTS for part in relative.parts)
 
-# Defaults. Each function body must clear this floor (mirrors DRY-001) so short
-# coincidental matches cannot fire.
-DEFAULT_MIN_STATEMENTS = 5
 
-# Validated operating point (corpus: precision 1.0, recall 0.85). A pair flags
-# only when structure is similar AND every anchor agrees. str is the precision
-# backbone (parallel builders share shape but their string keys differ); op is
-# floored just above the operator-divergence negatives (clamp/sum-vs-product
-# sit at 0.5).
+# Defaults, derived on the dev split of evals/corpora/duplication_similar/
+# (the holdout split is never tuned against; docs/RULES.md carries its
+# numbers). Each body must clear the statement floor (mirrors DRY-001) so
+# short coincidental matches cannot fire.
+DEFAULT_MIN_STATEMENTS = 5
+# The reorder positives sit at 0.60: two of five statements swapped.
 DEFAULT_STRUCT_RATIO = 0.55
+# Parallel builders with the same shape share at most half their strings
+# (column specs at 0.50); positives with an inserted statement carrying new
+# strings keep at least two thirds (0.67).
 DEFAULT_STR_JACCARD = 0.60
-DEFAULT_OP_JACCARD = 0.60
-# Loose: no negative in the corpus is separated by the call anchor alone, so it
-# is floored only enough to admit method-renamed clones (a legitimate edit).
-DEFAULT_CALL_JACCARD = 0.35
-# Loose floor: only the (near) all-disjoint case is rejected, separating
-# parallel mappers that write the same keys from different source attributes
-# (attr ~0) from a clone with one or two attributes renamed (attr still > 0.1).
+# Every dev positive keeps every operation and every called name; a flipped
+# operator, a statement moved into a branch or a changed callee loses one.
+DEFAULT_OP_JACCARD = 1.0
+DEFAULT_CALL_JACCARD = 1.0
+# Only the (near) all-disjoint case is rejected, separating parallel mappers
+# that write the same keys from different source attributes (attr ~0) from a
+# clone with one or two attributes renamed (attr still > 0.1).
 DEFAULT_ATTR_JACCARD = 0.10
 
 _FuncDef = ast.FunctionDef | ast.AsyncFunctionDef
+# The fields of a compound statement that hold nested statements or clauses,
+# walked as lines of their own rather than as part of the parent's line.
+_BLOCK_FIELDS = ("body", "orelse", "finalbody", "handlers", "cases")
+# A callee the function binds itself: the name is data, not an operation.
+_LOCAL_CALLEE = "<local>"
+# A callee that is an expression (``f()()``, ``handlers[k]()``): unnamed.
+_UNNAMED_CALLEE = "<expr>"
 
 
 @dataclass(frozen=True)
 class _FunctionFingerprint:
-    """The structural token sequence and three anchor multisets of a function."""
+    """The statement lines and anchor multisets of a function."""
 
     name: str
-    line: int
-    struct: tuple[str, ...]
+    node: _FuncDef
+    lines: tuple[str, ...]
+    operations: Counter[str]
     calls: Counter[str]
     strs: Counter[str]
-    ops: Counter[str]
     attrs: Counter[str]
     is_excluded: bool
 
 
-class _StructVisitor(ast.NodeVisitor):
-    """Emit a token sequence abstracting away var/attr names and numbers.
+class _StatementTokens(ast.NodeVisitor):
+    """Tokenise one statement's own expressions, not its nested statements.
 
-    Statement markers, operator markers, call arity markers and leaf
-    placeholders are appended in source order. Attribute names and numeric
-    literals are deliberately dropped so attribute-renamed and number-changed
-    clones still align.
+    Names, attribute names, numbers and strings collapse to placeholders so a
+    renamed or renumbered clone still aligns; operator kinds and call arities
+    stay, so the line says what the statement does. The visitor also collects
+    the statement's operations (its operators and calls), called names,
+    strings and attributes.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, *, local_names: frozenset[str], skip_str_ids: set[int]) -> None:
         self.tokens: list[str] = []
+        self.operators: list[str] = []
+        self.calls: list[str] = []
+        self.strs: Counter[str] = Counter()
+        self.attrs: Counter[str] = Counter()
+        self._local_names = local_names
+        self._skip_str_ids = skip_str_ids
 
-    def visit_Assign(self, node: ast.Assign) -> None:  # noqa: N802
-        self.tokens.append("ASG")
-        self.generic_visit(node)
+    def generic_visit(self, node: ast.AST) -> None:
+        # A statement's nested blocks are lines of their own; the ``body`` of
+        # a conditional expression or a lambda is part of this statement.
+        skip_blocks = isinstance(node, (ast.stmt, ast.ExceptHandler, ast.match_case))
+        for field_name, value in ast.iter_fields(node):
+            if skip_blocks and field_name in _BLOCK_FIELDS:
+                continue
+            if isinstance(value, list):
+                for item in value:
+                    if isinstance(item, ast.AST):
+                        self.visit(item)
+            elif isinstance(value, ast.AST):
+                self.visit(value)
 
-    def visit_AnnAssign(self, node: ast.AnnAssign) -> None:  # noqa: N802
-        self.tokens.append("ASG")
-        self.generic_visit(node)
-
-    def visit_AugAssign(self, node: ast.AugAssign) -> None:  # noqa: N802
-        self.tokens.append(f"AUG:{type(node.op).__name__}")
-        self.generic_visit(node)
-
-    def visit_If(self, node: ast.If) -> None:  # noqa: N802
-        self.tokens.append("IF")
-        self.generic_visit(node)
-
-    def visit_For(self, node: ast.For) -> None:  # noqa: N802
-        self.tokens.append("FOR")
-        self.generic_visit(node)
-
-    def visit_While(self, node: ast.While) -> None:  # noqa: N802
-        self.tokens.append("WHL")
-        self.generic_visit(node)
-
-    def visit_Return(self, node: ast.Return) -> None:  # noqa: N802
-        self.tokens.append("RET")
-        self.generic_visit(node)
-
-    def visit_Raise(self, node: ast.Raise) -> None:  # noqa: N802
-        self.tokens.append("RAI")
-        self.generic_visit(node)
-
-    def visit_Expr(self, node: ast.Expr) -> None:  # noqa: N802
-        self.tokens.append("EXP")
-        self.generic_visit(node)
+    def add_operator(self, *, token: str) -> None:
+        """Record an operation (an operator kind, a call) in the line and the operation set."""
+        self.tokens.append(token)
+        self.operators.append(token)
 
     def visit_BinOp(self, node: ast.BinOp) -> None:  # noqa: N802
-        self.tokens.append(f"bin:{type(node.op).__name__}")
+        self.add_operator(token=f"bin:{type(node.op).__name__}")
         self.generic_visit(node)
 
     def visit_UnaryOp(self, node: ast.UnaryOp) -> None:  # noqa: N802
-        self.tokens.append(f"un:{type(node.op).__name__}")
+        self.add_operator(token=f"un:{type(node.op).__name__}")
+        self.generic_visit(node)
+
+    def visit_BoolOp(self, node: ast.BoolOp) -> None:  # noqa: N802
+        self.add_operator(token=f"boo:{type(node.op).__name__}")
         self.generic_visit(node)
 
     def visit_Compare(self, node: ast.Compare) -> None:  # noqa: N802
         for op in node.ops:
-            self.tokens.append(f"cmp:{type(op).__name__}")
-        self.generic_visit(node)
-
-    def visit_BoolOp(self, node: ast.BoolOp) -> None:  # noqa: N802
-        self.tokens.append(f"boo:{type(node.op).__name__}")
+            self.add_operator(token=f"cmp:{type(op).__name__}")
         self.generic_visit(node)
 
     def visit_Call(self, node: ast.Call) -> None:  # noqa: N802
-        self.tokens.append(f"call{len(node.args)}")
+        self.calls.append(self._name_callee(node=node))
+        self.add_operator(token=f"call{len(node.args)}")
         self.generic_visit(node)
+
+    def _name_callee(self, *, node: ast.Call) -> str:
+        """The called name: a method's attribute, a fixed bare name, or a placeholder."""
+        target = node.func
+        if isinstance(target, ast.Attribute):
+            return f".{target.attr}"
+        if isinstance(target, ast.Name):
+            return _LOCAL_CALLEE if target.id in self._local_names else target.id
+        return _UNNAMED_CALLEE
 
     def visit_Name(self, node: ast.Name) -> None:  # noqa: N802
         self.tokens.append("v")
 
     def visit_Attribute(self, node: ast.Attribute) -> None:  # noqa: N802
-        # Drop the attribute name; recurse into the value so the access chain
-        # shape is preserved but the name is not.
+        # Drop the attribute name from the line; recurse into the value so the
+        # access chain shape is preserved but the name is not.
         self.tokens.append("attr")
+        self.attrs[node.attr] += 1
         self.visit(node.value)
 
     def visit_Constant(self, node: ast.Constant) -> None:  # noqa: N802
         value = node.value
         if isinstance(value, bool):
             self.tokens.append("B")
-        elif isinstance(value, (int, float)):
+        elif isinstance(value, (int, float, complex)):
             self.tokens.append("N")
         elif isinstance(value, str):
             self.tokens.append("S")
+            if id(node) not in self._skip_str_ids:
+                self.strs[value] += 1
         else:
             self.tokens.append("C")
 
@@ -206,11 +246,11 @@ class _StructVisitor(ast.NodeVisitor):
 # not meaning-bearing content. Their drift (a reworded log line) must not block
 # a real clone, so these string arguments are excluded from the ``strs`` anchor.
 _LOG_METHODS = frozenset(
-    {"debug", "info", "warning", "warn", "error", "exception", "critical", "log"}
+    {"debug", "info", "warning", "warn", "error", "exception", "critical", "log"},
 )
 
 
-def _logging_string_arg_ids(*, func: _FuncDef) -> set[int]:
+def _collect_logging_string_arg_ids(*, func: _FuncDef) -> set[int]:
     """``id()`` of str-literal nodes passed positionally to a logging/print call."""
     skip: set[int] = set()
     for node in ast.walk(func):
@@ -228,54 +268,25 @@ def _logging_string_arg_ids(*, func: _FuncDef) -> set[int]:
     return skip
 
 
-def _op_names(node: ast.AST) -> list[str]:
-    """Operator kind name(s) for an op-bearing node, else an empty list."""
-    if isinstance(node, (ast.BinOp, ast.UnaryOp, ast.AugAssign, ast.BoolOp)):
-        return [type(node.op).__name__]
-    if isinstance(node, ast.Compare):
-        return [type(op).__name__ for op in node.ops]
-    return []
+def _iter_statements(*, body: list[ast.stmt], depth: int) -> Iterator[tuple[int, ast.AST]]:
+    """Yield ``(depth, node)`` for every statement and clause under *body*, in order.
 
-
-def _call_name(node: ast.Call) -> str | None:
-    """The called name: a bare-call id, or a method's attribute name."""
-    target = node.func
-    if isinstance(target, ast.Name):
-        return target.id
-    if isinstance(target, ast.Attribute):
-        return target.attr
-    return None
-
-
-def _build_anchors(
-    *, func: _FuncDef
-) -> tuple[Counter[str], Counter[str], Counter[str], Counter[str]]:
-    """Return (calls, strs, ops, attrs) multisets over the whole function body.
-
-    ``attrs`` (accessed attribute names) is abstracted out of the structural
-    channel for attribute-rename recall, but kept here as a precision anchor:
-    parallel mappers writing the same dict keys from disjoint source attributes
-    (mail_host vs bucket_host) are separated by it.
+    A compound statement yields itself, then its nested blocks one level
+    deeper; an ``except`` handler or a ``match`` case is a clause of its own at
+    that deeper level, with its body one level deeper still.
     """
-    calls: Counter[str] = Counter()
-    strs: Counter[str] = Counter()
-    ops: Counter[str] = Counter()
-    attrs: Counter[str] = Counter()
-    skip_str_ids = _logging_string_arg_ids(func=func)
-    for node in ast.walk(func):
-        if isinstance(node, ast.Call):
-            name = _call_name(node)
-            if name is not None:
-                calls[name] += 1
-        elif isinstance(node, ast.Attribute):
-            attrs[node.attr] += 1
-        elif isinstance(node, ast.Constant) and isinstance(node.value, str):
-            if id(node) not in skip_str_ids:
-                strs[node.value] += 1
-        else:
-            for op in _op_names(node):
-                ops[op] += 1
-    return calls, strs, ops, attrs
+    for statement in body:
+        yield depth, statement
+        for field_name in _BLOCK_FIELDS:
+            block = getattr(statement, field_name, None)
+            if not isinstance(block, list):
+                continue
+            for item in block:
+                if isinstance(item, ast.stmt):
+                    yield from _iter_statements(body=[item], depth=depth + 1)
+                elif isinstance(item, (ast.ExceptHandler, ast.match_case)):
+                    yield depth + 1, item
+                    yield from _iter_statements(body=item.body, depth=depth + 2)
 
 
 def _is_excluded(*, func: _FuncDef) -> bool:
@@ -303,55 +314,83 @@ def _is_excluded(*, func: _FuncDef) -> bool:
     return False
 
 
-def _fingerprint(*, func: _FuncDef) -> _FunctionFingerprint:
-    """Build the structural sequence and anchor multisets for one function."""
-    visitor = _StructVisitor()
-    for stmt in func.body:
-        visitor.visit(stmt)
-    calls, strs, ops, attrs = _build_anchors(func=func)
+def _build_fingerprint(*, func: _FuncDef) -> _FunctionFingerprint:
+    """Build the statement lines and anchor multisets for one function."""
+    local_names = collect_local_bindings(func=func)
+    skip_str_ids = _collect_logging_string_arg_ids(func=func)
+    lines: list[str] = []
+    operations: Counter[str] = Counter()
+    calls: Counter[str] = Counter()
+    strs: Counter[str] = Counter()
+    attrs: Counter[str] = Counter()
+    body = list_body_statements(func=func)
+    for depth, statement in _iter_statements(body=body, depth=0):
+        visitor = _StatementTokens(local_names=local_names, skip_str_ids=skip_str_ids)
+        if isinstance(statement, ast.AugAssign):
+            visitor.add_operator(token=f"aug:{type(statement.op).__name__}")
+        visitor.generic_visit(statement)
+        kind = f"{depth}:{type(statement).__name__}"
+        lines.append(f"{kind}:{' '.join(visitor.tokens)}")
+        operations[f"{kind}:{' '.join(visitor.operators)}"] += 1
+        calls.update(visitor.calls)
+        strs.update(visitor.strs)
+        attrs.update(visitor.attrs)
     return _FunctionFingerprint(
         name=func.name,
-        line=func.lineno,
-        struct=tuple(visitor.tokens),
+        node=func,
+        lines=tuple(lines),
+        operations=operations,
         calls=calls,
         strs=strs,
-        ops=ops,
         attrs=attrs,
         is_excluded=_is_excluded(func=func),
     )
 
 
-def _weighted_jaccard(
-    *,
-    left: Counter[str],
-    right: Counter[str],
-    empty_is_agreement: bool = False,
-) -> float:
-    """Weighted Jaccard over two multisets.
+def _measure_containment(*, left: Counter[str], right: Counter[str]) -> float:
+    """The share of the smaller multiset that the larger one also carries.
 
-    Both empty -> 1.0 (they agree: neither carries any of this anchor).
-    One empty, one not -> 0.0 by default (genuine disagreement). Otherwise the
-    standard sum(min) / sum(max) ratio.
-
-    With ``empty_is_agreement`` the one-empty case also returns 1.0. This is
-    used only for the OPERATOR anchor: the op gate exists to catch operator
-    DIVERGENCE (clamp-above vs clamp-below, plus vs minus), which needs both
-    sides to carry operators that disagree. When one side simply has no
-    operators (a removed statement was the only op-bearing one) there is no
-    divergence to detect, so a copy-paste clone should not be punished here.
+    ``sum(min) / min(|left|, |right|)``: 1.0 when everything the smaller side
+    holds appears on the other side, whatever else the larger side adds. An
+    empty side has nothing to contradict, so the share is 1.0. A statement
+    inserted by drift can only add to the larger side, so it never lowers the
+    share; a changed operator, callee or key replaces an element on both sides
+    and does.
     """
-    if not left and not right:
-        return 1.0
     if not left or not right:
-        return 1.0 if empty_is_agreement else 0.0
+        return 1.0
+    intersection = sum((left & right).values())
+    return intersection / min(sum(left.values()), sum(right.values()))
+
+
+def _measure_weighted_jaccard(*, left: Counter[str], right: Counter[str]) -> float:
+    """Weighted Jaccard over two multisets: ``sum(min) / sum(max)``.
+
+    Both empty, or one empty, is 1.0: the gate that uses it (attributes)
+    exists to reject near-disjoint sets, and a side that touches no attribute
+    has none to be disjoint with.
+    """
+    if not left or not right:
+        return 1.0
     intersection = sum((left & right).values())
     union = sum((left | right).values())
     return intersection / union if union else 1.0
 
 
+_THRESHOLD_KEYS = ("struct_ratio", "str_jaccard", "op_jaccard", "call_jaccard", "attr_jaccard")
+
+
+def _read_ratio_setting(*, settings: dict[str, object], key: str, default: float) -> float:
+    """A threshold in ``[0, 1]``; an int or a float, never a bool or a string."""
+    value = settings.get(key, default)
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise TypeError(f"'{key}' must be a number, got {type(value).__name__}")
+    return float(value)
+
+
 @dataclass(frozen=True)
 class _Thresholds:
-    """The four gate thresholds used to decide a near-duplicate pair."""
+    """The five gate thresholds used to decide a near-duplicate pair."""
 
     struct_ratio: float
     str_jaccard: float
@@ -371,66 +410,66 @@ def _pair_matches(
         return False
     # Require at least one meaning-bearing anchor across the pair. If neither
     # function carries any string OR any call, the only remaining content is
-    # attribute names and numbers, both of which the structural channel
-    # abstracts away, so a perfect match here is indistinguishable from
-    # boilerplate that varies purely by attribute name (state-machine guards,
-    # enum dispatch tables) where those names carry the whole rule.
+    # attribute names and numbers, both of which the lines abstract away, so a
+    # perfect match here is indistinguishable from boilerplate that varies
+    # purely by attribute name (state-machine guards, enum dispatch tables)
+    # where those names carry the whole rule.
     if not (left.strs or right.strs or left.calls or right.calls):
         return False
-    struct_ratio = difflib.SequenceMatcher(None, left.struct, right.struct).ratio()
-    if struct_ratio < thresholds.struct_ratio:
+    # The set gates are cheap and reject most pairs; the sequence match, the
+    # expensive gate, runs last and only after its upper bounds clear the bar.
+    if _measure_containment(left=left.strs, right=right.strs) < thresholds.str_jaccard:
         return False
-    if _weighted_jaccard(left=left.strs, right=right.strs) < thresholds.str_jaccard:
+    op_share = _measure_containment(left=left.operations, right=right.operations)
+    if op_share < thresholds.op_jaccard:
         return False
-    op_jaccard = _weighted_jaccard(left=left.ops, right=right.ops, empty_is_agreement=True)
-    if op_jaccard < thresholds.op_jaccard:
+    if _measure_containment(left=left.calls, right=right.calls) < thresholds.call_jaccard:
         return False
-    if _weighted_jaccard(left=left.calls, right=right.calls) < thresholds.call_jaccard:
+    if _measure_weighted_jaccard(left=left.attrs, right=right.attrs) < thresholds.attr_jaccard:
         return False
-    # Accessed-attribute agreement. empty_is_agreement so functions that touch
-    # no attributes are not punished; the gate only rejects pairs whose
-    # attribute sets are (near) disjoint, i.e. parallel mappers over different
-    # source objects.
-    attr_jaccard = _weighted_jaccard(left=left.attrs, right=right.attrs, empty_is_agreement=True)
-    if attr_jaccard < thresholds.attr_jaccard:
+    matcher = difflib.SequenceMatcher(None, left.lines, right.lines)
+    if matcher.real_quick_ratio() < thresholds.struct_ratio:
         return False
-    return True
+    if matcher.quick_ratio() < thresholds.struct_ratio:
+        return False
+    return matcher.ratio() >= thresholds.struct_ratio
 
 
-def _collect_fingerprints(*, tree: ast.AST, min_statements: int) -> list[_FunctionFingerprint]:
+def _collect_fingerprints(*, module: Module, min_statements: int) -> list[_FunctionFingerprint]:
     """Fingerprint every function (incl. methods and nested) clearing the floor."""
     prints: list[_FunctionFingerprint] = []
-    for node in ast.walk(tree):
-        if isinstance(node, _FuncDef) and len(node.body) >= min_statements:
-            prints.append(_fingerprint(func=node))
+    for node in module.index.functions:
+        if len(list_body_statements(func=node)) >= min_statements:
+            prints.append(_build_fingerprint(func=node))
     return prints
 
 
 def _scan_file(
     *,
-    tree: ast.AST,
-    relative_file: str,
+    module: Module,
     min_statements: int,
     thresholds: _Thresholds,
 ) -> list[Violation]:
     """Pair the qualifying functions WITHIN one file and warn on near-dupes."""
-    prints = _collect_fingerprints(tree=tree, min_statements=min_statements)
+    prints = _collect_fingerprints(module=module, min_statements=min_statements)
     warnings: list[Violation] = []
     for left, right in combinations(prints, 2):
         if _pair_matches(left=left, right=right, thresholds=thresholds):
-            first, second = sorted((left, right), key=lambda fp: fp.line)
+            first, second = sorted((left, right), key=lambda fp: fp.node.lineno)
             warnings.append(
                 Violation(
-                    file=relative_file,
-                    line=first.line,
+                    file=module.relative,
+                    line=first.node.lineno,
                     rule="SIMILAR-001",
                     message=(
-                        f"Functions '{first.name}' and '{second.name}' are structurally "
-                        f"near-duplicate (same skeleton after abstracting variable/attribute "
-                        f"names and numbers) and agree on their strings, calls and operators"
+                        f"Functions '{first.name}' and '{second.name}' are near-duplicates: "
+                        f"the same operations in the same positions, agreeing on their "
+                        f"strings and called names, differing only in names, numbers and "
+                        f"one or two statements"
                     ),
                     fix="Extract the shared logic into a common helper function",
-                )
+                    **locate(first.node),
+                ),
             )
     return warnings
 
@@ -450,24 +489,30 @@ class SimilarityCheck:
     attr_jaccard: float = DEFAULT_ATTR_JACCARD
     rules: list[str] = field(
         default_factory=lambda: [
-            "SIMILAR-001: Two functions are structurally near-duplicate (same skeleton "
-            "after abstracting variable names, attribute names and numbers) and agree on "
-            "their string literals, called names and operators, so they should likely "
-            "share a helper (advisory; default-off)",
-        ]
+            "SIMILAR-001: Two functions carry out the same operations in the same "
+            "control-flow positions and agree on their string literals and called names, "
+            "differing only in variable, attribute and keyword names, numbers, and one or "
+            "two inserted, removed or reordered statements, so they should likely share a "
+            "helper (advisory; default-off)",
+        ],
+    )
+    settings_keys: ClassVar[frozenset[str]] = frozenset(
+        {"enabled", "min_statements", *_THRESHOLD_KEYS},
     )
 
     def configure(self, *, settings: dict[str, object]) -> None:
-        """Apply ``[tool.lanorme.similarity]`` configuration (unknown keys ignored)."""
-        if "enabled" in settings:
-            self.enabled = bool(settings["enabled"])
-        if "min_statements" in settings:
-            self.min_statements = int(settings["min_statements"])  # type: ignore[arg-type]
-        for key in ("struct_ratio", "str_jaccard", "op_jaccard", "call_jaccard", "attr_jaccard"):
-            if key in settings:
-                setattr(self, key, float(settings[key]))  # type: ignore[arg-type]
+        """Apply ``[tool.lanorme.similarity]`` configuration."""
+        self.enabled = is_flag_set(settings=settings, key="enabled", default=self.enabled)
+        self.min_statements = read_int(
+            settings=settings,
+            key="min_statements",
+            default=self.min_statements,
+        )
+        for key in _THRESHOLD_KEYS:
+            current: float = getattr(self, key)
+            setattr(self, key, _read_ratio_setting(settings=settings, key=key, default=current))
 
-    def _thresholds(self) -> _Thresholds:
+    def _build_thresholds(self) -> _Thresholds:
         return _Thresholds(
             struct_ratio=self.struct_ratio,
             str_jaccard=self.str_jaccard,
@@ -476,36 +521,29 @@ class SimilarityCheck:
             attr_jaccard=self.attr_jaccard,
         )
 
-    def run(self, *, src_root: str) -> CheckResult:
-        """Scan files under *src_root*; emit SIMILAR-001 warnings, never failing."""
+    def check(self, scan: Scan) -> CheckResult:
+        """Scan the files under the scan root; emit SIMILAR-001 warnings, never failing."""
         if not self.enabled:
-            return CheckResult(check=self.name, status=Status.PASS, warnings=[])
+            return CheckResult.from_findings(check=self.name)
         warnings: list[Violation] = []
-        root = Path(src_root)
-        thresholds = self._thresholds()
-        for path in iter_py_files(root):
-            relative = path.relative_to(root)
-            if _should_skip(relative=relative):
+        thresholds = self._build_thresholds()
+        for module in iter_parsed_modules(scan.root):
+            if _should_skip(relative=Path(module.relative)):
                 continue
-            relative_file = relative.as_posix()
-            # Per-file isolation: a single pathological file (parse error, or a
-            # deeply nested body that overflows the recursive walk) must never
-            # abort the whole advisory run.
+            # Per-file isolation: a single pathological file (a deeply nested
+            # body that overflows the recursive walk) must never abort the
+            # whole advisory run.
             try:
-                source = path.read_text(encoding="utf-8")
-                tree = ast.parse(source, filename=str(path))
                 warnings.extend(
                     _scan_file(
-                        tree=tree,
-                        relative_file=relative_file,
+                        module=module,
                         min_statements=self.min_statements,
                         thresholds=thresholds,
-                    )
+                    ),
                 )
-            except (OSError, UnicodeDecodeError, SyntaxError, RecursionError):
+            except RecursionError:
                 continue
-        status = Status.WARN if warnings else Status.PASS
-        return CheckResult(check=self.name, status=status, warnings=warnings)
+        return CheckResult.from_findings(check=self.name, warnings=warnings)
 
 
 # Self-register on import.

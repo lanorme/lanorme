@@ -11,8 +11,8 @@ The matching is content-anchored, never line-number-anchored, so an entry
 survives unrelated edits above it. A finding is keyed by
 ``(file, rule code, anchor)`` where the anchor is a hash of the stripped source
 line at the finding, or (for a file-level finding reported at a line-1 sentinel)
-a hash of the static rule description. Hashing every form keeps source text and
-any secret out of the committed file.
+the fixed marker ``file``, since the file and code already identify it. Hashing
+the source form keeps source text and any secret out of the committed file.
 
 A baselined *warning* never suppresses a current *error*-tier finding, so a
 baselined file that grows past a hard threshold re-reports and fails the build.
@@ -24,16 +24,22 @@ from __future__ import annotations
 
 import hashlib
 import json
-import sys
+from dataclasses import dataclass
 from pathlib import Path
 
-from lanorme import CheckResult, Status, Violation
-from lanorme.filtering import _line_at, _rule_code
+from lanorme import CheckResult, Violation, extract_code
+from lanorme.errors import UsageError
+from lanorme.source_lines import SourceLines
 
 BASELINE_VERSION = 1
 
 _ERROR = "error"
 _WARNING = "warning"
+# The anchor of a finding that is about the whole file rather than a line.
+_FILE_ANCHOR = "file"
+
+# A finding's identity in the baseline: ``(path, code, anchor)``.
+Key = tuple[str, str, str]
 
 
 # --------------------------------------------------------------------------- #
@@ -41,32 +47,10 @@ _WARNING = "warning"
 # --------------------------------------------------------------------------- #
 
 
-def _norm_path(file: str) -> str:
+def _normalise_path(file: str) -> str:
     """Normalise a finding path to forward slashes without a leading ``./``."""
     normalised = file.replace("\\", "/")
     return normalised[2:] if normalised.startswith("./") else normalised
-
-
-def _anchor(
-    *, project_root: Path, file: str, line: int, rule: str, cache: dict[str, list[str]]
-) -> str:
-    """A stable, content-derived key for a finding.
-
-    For a line-anchored finding (line >= 2) the anchor is a hash of the stripped
-    source line, so it survives unrelated edits above the finding. A file-level
-    finding is reported at a line-1 sentinel (SIZE-001, PORT-001, TESTFILE-001
-    and friends) and is about the whole file, not line 1; anchoring it to the
-    text on line 1, or to its count-bearing message, would resurrect it on an
-    unrelated top-of-file edit or a minor metric change. So file-level findings
-    (line <= 1) and findings whose source line is blank/unreadable anchor on the
-    static rule description instead, which carries no source text and no per-run
-    count. Every form is hashed, so no source text or secret reaches the file.
-    """
-    if line >= 2:
-        source = _line_at(project_root=project_root, file=file, line=line, cache=cache).strip()
-        if source:
-            return "sha:" + hashlib.sha256(source.encode("utf-8")).hexdigest()
-    return "desc:" + hashlib.sha256(_describe(rule).encode("utf-8")).hexdigest()
 
 
 def _describe(rule: str) -> str:
@@ -81,37 +65,101 @@ def _describe(rule: str) -> str:
     return tail.strip() if sep else head.strip()
 
 
-def _finding_key(
-    *, project_root: Path, finding: Violation, cache: dict[str, list[str]]
-) -> tuple[str, str, str]:
-    """The ``(path, code, anchor)`` identity used to match against the baseline."""
-    return (
-        _norm_path(finding.file),
-        _rule_code(finding.rule),
-        _anchor(
-            project_root=project_root,
-            file=finding.file,
-            line=finding.line,
-            rule=finding.rule,
-            cache=cache,
-        ),
-    )
+class FindingKeys:
+    """The baseline identity of each finding, memoised over one run's source lines.
+
+    The suppression, the drift note, ``baseline status`` and the fingerprint in
+    the JSON reports all key findings the same way; sharing one instance per
+    run means each source line is read once and each key computed once.
+    """
+
+    def __init__(self, lines: SourceLines) -> None:
+        self.lines = lines
+        self._memo: dict[tuple[str, str, int], Key] = {}
+
+    def build_key(self, finding: Violation) -> Key:
+        """The ``(path, code, anchor)`` identity used to match against the baseline."""
+        memo_key = (finding.file, finding.rule, finding.line)
+        key = self._memo.get(memo_key)
+        if key is None:
+            key = (
+                _normalise_path(finding.file),
+                extract_code(finding.rule),
+                self._anchor(file=finding.file, line=finding.line),
+            )
+            self._memo[memo_key] = key
+        return key
+
+    def compute_fingerprint(self, finding: Violation) -> str:
+        """A short stable identity for a finding, the baseline's key hashed.
+
+        It survives edits elsewhere in the file (the anchor is the finding's own
+        line) and is what a tool should key on to tell a fixed finding from a
+        moved one. Empty for a finding that belongs to no file.
+        """
+        if not finding.file:
+            return ""
+        return hashlib.sha256("|".join(self.build_key(finding)).encode("utf-8")).hexdigest()[:16]
+
+    def _anchor(self, *, file: str, line: int) -> str:
+        """A stable, content-derived key for a finding.
+
+        For a line-anchored finding (line >= 2) the anchor is a hash of the
+        stripped source line, so it survives unrelated edits above the finding.
+        A file-level finding is reported at a line-1 sentinel (SIZE-001,
+        PORT-001, TESTFILE-001 and friends) and is about the whole file, not
+        line 1; anchoring it to the text on line 1, or to its count-bearing
+        message, would resurrect it on an unrelated top-of-file edit or a minor
+        metric change. So file-level findings (line <= 1) and findings whose
+        source line is blank/unreadable take the fixed :data:`_FILE_ANCHOR`:
+        the key's file and code already identify them, and unlike the rule
+        description the marker does not change with the tier (``exceeds``
+        against ``approaching``), so a recorded error still covers the warning
+        it improves into. The hashed form carries no source text or secret.
+        """
+        if line >= 2:
+            source = self.lines.read_line(file=file, line=line).strip()
+            if source:
+                return "sha:" + hashlib.sha256(source.encode("utf-8")).hexdigest()
+        return _FILE_ANCHOR
+
+
+def _iter_findings(results: list[CheckResult]) -> list[tuple[Violation, str]]:
+    """Every file-bearing finding with its tier; a RUN-000 crash notice has no file."""
+    return [
+        (finding, tier)
+        for result in results
+        for tier, findings in ((_ERROR, result.violations), (_WARNING, result.warnings))
+        for finding in findings
+        if finding.file
+    ]
 
 
 # --------------------------------------------------------------------------- #
-# File I/O
+# The recorded baseline
 # --------------------------------------------------------------------------- #
+
+
+@dataclass(frozen=True)
+class _Entry:
+    """What the baseline holds for one key: the worst tier seen and how many."""
+
+    severity: str
+    count: int
+
+    def merge(self, *, severity: str, count: int) -> _Entry:
+        """This entry with *count* more occurrences, raised to ``error`` if any is one."""
+        worst = _ERROR if _ERROR in (self.severity, severity) else _WARNING
+        return _Entry(severity=worst, count=self.count + count)
 
 
 def _fail(message: str) -> None:
-    """Print an error and exit 2 (the configuration/usage failure code)."""
-    print(f"ERROR: {message}", file=sys.stderr)
-    sys.exit(2)
+    """Refuse the baseline file with a usage error (exit 2 at the CLI)."""
+    raise UsageError(message)
 
 
-def load_index(path: Path) -> dict[tuple[str, str, str], dict[str, object]]:
-    """Read a baseline file into a key -> {severity, count} index, exiting cleanly
-    on a missing or malformed file."""
+def _read_entries(path: Path) -> list[object]:
+    """The raw ``entries`` list of a baseline file, refusing a missing or malformed one."""
     try:
         raw = path.read_text(encoding="utf-8")
     except FileNotFoundError:
@@ -129,19 +177,144 @@ def load_index(path: Path) -> dict[tuple[str, str, str], dict[str, object]]:
     entries = data.get("entries")
     if not isinstance(entries, list):
         _fail(f"baseline file '{path}' has no 'entries' list.")
+    return entries
 
-    index: dict[tuple[str, str, str], dict[str, object]] = {}
-    for entry in entries:
-        try:
-            key = (str(entry["file"]), str(entry["code"]), str(entry["anchor"]))
-            count = int(entry.get("count", 1))
-        except (KeyError, TypeError, ValueError):
-            _fail(f"baseline file '{path}' has a malformed entry: {entry!r}")
-        slot = index.setdefault(key, {"severity": _WARNING, "count": 0})
-        if entry.get("severity") == _ERROR:
-            slot["severity"] = _ERROR
-        slot["count"] = int(slot["count"]) + count
-    return index
+
+def _parse_entry(*, path: Path, entry: object) -> tuple[Key, _Entry]:
+    """One recorded entry as its key and budget, refusing a malformed one."""
+    try:
+        key = (str(entry["file"]), str(entry["code"]), str(entry["anchor"]))
+        count = int(entry.get("count", 1))
+    except (KeyError, TypeError, ValueError, AttributeError):
+        _fail(f"baseline file '{path}' has a malformed entry: {entry!r}")
+    severity = _ERROR if entry.get("severity") == _ERROR else _WARNING
+    return key, _Entry(severity=severity, count=count)
+
+
+class Baseline:
+    """The recorded findings of a project, matched against a run's findings.
+
+    Load it with :meth:`load`; every method takes the run's results as the
+    checks produced them (before any baseline filtering) and keys them through
+    the shared :class:`FindingKeys`.
+    """
+
+    def __init__(self, *, entries: dict[Key, _Entry], keys: FindingKeys) -> None:
+        self.entries = entries
+        self.keys = keys
+
+    @classmethod
+    def load(cls, path: Path, *, keys: FindingKeys) -> Baseline:
+        """Read a baseline file, raising :class:`UsageError` when it is missing or malformed."""
+        entries: dict[Key, _Entry] = {}
+        for raw in _read_entries(path):
+            key, entry = _parse_entry(path=path, entry=raw)
+            existing = entries.get(key)
+            entries[key] = (
+                entry
+                if existing is None
+                else existing.merge(
+                    severity=entry.severity,
+                    count=entry.count,
+                )
+            )
+        return cls(entries=entries, keys=keys)
+
+    def build_key(self, finding: Violation) -> Key:
+        """The ``(path, code, anchor)`` identity of *finding*."""
+        return self.keys.build_key(finding)
+
+    def suppress(self, results: list[CheckResult]) -> list[CheckResult]:
+        """*results* with baselined findings removed and statuses recomputed.
+
+        A recorded warning never hides a current error-tier finding (a
+        baselined file that crossed a hard threshold must re-report), while a
+        recorded error does cover its improved warning. Each key's count is a
+        budget: N recorded occurrences never hide an (N+1)th.
+        """
+        consumed: dict[Key, int] = {}
+
+        def is_kept(*, finding: Violation, tier: str) -> bool:
+            if not finding.file:
+                return True
+            key = self.build_key(finding)
+            entry = self.entries.get(key)
+            if entry is None or (tier == _ERROR and entry.severity != _ERROR):
+                return True
+            used = consumed.get(key, 0)
+            if used >= entry.count:
+                return True
+            consumed[key] = used + 1
+            return False
+
+        return [
+            CheckResult.from_findings(
+                check=result.check,
+                violations=[v for v in result.violations if is_kept(finding=v, tier=_ERROR)],
+                warnings=[w for w in result.warnings if is_kept(finding=w, tier=_WARNING)],
+            )
+            for result in results
+        ]
+
+    def find_drift(self, results: list[CheckResult]) -> list[tuple[str, str]]:
+        """``(file, code)`` pairs whose baseline entry stopped matching its finding.
+
+        Drift is the conjunction of two facts about one file and rule: the
+        baseline holds an entry that matched nothing this run, and a finding of
+        that same file and rule did not match the baseline either. Together
+        they say the entry's anchor moved, so the finding is recorded debt the
+        baseline no longer recognises rather than something new. An upgrade
+        that rewords a rule description does exactly this.
+
+        Requiring the entry to be stale is what keeps genuinely new debt out: a
+        file whose recorded entries all still match reports nothing here, even
+        when a further finding of the same rule appears alongside them.
+        """
+        if not self.entries:
+            return []
+        keys = [self.build_key(finding) for finding, _tier in _iter_findings(results)]
+        unmatched = {(key[0], key[1]) for key in keys if key not in self.entries}
+        stale = {(file, code) for file, code, _anchor in self.find_stale(results)}
+        return sorted(stale & unmatched)
+
+    def find_stale(self, results: list[CheckResult]) -> list[Key]:
+        """The recorded keys no finding in *results* matches, sorted."""
+        matched = {self.build_key(finding) for finding, _tier in _iter_findings(results)}
+        return sorted(key for key in self.entries if key not in matched)
+
+
+# --------------------------------------------------------------------------- #
+# Commands: write and status
+# --------------------------------------------------------------------------- #
+
+
+def _build_entries(*, results: list[CheckResult], keys: FindingKeys) -> list[dict[str, object]]:
+    """The serialisable entry list for the current findings of a clean run.
+
+    A finding with no file is a RUN-000 crash notice: transient and
+    version-dependent, so it is never recorded.
+    """
+    tally: dict[Key, _Entry] = {}
+    described: dict[Key, str] = {}
+    for finding, tier in _iter_findings(results):
+        key = keys.build_key(finding)
+        existing = tally.get(key)
+        if existing is None:
+            tally[key] = _Entry(severity=tier, count=1)
+            described[key] = _describe(finding.rule)
+        else:
+            tally[key] = existing.merge(severity=tier, count=1)
+    return [
+        {
+            "file": key[0],
+            "code": key[1],
+            "anchor": key[2],
+            "severity": entry.severity,
+            "message": described[key],
+            "count": entry.count,
+        }
+        for key, entry in tally.items()
+    ]
 
 
 def _serialise(entries: list[dict[str, object]]) -> str:
@@ -151,173 +324,24 @@ def _serialise(entries: list[dict[str, object]]) -> str:
     return json.dumps(payload, indent=2, sort_keys=True) + "\n"
 
 
-# --------------------------------------------------------------------------- #
-# Building entries from a run
-# --------------------------------------------------------------------------- #
-
-
-def _accumulate(
+def write(
     *,
-    counts: dict[tuple[str, str, str], dict[str, object]],
+    results: list[CheckResult],
     project_root: Path,
-    finding: Violation,
-    severity: str,
-    cache: dict[str, list[str]],
+    baseline_path: Path,
+    keys: FindingKeys | None = None,
 ) -> None:
-    """Fold one finding into the per-key entry table, skipping crash notices."""
-    # A finding with no file is a RUN-000 crash notice: transient and
-    # version-dependent, so it is never recorded and never matched.
-    if not finding.file:
-        return
-    key = _finding_key(project_root=project_root, finding=finding, cache=cache)
-    slot = counts.get(key)
-    if slot is None:
-        counts[key] = {
-            "file": key[0],
-            "code": key[1],
-            "anchor": key[2],
-            "severity": severity,
-            "message": _describe(finding.rule),
-            "count": 1,
-        }
-        return
-    slot["count"] = int(slot["count"]) + 1
-    if severity == _ERROR:
-        slot["severity"] = _ERROR
-
-
-def _entries_from_results(
-    *, results: list[CheckResult], project_root: Path
-) -> list[dict[str, object]]:
-    """Build the full entry list for the current findings of a clean run."""
-    counts: dict[tuple[str, str, str], dict[str, object]] = {}
-    cache: dict[str, list[str]] = {}
-    for result in results:
-        for violation in result.violations:
-            _accumulate(
-                counts=counts, project_root=project_root, finding=violation, severity=_ERROR, cache=cache
-            )
-        for warning in result.warnings:
-            _accumulate(
-                counts=counts, project_root=project_root, finding=warning, severity=_WARNING, cache=cache
-            )
-    return list(counts.values())
-
-
-# --------------------------------------------------------------------------- #
-# Suppression at check time
-# --------------------------------------------------------------------------- #
-
-
-def _is_suppressed(
-    *,
-    index: dict[tuple[str, str, str], dict[str, object]],
-    consumed: dict[tuple[str, str, str], int],
-    project_root: Path,
-    finding: Violation,
-    tier: str,
-    cache: dict[str, list[str]],
-) -> bool:
-    """Decide whether one finding is covered by the baseline, honouring the
-    severity gate and the per-key count budget."""
-    if not finding.file:
-        return False
-    key = _finding_key(project_root=project_root, finding=finding, cache=cache)
-    entry = index.get(key)
-    if entry is None:
-        return False
-    # Severity gate: a recorded warning must never hide a current error-tier
-    # finding (a baselined file that crossed a hard threshold must re-report).
-    # The reverse is allowed: a recorded error suppresses its improved warning.
-    if tier == _ERROR and entry["severity"] != _ERROR:
-        return False
-    used = consumed.get(key, 0)
-    if used >= int(entry["count"]):
-        return False
-    consumed[key] = used + 1
-    return True
-
-
-def suppress(
-    *, results: list[CheckResult], project_root: Path, baseline_path: Path
-) -> list[CheckResult]:
-    """Return results with baselined findings removed and statuses recomputed."""
-    index = load_index(baseline_path)
-    consumed: dict[tuple[str, str, str], int] = {}
-    cache: dict[str, list[str]] = {}
-
-    filtered: list[CheckResult] = []
-    for result in results:
-        violations = [
-            v
-            for v in result.violations
-            if not _is_suppressed(
-                index=index, consumed=consumed, project_root=project_root, finding=v, tier=_ERROR, cache=cache
-            )
-        ]
-        warnings = [
-            w
-            for w in result.warnings
-            if not _is_suppressed(
-                index=index, consumed=consumed, project_root=project_root, finding=w, tier=_WARNING, cache=cache
-            )
-        ]
-        status = Status.FAIL if violations else (Status.WARN if warnings else Status.PASS)
-        filtered.append(
-            CheckResult(check=result.check, status=status, violations=violations, warnings=warnings)
-        )
-    return filtered
-
-
-def drifted_codes(
-    *, results: list[CheckResult], project_root: Path, baseline_path: Path
-) -> list[tuple[str, str]]:
-    """``(file, code)`` pairs whose baseline entry stopped matching its finding.
-
-    Call with the raw results, before :func:`suppress`. Drift is the conjunction
-    of two facts about one file and rule: the baseline holds an entry that
-    matched nothing this run, and a finding of that same file and rule did not
-    match the baseline either. Together they say the entry's anchor moved, so
-    the finding is recorded debt the baseline no longer recognises rather than
-    something new. An upgrade that rewords a rule description does exactly this.
-
-    Requiring the entry to be stale is what keeps genuinely new debt out: a file
-    whose recorded entries all still match reports nothing here, even when a
-    further finding of the same rule appears alongside them.
-    """
-    index = load_index(baseline_path)
-    if not index:
-        return []
-    cache: dict[str, list[str]] = {}
-
-    matched: set[tuple[str, str, str]] = set()
-    unmatched: set[tuple[str, str]] = set()
-    for result in results:
-        for finding in [*result.violations, *result.warnings]:
-            if not finding.file:
-                continue
-            key = _finding_key(project_root=project_root, finding=finding, cache=cache)
-            if key in index:
-                matched.add(key)
-            else:
-                unmatched.add((key[0], key[1]))
-
-    stale = {(file, code) for file, code, _hash in index if (file, code, _hash) not in matched}
-    return sorted(stale & unmatched)
-
-
-# --------------------------------------------------------------------------- #
-# Commands: write and status
-# --------------------------------------------------------------------------- #
-
-
-def write(*, results: list[CheckResult], project_root: Path, baseline_path: Path) -> None:
     """Record the current findings, printing a paydown summary (and, on the first
-    write, the config block to adopt)."""
-    first_write = not baseline_path.exists()
-    old_keys = set() if first_write else set(load_index(baseline_path).keys())
+    write, the config block to adopt).
 
-    entries = _entries_from_results(results=results, project_root=project_root)
+    *keys* is the run's shared :class:`FindingKeys`; a fresh one over
+    *project_root* is used when it is not given.
+    """
+    keys = keys or FindingKeys(SourceLines(project_root))
+    first_write = not baseline_path.exists()
+    old_keys = set() if first_write else set(Baseline.load(baseline_path, keys=keys).entries)
+
+    entries = _build_entries(results=results, keys=keys)
     new_keys = {(e["file"], e["code"], e["anchor"]) for e in entries}
     added = len(new_keys - old_keys)
     pruned = len(old_keys - new_keys)
@@ -325,18 +349,18 @@ def write(*, results: list[CheckResult], project_root: Path, baseline_path: Path
     baseline_path.parent.mkdir(parents=True, exist_ok=True)
     baseline_path.write_text(_serialise(entries), encoding="utf-8")
 
-    total = sum(int(e["count"]) for e in entries)
+    total = sum(e["count"] for e in entries)
     entry_word = "entry" if len(entries) == 1 else "entries"
     finding_word = "finding" if total == 1 else "findings"
     print(
         f"Wrote {len(entries)} baseline {entry_word} ({total} {finding_word}): "
-        f"+{added} new, -{pruned} pruned (was {len(old_keys)})."
+        f"+{added} new, -{pruned} pruned (was {len(old_keys)}).",
     )
     if first_write:
         print(
             "\nAdd this to your configuration and commit the file like a lockfile:\n\n"
             "    [tool.lanorme]\n"
-            f'    baseline = "{_display_path(baseline_path=baseline_path, project_root=project_root)}"\n'
+            f'    baseline = "{_display_path(baseline_path=baseline_path, project_root=project_root)}"\n',
         )
 
 
@@ -348,24 +372,26 @@ def _display_path(*, baseline_path: Path, project_root: Path) -> str:
         return baseline_path.name
 
 
-def print_status(*, results: list[CheckResult], project_root: Path, baseline_path: Path) -> None:
+def print_status(
+    *,
+    results: list[CheckResult],
+    project_root: Path,
+    baseline_path: Path,
+    keys: FindingKeys | None = None,
+) -> None:
     """List baseline entries that match nothing in the current run (stale debt)."""
-    index = load_index(baseline_path)
-    cache: dict[str, list[str]] = {}
-    matched: set[tuple[str, str, str]] = set()
-    for result in results:
-        for finding in [*result.violations, *result.warnings]:
-            if not finding.file:
-                continue
-            key = _finding_key(project_root=project_root, finding=finding, cache=cache)
-            if key in index:
-                matched.add(key)
-
-    stale = sorted(key for key in index if key not in matched)
+    recorded = Baseline.load(baseline_path, keys=keys or FindingKeys(SourceLines(project_root)))
+    stale = recorded.find_stale(results)
     if not stale:
-        print(f"Baseline is current: all {len(index)} entries still match a finding.")
+        print(f"Baseline is current: all {len(recorded.entries)} entries still match a finding.")
         return
-    print(f"{len(stale)} stale baseline {'entry' if len(stale) == 1 else 'entries'} (matched nothing this run):")
+    print(
+        f"{len(stale)} stale baseline {'entry' if len(stale) == 1 else 'entries'} (matched nothing this run):",
+    )
+    grouped: dict[tuple[str, str], int] = {}
     for file, code, _anchor_hash in stale:
-        print(f"  {file}  {code}")
+        grouped[(file, code)] = grouped.get((file, code), 0) + 1
+    for (file, code), count in grouped.items():
+        suffix = f"  (x{count})" if count > 1 else ""
+        print(f"  {file}  {code}{suffix}")
     print("\nRun 'lanorme baseline write' to prune them.")

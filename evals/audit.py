@@ -1,28 +1,32 @@
 """Record a per-release evaluation audit as a single result JSON.
 
-The audit captures the deterministic ACCURACY of every labelled-corpus scorer
-(each ``evals/score_*.py`` exposing ``score()``) together with a hardware and
-version METADATA stamp -- including the git commit and dirty flag that pin the
-exact dataset and code that produced the numbers -- and, unless skipped, a
-best-effort PERFORMANCE sweep that reuses the pinned end-to-end corpora. The
-JSON is committed under ``evals/results/`` as the audit trail for a release.
+The audit first validates every labelled corpus (``validate_corpora.py``: every
+file and every comment labelled, every file in its split, provenance present),
+then captures the deterministic ACCURACY of every scorer (each
+``evals/score_*.py`` exposing ``score()``) per split: combined, dev, holdout and
+the dev-minus-holdout gap. It stamps the run with version and hardware
+METADATA, including the git commit and dirty flag that pin the exact dataset
+and code, and, unless skipped, a best-effort PERFORMANCE sweep that reuses the
+pinned end-to-end corpora. The JSON is committed under ``evals/results/`` as
+the audit trail for a release.
+
+The audit also records a digest of every holdout file (its content and its
+labels). With ``--gate`` it fails when a holdout file a baseline recorded is
+gone or changed, or when any rule's HOLDOUT precision or recall drops below the
+best value a comparable baseline reached minus the tolerance; dev numbers are
+informational and never gate (see ``regression_gate.py``).
 
 Usage:
     uv run python evals/audit.py --version X.Y.Z [--no-perf] [--output PATH]
+        [--gate PREVIOUS.json|latest] [--tolerance 0.02]
 
-Flags:
-    --version X.Y.Z   Release version being audited (required, non-empty).
-    --no-perf         Skip the performance sweep (accuracy only).
-    --output PATH     Write the JSON here instead of the default
-                      evals/results/v<version>.json.
-
-The run is non-interactive (no prompts). Progress and diagnostics go to stderr;
+Every flag is described by ``--help``. The run is non-interactive (no prompts). Progress and diagnostics go to stderr;
 a concise one-line-per-rule summary goes to stdout.
 
 Exit codes:
-    0   success: every scorer produced metrics.
-    1   a scorer reported a stale corpus or other error.
-    2   usage error (missing or empty --version).
+    0   success: every corpus valid, every scorer produced metrics, no regression.
+    1   an invalid corpus, a scorer error, a holdout regression or a holdout edit.
+    2   usage error (missing or empty --version, unreadable --gate file).
 """
 
 from __future__ import annotations
@@ -38,25 +42,25 @@ from pathlib import Path
 from types import ModuleType
 from typing import TypedDict
 
+from labelled_corpus import CORPORA_ROOT, ScoreRecord
+from metrics_report import format_summary_line
+from regression_gate import (
+    DEFAULT_TOLERANCE,
+    GateOutcome,
+    HoldoutDigests,
+    apply_history_gate,
+    build_holdout_digests,
+    format_gate,
+    is_failing,
+    read_revisions,
+    resolve_history,
+)
+from validate_corpora import find_problems
+
 try:
     import lanorme
 except Exception:  # noqa: BLE001 -- audit still records when the package is absent
     lanorme = None
-
-
-class AccuracyRecord(TypedDict, total=False):
-    """One scorer's outcome: either full metrics or an error note."""
-
-    rule: str
-    corpus: str
-    tp: int
-    fp: int
-    fn: int
-    tn: int
-    precision: float
-    recall: float
-    f1: float
-    error: str
 
 
 class CorpusTiming(TypedDict, total=False):
@@ -85,13 +89,17 @@ class Report(TypedDict):
     """The assembled audit document written to disk."""
 
     metadata: Metadata
-    accuracy: list[AccuracyRecord]
+    corpus_problems: list[str]
+    accuracy: list[ScoreRecord]
+    holdout_digests: HoldoutDigests
+    gate: GateOutcome | None
     performance: dict[str, CorpusTiming]
 
 
 _HERE = Path(__file__).resolve().parent
 _REPO_ROOT = _HERE.parent
 _RESULTS_DIR = _HERE / "results"
+_HOLDOUT_REVISIONS = _HERE / "holdout_revisions.json"
 _PERF_RUNS = 3
 
 
@@ -112,7 +120,7 @@ def _import_module(*, path: Path) -> ModuleType:
     return module
 
 
-def _score_one(*, path: Path) -> AccuracyRecord:
+def _score_one(*, path: Path) -> ScoreRecord:
     """Import one scorer and call ``score()``, mapping failures to a record.
 
     A stale corpus (``ValueError``) or any other failure becomes an entry with
@@ -125,7 +133,7 @@ def _score_one(*, path: Path) -> AccuracyRecord:
 
     rule = getattr(module, "RULE", path.stem)
     try:
-        metrics: AccuracyRecord = module.score()
+        metrics: ScoreRecord = module.score()
     except ValueError as exc:
         return {"rule": rule, "error": str(exc)}
     except Exception as exc:  # noqa: BLE001 -- record any scorer crash, never abort
@@ -133,9 +141,9 @@ def _score_one(*, path: Path) -> AccuracyRecord:
     return metrics
 
 
-def _collect_accuracy(*, scorers: list[Path]) -> tuple[list[AccuracyRecord], bool]:
+def _collect_accuracy(*, scorers: list[Path]) -> tuple[list[ScoreRecord], bool]:
     """Score every scorer; return the records and whether any reported an error."""
-    records: list[AccuracyRecord] = []
+    records: list[ScoreRecord] = []
     failed = False
     for path in scorers:
         print(f"scoring {path.name} ...", file=sys.stderr)
@@ -166,7 +174,7 @@ def _collect_performance() -> dict[str, CorpusTiming]:
         if root is None:
             corpora[name] = {"skipped": "corpus unavailable (offline?)"}
             continue
-        n_files, n_lines = bench._corpus_size(root=root)
+        n_files, n_lines = bench._measure_corpus_size(root=root)
         seconds = bench._time_end_to_end(root=root, runs=_PERF_RUNS)
         corpora[name] = {
             "files": n_files,
@@ -176,41 +184,30 @@ def _collect_performance() -> dict[str, CorpusTiming]:
     return corpora
 
 
-def _git_commit() -> str:
-    """Return the short git commit hash, or 'unknown' if git is unavailable."""
+def _read_git_output(*, args: list[str]) -> str:
+    """Return a git command's stripped stdout, or "" if git is unavailable."""
     try:
-        out = subprocess.run(
-            ["git", "rev-parse", "--short", "HEAD"],
-            cwd=_REPO_ROOT,
-            capture_output=True,
-            text=True,
-            check=False,
-        )
+        out = subprocess.run(["git", *args], cwd=_REPO_ROOT, capture_output=True, text=True)
     except OSError:
-        return "unknown"
-    return out.stdout.strip() or "unknown"
+        return ""
+    return out.stdout.strip()
 
 
-def _git_dirty() -> bool:
+def _read_git_commit() -> str:
+    """Return the short git commit hash, or 'unknown' if git is unavailable."""
+    return _read_git_output(args=["rev-parse", "--short", "HEAD"]) or "unknown"
+
+
+def _is_git_dirty() -> bool:
     """Return True if the working tree has uncommitted changes.
 
     A dirty tree means the result was produced from code or corpora that no
     recorded commit captures, so ``git_commit`` alone would not reproduce it.
     """
-    try:
-        out = subprocess.run(
-            ["git", "status", "--porcelain"],
-            cwd=_REPO_ROOT,
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-    except OSError:
-        return False
-    return bool(out.stdout.strip())
+    return bool(_read_git_output(args=["status", "--porcelain"]))
 
 
-def _lanorme_version() -> str:
+def _read_lanorme_version() -> str:
     """Read ``__version__`` from the installed lanorme package."""
     if lanorme is None:
         return "unknown"
@@ -221,9 +218,9 @@ def _build_metadata(*, audited_version: str) -> Metadata:
     """Assemble the version and hardware stamp for the run."""
     return {
         "audited_version": audited_version,
-        "lanorme_version": _lanorme_version(),
-        "git_commit": _git_commit(),
-        "git_dirty": _git_dirty(),
+        "lanorme_version": _read_lanorme_version(),
+        "git_commit": _read_git_commit(),
+        "git_dirty": _is_git_dirty(),
         "python_version": platform.python_version(),
         "platform": platform.platform(),
         "processor": platform.processor() or platform.machine(),
@@ -244,15 +241,12 @@ def _write_report(*, report: Report, output: Path) -> None:
 
 def _print_summary(*, report: Report, output: Path, perf_enabled: bool) -> None:
     """Print a concise human summary to stdout, one line per rule."""
+    for problem in report["corpus_problems"]:
+        print(f"corpus: {problem}")
     for record in report["accuracy"]:
-        rule = record.get("rule", "?")
-        if "error" in record:
-            print(f"{rule}: ERROR {record['error']}")
-            continue
-        print(
-            f"{rule}: P={record['precision']:.3f} "
-            f"R={record['recall']:.3f} F1={record['f1']:.3f}"
-        )
+        print(format_summary_line(record=record))
+    if report["gate"] is not None:
+        print("\n".join(format_gate(outcome=report["gate"])))
     perf = report["performance"]
     if not perf_enabled:
         print("perf: skipped")
@@ -269,8 +263,8 @@ def _parse_args(*, argv: list[str]) -> argparse.Namespace:
         prog="audit.py",
         description="Record a per-release benchmark audit JSON.",
         epilog=(
-            "exit codes: 0 success; 1 a scorer reported a stale corpus or "
-            "error; 2 usage error."
+            "exit codes: 0 success; 1 an invalid corpus, a scorer error or a holdout "
+            "regression; 2 usage error."
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -292,6 +286,23 @@ def _parse_args(*, argv: list[str]) -> argparse.Namespace:
         default=None,
         help="Write the JSON here instead of evals/results/v<version>.json.",
     )
+    parser.add_argument(
+        "--gate",
+        dest="gate",
+        default=None,
+        help=(
+            "Fail on a holdout edit or a holdout precision or recall drop against this "
+            "previous audit JSON ('latest' holds the numbers to the best of every "
+            "evals/results/v*.json and the files to the newest one that records them)."
+        ),
+    )
+    parser.add_argument(
+        "--tolerance",
+        dest="tolerance",
+        type=float,
+        default=DEFAULT_TOLERANCE,
+        help=f"How far a holdout ratio may drop before the gate fails (default {DEFAULT_TOLERANCE}).",
+    )
     return parser.parse_args(argv)
 
 
@@ -301,20 +312,38 @@ def _run(*, args: argparse.Namespace) -> int:
     if not version:
         print("error: --version X.Y.Z is required and must be non-empty.", file=sys.stderr)
         return 2
+    try:
+        history = resolve_history(gate=args.gate, results_dir=_RESULTS_DIR)
+    except FileNotFoundError as exc:
+        print(f"error: {exc}.", file=sys.stderr)
+        return 2
 
+    problems = find_problems()
     accuracy, failed = _collect_accuracy(scorers=_discover_scorers())
+    digests = build_holdout_digests(corpora_root=CORPORA_ROOT)
+    gate = None
+    if history:
+        gate = apply_history_gate(
+            history=history,
+            current={"accuracy": accuracy, "holdout_digests": digests},
+            accepted=read_revisions(path=_HOLDOUT_REVISIONS),
+            tolerance=args.tolerance,
+        )
     perf_enabled = not args.no_perf
     performance = _collect_performance() if perf_enabled else {}
 
     report: Report = {
         "metadata": _build_metadata(audited_version=version),
+        "corpus_problems": problems,
         "accuracy": accuracy,
+        "holdout_digests": digests,
+        "gate": gate,
         "performance": performance,
     }
     output = Path(args.output) if args.output else _default_output(version=version)
     _write_report(report=report, output=output)
     _print_summary(report=report, output=output, perf_enabled=perf_enabled)
-    return 1 if failed else 0
+    return 1 if failed or problems or is_failing(outcome=gate) else 0
 
 
 def main(*, argv: list[str]) -> int:

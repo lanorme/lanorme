@@ -105,25 +105,37 @@ lanorme check .
 
 ```text
 [WARN] file_limits
-  VIOLATION: myapp/users.py:13 — Function 'process' has parameter count 6 (warn: 5)
+  WARNING: myapp/users.py:13 — Function 'process' has parameter count 6 (warn: 5)
     Rule: PARAM-001: Function approaching the parameter limit
     Fix: Consider grouping related parameters into a dataclass or TypedDict
 --- file_limits: 0 violations, 1 warnings ---
 
 [FAIL] comments
   VIOLATION: myapp/users.py:5 — Commented-out code: old = lookup(id)
-    Rule: CMT-001
+    Rule: CMT-001: No commented-out code
     Fix: Delete it; version control remembers
 --- comments: 1 violations, 0 warnings ---
 
-Summary: 30 checks — 28 passed, 1 warnings, 1 failed.
+Summary: 30 checks — 28 passed, 1 warned, 1 failed.
+Findings: 1 error to fix, 1 advisory warning.
+Opt-in checks not enabled: 11 ('lanorme check --show-config' lists them).
 ```
 
 The exit code is `1` because a violation was reported; the `PARAM-001`
 warning on its own would have left it at `0`. The default `concise` format
-shows only checks that found something, plus a summary. Other formats
-(`full`, `json`, `ndjson`, `github`) are available through `--output-format`;
-see the [CLI reference](../reference/cli.md#output-formats).
+shows only checks that found something, plus a summary. The last line counts
+the checks that ship switched off; Step 4 turns them on. Other formats
+(`full`, `json`, `ndjson`, `github`, `summary`) are available through
+`--output-format`; see the [CLI reference](../reference/cli.md#output-formats).
+
+On a real codebase with 25 errors or more and no baseline, the summary ends
+with a pointer to this tutorial:
+
+```text
+Tip: 'lanorme baseline write' records today's findings as debt so that only new ones report (see the adoption tutorial).
+```
+
+That is Step 5 below.
 
 !!! note
     Exit codes are stable: `0` clean (warnings alone still exit `0`), `1`
@@ -161,7 +173,7 @@ lanorme check .
 
 [FAIL] comments
   VIOLATION: myapp/users.py:5 — Commented-out code: old = lookup(id)
-    Rule: CMT-001
+    Rule: CMT-001: No commented-out code
     Fix: Delete it; version control remembers
 --- comments: 1 violations, 0 warnings ---
 
@@ -177,7 +189,8 @@ lanorme check .
     Fix: Add a bare * separator: def foo(self, *, param1: str, param2: int)
 --- named_args: 1 violations, 0 warnings ---
 
-Summary: 30 checks — 26 passed, 0 warnings, 4 failed.
+Summary: 30 checks — 26 passed, 0 warned, 4 failed.
+Findings: 4 errors to fix, 0 advisory warnings.
 ```
 
 Four failures now. The `PARAM-001` warning has become an error, and two opt-in
@@ -253,14 +266,16 @@ lanorme check .
 
 ```text
 All 30 checks passed.
+Suppressed: 0 by inline ignores, 0 by per-file-ignores, 4 by the baseline.
 ```
 
 ```text
 Exit code: 0
 ```
 
-The gate is green and strict at the same time. The starting debt did not move;
-it is recorded, not waived.
+The gate is green and strict at the same time. The `Suppressed:` line counts
+the four recorded findings the baseline kept quiet. The starting debt did not
+move; it is recorded, not waived.
 
 ## Step 9: see a new violation report
 
@@ -281,11 +296,13 @@ lanorme check .
 ```text
 [FAIL] comments
   VIOLATION: myapp/orders.py:2 — Commented-out code: total = compute(cart)
-    Rule: CMT-001
+    Rule: CMT-001: No commented-out code
     Fix: Delete it; version control remembers
 --- comments: 1 violations, 0 warnings ---
 
-Summary: 30 checks — 29 passed, 0 warnings, 1 failed.
+Summary: 30 checks — 29 passed, 0 warned, 1 failed.
+Findings: 1 error to fix, 0 advisory warnings.
+Suppressed: 0 by inline ignores, 0 by per-file-ignores, 4 by the baseline.
 ```
 
 Only the new finding in `myapp/orders.py` reports. The recorded debt in
@@ -313,10 +330,10 @@ lanorme check --no-baseline .
 
 [FAIL] comments
   VIOLATION: myapp/orders.py:2 — Commented-out code: total = compute(cart)
-    Rule: CMT-001
+    Rule: CMT-001: No commented-out code
     Fix: Delete it; version control remembers
   VIOLATION: myapp/users.py:5 — Commented-out code: old = lookup(id)
-    Rule: CMT-001
+    Rule: CMT-001: No commented-out code
     Fix: Delete it; version control remembers
 --- comments: 2 violations, 0 warnings ---
 
@@ -332,7 +349,8 @@ lanorme check --no-baseline .
     Fix: Add a bare * separator: def foo(self, *, param1: str, param2: int)
 --- named_args: 1 violations, 0 warnings ---
 
-Summary: 30 checks — 26 passed, 0 warnings, 4 failed.
+Summary: 30 checks — 26 passed, 0 warned, 4 failed.
+Findings: 5 errors to fix, 0 advisory warnings.
 ```
 
 That is the full picture: the new finding plus the four recorded ones. It is
@@ -358,6 +376,51 @@ progress, run `lanorme baseline write` again to prune the stale entries and
 record the smaller debt. Over time the baseline shrinks toward empty, and the
 strict gate covers the whole codebase.
 
+## Step 11: see what a severity change does
+
+The baseline records each finding at the severity its check reported, before
+`promote` applies. `PARAM-001` on `process` is recorded as a warning, even
+though `strict` promotes it to an error in the report. Promotion runs after the
+baseline, so changing `promote` or the profile later does not bring recorded
+debt back.
+
+A change in the severity the check itself reports is different:
+
+- A recorded error keeps suppressing its finding when the finding becomes a
+  warning, for example after you relax a threshold.
+- A recorded warning never hides a finding that becomes an error. Debt that
+  crosses a hard limit reports again.
+
+See the second case. Delete the commented-out line in `myapp/orders.py` so the
+gate is green, then lower the hard parameter limit to 6, the count `process`
+has:
+
+```toml
+# pyproject.toml
+[tool.lanorme.file_limits]
+param_error = 6
+```
+
+```bash
+lanorme check .
+```
+
+```text
+[FAIL] file_limits
+  VIOLATION: myapp/users.py:12 — Function 'process' has parameter count 6 (limit: 6)
+    Rule: PARAM-001: Function exceeds the parameter limit
+    Fix: Group related parameters into a dataclass or TypedDict
+--- file_limits: 1 violations, 0 warnings ---
+
+Summary: 30 checks — 29 passed, 0 warned, 1 failed.
+Findings: 1 error to fix, 0 advisory warnings.
+Suppressed: 0 by inline ignores, 0 by per-file-ignores, 2 by the baseline.
+```
+
+The recorded warning no longer covers the finding, because the check now
+reports it as an error. Fix it, or run `lanorme baseline write` to record it
+at its new severity. Remove the `param_error` line to go back to the default.
+
 ## What you learned
 
 - `extends = ["strict"]` turns on the full profile, opt-in checks and all.
@@ -368,6 +431,9 @@ strict gate covers the whole codebase.
 - New violations still report; recorded debt stays quiet until you pay it down.
 - `lanorme check --no-baseline` shows the whole debt; `lanorme baseline status`
   lists stale entries ready to prune.
+- The baseline matches on the check's own severity: `promote` never brings
+  recorded debt back, and a finding its check now reports as an error
+  reports again.
 
 From here, every pull request is held to the strict profile on its new code,
 with no upfront cleanup required.

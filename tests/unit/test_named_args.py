@@ -24,6 +24,7 @@ import pytest
 
 from lanorme import Status
 from lanorme.checks.named_args import NamedArgsCheck
+from lanorme.scan import Scan
 
 
 @pytest.fixture
@@ -39,7 +40,7 @@ def _write(*, root: Path, name: str, body: str) -> None:
     (root / name).write_text(body, encoding="utf-8")
 
 
-def _kwarg_hits(result) -> list:
+def _collect_kwarg_hits(result) -> list:
     """Return the KWARG-001 violations from a check result."""
     return [v for v in result.violations if v.rule.startswith("KWARG-001")]
 
@@ -50,7 +51,7 @@ def test_disabled_by_default_stays_silent(tmp_path: Path):
     instance = NamedArgsCheck()
 
     # Act.
-    result = instance.run(src_root=str(tmp_path))
+    result = instance.check(Scan(root=tmp_path))
 
     # Assert: opt-in means PASS with no findings until explicitly enabled.
     assert result.status == Status.PASS
@@ -62,11 +63,11 @@ def test_true_positive_two_positional_params_fires(check: NamedArgsCheck, tmp_pa
     _write(root=tmp_path, name="tp.py", body="def transfer(amount, currency):\n    return amount\n")
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert: fires, and the message reports the param count.
     assert result.status == Status.FAIL
-    hits = _kwarg_hits(result)
+    hits = _collect_kwarg_hits(result)
     assert len(hits) == 1
     assert "transfer" in hits[0].message
     assert "2 positional params" in hits[0].message
@@ -81,10 +82,10 @@ def test_true_positive_async_and_staticmethod_fire(check: NamedArgsCheck, tmp_pa
     _write(root=tmp_path, name="more.py", body=body)
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert: both are flagged.
-    names = {v.message.split("'")[1] for v in _kwarg_hits(result)}
+    names = {v.message.split("'")[1] for v in _collect_kwarg_hits(result)}
     assert {"fetch", "make"} <= names
 
 
@@ -94,10 +95,10 @@ def test_true_positive_nested_function_fires(check: NamedArgsCheck, tmp_path: Pa
     _write(root=tmp_path, name="nested.py", body=body)
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert: the inner function is reached and flagged.
-    hits = _kwarg_hits(result)
+    hits = _collect_kwarg_hits(result)
     assert len(hits) == 1
     assert "inner" in hits[0].message
 
@@ -112,11 +113,11 @@ def test_bare_star_and_single_param_stay_silent(check: NamedArgsCheck, tmp_path:
     _write(root=tmp_path, name="tn.py", body=body)
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert: none of these have >1 real positional param.
     assert result.status == Status.PASS
-    assert not _kwarg_hits(result)
+    assert not _collect_kwarg_hits(result)
 
 
 def test_depends_injected_params_are_exempt(check: NamedArgsCheck, tmp_path: Path):
@@ -129,11 +130,11 @@ def test_depends_injected_params_are_exempt(check: NamedArgsCheck, tmp_path: Pat
     _write(root=tmp_path, name="depends.py", body=body)
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert: each leaves a single real param, so nothing fires.
     assert result.status == Status.PASS
-    assert not _kwarg_hits(result)
+    assert not _collect_kwarg_hits(result)
 
 
 def test_dunder_methods_are_skipped(check: NamedArgsCheck, tmp_path: Path):
@@ -149,11 +150,11 @@ def test_dunder_methods_are_skipped(check: NamedArgsCheck, tmp_path: Path):
     _write(root=tmp_path, name="dunder.py", body=body)
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert: dunders never fire.
     assert result.status == Status.PASS
-    assert not _kwarg_hits(result)
+    assert not _collect_kwarg_hits(result)
 
 
 def test_positional_only_params_not_counted(check: NamedArgsCheck, tmp_path: Path):
@@ -161,11 +162,11 @@ def test_positional_only_params_not_counted(check: NamedArgsCheck, tmp_path: Pat
     _write(root=tmp_path, name="posonly.py", body="def f(a, b, /):\n    return a\n")
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert: positional-only params are excluded from the count.
     assert result.status == Status.PASS
-    assert not _kwarg_hits(result)
+    assert not _collect_kwarg_hits(result)
 
 
 def test_positional_only_plus_regular_counts_only_regular(check: NamedArgsCheck, tmp_path: Path):
@@ -173,10 +174,10 @@ def test_positional_only_plus_regular_counts_only_regular(check: NamedArgsCheck,
     _write(root=tmp_path, name="mix.py", body="def f(a, b, /, c, d):\n    return a\n")
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert: only c and d count, so it fires reporting 2.
-    hits = _kwarg_hits(result)
+    hits = _collect_kwarg_hits(result)
     assert len(hits) == 1
     assert "2 positional params" in hits[0].message
 
@@ -187,11 +188,11 @@ def test_noqa_on_def_line_suppresses(check: NamedArgsCheck, tmp_path: Path):
     _write(root=tmp_path, name="ok.py", body=body)
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert: the def-line noqa silences the finding.
     assert result.status == Status.PASS
-    assert not _kwarg_hits(result)
+    assert not _collect_kwarg_hits(result)
 
 
 def test_noqa_on_continuation_line_does_not_suppress(check: NamedArgsCheck, tmp_path: Path):
@@ -200,11 +201,11 @@ def test_noqa_on_continuation_line_does_not_suppress(check: NamedArgsCheck, tmp_
     _write(root=tmp_path, name="cont.py", body=body)
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert: only the def line is inspected for noqa, so it still fires.
     assert result.status == Status.FAIL
-    assert _kwarg_hits(result)
+    assert _collect_kwarg_hits(result)
 
 
 def test_kwargs_does_not_exempt_real_params(check: NamedArgsCheck, tmp_path: Path):
@@ -212,10 +213,10 @@ def test_kwargs_does_not_exempt_real_params(check: NamedArgsCheck, tmp_path: Pat
     _write(root=tmp_path, name="kw.py", body="def g(a, b, **kwargs):\n    return a\n")
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert: a and b are still counted (def g(*, a, b, **kwargs) would comply).
-    hits = _kwarg_hits(result)
+    hits = _collect_kwarg_hits(result)
     assert len(hits) == 1
     assert "2 positional params" in hits[0].message
 
@@ -225,11 +226,11 @@ def test_single_real_param_with_varargs_stays_silent(check: NamedArgsCheck, tmp_
     _write(root=tmp_path, name="one.py", body="def h(a, *args, **kwargs):\n    return a\n")
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert: only one real positional param, so nothing fires.
     assert result.status == Status.PASS
-    assert not _kwarg_hits(result)
+    assert not _collect_kwarg_hits(result)
 
 
 def test_test_prefixed_files_are_skipped(check: NamedArgsCheck, tmp_path: Path):
@@ -237,11 +238,11 @@ def test_test_prefixed_files_are_skipped(check: NamedArgsCheck, tmp_path: Path):
     _write(root=tmp_path, name="test_thing.py", body="def helper(a, b):\n    return a\n")
 
     # Act.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert: test files are exempt entirely.
     assert result.status == Status.PASS
-    assert not _kwarg_hits(result)
+    assert not _collect_kwarg_hits(result)
 
 
 def test_unparseable_file_warns_without_crashing(check: NamedArgsCheck, tmp_path: Path):
@@ -249,9 +250,57 @@ def test_unparseable_file_warns_without_crashing(check: NamedArgsCheck, tmp_path
     _write(root=tmp_path, name="broken.py", body="def broken(a, b:\n    return a\n")
 
     # Act: the run must complete rather than raise SyntaxError.
-    result = check.run(src_root=str(tmp_path))
+    result = check.check(Scan(root=tmp_path))
 
     # Assert: it degrades to a WARN-level finding, no violations, no crash.
     assert result.status == Status.WARN
     assert not result.violations
     assert any("parse error" in w.rule for w in result.warnings)
+
+
+def test_override_decorated_methods_are_exempt(check: NamedArgsCheck, tmp_path: Path):
+    # Arrange: two overrides (bare and qualified decorator) whose signature the
+    # base class fixes, beside an ordinary two-parameter method.
+    body = (
+        "import typing\n"
+        "from typing import override\n\n\n"
+        "class Middleware:\n"
+        "    @override\n"
+        "    def process_request(self, request, spider):\n"
+        "        return request\n\n"
+        "    @typing.override\n"
+        "    def process_response(self, request, response):\n"
+        "        return response\n\n"
+        "    def process_local(self, request, response):\n"
+        "        return response\n"
+    )
+    _write(root=tmp_path, name="mw.py", body=body)
+
+    # Act.
+    result = check.check(Scan(root=tmp_path))
+
+    # Assert: only the method that owns its signature is flagged.
+    hits = _collect_kwarg_hits(result)
+    assert [(h.line, h.message.split("'")[1]) for h in hits] == [(14, "process_local")]
+
+
+def test_a_called_decorator_named_override_is_not_an_override(
+    check: NamedArgsCheck,
+    tmp_path: Path,
+):
+    # Arrange: Django's ``translation.override("fr")`` is a context decorator, not typing's.
+    body = (
+        "from django.utils import translation\n\n\n"
+        '@translation.override("fr")\n'
+        "def render_invoice(order, template):\n"
+        "    return template.format(order)\n"
+    )
+    _write(root=tmp_path, name="views.py", body=body)
+
+    # Act.
+    result = check.check(Scan(root=tmp_path))
+
+    # Assert.
+    assert [(h.code, h.file, h.line) for h in _collect_kwarg_hits(result)] == [
+        ("KWARG-001", "views.py", 5),
+    ]

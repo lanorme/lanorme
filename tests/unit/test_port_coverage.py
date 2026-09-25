@@ -4,7 +4,7 @@ These tests pin the CONFIRMED-CORRECT behaviour observed by running the check
 against fixtures laid out with the built-in defaults (ports_dir
 ``application/ports`` and adapter root ``infrastructure/services``). No
 ``lanorme.toml`` is needed because every fixture uses the default layout, so the
-check is driven directly via ``PortCoverageCheck().run(src_root=...)`` - the same
+check is driven directly via ``PortCoverageCheck().check(Scan(root=Path(...)))`` - the same
 idiom as ``tests/unit/test_strong_types.py``.
 
 Known defects (NOT encoded as passing tests; see the findings list / xfails):
@@ -19,10 +19,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
 from lanorme import Status
 from lanorme.checks.port_coverage import PortCoverageCheck
+from lanorme.scan import Scan
 
 
 def _write(path: Path, body: str) -> None:
@@ -31,7 +30,7 @@ def _write(path: Path, body: str) -> None:
     path.write_text(body, encoding="utf-8")
 
 
-def _codes(result) -> list[str]:
+def _collect_codes(result) -> list[str]:
     """Return the rule-code prefixes of every violation (e.g. 'PORT-001')."""
     return [v.rule.split(":", 1)[0] for v in result.violations]
 
@@ -59,7 +58,7 @@ def test_clean_layout_passes(tmp_path: Path):
     )
 
     # Act.
-    result = PortCoverageCheck().run(src_root=str(tmp_path))
+    result = PortCoverageCheck().check(Scan(root=tmp_path))
 
     # Assert: a correct hexagonal layout produces no findings.
     assert result.status == Status.PASS
@@ -74,8 +73,7 @@ def test_adapter_without_ports_import_triggers_port001(tmp_path: Path):
     # the ports directory (beside a properly-wired adapter so the layout is real).
     _write(
         tmp_path / "application/ports/registry.py",
-        "from typing import Protocol\n\n"
-        "class Registry(Protocol):\n    def get(self) -> str: ...\n",
+        "from typing import Protocol\n\nclass Registry(Protocol):\n    def get(self) -> str: ...\n",
     )
     _write(
         tmp_path / "infrastructure/services/redis_registry.py",
@@ -88,7 +86,7 @@ def test_adapter_without_ports_import_triggers_port001(tmp_path: Path):
     )
 
     # Act.
-    result = PortCoverageCheck().run(src_root=str(tmp_path))
+    result = PortCoverageCheck().check(Scan(root=tmp_path))
 
     # Assert: PORT-001 fires, anchored at line 1 of the orphan adapter.
     assert result.status == Status.FAIL
@@ -103,8 +101,7 @@ def test_unimplemented_protocol_triggers_port002(tmp_path: Path):
     # so the lone Protocol in notifier.py has no implementation.
     _write(
         tmp_path / "application/ports/registry.py",
-        "from typing import Protocol\n\n"
-        "class Registry(Protocol):\n    def get(self) -> str: ...\n",
+        "from typing import Protocol\n\nclass Registry(Protocol):\n    def get(self) -> str: ...\n",
     )
     _write(
         tmp_path / "application/ports/notifier.py",
@@ -118,7 +115,7 @@ def test_unimplemented_protocol_triggers_port002(tmp_path: Path):
     )
 
     # Act.
-    result = PortCoverageCheck().run(src_root=str(tmp_path))
+    result = PortCoverageCheck().check(Scan(root=tmp_path))
 
     # Assert: PORT-002 names the unimplemented Notifier in its own module.
     assert result.status == Status.FAIL
@@ -133,8 +130,7 @@ def test_direct_instantiation_in_api_triggers_port003(tmp_path: Path):
     # it directly, outside any composition root.
     _write(
         tmp_path / "application/ports/registry.py",
-        "from typing import Protocol\n\n"
-        "class Registry(Protocol):\n    def get(self) -> str: ...\n",
+        "from typing import Protocol\n\nclass Registry(Protocol):\n    def get(self) -> str: ...\n",
     )
     _write(
         tmp_path / "infrastructure/services/redis_registry.py",
@@ -148,7 +144,7 @@ def test_direct_instantiation_in_api_triggers_port003(tmp_path: Path):
     )
 
     # Act.
-    result = PortCoverageCheck().run(src_root=str(tmp_path))
+    result = PortCoverageCheck().check(Scan(root=tmp_path))
 
     # Assert: PORT-003 fires as an instantiation finding on the construction line.
     assert result.status == Status.FAIL
@@ -164,8 +160,7 @@ def test_direct_import_only_in_api_triggers_port003_import_variant(tmp_path: Pat
     # type annotation (no instantiation) - the import-variant of PORT-003.
     _write(
         tmp_path / "application/ports/registry.py",
-        "from typing import Protocol\n\n"
-        "class Registry(Protocol):\n    def get(self) -> str: ...\n",
+        "from typing import Protocol\n\nclass Registry(Protocol):\n    def get(self) -> str: ...\n",
     )
     _write(
         tmp_path / "infrastructure/services/redis_registry.py",
@@ -179,7 +174,7 @@ def test_direct_import_only_in_api_triggers_port003_import_variant(tmp_path: Pat
     )
 
     # Act.
-    result = PortCoverageCheck().run(src_root=str(tmp_path))
+    result = PortCoverageCheck().check(Scan(root=tmp_path))
 
     # Assert: PORT-003 fires as the "Direct import" variant, not instantiation.
     assert result.status == Status.FAIL
@@ -197,8 +192,7 @@ def test_composition_root_is_exempt_from_port003(tmp_path: Path):
     # the default composition_root glob "*dependencies/*".
     _write(
         tmp_path / "application/ports/registry.py",
-        "from typing import Protocol\n\n"
-        "class Registry(Protocol):\n    def get(self) -> str: ...\n",
+        "from typing import Protocol\n\nclass Registry(Protocol):\n    def get(self) -> str: ...\n",
     )
     _write(
         tmp_path / "infrastructure/services/redis_registry.py",
@@ -212,11 +206,11 @@ def test_composition_root_is_exempt_from_port003(tmp_path: Path):
     )
 
     # Act.
-    result = PortCoverageCheck().run(src_root=str(tmp_path))
+    result = PortCoverageCheck().check(Scan(root=tmp_path))
 
     # Assert: wiring at the composition root is allowed - no PORT-003.
     assert result.status == Status.PASS
-    assert _codes(result) == []
+    assert _collect_codes(result) == []
 
 
 def test_adapter_name_inside_string_literal_does_not_fire(tmp_path: Path):
@@ -225,8 +219,7 @@ def test_adapter_name_inside_string_literal_does_not_fire(tmp_path: Path):
     # is the port Protocol. Violation-like prose in strings must not fire.
     _write(
         tmp_path / "application/ports/registry.py",
-        "from typing import Protocol\n\n"
-        "class Registry(Protocol):\n    def get(self) -> str: ...\n",
+        "from typing import Protocol\n\nclass Registry(Protocol):\n    def get(self) -> str: ...\n",
     )
     _write(
         tmp_path / "infrastructure/services/redis_registry.py",
@@ -243,11 +236,11 @@ def test_adapter_name_inside_string_literal_does_not_fire(tmp_path: Path):
     )
 
     # Act.
-    result = PortCoverageCheck().run(src_root=str(tmp_path))
+    result = PortCoverageCheck().check(Scan(root=tmp_path))
 
     # Assert: no false positive from adapter mentions confined to string literals.
     assert result.status == Status.PASS
-    assert _codes(result) == []
+    assert _collect_codes(result) == []
 
 
 def test_init_file_in_adapter_root_is_skipped(tmp_path: Path):
@@ -255,8 +248,7 @@ def test_init_file_in_adapter_root_is_skipped(tmp_path: Path):
     # nothing from ports; it must be exempt from PORT-001 (default skip_files).
     _write(
         tmp_path / "application/ports/registry.py",
-        "from typing import Protocol\n\n"
-        "class Registry(Protocol):\n    def get(self) -> str: ...\n",
+        "from typing import Protocol\n\nclass Registry(Protocol):\n    def get(self) -> str: ...\n",
     )
     _write(
         tmp_path / "infrastructure/services/__init__.py",
@@ -269,11 +261,11 @@ def test_init_file_in_adapter_root_is_skipped(tmp_path: Path):
     )
 
     # Act.
-    result = PortCoverageCheck().run(src_root=str(tmp_path))
+    result = PortCoverageCheck().check(Scan(root=tmp_path))
 
     # Assert: the __init__ re-export is not flagged; the layout is clean.
     assert result.status == Status.PASS
-    assert _codes(result) == []
+    assert _collect_codes(result) == []
 
 
 # --- Pinned known defects (xfail) --------------------------------------------
@@ -284,8 +276,7 @@ def test_module_form_import_should_not_trigger_port002(tmp_path: Path):
     # subclasses Registry via the module attribute (idiomatic Python).
     _write(
         tmp_path / "application/ports/registry.py",
-        "from typing import Protocol\n\n"
-        "class Registry(Protocol):\n    def get(self) -> str: ...\n",
+        "from typing import Protocol\n\nclass Registry(Protocol):\n    def get(self) -> str: ...\n",
     )
     _write(
         tmp_path / "infrastructure/services/redis_registry.py",
@@ -294,11 +285,11 @@ def test_module_form_import_should_not_trigger_port002(tmp_path: Path):
     )
 
     # Act.
-    result = PortCoverageCheck().run(src_root=str(tmp_path))
+    result = PortCoverageCheck().check(Scan(root=tmp_path))
 
     # Assert (currently fails): the port is implemented, so nothing should fire.
     assert result.status == Status.PASS
-    assert _codes(result) == []
+    assert _collect_codes(result) == []
 
 
 def test_attribute_form_instantiation_in_api_should_trigger_port003(tmp_path: Path):
@@ -306,8 +297,7 @@ def test_attribute_form_instantiation_in_api_should_trigger_port003(tmp_path: Pa
     # class via attribute access, outside the composition root.
     _write(
         tmp_path / "application/ports/registry.py",
-        "from typing import Protocol\n\n"
-        "class Registry(Protocol):\n    def get(self) -> str: ...\n",
+        "from typing import Protocol\n\nclass Registry(Protocol):\n    def get(self) -> str: ...\n",
     )
     _write(
         tmp_path / "infrastructure/services/redis_registry.py",
@@ -321,8 +311,32 @@ def test_attribute_form_instantiation_in_api_should_trigger_port003(tmp_path: Pa
     )
 
     # Act.
-    result = PortCoverageCheck().run(src_root=str(tmp_path))
+    result = PortCoverageCheck().check(Scan(root=tmp_path))
 
     # Assert (currently fails): direct construction in api/ must raise PORT-003.
     assert result.status == Status.FAIL
-    assert any(c == "PORT-003" for c in _codes(result))
+    assert any(c == "PORT-003" for c in _collect_codes(result))
+
+
+def test_private_helper_module_under_the_adapter_root_is_not_an_adapter(tmp_path: Path):
+    # Arrange: a `_retry.py` helper the adapter imports, and a public helper
+    # with no ports import, both under the adapter root.
+    _write(
+        tmp_path / "application/ports/registry.py",
+        "from typing import Protocol\n\nclass Registry(Protocol):\n    def get(self) -> int: ...\n",
+    )
+    _write(tmp_path / "infrastructure/services/_retry.py", "def retry(fn):\n    return fn\n")
+    _write(tmp_path / "infrastructure/services/helpers.py", "def now():\n    return 0\n")
+    _write(
+        tmp_path / "infrastructure/services/redis_registry.py",
+        "from application.ports.registry import Registry\nfrom ._retry import retry\n\n"
+        "class RedisRegistry:\n    def get(self) -> int:\n        return 1\n",
+    )
+
+    # Act.
+    result = PortCoverageCheck().check(Scan(root=tmp_path))
+
+    # Assert: only the public helper is asked to implement a port.
+    assert [(v.rule.split(":", 1)[0], v.file) for v in result.violations] == [
+        ("PORT-001", "infrastructure/services/helpers.py"),
+    ]

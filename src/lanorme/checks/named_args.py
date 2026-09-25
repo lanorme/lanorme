@@ -5,9 +5,10 @@ bare ``*`` separator so callers are forced to use keyword arguments. Opt-in
 (default-off); enable via ``[tool.lanorme.named_args] enabled = true``.
 
 Exceptions (skipped silently):
-    - Dunder methods (__init__ with ≤1 extra param, __str__, __eq__, etc.)
+    - Dunder methods (__init__, __str__, __eq__, etc.)
+    - Methods decorated ``@override`` (the base class fixes their signature)
     - Dependency-injection markers (``Depends()`` parameters)
-    - Test files (filenames starting with ``test_``)
+    - Test files (see ``lanorme.paths``)
     - Lambda expressions
     - Functions suppressed with ``# noqa: KWARG-001``
 
@@ -19,23 +20,46 @@ from __future__ import annotations
 
 import ast
 from dataclasses import dataclass, field
-from pathlib import Path
+from typing import ClassVar
 
-from lanorme import CheckResult, Status, Violation, register
-from lanorme.discovery import iter_py_files
+from lanorme import CheckResult, Violation, register
+from lanorme.checkconfig import is_flag_set
+from lanorme.paths import is_test_file
+from lanorme.scan import Scan
+from lanorme.sources import UnparseableFile, build_unparseable_notice, iter_modules, locate
 
 # Parameters that are implicit receiver, never counted.
 SELF_CLS_NAMES = {"self", "cls"}
 
 
-def _is_test_file(*, file_path: str) -> bool:
-    """Return True if the file is a test file (name starts with ``test_``)."""
-    return Path(file_path).name.startswith("test_")
-
-
 def _is_dunder(*, name: str) -> bool:
     """Return True if *name* is a dunder (magic) method."""
     return name.startswith("__") and name.endswith("__")
+
+
+# The modules whose ``override`` marks a method as overriding its base.
+_OVERRIDE_MODULES = frozenset({"typing", "typing_extensions"})
+
+
+def _is_override(*, node: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
+    """True if the function is decorated ``@override`` / ``@typing.override``.
+
+    An override must keep the signature its base class declares, so the bare
+    ``*`` cannot be added here: the finding belongs on the base method.
+    """
+    for decorator in node.decorator_list:
+        # ``typing.override`` is never called, so a call (Django's
+        # ``@translation.override("fr")``) is some other decorator.
+        if isinstance(decorator, ast.Name) and decorator.id == "override":
+            return True
+        if (
+            isinstance(decorator, ast.Attribute)
+            and decorator.attr == "override"
+            and isinstance(decorator.value, ast.Name)
+            and decorator.value.id in _OVERRIDE_MODULES
+        ):
+            return True
+    return False
 
 
 def _annotation_has_depends(*, annotation: ast.expr) -> bool:
@@ -134,8 +158,8 @@ def _check_function(
     relative_file: str,
 ) -> Violation | None:
     """Check a single function node for KWARG-001 compliance."""
-    # Skip dunder methods entirely.
-    if _is_dunder(name=node.name):
+    # Skip dunder methods and overrides: their signature is fixed elsewhere.
+    if _is_dunder(name=node.name) or _is_override(node=node):
         return None
 
     # Skip if suppressed.
@@ -158,6 +182,7 @@ def _check_function(
         rule="KWARG-001: Functions with >1 parameter must use bare * separator",
         message=f"Function '{node.name}' has {real_positional} positional params without bare *",
         fix="Add a bare * separator: def foo(self, *, param1: str, param2: int)",
+        **locate(node),
     )
 
 
@@ -177,48 +202,33 @@ class NamedArgsCheck:
             "KWARG-001: Functions with >1 parameter must use bare * separator (opt-in)",
         ],
     )
+    settings_keys: ClassVar[frozenset[str]] = frozenset({"enabled"})
 
-    def configure(self, *, settings: dict[str, bool]) -> None:
+    def configure(self, *, settings: dict[str, object]) -> None:
         """Apply ``[tool.lanorme.named_args]`` configuration."""
-        if "enabled" in settings:
-            self.enabled = bool(settings["enabled"])
+        self.enabled = is_flag_set(settings=settings, key="enabled", default=self.enabled)
 
-    def run(self, *, src_root: str) -> CheckResult:
+    def check(self, scan: Scan) -> CheckResult:
         """Scan all Python files under src/ and flag functions missing bare ``*``."""
         if not self.enabled:
-            return CheckResult(check=self.name, status=Status.PASS, violations=[])
+            return CheckResult.from_findings(check=self.name)
         violations: list[Violation] = []
         warnings: list[Violation] = []
-        src_path = Path(src_root)
 
-        for py_file in iter_py_files(src_path):
-            relative_file = py_file.relative_to(src_path).as_posix()
+        for module in iter_modules(scan.root):
+            relative_file = module.relative
 
-            # Skip test files entirely.
-            if _is_test_file(file_path=relative_file):
+            # Skip test files entirely (see ``lanorme.paths``).
+            if is_test_file(relative_file):
                 continue
 
-            try:
-                source = py_file.read_text(encoding="utf-8")
-                tree = ast.parse(source, filename=str(py_file))
-            except (OSError, UnicodeDecodeError, SyntaxError):
-                warnings.append(
-                    Violation(
-                        file=relative_file,
-                        line=0,
-                        rule="KWARG-001: parse error",
-                        message=f"Could not parse {py_file.name} — skipping",
-                        fix="Fix the syntax error first",
-                    ),
-                )
+            if isinstance(module, UnparseableFile):
+                warnings.append(build_unparseable_notice(prefix="KWARG", failure=module))
                 continue
 
-            source_lines = source.splitlines()
+            source_lines = module.lines
 
-            for node in ast.walk(tree):
-                if not isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
-                    continue
-
+            for node in module.index.functions:
                 violation = _check_function(
                     node=node,
                     source_lines=source_lines,
@@ -227,13 +237,7 @@ class NamedArgsCheck:
                 if violation:
                     violations.append(violation)
 
-        status = Status.FAIL if violations else (Status.WARN if warnings else Status.PASS)
-        return CheckResult(
-            check=self.name,
-            status=status,
-            violations=violations,
-            warnings=warnings,
-        )
+        return CheckResult.from_findings(check=self.name, violations=violations, warnings=warnings)
 
 
 # Self-register on import.

@@ -16,8 +16,10 @@ Configuration lives in `[tool.lanorme]` in `pyproject.toml`, or in a standalone
 `[tool.lanorme.<check>]`. In a standalone `lanorme.toml` the prefix is dropped: keys
 are top-level (`promote = ["TYPE-004"]`) and a sub-table is bare (`[per-file-ignores]`,
 `[prose]`). The examples below show the `pyproject.toml` form; a `[tool.lanorme]` prefix
-written inside a `lanorme.toml` is silently ignored. Keys also have command-line
-equivalents (`--select`, `--ignore`); the command line wins over config.
+written inside a `lanorme.toml` is a configuration error (exit `2`), as is any
+top-level key that is neither one of the keys below nor the name of a check. Keys
+also have command-line equivalents (`--select`, `--ignore`); the command line wins
+over config.
 
 | Key | Type | Default | Feature |
 | --- | --- | --- | --- |
@@ -28,7 +30,7 @@ equivalents (`--select`, `--ignore`); the command line wins over config.
 | [`promote`](#promote) | list of strings | [] (advisories stay warnings) | Severity |
 | [`extends`](#extends) | string or list of strings | none | Profiles |
 | [`baseline`](#baseline) | string (path) | none | Adoption |
-| [`source_root`](#source_root) | string (path) | the scan root | Architecture |
+| [`source_root`](#source_root) | string (path) | the project root | Architecture |
 | [`plugins`](#plugins) | list of strings | [] (built-in checks only) | Extensibility |
 | [`root`](#root) | boolean | false | Per-directory config |
 
@@ -91,7 +93,7 @@ baseline = "lanorme-baseline.json"
 
 ## `source_root`
 
-The top-level package directory when ports, adapters and layers live under a nested package; the architecture checks interpret their paths relative to it, and `AUTHN-001` finds the `api/` layer under it.
+The top-level package directory when ports, adapters and layers live under a nested package; the architecture checks interpret their paths relative to it, `AUTHN-001` finds the `api/` layer under it, and `TESTFILE-001` its production directories.
 
 ```toml
 source_root = "src/myapp"
@@ -115,7 +117,7 @@ root = true
 
 ## Per-directory config
 
-Any directory below the scan root that carries its own config file (a
+Any directory below the project root that carries its own config file (a
 `lanorme.toml`, a `.lanorme.toml`, or a `pyproject.toml` with a `[tool.lanorme]`
 table) is a region: the files beneath it are checked under that config. A nested
 region inherits every setting from the regions above it and overrides only the
@@ -133,9 +135,8 @@ Cascading governs per-check settings and `source_root`. The run-level filters
 (`select`, `ignore`, `exclude`, `per-file-ignores`, `promote`) are read once at
 the root and apply to the whole run. Checks that compare files across the tree
 (`duplication`, `test_coverage`, `layer_deps`, `port_coverage`, `docs`, `meta`)
-run once at the scan root under the root config, so a region cannot relax them
-for its own subtree. `--check <name>` runs that one check at the root config too,
-without cascading.
+run once at the project root under the root config, so a region cannot relax
+them for its own subtree. `--check <name>` cascades exactly like a full run.
 
 ## Per-check settings
 
@@ -199,6 +200,7 @@ notes for each rule are in the [rule reference](../RULES.md).
 | `LAYER-004` | layer_deps | no |
 | `LAYER-005` | layer_deps | no |
 | `LAYER-006` | layer_deps | no |
+| `LAYER-007` | layer_deps | no |
 | `META-001` | meta | no |
 | `META-002` | meta | no |
 | `META-003` | meta | no |
@@ -270,6 +272,36 @@ rule but a notice that a check skipped a file it could not parse, and
 `RUN-000` reports a check that raised; both stay warnings whatever `promote`
 says.
 
+## Test files
+
+Every rule that treats test code differently uses one definition, in
+`lanorme.paths`, so a file is a test for all of them or for none. Three
+predicates, each on the path relative to the scan root:
+
+- `is_test_module`: a module pytest collects by name, a `test_*.py` or
+  `*_test.py` stem, wherever it lives. pytest collects such a module beside
+  production code as readily as under `tests/`.
+- `is_test_support`: `conftest.py` anywhere, and a `fixtures` or `factories`
+  module or package inside a tests directory. A production `factories/`
+  package (the factory pattern) is not test code.
+- `is_under_tests_dir`: any directory on the path named `tests` or `test`
+  (the standard library and SQLAlchemy use the singular).
+
+A production rule exempts the union of the three: `KWARG-001`, `DRY-001`,
+`SIMILAR-001`, `SIZE-*`, `COMPLEXITY-001`, `PARAM-001`, `SECRETPY-001`,
+`SQL-001`, `IMPORT-001`, `NAMING-005`, `CMT-006`, `CMT-007`, the `TERM` rules,
+`TYPE-001..004`, `STALE-001`, `ATTR-001` and `ATTR-002`. `AAA-001` and
+`AAA-002` judge collected test modules only. `TESTFILE-001` counts collected
+test modules under each configured root as partners.
+
+A name that only contains the word (`tests_utils.py`, `contest.py`,
+`integration_tests/`) matches none of the three. The union errs towards
+exempting: a `test_*.py` module that ships inside a package (a dialect
+compliance suite, a self-test) is exempt from the production rules although
+it is not under a tests directory, because pytest would collect it. LaNorme
+pays that cost itself: its `test_coverage.py` and `test_style.py` checks are
+production modules the `TYPE` rules no longer see.
+
 ---
 
 ## Attribute access: `ATTR-001` / `ATTR-002`
@@ -288,9 +320,14 @@ dynamic form only hides the attribute from the type checker.
 
 High-confidence cases only. Exempt: three-argument `getattr(x, "name",
 default)` (the safe-access idiom); dunder names (`__class__`, `__name__`, ...);
-names that are not valid identifiers (cannot be written as `x.name`); and files
-under `tests/` or `test/`. Dynamic names (`getattr(x, name)`) are reflection and exempt
-unless `flag_dynamic` is set.
+names that are not valid identifiers (cannot be written as `x.name`);
+`hasattr` on a receiver bound by a plain `import` (`hasattr(os, "fork")`,
+`hasattr(socket, "AF_UNIX")`) and `getattr` on one with a literal name
+(`getattr(sys, "getwindowsversion")`), which is platform feature detection
+on a module rather than duck typing of an object (a `setattr` or `delattr`
+on a module is still reported); and test files (see "Test files" above).
+Dynamic names (`getattr(x, name)`) are reflection and exempt unless
+`flag_dynamic` is set.
 
 Config:
 ```toml
@@ -309,7 +346,18 @@ Default-on. Walks every `#` comment and parses its text as Python; if the
 result is one of `_CODE_NODES` (imports, assigns, defs, control flow,
 returns / raises / asserts, ...), the comment is treated as disabled code.
 Guards: comments ending in `.` / `?` / `!` are prose; `foo(...)` (literal
-`...`) is illustrative; `label: type` with no value is documentation; tooling
+`...`) is illustrative; `label: type` with no value is documentation, and
+`label: word = value` is a labelled note unless the word is a type: a
+builtin, a name that is not all lowercase, or a lowercase name the module
+imports (`# TODO: retries = 5` and `# cython: boundscheck=False` are notes,
+`# x: int = 5` is code, and so is `# created: datetime = now()` under
+`from datetime import datetime`); an assignment of a foreign literal
+(`# enabled = true`, `# timeout = null`) is TOML, YAML or JSON, not Python; a
+keyword followed only by an adverb (`# return early`, `# import lazily`,
+`# raise instead`) is a prose fragment, unless the adverb is an `-ly` word
+the module binds itself (`# return quickly` where `quickly` is assigned is
+code); the lines that follow a `Usage:`, `Example:` or `e.g.:`
+header in the same block show a call shape rather than disable one; tooling
 pragmas (`# noqa`, `# type:`, ...) are skipped; and the lines of a
 [PEP 723](https://peps.python.org/pep-0723/) `# /// script` ... `# ///` inline
 metadata block are tooling, not code.
@@ -324,11 +372,14 @@ tried in several wrapping strategies before being declared prose:
 - Bare `return` / `yield` / `raise` are tried inside `def _(): ...`.
 - Decorator lines (`@foo`) are tried followed by `def _(): pass`.
 
-Measured against the 165-comment corpus under
+Measured against the 227-comment corpus under
 `evals/corpora/comments_commented_code/` with `evals/score_cmt001.py`:
-**P = 0.985 / R = 1.000 / F1 = 0.992** (TP = 66, FP = 1, FN = 0). The
-single FP is an illustrative call signature following a `Typical usage:`
-header.
+**P = 1.000 / R = 1.000 / F1 = 1.000** (TP = 96, FP = 0, FN = 0, TN = 131),
+the same on the dev split, the holdout split and the 40 generated holdout
+comments.
+The negatives cover TODO tags, URLs, type contracts, licence headers, shebang
+lines, banners, math and units, prose, labelled notes, foreign literals,
+adverb fragments, illustrations and pragmas.
 
 Config:
 ```toml
@@ -361,6 +412,13 @@ complexity it scored so the number is never a mystery.
 
 Set `block_lines_per_branch = 0` for a flat cap.
 
+A preamble above a decorated function counts as sitting above the function:
+the decorators do not push it out of reach. Exempt from the block cap: a
+block carrying a licence or copyright marker (the Apache preamble is as long
+as it is), and a PEP 723 metadata block. Exempt from the line cap: a pragma
+line, and the URL part of a line (a URL cannot be wrapped, so only the text
+around it is measured).
+
 Config:
 ```toml
 [tool.lanorme.comments]
@@ -378,9 +436,9 @@ and verb maps onto the adjacent statement, and an allowlist exempts comments
 that carry a why, a caveat, a unit, or a reference. It will miss synonym
 paraphrases. Full design: `docs/cmt005-design.md`.
 
-Measured against the 167-comment corpus under
+Measured against the 170-comment corpus under
 `evals/corpora/comments_restating/` with `evals/score_cmt005.py`:
-**P = 1.000 / R = 0.418 / F1 = 0.589** (TP = 33, FP = 0, FN = 46, TN = 88).
+**P = 1.000 / R = 0.418 / F1 = 0.589** (TP = 33, FP = 0, FN = 46, TN = 91).
 The 0.418 recall is bounded by the design's refusal to chase synonym
 paraphrases without losing precision.
 
@@ -401,13 +459,15 @@ dashes and emoji. The cheapest way to satisfy all of them is to write
 nothing. These two point the other way.
 
 - `CMT-006`: a public function or class whose span reaches `min_lines`
-  (default 5) carries a docstring. Dunders, private names, `test_*` files,
-  `__init__.py`, `conftest.py`, `setup.py`, `alembic/` and `migrations/` are
-  out of scope.
+  (default 5) carries a docstring. Dunders, private names, members of a
+  private class, functions nested inside a function, test files (see "Test
+  files"), `__init__.py`, `setup.py`, `alembic/` and `migrations/` are
+  out of scope. A definition under a module-level `if` or `try` is in scope.
 - `CMT-007`: that docstring says more than the signature. A docstring is
   vacuous when every content word in it is already carried by the
   definition's name, its parameters, or its enclosing class. Padding does
-  not help, because padding is restatement.
+  not help, because padding is restatement, and a placeholder
+  (`"""TODO"""`, `"""Docstring."""`) is filler.
 
 `CMT-007` reuses the vocabulary machinery behind `CMT-005`: identifier
 splitting, stemming, and the 11-category allowlist that exempts a comment
@@ -421,9 +481,9 @@ carrying a why, a caveat, a unit or a reference. Two additions on top:
   after filler removal is vacuous whatever the allowlist says, so
   `This is a helper function.` is not rescued by it.
 
-Measured against the 23-definition corpus under
+Measured against the 29-definition corpus under
 `evals/corpora/docstrings_vacuous/` with `evals/score_cmt007.py`:
-**P = 1.000 / R = 1.000 / F1 = 1.000** (TP = 9, FP = 0, FN = 0, TN = 14).
+**P = 1.000 / R = 1.000 / F1 = 1.000** (TP = 11, FP = 0, FN = 0, TN = 18).
 That corpus was written alongside the rule and tuned against, so treat the
 figure as a regression guard rather than an unbiased estimate. The
 independent evidence is held-out: `CMT-007` returns **zero** findings over
@@ -448,7 +508,10 @@ require_private = false  # also require them on _private definitions
 
 Off until enabled. The same rule codes that the `prose` check emits on
 Markdown also fire here, on `#` comments and `"""..."""` docstrings,
-when configured.
+when configured. An emoji is a code point with Unicode's Emoji property, or
+any symbol followed by the emoji presentation selector (U+FE0F); a check mark
+(U+2713), a ballot box, a star, a die or a musical note is not one, and
+neither is the zero-width joiner that Hindi or Arabic text carries.
 
 Config:
 ```toml
@@ -462,7 +525,10 @@ emoji   = true   # emit PROSE-003 on comments/docstrings
 ## Docs: `DOCS-001..008`
 
 Opt-in (default-off), tree-scoped. Enforces a familiar Diataxis-style structure
-and accessibility on a Markdown documentation tree. It inspects only Markdown
+and accessibility on a Markdown documentation tree. Headings and images inside
+a fenced code block, YAML front matter or an inline code span are never
+matched, and a rule (`---`) under a list item, a quote or a table row is a
+thematic break, not a setext heading. It inspects only Markdown
 under `docs_root` (default `docs`); files anywhere else are ignored, so it never
 imposes a docs structure on source trees or stray Markdown. Headings and images
 inside fenced code blocks are never matched, so a sample showing a hash heading
@@ -516,8 +582,9 @@ where each page sits.
 
 ## Domain terminology: `TERM-NNN`
 
-Configurable ubiquitous-language enforcement. Inert by default. Each
-rule the user configures gets a code from the `TERM-` family.
+ConfigurableCheck ubiquitous-language enforcement. Inert by default. Each
+rule the user configures gets a code from the `TERM-` family. Test files
+(see "Test files") and `migrations/` are skipped.
 
 Config:
 ```toml
@@ -537,12 +604,23 @@ forbidden = ["Cust", "Client"]
 ## Duplication: `DRY-001`
 
 Default-on. Detects **exact structural clones**: functions with an identical
-normalised AST body and at least five statements. Normalisation strips variable
-names and string literals, so two functions differing only in identifier
-spelling or string-constant content still match. It is precise but strict: a
-single added statement, a reordering, a changed number, or a renamed attribute
-defeats the match. For the fuzzier "these should share a helper" cases, see
-`SIMILAR-001` below.
+normalised AST body and at least five statements (a leading docstring is
+documentation and counts for neither). Normalisation strips variable names and
+string literals, so two functions differing only in identifier spelling or
+string-constant content still match. The name a call targets is kept, like an
+attribute name: `min(...)` against `max(...)`, or `any(...)` against
+`all(...)`, is a different operation, not a renamed variable. A call to a name
+the function binds itself (a parameter, a local variable, a nested definition)
+is a call through a variable, so that name is abstracted with the variable;
+builtins and imported names stay literal. It is precise but strict: a single
+added statement, a reordering, a changed number, a renamed attribute or a
+renamed call defeats the match. For the fuzzier "these should share a helper"
+cases, see `SIMILAR-001` below. Skips `__init__.py`, `alembic/`,
+`migrations/`, and test files (see "Test files"). Measured on the holdout split of the shared
+corpus (`evals/corpora/duplication_similar/`, scorer `evals/score_dry001.py`),
+whose labels are near-duplicates rather than exact clones: **precision 1.000 /
+recall 0.538**; on the generated cases alone, precision 1.000 / recall 0.870
+(the misses are the reordered pairs, by design).
 
 Config: none. False positives on intentionally parallel
 adapters across bounded contexts are a known limit; suppress them with
@@ -554,25 +632,51 @@ adapters across bounded contexts are a known limit; suppress them with
 ## Near-duplicate: `SIMILAR-001`
 
 Opt-in (default-off), advisory **warning** (never fails the build). The fuzzy
-companion to `DRY-001`: it catches near-duplicates that the exact check misses
-(one or two added statements, reordering, a changed number, a renamed
-attribute, a renamed call) so a reviewer can decide whether to extract a shared
-helper.
+companion to `DRY-001`: it catches the near-duplicates the exact check misses
+so a reviewer can decide whether to extract a shared helper. Skips the same
+files as `DRY-001`, test files (see "Test files") among them.
 
-Two functions in a file are compared on two signals. **Structure**: a token
-sequence over the body that abstracts away variable names, attribute names and
-numbers, scored with `difflib` (so a one-statement or reorder drift still
-aligns). **Anchors**: the meaning-bearing tokens `DRY-001` discards: string
-literals, called names, operator kinds, and accessed attribute names, each
-scored by weighted Jaccard. A pair flags only when the structure is similar
-**and** every anchor agrees, which keeps precision high: parallel boilerplate
-that shares a shape but differs in its string keys or source attributes (config
-builders, dispatch tables, field mappers, framework handlers) is rejected.
-Equality/dunder/`@property` boilerplate and drifted logging-message strings are
-handled specially. Measured on the bundled corpus
-(`evals/corpora/duplication_similar/`, scorer `evals/score_similar.py`):
-**precision 1.000 / recall 0.850 / F1 0.919**. Known recall gaps: fully renamed
-attribute sets and error-message-only drift.
+Two functions in a file are near-duplicates when they carry out the same
+operations in the same control-flow positions and differ only in data and in
+drift: variable, attribute and keyword names, numbers, and one or two
+statements inserted, removed or reordered. A pair whose statements differ in
+what they do is two functions: an operator flipped (`<` against `>`, `and`
+against `or`), a called name changed (`min` against `max`, `.append` against
+`.remove`), a statement moved into a new branch. So is a pair that differs in
+its string literals: keys, column names, formats and messages are the content
+a body is about, and parallel builders that share a shape but not their
+strings (config builders, column specs, dispatch tables, argparse subcommands)
+are boilerplate, not a clone. Message strings passed positionally to a
+logging or `print` call are left out, so a reworded log line is drift.
+
+Each function is fingerprinted as a sequence of statement lines (one per
+statement at every nesting depth: the depth, the statement kind, and the
+statement's own tokens with names, attributes, numbers and strings abstracted,
+operator kinds and call arities kept) and four multisets: operations (each
+statement's depth, kind, operators and calls), called names (a call to a parameter or
+local variable is abstracted, as `DRY-001` abstracts it), string literals, and
+accessed attribute names. A pair flags only when every gate passes:
+`struct_ratio`, a `difflib` ratio over the statement lines that tolerates a
+few inserted, removed or reordered statements; `op_jaccard`, `call_jaccard`
+and `str_jaccard`, the share of the smaller side's operations, called names
+and strings that the other side also carries, where 1.0 means nothing changed
+and things were only added; and `attr_jaccard`, a weighted Jaccard over
+attribute names that rejects the near-disjoint attribute sets of parallel
+mappers over different source objects. The `*_jaccard` keys keep their names;
+the measure behind the first three is that containment share, which unlike a
+Jaccard does not punish drift. Equality/dunder/`@property` boilerplate never
+flags.
+
+Known misses, by design: a call renamed to a synonym (`save` against
+`persist`) is indistinguishable from a call changed to its opposite, so called
+names must agree; a pair that differs only in its error messages; a pair whose
+attribute sets are fully renamed (`x`/`y` against `lon`/`lat`).
+
+The thresholds are derived on the dev split of the bundled corpus
+(`evals/corpora/duplication_similar/`, scorer `evals/score_similar.py`) and
+never on its holdout split. Measured on the holdout split: **precision 1.000 /
+recall 0.966 / F1 0.982**; on the generated holdout cases alone, precision
+1.000 / recall 1.000; on the dev split, precision 1.000 / recall 0.800.
 
 ```toml
 [tool.lanorme.similarity]
@@ -581,8 +685,8 @@ enabled = true
 min_statements = 5
 struct_ratio   = 0.55
 str_jaccard    = 0.60
-op_jaccard     = 0.60
-call_jaccard   = 0.35
+op_jaccard     = 1.0
+call_jaccard   = 1.0
 attr_jaccard   = 0.10
 ```
 
@@ -594,7 +698,9 @@ All default-on.
 
 - `SIZE-001`: Python files. Warn at 300 effective (non-blank,
   non-comment) lines; error at 500.
-- `SIZE-002`: functions and methods. Warn at 50 lines; error at 80.
+- `SIZE-002`: functions and methods. Warn at 50 lines; error at 80. The
+  docstring is left out: it documents the function rather than lengthening
+  it.
 - `SIZE-003`: classes with more than 10 methods (warning only). Useful
   as a smell on services and views; on rich aggregate roots in a DDD
   codebase, expect to silence it via `per-file-ignores`.
@@ -610,11 +716,12 @@ All default-on.
   `[f(x) for x in xs]` costs nothing. That keeps the 10 / 15 thresholds
   calibrated for code that leans on comprehensions; the conditional and
   nested-loop branching they can hide still counts.
-- `PARAM-001`: function/method parameter count, excluding `self` /
-  `cls`. Warn at 5; error at 8.
+- `PARAM-001`: function/method parameter count, excluding the receiver
+  (`self` / `cls`, or `mcs` / `metacls` in a metaclass). Warn at 5; error
+  at 8.
 
-Skips `__init__.py`, `conftest.py`, `alembic/`, `migrations/`, and
-`test_*` files.
+Skips `__init__.py`, `alembic/`, `migrations/`, and test files (see "Test
+files").
 
 Every threshold above is a default, not a fixed number. A project sets its
 own without giving up the rule:
@@ -661,7 +768,7 @@ dirs = ["legacy_src", "build_artifacts"]
 
 ---
 
-## Layer dependencies: `LAYER-001..006`
+## Layer dependencies: `LAYER-001..007`
 
 For hexagonal / layered codebases with a `domain/`, `application/`,
 `infrastructure/`, `api/` layout. Inert in their absence.
@@ -682,9 +789,16 @@ stay relative to the scan target.
   `infrastructure/`.
 - `LAYER-006`: a `transport_layers` entry is not among the configured
   `layers`, so it has no effect (advisory **warning**, exit 0).
+- `LAYER-007`: a layer added through `layers` imports a layer its `allowed`
+  entry does not list. The fix names the layers it may import.
 
 These rules track Cockburn's hexagonal architecture and Seemann's
 composition-root pattern.
+
+A relative import is resolved against the importing file's package first, so
+`from .application import X` inside `domain/` names a sibling module in the
+domain layer, not the application layer, while `from ..infrastructure import db`
+still reaches the infrastructure layer.
 
 The composition-root exception applies to any layer listed in
 `transport_layers` (default `["api"]`). Apps with several peer transport
@@ -699,7 +813,11 @@ Config (all keys optional; the defaults are shown):
 # Files allowed to import infrastructure (the composition root).
 # fnmatch globs against the source-relative path, so a module FILE
 # (api/dependencies.py) is recognised, not only a directory.
-composition_root = ["api/dependencies/**", "api/v1/dependencies/**", "api/v1/main.py"]
+composition_root = [
+  "api/dependencies/**", "api/dependencies.py", "api/deps.py",
+  "api/v1/dependencies/**", "api/v1/dependencies.py", "api/v1/deps.py",
+  "api/v1/main.py",
+]
 
 # For layouts whose layers differ. Defaults shown.
 layers = ["domain", "application", "infrastructure", "api"]
@@ -734,7 +852,13 @@ it conforms.
 ## Keyword arguments: `KWARG-001`
 
 Opt-in. With `enabled = true`, every multi-argument function definition
-must contain a bare `*` separator to force keyword-only call sites.
+must contain a bare `*` separator to force keyword-only call sites. Test
+files (see "Test files") are skipped. Dunder
+methods and methods decorated `@override`, `@typing.override` or
+`@typing_extensions.override` are exempt: their signature is fixed by the
+protocol or the base class, so the finding belongs there. A called decorator
+that happens to be named `override` (Django's `@translation.override("fr")`)
+does not exempt a method.
 
 Config:
 ```toml
@@ -806,6 +930,16 @@ view, `LoadBalancer` is an agent noun. Words a verb acts on (`User`,
 `Order`, `Connection`, `Session`, `Token`) are deliberately not on that
 list, or `CreateUser` would pass.
 
+A class with an exception base (one named `...Error`, `...Exception`,
+`...Warning`, `...Exit` or `...Interrupt`) is a thing whatever it is
+called, and a last word that names the state an action reached
+(`SendFailed`, `FetchAborted`, `LoadComplete`) names an outcome, so both
+pass. A few attribute heads are listed by word (`behaviour`, `direction`,
+`reason`, `timing`, `wizard`, `impl`, `abc`), and a head that is a verb's
+object as often as its attribute (`Permission`, `Scope`, `Metrics`,
+`Progress`) is deliberately not, so `EmitMetrics` and `CreatePermission`
+stay reported; a project that names enums that way adds them to `exempt`.
+
 A message object is a noun by convention and is exempt through its suffix:
 `Command`, `Query`, `Event`, `Handler`, `UseCase`, `Request`, `Response`,
 `Job`, `Task`, extensible through `command_suffixes`. A verb-first class
@@ -837,15 +971,34 @@ function is not a command:
   `abstractmethod`, `override` or `final`: a route, a fixture, a property
   setter, a signal receiver or a CLI command is named by the framework's
   contract.
-- Dunders, keyword-clash names ending in `_`, hook names (`on_`, `pre_`,
-  `post_`, `before_`, `after_`, `pytest_`, and `_hook`, `_handler`,
-  `_callback`, `_listener`, `_receiver`), conversions and constructors
-  (`from_`, `to_`, `as_`, `into_`, `with_`, and `x_to_y`), entry points
-  (`main`, `async_main`, `cli`), standard-library protocol methods on a
-  class (`keys`, `fetchone`, `rollback`, `flush`, `info`), and the Django
-  and Scrapy hook names on plain classes (`process_request`,
-  `process_item`). `setUp` and `tearDown` pass because `set` and `tear`
-  are verbs.
+- Dunders, keyword-clash names ending in `_`, hook names matched by word
+  so camelCase and bare forms count (`on_click`, `onMessage`, `pre_save`,
+  `after_request`, `pytest_configure`; `error_handler`, `_dynamic_class_hook`,
+  a bare `callback`, `handler` or `listener` handed to `signal.signal` or
+  `apply_async`), conversions and constructors (`from_`, `to_`, `as_`,
+  `into_`, `with_`, and `x_to_y`), entry points (`main`, `async_main`,
+  `cli`, the WSGI `application` of PEP 3333 and the ASGI `app`),
+  standard-library protocol methods on a class (`keys`, `fetchone`,
+  `rollback`, `flush`, `info`; the `asyncio` protocol hooks
+  `connection_made` and `data_received`, `socketserver`'s `server_bind`,
+  `ast.NodeVisitor.generic_visit`, `xml.sax`'s `characters`, `cmd.Cmd`'s
+  `emptyline`, `io`'s `readinto`, `urllib`'s `http_open`), the Django and
+  Scrapy hook names on plain classes (`process_request`, `process_item`),
+  and on a method only, the names Django, Django REST framework, Scrapy,
+  pydantic and SQLAlchemy fix (`ready`, `form_valid`, `allow_migrate`,
+  `test_func`, `perform_create`, `closed`, `spider_opened`,
+  `model_post_init`, `column_expression`): a module-level `ready()` is the
+  author's. `setUp` and `tearDown` pass because `set` and `tear` are verbs.
+- A camelCase method on a class that may inherit the name
+  (`mousePressEvent` on a `QWidget` subclass, `dataReceived`, `onMessage`):
+  PEP 8 allows mixedCase only where it is the prevailing style, so the name
+  is the base API's. A class may inherit a name through an external base (one
+  the module does not define), or through a base the module defines that has
+  an external base itself or defines the same method. `object`, `ABC`,
+  `Generic`, `Protocol`, `NamedTuple`, `TypedDict` and the `Enum` family
+  (`Enum`, `IntEnum`, `StrEnum`, `Flag`, `IntFlag`) carry no method names and
+  do not count. The same name on any other class, or at module level, is
+  judged.
 - Files under `migrations/` or `alembic/` inside the scanned tree, whose
   names a tool generated. A name with non-ASCII letters is not judged.
 
@@ -855,10 +1008,13 @@ a third-person form (`matches`), carries a verb suffix (`simplify`,
 `deregister`, `aclose`) or opens with one of the verbs Python fuses onto
 the next word (`getheaders`, `setdefault`, `isdigit`, `iteritems`; not
 `password`, `endpoint` or `checksum`), and leading modifiers are skipped
-(`bulk_insert`, `re_apply`, `atomic_write`, `safe_delete`). A word wrongly
-counted as a verb hides a finding and never creates one. The `verbs`
-setting extends the vocabulary, and a configured weak verb counts as a
-verb here too.
+(`bulk_insert`, `re_apply`, `atomic_write`, `safe_delete`). The listed
+verbs include the business, moderation and security verbs a domain model
+uses (`refund`, `invite`, `enrol`, `ban`, `redact`, `mint`), and a noun
+that merely ends like a verb (`enterprise`, `premise`, `chunksize`) is not
+one. A word wrongly counted as a verb hides a finding and never creates
+one. The `verbs` setting extends the vocabulary, and a configured weak verb
+counts as a verb here too.
 
 ### `NAMING-008`: A function does not open with a weak verb
 
@@ -870,11 +1026,14 @@ same evasion. The finding is a function such as `handle_data` or
 to say which.
 
 A bare `handle` or `process` with no object is a dispatcher's slot and is
-not reported. A method on a class with bases may be overriding an inherited
-name (`do_GET` on a request handler, `process` on a SQLAlchemy type), so
-it is not reported either; nor is any name `NAMING-007` leaves alone as
-not the author's to choose. The rule applies to queries as well as
-commands. The list is replaced, not extended, through `weak_verbs`.
+not reported. A method on a class that may inherit its name, by the same
+test as the camelCase exemption above, may be overriding it (`do_GET` on a
+request handler, `process` on a SQLAlchemy type), so it is not reported
+either; nor is any name `NAMING-007` leaves alone as
+not the author's to choose, which covers Django REST framework's
+`perform_create` and Django's `handle_label` on a plain mixin. The rule
+applies to queries as well as commands. The list is replaced, not
+extended, through `weak_verbs`.
 
 Config:
 ```toml
@@ -898,9 +1057,9 @@ Measured against the labelled corpora with `evals/score_naming006.py`,
 
 | rule | corpus | P | R | F1 | TP | FP | FN | TN |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `NAMING-006` | `naming_verb_class` | 1.000 | 1.000 | 1.000 | 7 | 0 | 0 | 15 |
-| `NAMING-007` | `naming_command` | 1.000 | 1.000 | 1.000 | 9 | 0 | 0 | 31 |
-| `NAMING-008` | `naming_weak_verb` | 1.000 | 1.000 | 1.000 | 7 | 0 | 0 | 12 |
+| `NAMING-006` | `naming_verb_class` | 1.000 | 1.000 | 1.000 | 8 | 0 | 0 | 18 |
+| `NAMING-007` | `naming_command` | 1.000 | 1.000 | 1.000 | 11 | 0 | 0 | 39 |
+| `NAMING-008` | `naming_weak_verb` | 1.000 | 1.000 | 1.000 | 8 | 0 | 0 | 14 |
 
 Those corpora are regression guards for the exemptions listed above, not
 an unbiased estimate; the calibration evidence is the third-party
@@ -923,7 +1082,9 @@ Clean Code names the words to keep off a class: `Manager`, `Processor`,
 `DependencyProcessor`, `ConfigData` or `ScriptInfo`; the fix is to say what
 the thing is (a registry, a pool, a scheduler) or what it holds. A single
 word (`Manager` as a domain class), `MetaData` and its compounds, a
-`ContextManager` and names that are not PascalCase are not reported.
+`ContextManager`, a class whose base already ends in the word
+(`UserManager(models.Manager)` is a Django manager, `ProcessManager` a
+`multiprocessing` one) and names that are not PascalCase are not reported.
 
 ### `NAMING-010`: A module is not a junk drawer
 
@@ -942,9 +1103,13 @@ The Java-school reading: a query leads with a verb too, so
 becomes `build_url()`. Commands are `NAMING-007`'s and a raiser exists to
 raise, so this rule takes the rest: functions that return a value, and
 stubs. Predicates that carry an auxiliary anywhere (`is_valid`,
-`line_has_noqa`), constructors under `@classmethod`, properties,
-conversions and every reserved-name shape `NAMING-007` lists are exempt,
-and the same verb vocabulary applies.
+`line_has_noqa`) or open with a third-person verb (`exists`, `matches`),
+constructors under `@classmethod`, properties, conversions, a decorator or
+closure factory (a function that returns a function it defines, or a
+lambda: `deprecated`, `cached` are named for what they confer) and every
+reserved-name shape `NAMING-007` lists are exempt, and the same verb
+vocabulary applies. A decorator returned through a variable
+(`actual = user_passes_test(...); return actual`) is not recognised as one.
 
 This is a house choice, not a correction. Naming a pure function for its
 value is the other canonical school (Code Complete, Ada, Swift, Kotlin, Go,
@@ -965,7 +1130,7 @@ Measured on the third-party code under `benchmarks/.corpora/`:
 `NAMING-009` reports 10 classes, `NAMING-010` 9 modules, `NAMING-011`
 1473 functions. Measured against `evals/corpora/naming_every_verb/` with
 `evals/score_naming011.py`: **P = 1.000 / R = 1.000 / F1 = 1.000**
-(TP = 8, FP = 0, FN = 0, TN = 18), a regression guard for the exemptions
+(TP = 10, FP = 0, FN = 0, TN = 23), a regression guard for the exemptions
 rather than an unbiased estimate. `NAMING-009` and `NAMING-010` match exact
 words and have unit tests instead of a corpus.
 
@@ -988,8 +1153,14 @@ words and have unit tests instead of a corpus.
   `@router.get`, `delete_user` on `@router.delete`). Health probes and
   auth-issuance handlers are exempt.
 - `NAMING-004`: default-on warning. Functions whose return annotation
-  is `bool` should use a boolean prefix (`is_` / `has_` / `can_` /
-  `should_`).
+  is `bool` should read as an assertion: a boolean prefix (`is_` / `has_` /
+  `can_` / `should_`), an auxiliary anywhere (`does_match`, `user_is_active`),
+  a third-person verb in front (`exists`, `matches`, `contains`,
+  `needs_refresh`) or a fused `isdir` / `hasattr` / `isEnabled` all pass;
+  `check_password` and `valid` are reported. Private names, `Protocol`
+  members, properties and the names a protocol or framework fixes
+  (`readable`, `filter` on a `logging.Filter`, Django's `allow_migrate`,
+  Qt's `eventFilter` on a subclass) are not judged.
 
 Config:
 ```toml
@@ -1002,7 +1173,8 @@ service_crud = true   # enable NAMING-002
 
 ## Naming scope: `NAMING-005`
 
-Default-off. **Opinionated.** Lives in its own `naming_scope` check.
+Default-off. **Opinionated.** Lives in its own `naming_scope` check. Test
+files (see "Test files") and `migrations/` are skipped.
 
 `NAMING-005` does not ban short names. `i` in a three-line loop is
 perfectly readable; the same `i` bound at the top of a sixty-line function
@@ -1012,9 +1184,13 @@ shortness *held over distance*, so the requirement scales with the span.
 
 Span is measured from where a name is first bound to where it is last
 referenced, within one function. Only names the function itself binds are
-considered (parameters and assignment targets): a referenced-but-unbound
-short name such as `np` or `re` is an imported module, where the name is
-the library's choice and not the function's.
+considered (parameters, assignment targets and `match` captures): a
+referenced-but-unbound short name such as `np` or `re` is an imported
+module, where the name is the library's choice and not the function's. A
+name a comprehension, a lambda or a nested function binds belongs to that
+scope, so an `r` in a comprehension at the top and another in a lambda at
+the bottom are two names, not one carried across; a use of the outer
+name inside such a scope still counts.
 
 Choosing the default (`max_span = 20`), measured over LaNorme's own
 `src/` and the 18 generated modules (about 10,000 lines) under `evals/`:
@@ -1048,7 +1224,7 @@ allow            = ["mu"]    # extends the default allowlist
 
 Measured against `evals/corpora/naming_scope/` with
 `evals/score_naming005.py`: **P = 1.000 / R = 1.000 / F1 = 1.000**
-(TP = 2, FP = 0, FN = 0, TN = 4). That corpus is a regression guard, not
+(TP = 3, FP = 0, FN = 0, TN = 6). That corpus is a regression guard, not
 an unbiased estimate; the calibration evidence is the table above.
 
 ---
@@ -1060,7 +1236,7 @@ an unbiased estimate; the calibration evidence is the table above.
   function or method body). Equivalent to ruff `PLC0415` with a different
   default. Imports inside an `if TYPE_CHECKING:` guard are exempt, as are
   files under `infrastructure/observability/` and `api/v1/main.py`
-  (conditional startup wiring); `test_*` files are skipped.
+  (conditional startup wiring); test files (see "Test files") are skipped.
 - `ENDPOINT-001`: default-on warning. Functions defined in files under
   `api/v1/endpoints/` must not exceed nesting depth 4. Deep endpoints
   correlate with missed branches in auth and validation paths.
@@ -1074,7 +1250,8 @@ top-level `[tool.lanorme] source_root` anchors `ports_dir`, `adapter_roots`,
 and `composition_root` under a nested package directory when set.
 
 - `PORT-001`: every adapter file (under the adapter roots) must import
-  from the ports directory.
+  from the ports directory. A private module (`_retry.py`) is a utility by
+  convention and is not asked to.
 - `PORT-002`: every `Protocol` declared in the ports directory must
   have at least one implementation. Build-failing like `PORT-001` and
   `PORT-003`. Ports realised only by test doubles or sibling plugins are
@@ -1088,7 +1265,7 @@ Config (all keys optional; the defaults are shown):
 [tool.lanorme.port_coverage]
 ports_dir        = "application/ports"     # where port Protocols live
 adapter_roots    = ["infrastructure/services"]  # dirs scanned for adapters (recursive)
-composition_root = ["*dependencies/*", "*v1/main.py"]  # PORT-003 exemption (globs)
+composition_root = ["*dependencies/*", "*dependencies.py", "*deps.py", "*v1/main.py"]  # PORT-003 exemption (globs)
 skip_files         = ["__init__.py"]
 ports_without_impl = ["repositories.py", "unit_of_work.py", "otel.py", "metrics.py"]
 ```
@@ -1104,9 +1281,15 @@ Off until enabled.
 
 - `PROSE-001`: em dashes (U+2014) in prose.
 - `PROSE-002`: American spellings; suggests the British form.
-- `PROSE-003`: emoji in prose.
+- `PROSE-003`: emoji in prose (Unicode's Emoji property, or a symbol carrying
+  the emoji presentation selector; a check mark or a star is not one).
 
-Skips fenced code blocks (` ``` `, `~~~`) and inline `` `code` `` spans.
+Skips fenced code blocks (` ``` `, `~~~`; a fence closes only on a run at
+least as long as the one that opened it), YAML front matter, inline
+`` `code` `` spans, link targets, URLs and HTML tags. `PROSE-002` also
+ignores tokens that are code rather than words: a flag (`--color`), a dotted
+name (`settings.color`), a path, an assignment, or anything holding a digit
+or an underscore (`org-color-42`).
 
 ### `PROSE-004`: Em-dash density above natural English
 
@@ -1161,18 +1344,36 @@ false sense of security). Use `# noqa: <CODE>` or `# lanorme: ignore[<CODE>]`
 for legitimate uses (e.g. a pickle load on a trusted local cache) or
 `[tool.lanorme.per-file-ignores]` for broader patches.
 
+Every rule sees a call through the module's own imports: `import
+subprocess as sp` and `from subprocess import run as sh` resolve to
+`subprocess.run`. A name counts as shadowed, and so as unknown, only when
+the rebinding (a parameter, a local `def`, an assignment) is visible at the
+call under Python's scoping: at module level, or in the calling function or
+a function around it. So a local `run(cmd, shell=True)` never fires, while a
+method named `exec` leaves a module-level `exec(code)` reported (a method
+name never shadows a global) and another function's parameter named `sp`
+does not hide `import subprocess as sp`. A `shell=` / `verify=` value that is
+not a literal is ambiguous and stays quiet; `usedforsecurity=` is the
+exception, since only a literal `False` declares a non-security use.
+
 - `SHELL-001`: `subprocess.run` / `call` / `check_call` /
   `check_output` / `Popen` with `shell=True`; `os.system`; `os.popen`.
 - `DESERIAL-001`: `pickle.load(s)`, `marshal.load(s)`, `dill.load(s)`,
-  `cPickle.load(s)`, `yaml.load` without `Loader=SafeLoader` /
-  `CSafeLoader` / `BaseLoader`, `yaml.unsafe_load`.
-- `EVAL-001`: `eval` / `exec` / `compile` where the first argument is
-  not a string literal. (Literal-arg `compile(...)` flows are accepted.)
-- `CRYPTO-001`: `hashlib.md5` / `hashlib.sha1` used for security
-  (`usedforsecurity=False` is honoured), `hashlib.new("md5"/"sha1", ...)`,
-  `ssl.PROTOCOL_SSLv2` / `SSLv3` / `TLSv1` / `TLSv1_1`.
-- `TLS-001`: `requests` / `httpx` / `aiohttp` call with `verify=False`,
-  `ssl._create_unverified_context`, `ssl.CERT_NONE` attribute reference.
+  `cPickle.load(s)`, `yaml.load` without `SafeLoader` / `CSafeLoader` /
+  `BaseLoader` as the `Loader=` keyword or the second positional argument,
+  `yaml.unsafe_load`.
+- `EVAL-001`: `eval` / `exec` / `compile` (bare or as `builtins.eval`)
+  where the first argument is not a string literal. (Literal-arg
+  `compile(...)` flows are accepted.)
+- `CRYPTO-001`: `hashlib.md5` / `hashlib.sha1` / `hashlib.new("md5"/"sha1",
+  ...)` used for security (a literal `usedforsecurity=False` is honoured on
+  all three; a value that is not a literal fires, since it may be `True`),
+  `ssl.PROTOCOL_SSLv2` / `SSLv3` / `TLSv1` / `TLSv1_1` referenced
+  anywhere but as a comparison operand (`if proto == ssl.PROTOCOL_TLSv1:
+  reject()` is a guard, not a use).
+- `TLS-001`: `requests` / `httpx` call with `verify=False`, `aiohttp` call
+  with `ssl=False` / `verify_ssl=False`, `ssl._create_unverified_context`,
+  `ssl.CERT_NONE` referenced anywhere but as a comparison operand.
 - `DEBUG-001`: `Flask(...)` / `FastAPI(...)` constructor with
   `debug=True`, `*.run(debug=True)` / `*.run_server(debug=True)`,
   module-level `DEBUG = True` in `*settings.py` / `*config.py`.
@@ -1185,8 +1386,14 @@ Each rule has a positive + negative unit test under
 ## Security patterns: `AUTHN-001` / `SQL-001` / `SECRETPY-001`
 
 - `AUTHN-001`: default-on. `@router.post` / `put` / `patch` / `delete`
-  handlers must have an auth dependency (a parameter annotated with
-  `Depends(get_current_user)` or `Depends(require_*)`). FastAPI-shaped;
+  handlers must have an auth dependency: a `Depends(...)` or `Security(...)`
+  whose declared dependency (its first argument, or `dependency=`) is named
+  exactly `get_current_user` or starts with `require_`. It counts in a
+  parameter annotation (`Annotated[User, Depends(get_current_user)]`), as the
+  parameter default itself (`user: User = Depends(get_current_user)`), or in
+  the decorator's `dependencies=[...]` list. `get_current_user_optional`, an
+  auth name passed as some other argument, and a marker nested inside another
+  call in a default do not count. FastAPI-shaped;
   the rule checks for **authentication presence only**, not
   authorisation. Only endpoint files under `api/` are scanned; when the
   package sits under a nested directory (a src layout), set the top-level
@@ -1196,33 +1403,41 @@ Each rule has a positive + negative unit test under
 - `SQL-001`: default-on. AST-based: only flags SQL string literals that
   reach a database execution sink (`.execute` / `.executemany` /
   `.executescript` on a DB-shaped receiver, or `read_sql` /
-  `read_sql_query`). Unwraps `text(...)` constructors, resolves module-
-  level and function-local string constants, and treats `+` /
-  `%`-formatted / `.format`-built SQL as interpolated (always flagged).
-  Static SQL passed alongside a `params=` / `parameters=` kwarg (or a
-  second positional on `.execute`) with placeholder marks (`:name`,
-  `%s`, `?`) is treated as safely parameterised and not flagged.
-  Excludes `alembic/` and `test_*` files. Measured against
-  `evals/corpora/security_raw_sql/` (120 labels): **P = 1.000 /
-  R = 1.000 / F1 = 1.000**. Known limitations not in the corpus: SQL
+  `read_sql_query`). Unwraps `text(...)` constructors, resolves a bare name
+  only to a module-level string constant or a string assigned in the same
+  function (never to a parameter, so a parameter named like a constant
+  elsewhere in the file stays unknown), and treats `%`-formatted /
+  `.format`-built SQL, or a `+` join with a non-literal side, as
+  interpolated (always flagged); a `+` join of literals and literal
+  constants only is static. Static SQL passed alongside a `params=` /
+  `parameters=` kwarg (or a second positional on `.execute`) with
+  placeholder marks (`:name`, `%s`, `?`) is treated as safely
+  parameterised and not flagged. Excludes `alembic/` and test files (see
+  "Test files").
+  Measured against `evals/corpora/security_raw_sql/` (125 labels):
+  **P = 1.000 / R = 1.000 / F1 = 1.000**. Known limitations not in the corpus: SQL
   built across multiple statements with helper functions; lazy-loaded
   query templates; non-Python query files.
 - `SECRETPY-001`: default-on. Lives in the `secrets` check. AST-based:
   flags credential-named assignments
-  (variable, dict key, or call kwarg) whose value looks like a real
-  secret, plus shape-only matches (PEM private-key blocks, JWT-shaped
-  tokens, Bearer headers, DB / cache URLs with embedded `user:pass@host`
-  credentials, and vendor-prefixed credentials: AWS `AKIA` / `ASIA`,
-  GitHub `ghp_` / `gho_` / `github_pat_`, Slack `xox*`, Stripe
-  `sk_live_` / `sk_test_`). Names whose first segment is `help_` /
-  `hint_` / `msg_` / etc. are documentation; names whose last segment
-  is structural (`pattern`, `endpoint`, `header`, `name`, `len`, ...)
-  are not credentials. Placeholder markers (`<your-...>`, `REPLACE_ME`,
+  (variable, dict key, or call kwarg) whose value is a string or bytes
+  literal that looks like a real secret, plus shape-only matches (PEM
+  private-key blocks, JWT-shaped tokens, Bearer headers, DB / cache URLs
+  with embedded `user:pass@host` credentials, and vendor-prefixed
+  credentials: AWS `AKIA` / `ASIA`, GitHub `ghp_` / `gho_` /
+  `github_pat_`, Slack `xox*`, Stripe `sk_live_` / `sk_test_`, Django
+  `django-insecure-`), wherever the literal sits, including as the
+  fallback of an `os.environ.get(...)` call. Names whose first segment is
+  `help_` / `hint_` / `msg_` / etc. are documentation; names whose last
+  segment is structural (`pattern`, `endpoint`, `header`, `name`, `len`,
+  `env`, `var`, `id`, `file`, `algorithm`, `backend`, ...) point at a
+  secret rather than hold one, unless the whole name is a credential
+  phrase (`aws_access_key_id`). Placeholder markers (`<your-...>`, `REPLACE_ME`,
   `example`, ...) skip a value unless it is high-entropy enough (32+
   chars, mixed case, digits) to defeat the marker (AWS docs-style
-  example secret keys). Excludes `conftest.py`, `seed_dev.py`, and
-  files starting with `test_`. Measured against
-  `evals/corpora/security_hardcoded_secrets/` (155 labels):
+  example secret keys). Excludes `seed_dev.py` and test files (see "Test
+  files"). Measured against
+  `evals/corpora/security_hardcoded_secrets/` (169 labels):
   **P = 1.000 / R = 1.000 / F1 = 1.000**. **Scope warning**:
   Python-source only; `.env`, `*.yaml`, `*.ipynb`, `*.tf`, `Dockerfile`,
   GitHub Actions workflows are out of scope until a separate
@@ -1268,7 +1483,8 @@ check_links = true   # default; set false to skip SKILL-005
 ## Stale paths: `STALE-001`
 
 Inert until configured. Flags references to old path tokens in
-docstrings and comments after a refactor.
+docstrings and comments after a refactor. Test files (see "Test files")
+are skipped: a fixture may quote an old path on purpose.
 
 Config:
 ```toml
@@ -1287,12 +1503,13 @@ PII.
 - `JUNK-001`: files matching scratch / temp / OS / build name globs such
   as `screenshot*`, `scratch*`, `untitled*`, `*~`, `*.bak`, `*.orig`,
   `*.rej`, `*.swp`, `*.swo`, `*.tmp`, `tmp.*`, `temp.*`, `.DS_Store`,
-  `Thumbs.db`, `desktop.ini`, `nohup.out`, `core.*`, `*.pyc`, `*.pyo`,
-  `.coverage`, `coverage.xml`.
+  `Thumbs.db`, `desktop.ini`, `nohup.out`, `core.[0-9]*` (a core dump, not a
+  `core.py` module), `*.pyc`, `*.pyo`, `.coverage`, `.coverage.*`,
+  `coverage.xml`.
 - `JUNK-002`: image / binary extensions outside an asset directory.
   Default extensions: `.png`, `.jpg`, `.jpeg`, `.gif`, `.bmp`, `.webp`.
   Default asset directories: `assets/`, `static/`, `images/`, `img/`,
-  `media/`, `public/`, `docs/`, `.github/`.
+  `media/`, `public/`, `docs/`, `.github/`, `fixtures/`, `resources/`.
 
 Config:
 ```toml
@@ -1308,7 +1525,7 @@ exclude    = ["sandbox"]           # extra directories to skip entirely
 
 ## Strong types: `TYPE-001..004`
 
-Default-on. Skips files under `tests/` and `migrations/`. `TYPE-001..003` are
+Default-on. Skips test files (see "Test files") and `migrations/`. `TYPE-001..003` are
 build-failing; `TYPE-004` is an advisory warning.
 
 - `TYPE-001`: `dict[str, Any]` (and other weakly-typed dict containers)
@@ -1318,6 +1535,10 @@ build-failing; `TYPE-004` is an advisory warning.
   parameters.
 - `TYPE-003`: `**kwargs` must be annotated with a concrete type or
   `Unpack[TypedDict]`; bare `**kwargs: Any` is rejected.
+
+For all three, a wrapper changes nothing: `dict[str, Any] | None`,
+`Optional[dict]` and `list[dict[str, Any]]` carry the same weak type, and a
+qualified `typing.Any` reads as `Any`.
 - `TYPE-004` (advisory warning): a function with at least one annotated
   parameter that returns a real value in its own scope should also declare a
   return type. This is the high-signal completeness subset of ruff's `ANN`,
@@ -1346,7 +1567,7 @@ not close the hatches, they price them.
   future one*, so a line suppressed once quietly opts out of everything
   added since. Flagged regardless of budget.
 
-**Neither code can be silenced inline.** `lanorme.filtering` refuses
+**Neither code can be silenced inline.** `lanorme.filters` refuses
 `# noqa` and `# lanorme: ignore` for the `SUPPRESS` category, because a
 budget an offender can waive on the offending line is not a budget. They
 remain switchable in config, and that is the point: an escape belongs in a
@@ -1366,9 +1587,12 @@ The check must be enabled first. With `enabled = true` and the default
 today's count; set `max_total` to that number.
 
 Comments are read through `tokenize` and matched from the start of the
-comment, so a directive named in prose (`# lines up with --exclude and
-# noqa handling`) or quoted in a string is documentation, not an escape,
-and does not count against the budget.
+comment, so a directive named in prose (a sentence such as "lines up with
+`--exclude` and `# noqa` handling") or quoted in a string is documentation,
+not an escape, and does not count against the budget. Nor does a `noqa` whose
+codes all belong to another tool (`# noqa: E501`, `# noqa: S603`): it silences
+no LaNorme rule. A LaNorme code or category anywhere in the list
+(`# noqa: E501,DRY-001`) counts once.
 
 Config:
 ```toml
@@ -1387,9 +1611,9 @@ a regression that the `SUPPRESS` codes survive a `# noqa` naming them.
 ## Test coverage: `TESTFILE-001`
 
 Default-on warning. For each Python file under one of the hardwired
-production directories, verify that a matching `test_*.py` partner (by name
-or by import reference) exists under one of the configured test roots
-(`tests/integration/` by default). Note this is **file presence**, not
+production directories, verify that a matching test module (`test_*.py` or
+`*_test.py`, by name or by import reference, at any depth) exists under one
+of the configured test roots (`tests/integration/` by default). Note this is **file presence**, not
 coverage; it cannot tell you whether the test actually exercises the module.
 
 Findings are reported on the same path base as every other rule (relative to
@@ -1403,9 +1627,13 @@ Config:
 test_roots = ["tests/integration", "tests/unit"]
 ```
 
+The production directories are looked up under the top-level
+`[tool.lanorme] source_root` when one is set (`source_root = "src/myapp"`),
+else under the project root and then one level down (a `src/` layout).
 `test_roots` lists the directories (relative to the backend root, the parent
-of `src_root`) scanned for partner test files; it defaults to
-`["tests/integration"]`. The scanned production directories
+of that source directory) scanned recursively for partner test modules; it
+defaults to `["tests/integration"]`. `conftest.py`, fixtures and helpers
+under a root are not partners (see "Test files"). The scanned production directories
 (`api/v1/endpoints`, `application/services`, `application/commands`,
 `application/queries`, `infrastructure/repositories`,
 `infrastructure/signing`, `infrastructure/secrets`) and the exempt modules
@@ -1415,7 +1643,9 @@ of `src_root`) scanned for partner test files; it defaults to
 
 ## Test style: `AAA-001` / `AAA-002`
 
-Off until enabled.
+Off until enabled. Judges the `test_` functions (not fixtures) of collected
+test modules only, `test_*.py` or `*_test.py` (see "Test files");
+`conftest.py`, fixtures and helpers are never judged, even under `tests/`.
 
 - `AAA-001`: test functions with more than `min_statements` (default 3)
   body statements must carry at least `required_markers` (default 2) of

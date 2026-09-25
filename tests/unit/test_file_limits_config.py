@@ -28,6 +28,7 @@ from lanorme.checks.file_limits import (
     PARAM_WARN,
     FileLimitsCheck,
 )
+from lanorme.scan import Scan
 
 _DEFAULTS = {
     "file_warn_lines": FILE_WARN_LINES,
@@ -51,40 +52,40 @@ def run_with(tmp_path: Path):
         check = FileLimitsCheck()
         if settings:
             check.configure(settings=dict(settings))
-        return check.run(src_root=str(tmp_path))
+        return check.check(Scan(root=tmp_path))
 
     return _run
 
 
-def _codes(findings) -> set[str]:
+def _collect_codes(findings) -> set[str]:
     """The rule codes present in a finding list."""
     return {f.rule.split(":", 1)[0] for f in findings}
 
 
-def _module_of(lines: int) -> str:
+def _build_module_of(lines: int) -> str:
     """A module body of *lines* effective lines and nothing else notable."""
     return "\n".join(f"x{i} = {i}" for i in range(lines)) + "\n"
 
 
-def _function_of(lines: int) -> str:
+def _build_function_of(lines: int) -> str:
     """A single function whose body is *lines* effective lines (plus its def)."""
     body = "\n".join(f"    y{i} = {i}" for i in range(lines - 1))
     return f"def wide():\n{body}\n"
 
 
-def _class_of(methods: int) -> str:
+def _build_class_of(methods: int) -> str:
     """A class with *methods* methods."""
     body = "\n".join(f"    def m{i}(self):\n        pass" for i in range(methods))
     return f"class Wide:\n{body}\n"
 
 
-def _complexity_of(value: int) -> str:
+def _build_function_of_complexity(value: int) -> str:
     """A function whose cyclomatic complexity is exactly *value*."""
     branches = "\n".join(f"    if a == {i}:\n        pass" for i in range(value - 1))
     return f"def branchy(a):\n{branches}\n    return a\n"
 
 
-def _params_of(count: int) -> str:
+def _build_function_of_params(count: int) -> str:
     """A module-level function taking *count* parameters."""
     params = ", ".join(f"p{i}" for i in range(count))
     return f"def wide({params}):\n    return 0\n"
@@ -119,11 +120,12 @@ def test_setting_one_key_leaves_the_others_at_their_defaults(key: str) -> None:
     assert {k: getattr(check, k) for k in untouched} == untouched
 
 
-def test_configure_coerces_to_int() -> None:
-    # TOML gives ints, but configure() mirrors the comments check and coerces.
+def test_configure_refuses_a_string_where_an_int_is_expected() -> None:
+    # A quoted number is a config mistake, refused rather than coerced.
     check = FileLimitsCheck()
-    check.configure(settings={"param_error": "6"})
-    assert check.param_error == 6
+    with pytest.raises(TypeError, match="'param_error' must be an integer"):
+        check.configure(settings={"param_error": "6"})
+    assert check.param_error != 6
 
 
 def test_unknown_keys_are_ignored() -> None:
@@ -143,33 +145,33 @@ def test_unknown_keys_are_ignored() -> None:
 
 def test_raising_the_file_limit_clears_a_default_violation(run_with) -> None:
     # Arrange: a file over the default error threshold.
-    source = _module_of(520)
-    assert "SIZE-001" in _codes(run_with(source).violations)
+    source = _build_module_of(520)
+    assert "SIZE-001" in _collect_codes(run_with(source).violations)
 
     # Act
     relaxed = run_with(source, file_warn_lines=550, file_error_lines=600)
 
     # Assert
-    assert "SIZE-001" not in _codes(relaxed.violations)
-    assert "SIZE-001" not in _codes(relaxed.warnings)
+    assert "SIZE-001" not in _collect_codes(relaxed.violations)
+    assert "SIZE-001" not in _collect_codes(relaxed.warnings)
 
 
 def test_lowering_the_file_limit_fails_a_file_that_passed(run_with) -> None:
     # Arrange: a file comfortably inside the default limit.
-    source = _module_of(120)
-    assert "SIZE-001" not in _codes(run_with(source).violations)
+    source = _build_module_of(120)
+    assert "SIZE-001" not in _collect_codes(run_with(source).violations)
 
     # Act
     tightened = run_with(source, file_warn_lines=50, file_error_lines=100)
 
     # Assert
-    assert "SIZE-001" in _codes(tightened.violations)
+    assert "SIZE-001" in _collect_codes(tightened.violations)
 
 
 def test_configured_file_warn_band_reports_a_warning_not_a_violation(run_with) -> None:
-    result = run_with(_module_of(120), file_warn_lines=100, file_error_lines=200)
-    assert "SIZE-001" in _codes(result.warnings)
-    assert "SIZE-001" not in _codes(result.violations)
+    result = run_with(_build_module_of(120), file_warn_lines=100, file_error_lines=200)
+    assert "SIZE-001" in _collect_codes(result.warnings)
+    assert "SIZE-001" not in _collect_codes(result.violations)
 
 
 @pytest.mark.parametrize(
@@ -177,60 +179,62 @@ def test_configured_file_warn_band_reports_a_warning_not_a_violation(run_with) -
     [(99, False), (100, True)],
 )
 def test_configured_file_limit_fires_at_the_boundary(
-    run_with, effective: int, expected_violation: bool
+    run_with,
+    effective: int,
+    expected_violation: bool,
 ) -> None:
     # The comparison stays >=, so the limit itself is a violation.
-    result = run_with(_module_of(effective), file_warn_lines=10, file_error_lines=100)
-    assert ("SIZE-001" in _codes(result.violations)) is expected_violation
+    result = run_with(_build_module_of(effective), file_warn_lines=10, file_error_lines=100)
+    assert ("SIZE-001" in _collect_codes(result.violations)) is expected_violation
 
 
 def test_function_length_limit_is_configurable(run_with) -> None:
     # Arrange
-    source = _function_of(30)
-    assert "SIZE-002" not in _codes(run_with(source).violations)
+    source = _build_function_of(30)
+    assert "SIZE-002" not in _collect_codes(run_with(source).violations)
 
     # Act
     tightened = run_with(source, func_warn_lines=10, func_error_lines=20)
 
     # Assert
-    assert "SIZE-002" in _codes(tightened.violations)
+    assert "SIZE-002" in _collect_codes(tightened.violations)
 
 
 def test_class_method_limit_is_configurable(run_with) -> None:
     # Arrange
-    source = _class_of(6)
-    assert "SIZE-003" not in _codes(run_with(source).warnings)
+    source = _build_class_of(6)
+    assert "SIZE-003" not in _collect_codes(run_with(source).warnings)
 
     # Act
     tightened = run_with(source, class_method_warn=5)
 
     # Assert
-    assert "SIZE-003" in _codes(tightened.warnings)
+    assert "SIZE-003" in _collect_codes(tightened.warnings)
 
 
 def test_complexity_limit_is_configurable(run_with) -> None:
     # Arrange
-    source = _complexity_of(8)
-    assert "COMPLEXITY-001" not in _codes(run_with(source).violations)
+    source = _build_function_of_complexity(8)
+    assert "COMPLEXITY-001" not in _collect_codes(run_with(source).violations)
 
     # Act
     tightened = run_with(source, complexity_warn=3, complexity_error=5)
 
     # Assert
-    assert "COMPLEXITY-001" in _codes(tightened.violations)
+    assert "COMPLEXITY-001" in _collect_codes(tightened.violations)
 
 
 def test_parameter_limit_is_configurable(run_with) -> None:
     # Arrange
-    source = _params_of(4)
-    assert "PARAM-001" not in _codes(run_with(source).violations)
-    assert "PARAM-001" not in _codes(run_with(source).warnings)
+    source = _build_function_of_params(4)
+    assert "PARAM-001" not in _collect_codes(run_with(source).violations)
+    assert "PARAM-001" not in _collect_codes(run_with(source).warnings)
 
     # Act
     tightened = run_with(source, param_warn=2, param_error=3)
 
     # Assert
-    assert "PARAM-001" in _codes(tightened.violations)
+    assert "PARAM-001" in _collect_codes(tightened.violations)
 
 
 # --------------------------------------------------------------------------- #
@@ -241,15 +245,15 @@ def test_parameter_limit_is_configurable(run_with) -> None:
 def test_warn_above_error_collapses_the_warn_band(run_with) -> None:
     # 150 sits between the two, where the inverted pair describes no band. The
     # error threshold wins, so this is a violation rather than a warning.
-    result = run_with(_module_of(150), file_warn_lines=600, file_error_lines=100)
-    assert "SIZE-001" in _codes(result.violations)
-    assert "SIZE-001" not in _codes(result.warnings)
+    result = run_with(_build_module_of(150), file_warn_lines=600, file_error_lines=100)
+    assert "SIZE-001" in _collect_codes(result.violations)
+    assert "SIZE-001" not in _collect_codes(result.warnings)
 
 
 def test_warn_above_error_still_passes_below_the_error(run_with) -> None:
-    result = run_with(_module_of(50), file_warn_lines=600, file_error_lines=100)
-    assert "SIZE-001" not in _codes(result.violations)
-    assert "SIZE-001" not in _codes(result.warnings)
+    result = run_with(_build_module_of(50), file_warn_lines=600, file_error_lines=100)
+    assert "SIZE-001" not in _collect_codes(result.violations)
+    assert "SIZE-001" not in _collect_codes(result.warnings)
 
 
 # --------------------------------------------------------------------------- #
@@ -257,7 +261,7 @@ def test_warn_above_error_still_passes_below_the_error(run_with) -> None:
 # --------------------------------------------------------------------------- #
 
 
-def _rule_strings(result) -> set[str]:
+def _collect_rule_strings(result) -> set[str]:
     return {f.rule for f in [*result.violations, *result.warnings]}
 
 
@@ -265,15 +269,15 @@ def test_rule_strings_carry_no_threshold_number(run_with) -> None:
     # baseline.py anchors a file-level finding on a hash of its rule
     # description, so a number in the rule string would make every configured
     # project miss its own committed baseline entries. Guard the whole set.
-    result = run_with(_module_of(520), file_warn_lines=100, file_error_lines=200)
-    assert _rule_strings(result), "fixture produced no findings to inspect"
-    for rule in _rule_strings(result):
+    result = run_with(_build_module_of(520), file_warn_lines=100, file_error_lines=200)
+    assert _collect_rule_strings(result), "fixture produced no findings to inspect"
+    for rule in _collect_rule_strings(result):
         assert not any(char.isdigit() for char in rule.split(":", 1)[1]), rule
 
 
 def test_same_finding_keeps_its_rule_string_across_thresholds(run_with) -> None:
     # The regression for #58: tightening the limit must leave the anchor of an
     # already-recorded violation untouched.
-    strict = run_with(_module_of(520), file_error_lines=300)
-    looser = run_with(_module_of(520), file_error_lines=500)
-    assert _rule_strings(strict) == _rule_strings(looser)
+    strict = run_with(_build_module_of(520), file_error_lines=300)
+    looser = run_with(_build_module_of(520), file_error_lines=500)
+    assert _collect_rule_strings(strict) == _collect_rule_strings(looser)

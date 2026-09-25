@@ -14,14 +14,14 @@ from lanorme.checks.naming_words import (
     VERB_CAPABLE,
     VERB_ONLY,
     WEAK_VERBS,
+    find_leading_verb_index,
+    find_postposed_verb_index,
     is_noun_phrase,
     is_pascal_case,
     is_predicate,
     is_verb_capable,
-    leading_verb_index,
-    postposed_verb_index,
+    move_verb_first,
     split_name,
-    verb_first,
 )
 
 
@@ -51,9 +51,27 @@ def test_split_name(name: str, expected: list[str]) -> None:
 
 @pytest.mark.parametrize(
     "word",
-    ["parse", "matches", "applies", "simplify", "normalise", "validate", "reload",
-     "unquote", "deregister", "getheaders", "setdefault", "startswith", "aclose", "autobegin",
-     "mkdir", "rmtree", "chmod", "iteritems", "isdigit"],
+    [
+        "parse",
+        "matches",
+        "applies",
+        "simplify",
+        "normalise",
+        "validate",
+        "reload",
+        "unquote",
+        "deregister",
+        "getheaders",
+        "setdefault",
+        "startswith",
+        "aclose",
+        "autobegin",
+        "mkdir",
+        "rmtree",
+        "chmod",
+        "iteritems",
+        "isdigit",
+    ],
 )
 def test_words_that_read_as_verbs(word: str) -> None:
     assert is_verb_capable(word=word)
@@ -61,8 +79,25 @@ def test_words_that_read_as_verbs(word: str) -> None:
 
 @pytest.mark.parametrize(
     "word",
-    ["shell", "finding", "logger", "sorted", "violations", "cert", "layout", "user", "h1",
-     "password", "endpoint", "checksum", "template", "state", "noise", "settings", "getter"],
+    [
+        "shell",
+        "finding",
+        "logger",
+        "sorted",
+        "violations",
+        "cert",
+        "layout",
+        "user",
+        "h1",
+        "password",
+        "endpoint",
+        "checksum",
+        "template",
+        "state",
+        "noise",
+        "settings",
+        "getter",
+    ],
 )
 def test_words_that_do_not_read_as_verbs(word: str) -> None:
     assert not is_verb_capable(word=word)
@@ -84,7 +119,7 @@ def test_extra_verbs_extend_the_vocabulary() -> None:
     ],
 )
 def test_leading_verb_index_skips_modifiers_only(tokens: list[str], expected: int) -> None:
-    assert leading_verb_index(tokens=tokens) == expected
+    assert find_leading_verb_index(tokens=tokens) == expected
 
 
 @pytest.mark.parametrize(
@@ -101,7 +136,7 @@ def test_leading_verb_index_skips_modifiers_only(tokens: list[str], expected: in
     ],
 )
 def test_postposed_verb_index_takes_the_last_listed_verb(tokens: list[str], expected: int) -> None:
-    assert postposed_verb_index(tokens=tokens) == expected
+    assert find_postposed_verb_index(tokens=tokens) == expected
 
 
 @pytest.mark.parametrize(
@@ -113,7 +148,7 @@ def test_postposed_verb_index_takes_the_last_listed_verb(tokens: list[str], expe
     ],
 )
 def test_verb_first_keeps_prefix_modifiers_and_digits(name: str, index: int, expected: str) -> None:
-    assert verb_first(name=name, tokens=split_name(name=name), index=index) == expected
+    assert move_verb_first(name=name, tokens=split_name(name=name), index=index) == expected
 
 
 def test_predicates_carry_an_auxiliary() -> None:
@@ -150,3 +185,76 @@ def test_is_noun_phrase(tokens: list[str], expected: bool) -> None:
 )
 def test_is_pascal_case(name: str, expected: bool) -> None:
     assert is_pascal_case(name=name) is expected
+
+
+# --------------------------------------------------------------------------- #
+# Red-team additions: verbs the list lacked, nouns that end like verbs, predicates
+# --------------------------------------------------------------------------- #
+
+
+@pytest.mark.parametrize(
+    "word",
+    [
+        "refund",
+        "invite",
+        "debounce",
+        "enrol",
+        "enroll",
+        "redact",
+        "unban",
+        "rehydrate",
+        "backfill",
+        "autosave",
+    ],
+)
+def test_domain_verbs_read_as_verbs(word: str) -> None:
+    assert is_verb_capable(word=word)
+
+
+@pytest.mark.parametrize("word", ["enterprise", "premise", "chunksize", "bufsize", "candidate"])
+def test_nouns_that_end_like_verbs_do_not_read_as_verbs(word: str) -> None:
+    assert not is_verb_capable(word=word)
+
+
+@pytest.mark.parametrize("word", ["resize", "downsize", "denoise", "amortise", "memoize"])
+def test_verbs_that_share_a_noun_ending_still_read_as_verbs(word: str) -> None:
+    assert is_verb_capable(word=word)
+
+
+@pytest.mark.parametrize(
+    "tokens",
+    [
+        ["exists"],
+        ["matches", "pattern"],
+        ["contains"],
+        ["needs", "refresh"],
+        ["isdir"],
+        ["hasattr"],
+        ["does", "match"],
+    ],
+)
+def test_third_person_and_fused_predicates(tokens: list[str]) -> None:
+    assert is_predicate(tokens=tokens)
+
+
+@pytest.mark.parametrize(
+    "tokens",
+    [["empty"], ["valid"], ["check", "password"], ["match"], ["ready"]],
+)
+def test_non_predicates(tokens: list[str]) -> None:
+    assert not is_predicate(tokens=tokens)
+
+
+@pytest.mark.parametrize(
+    ("tokens", "expected"),
+    [
+        (["send", "failed"], True),
+        (["fetch", "aborted"], True),
+        (["delete", "behaviour"], True),
+        (["rotate", "direction"], True),
+        (["emit", "metrics"], False),
+        (["create", "permission"], False),
+    ],
+)
+def test_state_and_attribute_heads(tokens: list[str], expected: bool) -> None:
+    assert is_noun_phrase(tokens=tokens) is expected

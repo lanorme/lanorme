@@ -34,16 +34,15 @@ root-level and are applied once by the CLI pipeline.
 
 from __future__ import annotations
 
-import copy
-import os
-import sys
 import tomllib
 from collections.abc import Callable
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 
-from lanorme import Check, CheckResult, Status, Violation
-from lanorme.discovery import DEFAULT_PRUNE_DIRS
+from lanorme import Check, CheckResult, Violation, get_all_checks
+from lanorme.checkconfig import RUN_KEYS
+from lanorme.discovery import iter_dirs
+from lanorme.errors import ConfigError
 
 # A loaded TOML config: string keys to arbitrary scalar / list / table values.
 Config = dict[str, object]
@@ -53,7 +52,7 @@ DEDICATED_CONFIG_FILES: tuple[str, ...] = ("lanorme.toml", ".lanorme.toml")
 
 
 def read_toml(path: Path) -> Config:
-    """Parse *path*, exiting 2 with the file and the reason if it is not valid TOML.
+    """Parse *path*, raising :class:`ConfigError` with the reason if it is not valid TOML.
 
     A config file the user wrote by hand is a configuration error when it does
     not parse, not a crash, so it reports like every other usage error.
@@ -62,11 +61,32 @@ def read_toml(path: Path) -> Config:
         with path.open("rb") as handle:
             return tomllib.load(handle)
     except tomllib.TOMLDecodeError as error:
-        print(f"ERROR: {path} is not valid TOML: {error}", file=sys.stderr)
-        sys.exit(2)
+        raise ConfigError(f"{path} is not valid TOML: {error}", source=str(path)) from error
 
 
-def dedicated_config_file(directory: Path) -> Path | None:
+def reject_unknown_top_level_keys(*, config: dict[str, object], origin: str) -> None:
+    """Refuse a config whose top-level names neither a run key nor a check.
+
+    A misspelt run key (``selct``) or check table (``[tool.lanorme.file_limit]``)
+    was silently ignored, so the setting never applied and nothing said so.
+    Plugin checks are registered before this runs, so their tables count as
+    known. *origin* names the table for the message.
+    """
+    checks = get_all_checks()
+    unknown = sorted(key for key in config if key not in RUN_KEYS and key not in checks)
+    if not unknown:
+        return
+    listed = ", ".join(repr(key) for key in unknown)
+    raise ConfigError(
+        f"unknown key in {origin}: {listed}.\n"
+        f"  Run keys: {', '.join(sorted(RUN_KEYS))}.\n"
+        f"  Check tables: {', '.join(sorted(checks)) or '(none)'}.",
+        key=unknown[0],
+        source=origin,
+    )
+
+
+def find_dedicated_config(directory: Path) -> Path | None:
     """The ``lanorme.toml`` or ``.lanorme.toml`` in *directory*, or ``None``."""
     for name in DEDICATED_CONFIG_FILES:
         candidate = directory / name
@@ -83,9 +103,11 @@ def load_lanorme_config(directory: Path) -> Config | None:
     in the CLI. A ``pyproject.toml`` without that table is not a config source
     and yields ``None``.
     """
-    dedicated = dedicated_config_file(directory)
+    dedicated = find_dedicated_config(directory)
     if dedicated is not None:
-        return read_toml(dedicated)
+        config = read_toml(dedicated)
+        _reject_prefixed_table(path=dedicated, config=config)
+        return config
 
     pyproject = directory / "pyproject.toml"
     if pyproject.is_file():
@@ -94,6 +116,25 @@ def load_lanorme_config(directory: Path) -> Config | None:
             return tool_config
 
     return None
+
+
+def _reject_prefixed_table(*, path: Path, config: Config) -> None:
+    """Refuse a ``[tool.lanorme]`` table inside a dedicated config file.
+
+    The prefix is the ``pyproject.toml`` form; in ``lanorme.toml`` the keys
+    are top level. Written there, the table was silently ignored and the
+    whole config with it.
+    """
+    tool = config.get("tool")
+    if isinstance(tool, dict) and "lanorme" in tool:
+        raise ConfigError(
+            f"{path} holds a [tool.lanorme] table, but in a dedicated config file the "
+            "keys are top level.\n"
+            "  Write select = [...] and [file_limits] there, not [tool.lanorme] and "
+            "[tool.lanorme.file_limits]; the prefix belongs in pyproject.toml only.",
+            key="tool",
+            source=str(path),
+        )
 
 
 def merge_config(*, base: Config, override: Config) -> Config:
@@ -132,7 +173,7 @@ def _strip_root(config: Config) -> Config:
     return {key: value for key, value in config.items() if key != "root"}
 
 
-def _nearest_ancestor(*, directory: Path, candidates: list[Region]) -> Region | None:
+def _find_nearest_ancestor(*, directory: Path, candidates: list[Region]) -> Region | None:
     """Return the region whose directory is the closest proper ancestor of *directory*."""
     best: Region | None = None
     for candidate in candidates:
@@ -166,15 +207,17 @@ def discover_regions(
     scan_root = scan_root.resolve()
     regions = [Region(directory=scan_root, raw=root_config)]
 
-    for dirpath, dirnames, _filenames in os.walk(scan_root):
-        dirnames[:] = sorted(name for name in dirnames if name not in DEFAULT_PRUNE_DIRS)
-        here = Path(dirpath).resolve()
-        if here == scan_root:
-            continue
+    # The walk honours the run's excludes, so an excluded fixture tree that
+    # carries its own pyproject never becomes a region of its own, and the
+    # discovery scope, so a subtree scan finds only the regions on or under
+    # that subtree: the others govern no scanned file.
+    for directory in iter_dirs(scan_root):
+        here = directory.resolve()
         config = load_lanorme_config(here)
         if config:
             if resolve_extends is not None:
                 config = resolve_extends(config=config, project_root=here)
+            reject_unknown_top_level_keys(config=config, origin=_label_config(here))
             regions.append(Region(directory=here, raw=config))
 
     regions.sort(key=lambda region: len(region.directory.parts))
@@ -191,7 +234,7 @@ def _resolve_merged(*, region: Region, regions: list[Region]) -> Config:
         chain.append(node)
         if node.is_root:
             break
-        node = _nearest_ancestor(directory=node.directory, candidates=regions)
+        node = _find_nearest_ancestor(directory=node.directory, candidates=regions)
 
     merged: Config = {}
     for ancestor in reversed(chain):
@@ -199,8 +242,13 @@ def _resolve_merged(*, region: Region, regions: list[Region]) -> Config:
     return merged
 
 
-def child_exclude_globs(*, region: Region, regions: list[Region]) -> list[str]:
-    """Globs (relative to *region*) that prune every nested region below it.
+def build_child_exclude_globs(
+    *,
+    region: Region,
+    regions: list[Region],
+    scan_root: Path,
+) -> list[str]:
+    """Globs (relative to *scan_root*) that prune every nested region below *region*.
 
     Running a region's file-level pass with these excludes scopes it to the files
     it directly governs: each nested region's subtree is left to that region. The
@@ -212,10 +260,74 @@ def child_exclude_globs(*, region: Region, regions: list[Region]) -> list[str]:
         if candidate.directory == region.directory:
             continue
         if region.directory in candidate.directory.parents:
-            relative = candidate.directory.relative_to(region.directory).as_posix()
+            relative = candidate.directory.relative_to(scan_root.resolve()).as_posix()
             globs.append(relative)
             globs.append(f"{relative}/*")
     return globs
+
+
+def compute_region_prefix(*, region: Region, scan_root: Path) -> str:
+    """The region's directory relative to the scan root, posix, ``""`` at the root."""
+    resolved = scan_root.resolve()
+    if region.directory == resolved:
+        return ""
+    return region.directory.relative_to(resolved).as_posix()
+
+
+@dataclass(frozen=True)
+class DiscoveredConfig:
+    """The configuration in force at a scan path, and where it came from."""
+
+    config: Config
+    project_root: Path
+    source: str | None
+    extends: object
+
+
+def discover_config(*, start: Path, resolve_extends: Callable[..., Config]) -> DiscoveredConfig:
+    """Walk up from *start* and fold every config on the way into one.
+
+    The project root is the outermost directory carrying a config, or the
+    first one below it that declares ``root = true``; every config between it
+    and *start* is a region whose settings cascade over the ones above, the
+    same as when the whole tree is scanned. So ``lanorme check tests`` under a
+    ``tests/lanorme.toml`` applies the project's config with the subtree's
+    overrides, not the subtree's file alone.
+    """
+    start = start.resolve()
+    search_dir = start if start.is_dir() else start.parent
+    chain: list[tuple[Path, Config]] = []
+    for directory in (search_dir, *search_dir.parents):
+        config = load_lanorme_config(directory)
+        if config is None:
+            continue
+        chain.append((directory, config))
+        if config.get("root"):
+            break
+    if not chain:
+        return DiscoveredConfig(config={}, project_root=search_dir, source=None, extends=None)
+
+    merged: Config = {}
+    for directory, config in reversed(chain):
+        resolved = resolve_extends(config=config, project_root=directory)
+        merged = merge_config(base=merged, override=_strip_root(resolved))
+    outer_dir, outer_config = chain[-1]
+    labels = [_label_config(directory) for directory, _config in reversed(chain)]
+    source = labels[0] + (f" (+ nested: {', '.join(labels[1:])})" if len(labels) > 1 else "")
+    return DiscoveredConfig(
+        config=merged,
+        project_root=outer_dir,
+        source=source,
+        extends=outer_config.get("extends"),
+    )
+
+
+def _label_config(directory: Path) -> str:
+    """How ``--show-config`` names the config file found in *directory*."""
+    dedicated = find_dedicated_config(directory)
+    if dedicated is not None:
+        return str(dedicated)
+    return f"{directory / 'pyproject.toml'} [tool.lanorme]"
 
 
 def is_tree_scoped(check: Check) -> bool:
@@ -223,54 +335,26 @@ def is_tree_scoped(check: Check) -> bool:
     return getattr(check, "scope", "file") == "tree"
 
 
-def snapshot_defaults(checks: dict[str, Check]) -> dict[str, Config]:
-    """Capture each check's declared defaults so the runner can reset between regions.
-
-    Checks are configured-once singletons whose ``configure()`` mutates instance
-    attributes in place and never resets them, so running regions in sequence
-    would leak one region's settings into the next. The defaults are read from a
-    freshly constructed instance rather than the live one: across repeated CLI
-    invocations in a single process (the test suite, a server) the live singleton
-    is already configured from an earlier run, so its state is not pristine. A
-    check that cannot be reconstructed with no arguments falls back to its current
-    state.
-    """
-    snapshot: dict[str, Config] = {}
-    for name, check in checks.items():
-        try:
-            defaults = type(check)().__dict__
-        except Exception:  # noqa: BLE001 - an exotic check keeps its current state
-            defaults = check.__dict__
-        snapshot[name] = copy.deepcopy(defaults)
-    return snapshot
-
-
-def restore_defaults(*, checks: dict[str, Check], snapshot: dict[str, Config]) -> None:
-    """Reset each check's instance state to the captured pristine snapshot."""
-    for name, check in checks.items():
-        if name in snapshot:
-            check.__dict__.clear()
-            check.__dict__.update(copy.deepcopy(snapshot[name]))
-
-
 def combine_results(*, existing: CheckResult | None, addition: CheckResult) -> CheckResult:
     """Fold one region's result for a check into the running total for that check.
 
     A file-level check runs once per region, so its findings arrive in pieces;
-    this concatenates them and recomputes the status from the combined set.
+    this concatenates them; the status follows from the combined set.
     """
     if existing is None:
         return addition
-    violations = existing.violations + addition.violations
-    warnings = existing.warnings + addition.warnings
-    status = Status.FAIL if violations else (Status.WARN if warnings else Status.PASS)
-    return CheckResult(
-        check=addition.check, status=status, violations=violations, warnings=warnings
+    return CheckResult.from_findings(
+        check=addition.check,
+        violations=existing.violations + addition.violations,
+        warnings=existing.warnings + addition.warnings,
     )
 
 
 def reanchor_results(
-    *, results: list[CheckResult], from_root: Path, to_root: Path
+    *,
+    results: list[CheckResult],
+    from_root: Path,
+    to_root: Path,
 ) -> list[CheckResult]:
     """Re-express finding paths from *from_root*-relative to *to_root*-relative.
 
@@ -298,9 +382,8 @@ def reanchor_results(
         rebuilt.append(
             CheckResult(
                 check=result.check,
-                status=result.status,
                 violations=[relocate(v) for v in result.violations],
                 warnings=[relocate(w) for w in result.warnings],
-            )
+            ),
         )
     return rebuilt

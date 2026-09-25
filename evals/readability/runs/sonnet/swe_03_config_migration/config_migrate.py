@@ -84,14 +84,17 @@ class ConfigMigrationError(ValueError):
 
 
 def _require_keys(
-    obj: dict[str, Any], required: set[str], known: set[str], label: str
+    obj: dict[str, Any],
+    required: set[str],
+    known: set[str],
+    label: str,
 ) -> None:
     if not isinstance(obj, dict):
         raise ConfigMigrationError(f"{label}: expected an object, got {obj!r}")
     missing = sorted(required - obj.keys())
     if missing:
         raise ConfigMigrationError(
-            f"{label}: missing required key(s): {', '.join(missing)}"
+            f"{label}: missing required key(s): {', '.join(missing)}",
         )
     unknown = sorted(obj.keys() - known)
     if unknown:
@@ -107,7 +110,7 @@ def _validate_port(port: Any, label: str) -> None:
         raise ConfigMigrationError(f"{label}: port must be an integer, got {port!r}")
     if not (1 <= port <= 65535):
         raise ConfigMigrationError(
-            f"{label}: port {port} is out of range (must be 1-65535)"
+            f"{label}: port {port} is out of range (must be 1-65535)",
         )
 
 
@@ -115,21 +118,21 @@ def _validate_log_level(log_level: Any, label: str) -> None:
     if not isinstance(log_level, str) or log_level.lower() not in ALLOWED_LOG_LEVELS:
         allowed = ", ".join(sorted(ALLOWED_LOG_LEVELS))
         raise ConfigMigrationError(
-            f"{label}: unknown log level {log_level!r} (expected one of: {allowed})"
+            f"{label}: unknown log level {log_level!r} (expected one of: {allowed})",
         )
 
 
 def _validate_workers(workers: Any, label: str) -> None:
     if not _is_plain_int(workers) or workers < 1:
         raise ConfigMigrationError(
-            f"{label}: workers must be a positive integer, got {workers!r}"
+            f"{label}: workers must be a positive integer, got {workers!r}",
         )
 
 
 def _validate_positive_number(value: Any, label: str, what: str) -> None:
     if isinstance(value, bool) or not isinstance(value, (int, float)) or value <= 0:
         raise ConfigMigrationError(
-            f"{label}: {what} must be a positive number, got {value!r}"
+            f"{label}: {what} must be a positive number, got {value!r}",
         )
 
 
@@ -155,7 +158,7 @@ def _parse_db_url(url: Any, label: str) -> dict[str, Any]:
         port = parsed.port
     except ValueError as exc:
         raise ConfigMigrationError(
-            f"{label}: unparseable database URL {url!r}: {exc}"
+            f"{label}: unparseable database URL {url!r}: {exc}",
         ) from exc
 
     driver = parsed.scheme
@@ -165,7 +168,7 @@ def _parse_db_url(url: Any, label: str) -> dict[str, Any]:
         raise ConfigMigrationError(f"{label}: unparseable database URL {url!r}")
     if port is None:
         raise ConfigMigrationError(
-            f"{label}: unparseable database URL {url!r}: missing port"
+            f"{label}: unparseable database URL {url!r}: missing port",
         )
 
     return {
@@ -186,7 +189,7 @@ def _validate_service(service: Any, label: str) -> None:
     _require_keys(listen, {"host", "port"}, {"host", "port"}, f"{label}.service.listen")
     if not isinstance(listen["host"], str) or not listen["host"]:
         raise ConfigMigrationError(
-            f"{label}.service.listen: host must be a non-empty string"
+            f"{label}.service.listen: host must be a non-empty string",
         )
     _validate_port(listen["port"], f"{label}.service.listen")
 
@@ -196,7 +199,7 @@ def _validate_database(database: Any, label: str) -> None:
     _require_keys(database, required, required, f"{label}.database")
     if not isinstance(database["driver"], str) or not database["driver"]:
         raise ConfigMigrationError(
-            f"{label}.database: driver must be a non-empty string"
+            f"{label}.database: driver must be a non-empty string",
         )
     if not isinstance(database["host"], str) or not database["host"]:
         raise ConfigMigrationError(f"{label}.database: host must be a non-empty string")
@@ -205,7 +208,10 @@ def _validate_database(database: Any, label: str) -> None:
         raise ConfigMigrationError(f"{label}.database: name must be a non-empty string")
     credentials = database["credentials"]
     _require_keys(
-        credentials, {"user", "password"}, {"user", "password"}, f"{label}.database.credentials"
+        credentials,
+        {"user", "password"},
+        {"user", "password"},
+        f"{label}.database.credentials",
     )
 
 
@@ -223,7 +229,7 @@ def detect_version(config: Any) -> int:
     if schema_version is not None:
         if schema_version not in (2, 3):
             raise ConfigMigrationError(
-                f"unsupported schema_version: {schema_version!r} (expected 2 or 3)"
+                f"unsupported schema_version: {schema_version!r} (expected 2 or 3)",
             )
         return int(schema_version)
 
@@ -258,7 +264,7 @@ def migrate_v1_to_v3(config: dict[str, Any]) -> dict[str, Any]:
     features_raw = config["features"]
     if not isinstance(features_raw, str):
         raise ConfigMigrationError(
-            f"{label}: features must be a comma-separated string, got {features_raw!r}"
+            f"{label}: features must be a comma-separated string, got {features_raw!r}",
         )
     names = [part.strip() for part in features_raw.split(",")]
     features = _parse_feature_names(names, label)
@@ -295,7 +301,7 @@ def migrate_v2_to_v3(config: dict[str, Any]) -> dict[str, Any]:
     features_raw = config["features"]
     if not isinstance(features_raw, list):
         raise ConfigMigrationError(
-            f"{label}: features must be a list of strings, got {features_raw!r}"
+            f"{label}: features must be a list of strings, got {features_raw!r}",
         )
     features = _parse_feature_names(features_raw, label)
 
@@ -322,7 +328,7 @@ def validate_v3(config: dict[str, Any]) -> dict[str, Any]:
 
     if "schema_version" in config and config["schema_version"] != 3:
         raise ConfigMigrationError(
-            f"{label}: schema_version must be 3, got {config['schema_version']!r}"
+            f"{label}: schema_version must be 3, got {config['schema_version']!r}",
         )
 
     _validate_service(config["service"], label)
@@ -334,18 +340,20 @@ def validate_v3(config: dict[str, Any]) -> dict[str, Any]:
     timeouts = runtime["timeouts"]
     _require_keys(timeouts, {"request_ms"}, {"request_ms"}, f"{label}.runtime.timeouts")
     _validate_positive_number(
-        timeouts["request_ms"], f"{label}.runtime.timeouts", "request_ms"
+        timeouts["request_ms"],
+        f"{label}.runtime.timeouts",
+        "request_ms",
     )
 
     features = config["features"]
     if not isinstance(features, dict) or not features:
         raise ConfigMigrationError(
-            f"{label}: features must be a non-empty object of booleans"
+            f"{label}: features must be a non-empty object of booleans",
         )
     for key, value in features.items():
         if not isinstance(value, bool):
             raise ConfigMigrationError(
-                f"{label}.features: {key!r} must be a boolean, got {value!r}"
+                f"{label}.features: {key!r} must be a boolean, got {value!r}",
             )
 
     observability = config["observability"]
@@ -379,7 +387,10 @@ def _format_diff(before: Any, after: Any) -> str:
     before_lines = json.dumps(before, indent=2, sort_keys=True).splitlines(keepends=True)
     after_lines = json.dumps(after, indent=2, sort_keys=True).splitlines(keepends=True)
     diff = difflib.unified_diff(
-        before_lines, after_lines, fromfile="before (as given)", tofile="after (v3)"
+        before_lines,
+        after_lines,
+        fromfile="before (as given)",
+        tofile="after (v3)",
     )
     return "".join(diff)
 

@@ -105,7 +105,7 @@ CONFIG_KEYS: tuple[ConfigKey, ...] = (
         name="extends",
         toml_type="string or list of strings",
         json_schema={
-            "oneOf": [{"type": "string"}, {"type": "array", "items": {"type": "string"}}]
+            "oneOf": [{"type": "string"}, {"type": "array", "items": {"type": "string"}}],
         },
         default="none",
         feature="Profiles",
@@ -125,9 +125,9 @@ CONFIG_KEYS: tuple[ConfigKey, ...] = (
         name="source_root",
         toml_type="string (path)",
         json_schema={"type": "string"},
-        default="the scan root",
+        default="the project root",
         feature="Architecture",
-        summary="The top-level package directory when ports, adapters and layers live under a nested package; the architecture checks interpret their paths relative to it, and `AUTHN-001` finds the `api/` layer under it.",
+        summary="The top-level package directory when ports, adapters and layers live under a nested package; the architecture checks interpret their paths relative to it, `AUTHN-001` finds the `api/` layer under it, and `TESTFILE-001` its production directories.",
         example='source_root = "src/myapp"',
     ),
     ConfigKey(
@@ -188,33 +188,32 @@ def render_schema() -> str:
     return json.dumps(schema, indent=2) + "\n"
 
 
-def _per_directory_section() -> list[str]:
+def _render_per_directory_section() -> list[str]:
     """The configuration reference's section on cascading per-directory config."""
     return [
-            "## Per-directory config",
-            "",
-            "Any directory below the scan root that carries its own config file (a",
-            "`lanorme.toml`, a `.lanorme.toml`, or a `pyproject.toml` with a `[tool.lanorme]`",
-            "table) is a region: the files beneath it are checked under that config. A nested",
-            "region inherits every setting from the regions above it and overrides only the",
-            "keys it sets, table by table and key by key, so one subtree can tighten or relax",
-            "a threshold without restating the whole config. `root = true` in a nested file",
-            "stops the inheritance, so the subtree stands alone.",
-            "",
-            "```toml",
-            "# legacy/lanorme.toml: looser limits for the old tree only",
-            "[file_limits]",
-            "func_warn_lines = 80",
-            "```",
-            "",
-            "Cascading governs per-check settings and `source_root`. The run-level filters",
-            "(`select`, `ignore`, `exclude`, `per-file-ignores`, `promote`) are read once at",
-            "the root and apply to the whole run. Checks that compare files across the tree",
-            "(`duplication`, `test_coverage`, `layer_deps`, `port_coverage`, `docs`, `meta`)",
-            "run once at the scan root under the root config, so a region cannot relax them",
-            "for its own subtree. `--check <name>` runs that one check at the root config too,",
-            "without cascading.",
-            "",
+        "## Per-directory config",
+        "",
+        "Any directory below the project root that carries its own config file (a",
+        "`lanorme.toml`, a `.lanorme.toml`, or a `pyproject.toml` with a `[tool.lanorme]`",
+        "table) is a region: the files beneath it are checked under that config. A nested",
+        "region inherits every setting from the regions above it and overrides only the",
+        "keys it sets, table by table and key by key, so one subtree can tighten or relax",
+        "a threshold without restating the whole config. `root = true` in a nested file",
+        "stops the inheritance, so the subtree stands alone.",
+        "",
+        "```toml",
+        "# legacy/lanorme.toml: looser limits for the old tree only",
+        "[file_limits]",
+        "func_warn_lines = 80",
+        "```",
+        "",
+        "Cascading governs per-check settings and `source_root`. The run-level filters",
+        "(`select`, `ignore`, `exclude`, `per-file-ignores`, `promote`) are read once at",
+        "the root and apply to the whole run. Checks that compare files across the tree",
+        "(`duplication`, `test_coverage`, `layer_deps`, `port_coverage`, `docs`, `meta`)",
+        "run once at the project root under the root config, so a region cannot relax",
+        "them for its own subtree. `--check <name>` cascades exactly like a full run.",
+        "",
     ]
 
 
@@ -232,16 +231,20 @@ def render_config_reference() -> str:
         "`lanorme.toml` / `.lanorme.toml`. **The table header differs between the two.** In",
         "`pyproject.toml` every key sits under `[tool.lanorme]`, and a per-check table under",
         "`[tool.lanorme.<check>]`. In a standalone `lanorme.toml` the prefix is dropped: keys",
-        "are top-level (`promote = [\"TYPE-004\"]`) and a sub-table is bare (`[per-file-ignores]`,",
+        'are top-level (`promote = ["TYPE-004"]`) and a sub-table is bare (`[per-file-ignores]`,',
         "`[prose]`). The examples below show the `pyproject.toml` form; a `[tool.lanorme]` prefix",
-        "written inside a `lanorme.toml` is silently ignored. Keys also have command-line",
-        "equivalents (`--select`, `--ignore`); the command line wins over config.",
+        "written inside a `lanorme.toml` is a configuration error (exit `2`), as is any",
+        "top-level key that is neither one of the keys below nor the name of a check. Keys",
+        "also have command-line equivalents (`--select`, `--ignore`); the command line wins",
+        "over config.",
         "",
         "| Key | Type | Default | Feature |",
         "| --- | --- | --- | --- |",
     ]
     for key in CONFIG_KEYS:
-        lines.append(f"| [`{key.name}`](#{key.name}) | {key.toml_type} | {key.default} | {key.feature} |")
+        lines.append(
+            f"| [`{key.name}`](#{key.name}) | {key.toml_type} | {key.default} | {key.feature} |",
+        )
     lines.append("")
     for key in CONFIG_KEYS:
         lines.extend(
@@ -254,9 +257,9 @@ def render_config_reference() -> str:
                 key.example,
                 "```",
                 "",
-            ]
+            ],
         )
-    lines.extend(_per_directory_section())
+    lines.extend(_render_per_directory_section())
     lines.extend(
         [
             "## Per-check settings",
@@ -274,7 +277,7 @@ def render_config_reference() -> str:
             'composition_root = ["api/dependencies.py"]',
             "```",
             "",
-        ]
+        ],
     )
     return "\n".join(lines)
 
@@ -307,16 +310,36 @@ def render_rules_index() -> str:
 # Pages listed in llms.txt, in reading order. (path-under-docs, title, blurb).
 LLMS_PAGES: tuple[tuple[str, str, str], ...] = (
     ("index.md", "Overview", "What LaNorme is and the precision-first principle."),
-    ("tutorials/adopt-on-existing-codebase.md", "Tutorial: adopt on an existing codebase", "Two-command baseline onboarding for a brownfield repo."),
-    ("how-to/configure-checks.md", "How-to: configure checks", "Select, ignore, exclude, per-file-ignores and noqa."),
-    ("how-to/promote-warnings.md", "How-to: promote warnings to errors", "Make advisory rules build-failing."),
-    ("how-to/use-profiles.md", "How-to: use profiles", "Adopt strict and the architecture presets via extends."),
+    (
+        "tutorials/adopt-on-existing-codebase.md",
+        "Tutorial: adopt on an existing codebase",
+        "Two-command baseline onboarding for a brownfield repo.",
+    ),
+    (
+        "how-to/configure-checks.md",
+        "How-to: configure checks",
+        "Select, ignore, exclude, per-file-ignores and noqa.",
+    ),
+    (
+        "how-to/promote-warnings.md",
+        "How-to: promote warnings to errors",
+        "Make advisory rules build-failing.",
+    ),
+    (
+        "how-to/use-profiles.md",
+        "How-to: use profiles",
+        "Adopt strict and the architecture presets via extends.",
+    ),
     ("how-to/write-a-check.md", "How-to: write a check", "Add a custom rule as a plugin."),
     ("reference/configuration.md", "Reference: configuration", "Every [tool.lanorme] key."),
     ("RULES.md", "Reference: rules", "What every rule catches and how to configure it."),
     ("reference/rules-index.md", "Reference: rule index", "Code to check mapping."),
     ("reference/cli.md", "Reference: CLI", "Every command and flag."),
-    ("explanation/precision-first.md", "Explanation: precision-first", "Why a false positive is the cardinal sin."),
+    (
+        "explanation/precision-first.md",
+        "Explanation: precision-first",
+        "Why a false positive is the cardinal sin.",
+    ),
 )
 
 

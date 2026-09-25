@@ -9,6 +9,382 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
 
 ## [Unreleased]
 
+## [0.21.0]
+
+### Added
+
+- Findings carry their position: `column`, `end_line` and `end_column` in the
+  JSON and ndjson records (from the AST node a check reports), a `scope`
+  (`file`, `line` or `span`), a `promoted` flag, and a `fingerprint` that is
+  stable across edits elsewhere in the file. GitHub annotations use the span.
+- `--output-format summary` prints the totals and the counts by code and by
+  top-level directory, for trees too large to read finding by finding.
+- The concise summary says what a clean run would otherwise hide: findings
+  suppressed inline, by `per-file-ignores` and by the baseline; opt-in checks
+  that are not enabled; and, past 25 errors with no baseline, the adoption tip.
+- `lanorme rules --json` and `lanorme rule CODE --json` for tooling. `rule`
+  opens with the declared rule string, its check and opt-in state.
+- `--show-config` lists the TOML keys each check reads (`keys:`), and when no
+  config is found says which files it looked for.
+- `--check NAME` on an opt-in check that is not enabled says so on stderr.
+- `lanorme.errors.UsageError`: a usage or configuration mistake raised from the
+  library, mapped to `ERROR: ...` and exit 2 in one place by the CLI.
+  Diagnostics go through the `lanorme` logger (stderr); findings stay on
+  stdout.
+- Ruff enforces trailing commas and formatting (dev dependency, the gates, the
+  pre-commit hooks). LaNorme itself is checked with Clean Code naming
+  (`NAMING-009..011`) enabled and promoted: every function is named for what
+  it does.
+- `lanorme.errors.ConfigError`, the `UsageError` for a mistake in a config file
+  or table, carrying the offending `key` and the `source` it was written in;
+  the typed readers raise `lanorme.checkconfig.SettingError` (a `TypeError`).
+- `lanorme.scan.Scan`, the run context (root, subtree scope, exclude globs and
+  the run's parse cache) that discovery and `lanorme.sources` read from a
+  context variable; `run_check(check, scan=scan)` runs a check by hand under it.
+- `check(self, scan: Scan) -> CheckResult` is the entry point of the `Check`
+  protocol: a check receives the scan for its pass, active for the call.
+  `lanorme.run_check` and `lanorme.run_all` take `scan=`; `src_root=` still
+  works and runs over that path under the scan in force.
+- Shared views on `Module`: `comments`, `docstrings` (with `find_docstring`),
+  `imports` and `has_complete_comments`, computed once per file per run; an
+  `UnparseableFile` keeps its decoded `source`.
+- `lanorme.astnames` (`find_decorator_leaf`, `list_decorator_leaves`,
+  `build_attr_chain`, `read_str_constant`) for plugin checks.
+- `lanorme.Registry` (`get_registry()`), whose `build_configured(config)` gives
+  configured deep copies of the registered checks.
+- `lanorme.reports.format_violation` and `format_result`, the human rendering.
+- The evals keep every heuristic score honest. Each labelled corpus has a
+  `dev/` split rules may be tuned against and a sealed `holdout/` split; a
+  file's split is recorded per file in `labels.json` when it is added and
+  never moves, and the hash of its name only proposes a split for a new file.
+  Every label carries its provenance and a hash of the line it labels, and
+  `evals/validate_corpora.py --stamp` fills in a missing split or line hash.
+  `evals/validate_corpora.py` fails on an unlabelled file or comment, a label
+  with no line hash or one that drifted off its line, a positive under
+  `negatives/`, a `positives/` file with no positive, a misplaced file or
+  missing provenance.
+  `evals/generate_adversarial.py` writes seeded holdout cases whose labels come
+  from the edit that made them, never from a rule. The audit reports dev,
+  holdout and the gap per rule, records a digest of every holdout file, and
+  with `--gate latest` fails on a holdout file removed or changed since the
+  baseline, or on a holdout precision or recall more than 0.02 below the best
+  any release reached on the same holdout files (not merely the latest), and
+  prints a note when it had nothing to gate. An optional
+  `evals/holdout_revisions.json` accepts a deliberate holdout edit: one exact
+  new digest per file, with a reason. `scripts/check.sh` and
+  `scripts/release.sh` run that gate.
+
+### Changed
+
+- `CheckResult.status` is derived from the findings: any violation is `FAIL`,
+  else any warning is `WARN`, else `PASS`. A result can no longer disagree
+  with its own findings, and every filter, merge and re-anchor step that used
+  to recompute the status now carries the findings alone.
+- Every built-in check implements `check(scan)` and no longer has a
+  `run(*, src_root)` method. Findings are unchanged.
+- Every check that treats test code differently now shares one definition
+  of a test file, `lanorme.paths`: a module pytest collects by name
+  (`test_*.py` or `*_test.py`, wherever it lives), test support
+  (`conftest.py` anywhere; a `fixtures` or `factories` module or package
+  inside a tests directory), or anything under a `tests/` or `test/`
+  directory. `KWARG-001`, `DRY-001`, `SIZE-*`, `COMPLEXITY-001`, `PARAM-001`,
+  `SIMILAR-001`, `SECRETPY-001`, `SQL-001`, `IMPORT-001`, `NAMING-005`,
+  `CMT-006`, `CMT-007` and the `TERM` rules used to exempt only a `test_`
+  filename prefix (some also `conftest.py`), so a `tests/helpers.py` or a
+  fixture under `tests/fixtures/` was judged as production code;
+  `TYPE-001..004` and `STALE-001` exempted only a `tests/` directory, so a
+  `test/` suite or a `test_*.py` beside code was judged; `ATTR-001` and
+  `ATTR-002` already combined the two. All of them now exempt the union.
+  On LaNorme's own tree the change removes two advisory `TYPE-001`
+  findings and adds none: the production modules
+  `src/lanorme/checks/test_coverage.py` and `test_style.py` carry the
+  `test_` stem pytest collects, so the union now exempts them, the known
+  cost stated under "Test files" in `docs/RULES.md`.
+- `AAA-001` and `AAA-002` judge exactly the modules the shared definition
+  calls collected tests; the behaviour is unchanged.
+- `TESTFILE-001` now finds partner tests recursively under each configured
+  test root and accepts the `*_test.py` shape, so a module whose test lives
+  in a nested package (`tests/integration/api/test_users.py`) is no longer
+  reported as untested. `conftest.py`, fixtures and helpers under the root
+  are not partners.
+- `SIMILAR-001` states what it reports: two functions that carry out the same
+  operations in the same control-flow positions and agree on their string
+  literals and called names, differing only in names, numbers and one or two
+  inserted, removed or reordered statements. Bodies are compared statement by
+  statement, so a flipped operator, a statement moved into a new branch or a
+  changed callee no longer passes as drift, and a statement added with new
+  strings or calls no longer blocks a clone. A call through a parameter or
+  local variable is abstracted with the variable. The docstring no longer
+  counts towards `min_statements`. Defaults: `op_jaccard` and `call_jaccard`
+  are 1.0 (every operation and callee kept); the measure behind the
+  `op_jaccard`, `call_jaccard` and `str_jaccard` keys is the share of the
+  smaller side that the other side carries, not a Jaccard. Thresholds are
+  derived on the dev split of the corpus only; the documented numbers are the
+  holdout split's.
+- `DRY-001` keeps the name a call targets when it normalises a body, as it
+  already keeps attribute names: `min` against `max`, or `any` against `all`,
+  is a different operation, not a renamed variable. A call to a name the
+  function binds itself (a parameter, a local variable, a nested definition)
+  is abstracted with that name, so renaming a called local no longer defeats
+  the match; builtins and imports stay literal. A leading docstring no longer
+  counts towards the five-statement floor, nor splits a clone.
+- `SIZE-002` leaves the docstring out of a function's effective lines, and
+  `PARAM-001` excludes `mcs` / `metacls` as it does `self` / `cls`.
+- `KWARG-001` exempts methods decorated `@override`, `@typing.override` or
+  `@typing_extensions.override`, whose signature the base class fixes. A
+  called decorator such as Django's `@translation.override("fr")` is not one.
+- `TYPE-001` / `TYPE-002` / `TYPE-003` see through `| None`, `Optional[...]`
+  and other generic wrappers to the weak container inside, and read a
+  qualified `typing.Any` as `Any`.
+- `ATTR-001` / `ATTR-002` exempt `hasattr` on a receiver bound by a plain
+  `import` (`hasattr(os, "fork")`), and `getattr` on one with a literal name:
+  feature detection on a module, not duck typing. A `setattr` or `delattr` on
+  a module is still reported.
+- The security call rules (`SHELL-001`, `DESERIAL-001`, `EVAL-001`,
+  `CRYPTO-001`, `TLS-001`, `DEBUG-001`) see a call through the module's
+  imports (`from subprocess import run as sh` is `subprocess.run`), and treat
+  a name as shadowed only when the rebinding is visible at the call under
+  Python's scoping: at module level, or in the calling function or a function
+  around it. A method name never shadows a global, so a method named `exec`
+  leaves a module-level `exec(code)` reported, and neither does another
+  function's parameter named `sp` shadow `import subprocess as sp`.
+- `CRYPTO-001` honours `usedforsecurity=False` on `hashlib.new("md5"/"sha1",
+  ...)` as it does on `hashlib.md5` / `hashlib.sha1`. Only a literal `False`
+  silences it: a `usedforsecurity=` value that is not a literal still fires,
+  since it may be `True`.
+- `AUTHN-001` finds an auth dependency as the parameter default itself
+  (`user: User = Depends(get_current_user)`) and in the decorator's
+  `dependencies=[...]` list as well as in a parameter annotation, and counts
+  only a `Depends(...)` or `Security(...)` whose declared dependency (the first
+  argument, or `dependency=`) is named exactly `get_current_user` or starts
+  with `require_`. `Depends(get_current_user_optional)`, an auth name passed
+  as some other argument, or a marker nested inside another call in a default
+  does not satisfy it.
+- `SQL-001` resolves a bare name only to a module-level string constant or to
+  a string assigned in the same function, never to a parameter, so a
+  parameter named like a constant elsewhere in the file is not read as that
+  SQL.
+- `NAMING-008` leaves a method alone as a possible override only when its
+  class may inherit the name: through an external base, or a base in the same
+  module that has one or defines the same method. A method on a class built
+  only on `object`, `ABC`, `Generic`, `Protocol`, `NamedTuple`, `TypedDict` or
+  the `Enum` family is judged.
+- `SUPPRESS-001` no longer counts a `noqa` whose codes all belong to another
+  tool (`# noqa: E501`); it silences no LaNorme rule.
+- `JUNK-001` matches `core.[0-9]*` rather than `core.*`, so a `core.py`
+  module is not a core dump, and adds `.coverage.*` (parallel-mode data).
+  `JUNK-002` treats `fixtures/` and `resources/` as asset directories.
+- `LAYER-*` resolves a relative import against the importing package, so
+  `from .application import X` inside `domain/` is a sibling, not a layer.
+  `api/dependencies.py`, `api/deps.py` and their `v1/` forms join the default
+  composition root of `layer_deps` and `port_coverage`.
+- `PORT-001` skips private modules (`_retry.py`) under the adapter roots.
+- `TESTFILE-001` credits an import only on whole dotted segments, so
+  `services.billing` no longer covers `services/bill.py`.
+- Every source file is read and parsed once per run and shared by all checks
+  (`lanorme.sources`), and the `meta` self-check audits the results the other
+  checks already produced instead of running them all a second time. A full
+  `lanorme check .` on this repository takes under half the time it did.
+- Files are decoded the way the interpreter decodes them: a UTF-8 BOM and a
+  `coding:` cookie are honoured, so a file that runs is a file that is scanned.
+  Previously such files were reported as parse errors or skipped by every
+  check, including `secrets`.
+- Advisory findings print as `WARNING:` in the human output; `VIOLATION:` is
+  reserved for errors. The concise summary gains a second line with the
+  finding totals (`Findings: N errors to fix, M advisory warnings.`) and says
+  `warned` rather than `warnings` for the check count.
+- `lanorme check <path> --check NAME` honours cascading per-directory config
+  exactly like a full run. It used to run at the scan root under the root
+  config only, so a rule a subtree enabled could vanish under `--check`.
+- A custom layer (one added through `layers`) that imports a layer its
+  `allowed` entry does not list is reported as `LAYER-007`, with the allowed
+  layers named in the fix. It used to carry the bare code `LAYER` and an
+  empty allowed list in the fix text.
+- Configuration discovery walks up to the outermost config (stopping below one
+  that sets `root = true`) and treats every config between it and the scan
+  path as a region, so `lanorme check tests` under a `tests/lanorme.toml`
+  checks the subtree's files under the project's check settings with the
+  subtree's overrides instead of the subtree's file alone. Every check runs
+  from the project root: a subtree
+  scan (`lanorme check tests`, `lanorme check tests/helpers.py`) confines the
+  walk to the subtree instead of making it the root, so a nested region's
+  files keep their `tests/` and `migrations/` exemptions, `per-file-ignores`
+  globs match them, and the whole-tree checks (`docs`, `duplication`,
+  `layer_deps`, `port_coverage`, `test_coverage`) see the whole project.
+  `lanorme check <subdir>` reads `select`, `ignore`, `exclude`, `promote`,
+  `per-file-ignores`, `baseline`, `source_root` and the whole-tree checks'
+  settings from the project root's config, so `lanorme check tests` holds the
+  same standard as `lanorme check .`: a nested config governs only its own
+  region's file-level checks, and a nested `ignore` or `exclude` no longer
+  applies to a subtree run. The report is narrowed to the requested path.
+- `test_coverage` honours the top-level `source_root` and otherwise finds its
+  production directories one level down (a `src/` layout), so `lanorme check .`
+  at the project root reports `TESTFILE-001` for a `src/app/...` tree.
+- A top-level config key that is neither a run key nor the name of a
+  registered check is an exit-2 config error listing both, and a
+  `[tool.lanorme]` table inside a dedicated `lanorme.toml` is refused with a
+  message saying the keys go top level there. Both used to be silently
+  ignored.
+- The concise summary's `Opt-in checks not enabled` note counts the checks
+  the run selected, so `--check file_limits` no longer counts the registry.
+- `lanorme rule CODE` reports a rule that waits on a setting (`PROSE-001` on
+  `em_dash`, `NAMING-001` on `repo_crud`) as `opt-in via <setting> = true`
+  rather than `on by default`. A check declares such rules through
+  `opt_in_rules` and `opt_in_settings`; `rules --json` flags them per rule.
+- Every per-check table is validated: a value of the wrong type (a quoted
+  number, a bare string where a list is expected, a float for an int) or a key
+  the check does not read is an exit-2 config error naming the table and key.
+  `int("1")`-style coercion is gone.
+- A check may emit the bare rule code (`rule="SHELL-001"`); the runner expands
+  it to the declared `CODE: description`, so the `rule` field is uniform in
+  every output and a description is spelled once per check.
+- `lanorme rule CODE` resolves the exact code: a heading naming it exactly
+  beats one naming its family, and a `#` line inside a fenced code block no
+  longer ends a section early.
+- `naming_consistency` recognises its layout directories at any depth
+  (`src/app/infrastructure/repositories/`), not only at the root.
+- `TYPE-002` names the passing form (`dict[str, int]`, `list[str]`) and its fix
+  agrees with its message. `RUN-000` carries the exception text.
+- `baseline status` groups stale entries by file and code.
+- Check authors: `CheckResult.from_findings(...)` derives a result's status
+  from its findings; `lanorme.sources.iter_modules` / `iter_parsed_modules`
+  replace a per-check read-and-parse loop; `Module.index` is a per-file node
+  index (`collect(ast.Call)`, `functions`) built once and shared by every
+  check; `locate(node)` fills a finding's span; `lanorme.checkconfig` offers
+  typed setting readers (`read_str_list`, `read_int`, `read_str`,
+  `is_flag_set`) and a check declares the keys it reads in `settings_keys`.
+  Internal modules and helpers are named for what they are and do
+  (`lanorme.filters`, `lanorme.reports`, `lanorme.runner`,
+  `lanorme.reference`, `lanorme.diagnostics`; `extract_code`,
+  `build_skip_notice`, `filter_findings`, ...).
+- Registering a second, different check under a name already taken raises
+  `UsageError` instead of silently replacing the first.
+- Only a `TypeError` or `ValueError` out of a check's `configure()` is
+  reported as an invalid config value; an `AttributeError` or `KeyError` is a
+  bug in the check and surfaces as one.
+- A `UsageError` raised inside a check's `run()` exits 2 instead of being
+  reported as a `RUN-000` crash notice.
+- Registered checks are never configured in place: each pass runs configured
+  deep copies, so a check registered with constructor arguments keeps them
+  and a check must be deep-copyable. A plugin check that cannot be copied is
+  an exit-2 usage error naming the check and the fix.
+- Under nested config regions, the summary's opt-in count reflects the root
+  config rather than whichever region ran last.
+- `test_coverage` reads test files through the shared parse, so a `coding:`
+  cookie or a BOM is honoured and a non-UTF-8 test file no longer crashes it.
+
+### Deprecated
+
+- `Violation.format_human` and `CheckResult.format_human` warn and delegate to
+  `lanorme.reports.format_violation` / `format_result`; they go in the next
+  release.
+- `CheckResult(status=...)`. The argument is accepted for this release and
+  ignored, with a `DeprecationWarning` that names the derived status when the
+  two disagree. Drop the argument or build the result with
+  `CheckResult.from_findings`. Removed in the next minor release.
+- The `run(self, *, src_root: str)` entry point of a check. A plugin that
+  defines `run` and no `check` still runs: the runner calls `run` with the
+  scan active and emits a `DeprecationWarning` once per check class. Removed
+  two minor releases from now; implement `check(scan)`.
+
+### Removed
+
+- The in-place configuration helpers `checkconfig.apply_check_config` and
+  `regions.snapshot_defaults` / `restore_defaults`; use
+  `Registry.build_configured`.
+
+### Fixed
+
+- `docs/RULES.md` no longer claims `SIMILAR-001` precision 1.000 and recall
+  0.850: those were measured on files the thresholds were tuned against. It
+  reports the dev, holdout and generated-case numbers side by side (holdout
+  P 0.519 / R 0.692), and the `CMT-001` corpus figures are current.
+- A baselined whole-file finding (one reported at line 1, such as `SIZE-001`)
+  is anchored on its file and code rather than on the rule's wording, so a
+  recorded error still covers the warning it improves into instead of
+  failing a stricter build; entries in an existing baseline re-anchor on the
+  next `lanorme baseline write`, which the drift notice points to. Inline
+  ignores and baseline anchors are read through the file's `coding:` cookie,
+  so a `# noqa` in a latin-1 file is honoured.
+- The naming checks cry wolf less, after a red-team of framework hooks,
+  domain verbs and predicate shapes. `NAMING-007` / `NAMING-011` leave alone
+  the standard library's protocol methods on `asyncio`, `socketserver`,
+  `ast.NodeVisitor`, `xml.sax`, `cmd`, `io`, `logging` and `urllib` classes,
+  the method hooks Django, Django REST framework, Scrapy, pydantic and
+  SQLAlchemy fix (`ready`, `form_valid`, `perform_create`, `closed`,
+  `model_post_init`), a camelCase method on a subclass of an external class
+  (`mousePressEvent`, `dataReceived`: PEP 8 allows mixedCase only to match a
+  prevailing style; `object`, `ABC`, `Generic`, `Protocol`, `NamedTuple`,
+  `TypedDict` and the `Enum` family do not count, and a base in the same
+  module counts only when it has an external base or defines the method),
+  a hook named in camelCase (`onMessage`), a bare `callback` or `handler`,
+  and the WSGI `application` and ASGI `app` callables. `NAMING-011` also
+  leaves a decorator or closure factory (a function that returns a function
+  it defines) named for what it confers. The verb vocabulary gains business,
+  moderation and security verbs (`refund`, `invite`, `ban`, `redact`, ...)
+  and stops reading `enterprise`, `premise` and `-size` compounds as verbs.
+  `NAMING-006` treats an exception subclass and an outcome head
+  (`SendFailed`, `FetchAborted`) as things. `NAMING-009` accepts a noise word
+  a base already carries (`UserManager(models.Manager)`). `NAMING-004`
+  accepts every predicate shape (`exists`, `matches`, `needs_refresh`,
+  `user_is_active`, `isdir`) and the protocol and framework names above.
+  `NAMING-005` keeps a comprehension's, a lambda's or a nested function's
+  names to that scope (a keyword-only argument without a default included)
+  and counts a `match` capture as a binding.
+- `CMT-001` no longer reads a labelled note (`# TODO: retries = 5`,
+  `# default: timeout = 30`, `# cython: boundscheck=False`), a foreign
+  literal (`# enabled = true`), a keyword followed only by an adverb
+  (`# return early`, `# import lazily`) or the lines under a `Usage:` /
+  `Example:` header as commented-out code. Typed assignments (`# x: int = 5`)
+  and real operands (`# return result`) are still flagged, as are a
+  lowercase annotation the module imports (`# created: datetime = now()`
+  under `from datetime import datetime`) and an `-ly` word the module binds
+  (`# return quickly` where `quickly` is assigned); the corpus now scores
+  P = 1.000.
+- `CMT-002` exempts a licence or copyright header, a PEP 723 metadata block,
+  a pragma line, and the URL part of a line, and a preamble above a decorated
+  function earns that function's allowance.
+- `CMT-005` treats a one-line framed banner (`# --- Setup ---`) as a section
+  header, not a restatement of the call under it.
+- `CMT-006` no longer requires a docstring on a function nested inside
+  another or on a member of a private class (unless `require_private` is on),
+  and `CMT-007` counts a placeholder (`TODO`, `Docstring.`) as saying nothing.
+- `PROSE-003` flags only code points with Unicode's Emoji property (or a
+  symbol carrying the emoji presentation selector): a check mark (U+2713), a
+  ballot box, a star or a musical note is no longer an emoji, and a zero-width
+  joiner in Hindi or Arabic text no longer is either.
+- `PROSE-002` ignores URLs, link targets, HTML tags, YAML front matter and
+  code-like tokens (`--color`, `settings.color`, `org-color-42`), and every
+  `PROSE` rule now tracks fence length, so a four-backtick fence holding a
+  three-backtick line no longer ends early.
+- `DOCS-*` share that fence tracking, skip front matter, no longer read a
+  rule under a list item or a table row as a setext heading, and no longer
+  read image syntax inside an inline code span as an image.
+- A single file the parser overflows on (a many-thousand-term expression) no
+  longer blanks a whole check into a `RUN-000` notice, which also flipped a
+  failing run to exit 0. It is skipped with that check's `-000` notice and the
+  other files' findings stand.
+- `--select`, `--ignore`, `--promote` and their config counterparts, and the
+  codes in `per-file-ignores`, are validated: a selector that names no known
+  rule code or category exits `2` instead of silently producing a clean run.
+- `forbidden_paths` and `stray_artifacts` honour the run's `exclude` globs and
+  the cascading region boundaries, so a stray file in a nested region is
+  reported once rather than once per region pass. `port_coverage` and the
+  region discovery walk prune the same way.
+- A mistyped setting (`dirs = "build"` where a list is expected, a
+  `domain_terms` rule without `canonical`, a non-string `extensions` entry) is
+  reported at configure time as a config error rather than iterated character
+  by character or raised at run time as a `RUN-000` notice.
+- `named_args` reports a file it cannot parse as `KWARG-000`, not `KWARG-001`,
+  so `--promote KWARG-001` no longer fails the build on a syntax-error skip.
+- Output piped into a reader that stops early (`| head`, `| jq -n`) ends
+  quietly with the run's exit code instead of a `BrokenPipeError` traceback.
+- `--show-config` prints `extends` and `baseline`, so a promoted or ignored
+  code can be traced to the profile that set it.
+- When every explicitly requested path falls under an exclude glob, a note on
+  stderr says nothing was checked instead of a bare `All N checks passed.`
+- Crash notices (`RUN-000`) are no longer dropped when a file target is given.
+
 ## [0.20.0]
 
 ### Fixed
@@ -563,7 +939,7 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
 
 ### Internal
 
-- Output rendering moved out of `cli.py` into a new `lanorme.reporting` module.
+- Output rendering moved out of `cli.py` into a new `lanorme.reports` module.
   No public API change.
 - Added a `docs-audit` skill and workflow that check the docs against the real
   CLI for accuracy and house style.
@@ -636,9 +1012,9 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
     was chosen by measuring the rule against the Python standard library,
     where `hasattr` is dominated by legitimate platform/feature detection
     (no Protocol fix), so the check ships off.
-- `Configurable` protocol in the public API: a `runtime_checkable` Protocol
+- `ConfigurableCheck` protocol in the public API: a `runtime_checkable` Protocol
   for checks that accept a `[tool.lanorme.<name>]` settings table. The CLI
-  now selects configurable checks with `isinstance(check, Configurable)`.
+  now selects configurable checks with `isinstance(check, ConfigurableCheck)`.
 
 ## [0.4.0]
 

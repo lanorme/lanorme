@@ -41,15 +41,18 @@ stays `pytest`).
 
 ## The gates
 
-A change is ready when all three pass:
+A change is ready when all of these pass:
 
 ```console
-uv run --group dev pytest tests/unit   # unit tests
-uv run lanorme check .          # dogfood: exits 0 when the tree is clean
-uv build                        # the package still builds
+uv run --group dev ruff check .          # trailing commas
+uv run --group dev ruff format --check . # formatting, Markdown code blocks included
+uv run --group dev pytest tests/unit     # unit tests
+uv run lanorme check .                   # dogfood: exits 0 when the tree is clean
+uv build                                 # the package still builds
 ```
 
-Or run all three at once:
+`uv run --group dev ruff check --fix . && uv run --group dev ruff format .`
+fixes what ruff reports. Or run every gate at once:
 
 ```console
 scripts/check.sh
@@ -62,11 +65,14 @@ warnings down: refactor rather than suppress where you reasonably can.
 
 ## Adding or changing a check
 
-A check is any object with `name`, `description`, `rules`, and a `run` method.
-An optional `configure` method receives its `[tool.lanorme.<name>]` table.
+A check is any object with `name`, `description`, `rules`, and a `check`
+method that receives the `lanorme.scan.Scan` for the pass. An optional
+`configure` method receives its `[tool.lanorme.<name>]` table.
 
 ```python
-from lanorme import CheckResult, Status, Violation, register
+from lanorme import CheckResult, Violation, register
+from lanorme.scan import Scan
+from lanorme.sources import iter_parsed_modules
 
 
 class MyCheck:
@@ -74,15 +80,21 @@ class MyCheck:
     description = "What it enforces, in one line"
     rules = ["MYCODE-001: the rule, in one line"]
 
-    def run(self, *, src_root: str) -> CheckResult:
+    def check(self, scan: Scan) -> CheckResult:
         violations: list[Violation] = []
-        # inspect files under src_root (use lanorme.discovery.iter_py_files)
-        status = Status.FAIL if violations else Status.PASS
-        return CheckResult(check=self.name, status=status, violations=violations)
+        for module in iter_parsed_modules(scan.root):
+            ...  # inspect module.index, module.source, module.lines
+        return CheckResult.from_findings(check=self.name, violations=violations)
 
 
 register(MyCheck())
 ```
+
+The result's status is derived from its findings; a check never sets one. The
+previous entry point, `run(self, *, src_root)`, is deprecated: a plugin that
+still defines it runs with a `DeprecationWarning`, and no built-in check
+carries one, so do not add it to a new check. See
+[Write a custom check](docs/how-to/write-a-check.md) for the scan.
 
 Drop the module in `src/lanorme/checks/`; it is discovered and registered
 automatically. Third-party checks can instead ship under the `lanorme.checks`
@@ -90,9 +102,40 @@ entry-point group or be named in `[tool.lanorme] plugins = [...]`.
 
 Conventions for a new rule:
 
-- **Scan files through `lanorme.discovery.iter_py_files` / `iter_files`,** not
-  `Path.rglob`, so the built-in directory pruning and the user's `exclude`
-  globs are honoured.
+- **Read Python sources through `lanorme.sources`** (`iter_parsed_modules` for the
+  files that parse, `iter_modules` when the check reports the ones that do
+  not, with `build_unparseable_notice` building the `-000` notice) and other files
+  through `lanorme.discovery.iter_files` / `iter_dirs`, never `Path.rglob` or
+  `os.walk`, so the built-in directory pruning and the user's `exclude` globs
+  are honoured. Each file is read and parsed once per run and the tree is
+  shared by every check, so never read, `ast.parse` or mutate one yourself.
+  `build_skip_notice` reports a file the check skips on its own.
+- **Walk the tree through `module.index`,** the file's `NodeIndex`:
+  `module.index.collect(ast.Call)` for the nodes of a type, `module.index.functions`
+  for every def. One walk per file is shared by every check, in `ast.walk`
+  order; do not call `ast.walk(tree)` yourself. Read comments, docstrings and
+  imports through the shared views (`module.comments`, `module.docstrings`,
+  `module.imports`) and decorator names, attribute chains and string literals
+  through `lanorme.astnames`, rather than tokenising or walking again.
+- **Keep run state in the `Scan`, not in globals.** The exclude globs, the
+  subtree scope and the parse cache belong to the `lanorme.scan.Scan` the
+  runner activates around each pass. Registered checks are templates the
+  runner deep-copies and configures per pass, so a check must be
+  deep-copyable and is never configured in place.
+- **Build the result with `CheckResult.from_findings`,** which derives the
+  status from the finding lists. Give a finding its span with
+  `**locate(node)` (from `lanorme.sources`), and emit the bare code
+  (`rule="SIZE-001"`): the runner expands it to the string the check declares
+  in `rules`.
+- **Read settings in `configure()` through `lanorme.checkconfig`**
+  (`read_str_list`, `read_int`, `read_str`, `is_flag_set`) and declare the keys
+  the check reads in `settings_keys: ClassVar[frozenset[str]]`. A mistyped
+  value or an undeclared key is then an exit-2 config error naming the table
+  and key, and `--show-config` lists the keys.
+- **Raise `lanorme.errors.UsageError` for a user's mistake,** or its subclass
+  `ConfigError` (carrying `key` and `source`) for one in a config file or
+  table. The CLI maps both to `ERROR: ...` and exit `2`. Never print to stderr or call `sys.exit`
+  outside `cli.main`; diagnostics go through `logging.getLogger(__name__)`.
 - **One category prefix per check.** Rule codes (`SQL-001`, `LAYER-005`) are the
   public surface: people put them in `select` / `ignore` / `per-file-ignores`.
   Treat them as stable. Renaming or removing one is a breaking change.
@@ -104,7 +147,7 @@ Conventions for a new rule:
   architecture rule) must set the class attribute `scope = "tree"`. The default
   is `"file"`. It matters under cascading per-directory config: file-scoped
   checks run once per config region, but a tree-scoped check runs once at the
-  scan root so a finding split across two regions is not missed.
+  project root so a finding split across two regions is not missed.
 - **Default off when opinionated or broad.** If a rule is opinionated or fires
   often on ordinary code, ship it default-off (an `enabled` field, default
   `False`) and let users opt in. Decide the default by measuring the rule on
@@ -114,6 +157,34 @@ Conventions for a new rule:
   corpus under `evals/corpora/` and a scorer under `evals/` that reports
   precision, recall, and F1, so the precision claim is measured. The release
   audit records those numbers to `evals/results/`; see [`evals/README.md`](evals/README.md).
+- **Label first, tune second, never tune on the holdout.** A score is only
+  honest if the rule was not fitted to the examples that grade it:
+  - Write a case's label, with its provenance (`source`, `labelled_by`,
+    `labelled_before_rule`), in `labels.json` before you tune the rule against
+    that case. Never relabel a case to match what the rule does.
+  - Every corpus has a `dev/` split you may tune against and a sealed `holdout/`
+    split. A change to a check's thresholds or source must not add, edit,
+    relabel or move that rule's holdout files in the same change. Grow the
+    holdout in a separate change that leaves the rule alone.
+  - A file's split is recorded per file in `labels.json`, and every label
+    carries a `line_hash` of the line it labels. The hash of a file's name only
+    proposes a split for a new file: `evals/validate_corpora.py --stamp` fills
+    in a missing split or line hash and never overwrites a recorded one. The
+    validator rejects a file on the wrong side of its recorded split, an
+    unlabelled file or comment, a label with no line hash or one that no longer
+    matches its line, a positive label under `negatives/` or a `positives/`
+    file with none, and missing provenance.
+  - Report the dev and holdout numbers side by side. A large dev-minus-holdout
+    gap is overfitting to explain, not a number to tune away. The audit records
+    a digest of every holdout file (its content and labels), and `--gate latest`
+    fails a change that removes or changes a holdout file a baseline recorded,
+    or that lowers a rule's holdout precision or recall by more than 0.02 below
+    the best any comparable release reached over the history (one that scored
+    the same holdout files), not merely the latest. It prints a note when it
+    gated nothing.
+  - A deliberate holdout edit (a label proved wrong) is its own reviewed
+    change: an entry in the optional `evals/holdout_revisions.json` accepts one
+    exact new digest per file, with a reason.
 - **Stay within the house limits.** LaNorme enforces its own `SIZE` / `PARAM` /
   `COMPLEXITY` limits on itself: files warn at 300 effective lines and fail at
   500; functions warn at 50 and fail at 80; complexity warns at 10 and fails at

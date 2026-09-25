@@ -14,6 +14,7 @@ import pytest
 
 from lanorme import Status
 from lanorme.checks.naming_clean_code import NamingCleanCodeCheck
+from lanorme.scan import Scan
 
 
 @pytest.fixture
@@ -29,10 +30,10 @@ def _run(*, root: Path, body: str, check: NamingCleanCodeCheck, name: str = "sam
     path = root / name
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(body, encoding="utf-8")
-    return check.run(src_root=str(root))
+    return check.check(Scan(root=root))
 
 
-def _codes(result) -> list[str]:
+def _collect_codes(result) -> list[str]:
     """The rule codes of all warnings on *result*."""
     return [w.code for w in result.warnings]
 
@@ -43,7 +44,11 @@ def _codes(result) -> list[str]:
 
 
 def test_disabled_by_default(tmp_path: Path) -> None:
-    result = _run(root=tmp_path, body="class UserManager:\n    pass\n", check=NamingCleanCodeCheck())
+    result = _run(
+        root=tmp_path,
+        body="class UserManager:\n    pass\n",
+        check=NamingCleanCodeCheck(),
+    )
     assert result.status is Status.PASS and result.warnings == []
 
 
@@ -53,15 +58,26 @@ def test_disabled_by_default(tmp_path: Path) -> None:
 
 
 def test_noise_word_classes_are_flagged(tmp_path: Path, check: NamingCleanCodeCheck) -> None:
-    result = _run(root=tmp_path, body="class UserManager:\n    pass\nclass ConfigData:\n    pass\n", check=check)
-    assert _codes(result) == ["NAMING-009", "NAMING-009"]
+    result = _run(
+        root=tmp_path,
+        body="class UserManager:\n    pass\nclass ConfigData:\n    pass\n",
+        check=check,
+    )
+    assert _collect_codes(result) == ["NAMING-009", "NAMING-009"]
     assert result.violations == [] and result.status is Status.WARN
 
 
 def test_noise_word_exemptions(tmp_path: Path, check: NamingCleanCodeCheck) -> None:
     body = "".join(
         f"class {name}:\n    pass\n"
-        for name in ("MetaData", "ResultMetaData", "FileContextManager", "Manager", "CONSOLE_INFO", "MetaInfo")
+        for name in (
+            "MetaData",
+            "ResultMetaData",
+            "FileContextManager",
+            "Manager",
+            "CONSOLE_INFO",
+            "MetaInfo",
+        )
     )
     result = _run(root=tmp_path, body=body, check=check)
     assert [(w.code, w.line) for w in result.warnings] == [("NAMING-009", 11)]
@@ -73,10 +89,15 @@ def test_exempt_covers_noise_words_and_junk_modules(tmp_path: Path) -> None:
     check.configure(settings={"enabled": True, "exempt": ["UserManager", "utils"]})
 
     # Act
-    result = _run(root=tmp_path, body="class UserManager:\n    pass\n", check=check, name="utils.py")
+    result = _run(
+        root=tmp_path,
+        body="class UserManager:\n    pass\n",
+        check=check,
+        name="utils.py",
+    )
 
     # Assert
-    assert _codes(result) == []
+    assert _collect_codes(result) == []
 
 
 # --------------------------------------------------------------------------- #
@@ -102,7 +123,7 @@ def test_junk_module_and_package_are_flagged(tmp_path: Path, check: NamingCleanC
 
 def test_named_module_passes(tmp_path: Path, check: NamingCleanCodeCheck) -> None:
     result = _run(root=tmp_path, body="", check=check, name="paths.py")
-    assert _codes(result) == []
+    assert _collect_codes(result) == []
 
 
 # --------------------------------------------------------------------------- #
@@ -112,11 +133,14 @@ def test_named_module_passes(tmp_path: Path, check: NamingCleanCodeCheck) -> Non
 
 def test_query_without_a_verb_is_flagged(tmp_path: Path, check: NamingCleanCodeCheck) -> None:
     result = _run(root=tmp_path, body="def _shell_violations(tree):\n    return []\n", check=check)
-    assert _codes(result) == ["NAMING-011"]
+    assert _collect_codes(result) == ["NAMING-011"]
     assert "find_" in result.warnings[0].fix
 
 
-def test_queries_with_a_verb_or_a_predicate_pass(tmp_path: Path, check: NamingCleanCodeCheck) -> None:
+def test_queries_with_a_verb_or_a_predicate_pass(
+    tmp_path: Path,
+    check: NamingCleanCodeCheck,
+) -> None:
     # Arrange: verb-first, predicates, a constructor, a property, conversions, a protocol method.
     body = (
         "def find_shell_violations(tree):\n    return []\n"
@@ -136,17 +160,21 @@ def test_queries_with_a_verb_or_a_predicate_pass(tmp_path: Path, check: NamingCl
     result = _run(root=tmp_path, body=body, check=check)
 
     # Assert
-    assert _codes(result) == []
+    assert _collect_codes(result) == []
 
 
 def test_commands_and_raisers_are_not_queries(tmp_path: Path, check: NamingCleanCodeCheck) -> None:
     body = "def layout(root):\n    root.write_text('x')\ndef key_not_found(key):\n    raise KeyError(key)\n"
     result = _run(root=tmp_path, body=body, check=check)
-    assert _codes(result) == []
+    assert _collect_codes(result) == []
 
 
 def test_query_fix_puts_a_later_verb_first(tmp_path: Path, check: NamingCleanCodeCheck) -> None:
-    result = _run(root=tmp_path, body="def _cert_verify_result(conn):\n    return conn\n", check=check)
+    result = _run(
+        root=tmp_path,
+        body="def _cert_verify_result(conn):\n    return conn\n",
+        check=check,
+    )
     assert "'_verify_cert_result'" in result.warnings[0].fix
 
 
@@ -161,3 +189,106 @@ def test_verbs_and_exempt_config(tmp_path: Path) -> None:
 
     # Assert: only the unconfigured query remains.
     assert [(w.code, w.line) for w in result.warnings] == [("NAMING-011", 5)]
+
+
+# --------------------------------------------------------------------------- #
+# Red-team additions
+# --------------------------------------------------------------------------- #
+
+
+def test_inherited_noise_word_is_the_frameworks(
+    tmp_path: Path,
+    check: NamingCleanCodeCheck,
+) -> None:
+    # Arrange: a Django manager, a multiprocessing manager, and a manager with no such base.
+    body = (
+        "class UserManager(models.Manager):\n    pass\n"
+        "class ProcessManager(BaseManager):\n    pass\n"
+        "class SessionManager(Base):\n    pass\n"
+    )
+
+    # Act.
+    result = _run(root=tmp_path, body=body, check=check)
+
+    # Assert.
+    assert [(w.line, w.code) for w in result.warnings] == [(5, "NAMING-009")]
+
+
+def test_decorators_and_closure_factories_are_named_for_what_they_confer(
+    tmp_path: Path,
+    check: NamingCleanCodeCheck,
+) -> None:
+    # Arrange: a decorator factory, a decorator, a lambda factory, and an indirect one.
+    body = (
+        "def deprecated(reason):\n"
+        "    def decorator(func):\n"
+        "        return func\n"
+        "    return decorator\n"
+        "def cached(func):\n"
+        "    def wrapper(*args):\n"
+        "        return func(*args)\n"
+        "    return wrapper\n"
+        "def always(value):\n"
+        "    return lambda: value\n"
+        "def staff_required(function=None):\n"
+        "    actual = user_passes_test(lambda u: u.is_staff)\n"
+        "    return actual\n"
+    )
+
+    # Act.
+    result = _run(root=tmp_path, body=body, check=check)
+
+    # Assert: only the decorator returned through a variable is still reported.
+    assert [(w.line, w.code) for w in result.warnings] == [(11, "NAMING-011")]
+
+
+def test_framework_query_methods_pass(tmp_path: Path, check: NamingCleanCodeCheck) -> None:
+    # Arrange: Django's form_valid, cmd's precmd, a Qt override, and a WSGI callable.
+    body = (
+        "class V(CreateView):\n"
+        "    def form_valid(self, form):\n        return super().form_valid(form)\n"
+        "class C(cmd.Cmd):\n"
+        "    def precmd(self, line):\n        return line.strip()\n"
+        "class W(QWidget):\n"
+        "    def sizeHint(self):\n        return self._hint\n"
+        "def application(environ, start_response):\n    return [b'']\n"
+    )
+
+    # Act.
+    result = _run(root=tmp_path, body=body, check=check)
+
+    # Assert.
+    assert result.status == Status.PASS
+
+
+def test_camel_case_query_on_a_subclass_of_a_local_base_is_reported(
+    tmp_path: Path,
+    check: NamingCleanCodeCheck,
+) -> None:
+    # Arrange: ``BaseService`` is defined here, so ``userData`` is the author's name.
+    body = (
+        "class BaseService:\n"
+        "    pass\n"
+        "class X(BaseService):\n"
+        "    def userData(self):\n        return self.user\n"
+    )
+
+    # Act
+    result = _run(root=tmp_path, body=body, check=check)
+
+    # Assert
+    assert [(w.code, w.file, w.line) for w in result.warnings] == [("NAMING-011", "sample.py", 4)]
+
+
+def test_camel_case_query_on_an_external_base_is_still_exempt(
+    tmp_path: Path,
+    check: NamingCleanCodeCheck,
+) -> None:
+    # Arrange: ``services.BaseService`` is imported, so the name may be its API.
+    body = "class X(services.BaseService):\n    def userData(self):\n        return self.user\n"
+
+    # Act
+    result = _run(root=tmp_path, body=body, check=check)
+
+    # Assert
+    assert result.warnings == []

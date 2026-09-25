@@ -48,7 +48,11 @@ def _run(root: Path) -> int:
     ],
 )
 def test_uncoercible_value_exits_two_and_names_the_key(
-    tmp_path: Path, capsys, table: str, key: str, value: str
+    tmp_path: Path,
+    capsys,
+    table: str,
+    key: str,
+    value: str,
 ) -> None:
     # Arrange
     _project(tmp_path, f"[{table}]\n{key} = {value}\n")
@@ -70,7 +74,8 @@ def test_uncoercible_value_in_a_nested_region_is_reported(tmp_path: Path, capsys
     nested = tmp_path / "sub"
     nested.mkdir()
     (nested / "lanorme.toml").write_text(
-        '[file_limits]\nfile_error_lines = "nope"\n', encoding="utf-8"
+        '[file_limits]\nfile_error_lines = "nope"\n',
+        encoding="utf-8",
     )
     (nested / "mod.py").write_text("y = 1\n", encoding="utf-8")
 

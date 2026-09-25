@@ -12,7 +12,7 @@ sibling layout::
 
 and the check is driven directly, the same idiom as ``test_strong_types``::
 
-    CoverageCheck().run(src_root=str(tmp_path / "src"))
+    CoverageCheck().check(Scan(root=tmp_path / "src"))
 
 Findings are reported relative to ``src_root`` (not its parent), the same base
 every other check uses, so the CLI's re-anchoring lands them on a single
@@ -30,12 +30,13 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from lanorme import Status
+from lanorme import Status, run_check
 from lanorme.checks.test_coverage import TestCoverageCheck as CoverageCheck
 from lanorme.cli import main
+from lanorme.scan import Scan
 
 
-def _layout(tmp_path: Path) -> tuple[Path, Path]:
+def _build_layout(tmp_path: Path) -> tuple[Path, Path]:
     """Create the src/ + tests/integration/ skeleton and return both dirs."""
     src = tmp_path / "src"
     integration = tmp_path / "tests" / "integration"
@@ -44,7 +45,7 @@ def _layout(tmp_path: Path) -> tuple[Path, Path]:
     return src, integration
 
 
-def _endpoint_with_unit_partner(tmp_path: Path) -> Path:
+def _build_endpoint_with_unit_partner(tmp_path: Path) -> Path:
     """An endpoint whose only test partner lives in tests/unit/. Return src dir.
 
     Both an empty tests/integration/ and a tests/unit/test_users.py are laid
@@ -57,7 +58,8 @@ def _endpoint_with_unit_partner(tmp_path: Path) -> Path:
     unit = tmp_path / "tests" / "unit"
     unit.mkdir(parents=True)
     (src / "api" / "v1" / "endpoints" / "users.py").write_text(
-        "def f(): ...\n", encoding="utf-8"
+        "def f(): ...\n",
+        encoding="utf-8",
     )
     (unit / "test_users.py").write_text("def test_u(): ...\n", encoding="utf-8")
     return src
@@ -65,13 +67,14 @@ def _endpoint_with_unit_partner(tmp_path: Path) -> Path:
 
 def test_uncovered_service_fires_testfile001(tmp_path: Path):
     # Arrange: a service module with no partner test anywhere.
-    src, _integration = _layout(tmp_path)
+    src, _integration = _build_layout(tmp_path)
     (src / "application" / "services" / "billing.py").write_text(
-        "def charge(): ...\n", encoding="utf-8"
+        "def charge(): ...\n",
+        encoding="utf-8",
     )
 
     # Act.
-    result = CoverageCheck().run(src_root=str(src))
+    result = CoverageCheck().check(Scan(root=src))
 
     # Assert: exactly one advisory WARN, coded TESTFILE-001, at line 1, with a
     # path relative to src_root (no leading src/, so re-anchoring does not
@@ -88,16 +91,18 @@ def test_uncovered_service_fires_testfile001(tmp_path: Path):
 
 def test_name_matching_test_file_is_silent(tmp_path: Path):
     # Arrange: a module beside its direct test_<module>.py partner.
-    src, integration = _layout(tmp_path)
+    src, integration = _build_layout(tmp_path)
     (src / "application" / "services" / "payments.py").write_text(
-        "def pay(): ...\n", encoding="utf-8"
+        "def pay(): ...\n",
+        encoding="utf-8",
     )
     (integration / "test_payments.py").write_text(
-        "def test_pay(): ...\n", encoding="utf-8"
+        "def test_pay(): ...\n",
+        encoding="utf-8",
     )
 
     # Act.
-    result = CoverageCheck().run(src_root=str(src))
+    result = CoverageCheck().check(Scan(root=src))
 
     # Assert: a name match fully covers the module; no findings, PASS.
     assert result.status == Status.PASS
@@ -108,26 +113,26 @@ def test_import_in_differently_named_test_file_covers_module(tmp_path: Path):
     # Arrange: no test_billing.py, but a differently-named integration test
     # imports the module, the "by import" coverage route. A second module is
     # imported via `import ... as` to prove the alias form is also caught.
-    src, integration = _layout(tmp_path)
+    src, integration = _build_layout(tmp_path)
     (src / "application" / "services" / "billing.py").write_text(
-        "def charge(): ...\n", encoding="utf-8"
+        "def charge(): ...\n",
+        encoding="utf-8",
     )
     (src / "application" / "services" / "refunds.py").write_text(
-        "def refund(): ...\n", encoding="utf-8"
+        "def refund(): ...\n",
+        encoding="utf-8",
     )
     (integration / "test_billing_scenarios.py").write_text(
-        "from app.application.services.billing import charge\n\n"
-        "def test_charge(): ...\n",
+        "from app.application.services.billing import charge\n\ndef test_charge(): ...\n",
         encoding="utf-8",
     )
     (integration / "test_refunds_alias.py").write_text(
-        "import app.application.services.refunds as r\n\n"
-        "def test_refund(): ...\n",
+        "import app.application.services.refunds as r\n\ndef test_refund(): ...\n",
         encoding="utf-8",
     )
 
     # Act.
-    result = CoverageCheck().run(src_root=str(src))
+    result = CoverageCheck().check(Scan(root=src))
 
     # Assert: both modules are considered covered via their imports; the check
     # does NOT false-positive on a partner whose filename differs.
@@ -138,16 +143,18 @@ def test_import_in_differently_named_test_file_covers_module(tmp_path: Path):
 def test_shortened_name_partner_covers_module(tmp_path: Path):
     # Arrange: an underscore-segmented module whose partner drops the last
     # segment (user_account -> test_user.py).
-    src, integration = _layout(tmp_path)
+    src, integration = _build_layout(tmp_path)
     (src / "application" / "services" / "user_account.py").write_text(
-        "def f(): ...\n", encoding="utf-8"
+        "def f(): ...\n",
+        encoding="utf-8",
     )
     (integration / "test_user.py").write_text(
-        "def test_user(): ...\n", encoding="utf-8"
+        "def test_user(): ...\n",
+        encoding="utf-8",
     )
 
     # Act.
-    result = CoverageCheck().run(src_root=str(src))
+    result = CoverageCheck().check(Scan(root=src))
 
     # Assert: the shortened-name route satisfies coverage; no warnings.
     assert result.status == Status.PASS
@@ -157,13 +164,13 @@ def test_shortened_name_partner_covers_module(tmp_path: Path):
 def test_exempt_and_underscore_modules_never_fire(tmp_path: Path):
     # Arrange: an exempt module (session) and an underscore-prefixed module
     # (_internal), both with no test files at all.
-    src, _integration = _layout(tmp_path)
+    src, _integration = _build_layout(tmp_path)
     services = src / "application" / "services"
     (services / "session.py").write_text("def f(): ...\n", encoding="utf-8")
     (services / "_internal.py").write_text("def f(): ...\n", encoding="utf-8")
 
     # Act.
-    result = CoverageCheck().run(src_root=str(src))
+    result = CoverageCheck().check(Scan(root=src))
 
     # Assert: neither the exempt-set module nor the underscore module is flagged.
     assert result.status == Status.PASS
@@ -179,7 +186,7 @@ def test_module_outside_testable_dirs_is_out_of_scope(tmp_path: Path):
     (src / "domain" / "entity.py").write_text("def f(): ...\n", encoding="utf-8")
 
     # Act.
-    result = CoverageCheck().run(src_root=str(src))
+    result = CoverageCheck().check(Scan(root=src))
 
     # Assert: directories outside the testable set are never inspected.
     assert result.status == Status.PASS
@@ -189,28 +196,25 @@ def test_module_outside_testable_dirs_is_out_of_scope(tmp_path: Path):
 def test_partner_in_tests_unit_does_not_count(tmp_path: Path):
     # Arrange: a module whose only test lives in tests/unit/, not
     # tests/integration/.
-    src = _endpoint_with_unit_partner(tmp_path)
+    src = _build_endpoint_with_unit_partner(tmp_path)
 
     # Act.
-    result = CoverageCheck().run(src_root=str(src))
+    result = CoverageCheck().check(Scan(root=src))
 
     # Assert: only tests/integration/ is scanned, so the module still fires.
     assert result.status == Status.WARN
-    assert any(
-        w.rule.startswith("TESTFILE-001") and "users" in w.message
-        for w in result.warnings
-    )
+    assert any(w.rule.startswith("TESTFILE-001") and "users" in w.message for w in result.warnings)
 
 
 def test_configured_test_roots_credit_a_unit_partner(tmp_path: Path):
     # Arrange: the same unit-only partner, but test_roots now includes
     # tests/unit/ alongside the default integration root.
-    src = _endpoint_with_unit_partner(tmp_path)
+    src = _build_endpoint_with_unit_partner(tmp_path)
 
     # Act: configure the extra root, then run.
     check = CoverageCheck()
     check.configure(settings={"test_roots": ["tests/integration", "tests/unit"]})
-    result = check.run(src_root=str(src))
+    result = check.check(Scan(root=src))
 
     # Assert: the unit partner now satisfies coverage; no findings, PASS.
     assert result.status == Status.PASS
@@ -220,18 +224,20 @@ def test_configured_test_roots_credit_a_unit_partner(tmp_path: Path):
 def test_empty_test_roots_falls_back_to_default(tmp_path: Path):
     # Arrange: a module with its integration partner, and a malformed config
     # (an empty list) that must not blank out the default root.
-    src, integration = _layout(tmp_path)
+    src, integration = _build_layout(tmp_path)
     (src / "application" / "services" / "billing.py").write_text(
-        "def charge(): ...\n", encoding="utf-8"
+        "def charge(): ...\n",
+        encoding="utf-8",
     )
     (integration / "test_billing.py").write_text(
-        "def test_charge(): ...\n", encoding="utf-8"
+        "def test_charge(): ...\n",
+        encoding="utf-8",
     )
 
     # Act: an empty test_roots is ignored, keeping tests/integration/.
     check = CoverageCheck()
     check.configure(settings={"test_roots": []})
-    result = check.run(src_root=str(src))
+    result = check.check(Scan(root=src))
 
     # Assert: the default root still credits the partner.
     assert result.status == Status.PASS
@@ -250,20 +256,16 @@ def _project_with_uncovered_module(tmp_path: Path, *, config: str) -> Path:
     (src / "application" / "services").mkdir(parents=True)
     (tmp_path / "tests" / "integration").mkdir(parents=True)
     (src / "application" / "services" / "billing.py").write_text(
-        "def charge(): ...\n", encoding="utf-8"
+        "def charge(): ...\n",
+        encoding="utf-8",
     )
     return src
 
 
-def _testfile_findings(capsys) -> list[dict]:
+def _parse_testfile_findings(capsys) -> list[dict]:
     """Parse the captured ``--json`` output and return TESTFILE-001 warnings."""
     payload = json.loads(capsys.readouterr().out)
-    return [
-        w
-        for result in payload
-        for w in result["warnings"]
-        if w["code"] == "TESTFILE-001"
-    ]
+    return [w for result in payload for w in result["warnings"] if w["code"] == "TESTFILE-001"]
 
 
 def test_cli_reports_single_src_path_not_doubled(tmp_path: Path, capsys):
@@ -279,7 +281,7 @@ def test_cli_reports_single_src_path_not_doubled(tmp_path: Path, capsys):
 
     # Assert: the finding lands on a single src/ path, the same base every
     # other check reports, not the doubled src/src/ that blocked filtering.
-    findings = _testfile_findings(capsys)
+    findings = _parse_testfile_findings(capsys)
     assert [w["file"] for w in findings] == ["src/application/services/billing.py"]
 
 
@@ -288,10 +290,7 @@ def test_cli_per_file_ignores_now_suppresses_the_finding(tmp_path: Path, capsys)
     # per-file-ignores mechanism against the (now correct) src/ path.
     src = _project_with_uncovered_module(
         tmp_path,
-        config=(
-            "[tool.lanorme.per-file-ignores]\n"
-            '"src/application/*" = ["TESTFILE-001"]\n'
-        ),
+        config=('[tool.lanorme.per-file-ignores]\n"src/application/*" = ["TESTFILE-001"]\n'),
     )
 
     # Act.
@@ -301,7 +300,7 @@ def test_cli_per_file_ignores_now_suppresses_the_finding(tmp_path: Path, capsys)
         pass
 
     # Assert: the glob matches the reported path, so the false positive is gone.
-    assert _testfile_findings(capsys) == []
+    assert _parse_testfile_findings(capsys) == []
 
 
 def test_missing_integration_dir_still_flags_modules(tmp_path: Path):
@@ -309,11 +308,12 @@ def test_missing_integration_dir_still_flags_modules(tmp_path: Path):
     src = tmp_path / "src"
     (src / "application" / "commands").mkdir(parents=True)
     (src / "application" / "commands" / "create_order.py").write_text(
-        "def f(): ...\n", encoding="utf-8"
+        "def f(): ...\n",
+        encoding="utf-8",
     )
 
     # Act.
-    result = CoverageCheck().run(src_root=str(src))
+    result = CoverageCheck().check(Scan(root=src))
 
     # Assert: with no test files, every in-scope module is uncovered.
     assert result.status == Status.WARN
@@ -323,18 +323,153 @@ def test_missing_integration_dir_still_flags_modules(tmp_path: Path):
 def test_string_literal_substring_should_not_count_as_coverage(tmp_path: Path):
     # Arrange: order.py has no real test; a test file merely mentions the
     # module path inside a string literal.
-    src, integration = _layout(tmp_path)
+    src, integration = _build_layout(tmp_path)
     (src / "application" / "services" / "order.py").write_text(
-        "def f(): ...\n", encoding="utf-8"
+        "def f(): ...\n",
+        encoding="utf-8",
     )
     (integration / "test_blah.py").write_text(
-        "x = 'services.order is great'\n", encoding="utf-8"
+        "x = 'services.order is great'\n",
+        encoding="utf-8",
     )
 
     # Act.
-    result = CoverageCheck().run(src_root=str(src))
+    result = CoverageCheck().check(Scan(root=src))
 
     # Assert: a bare string literal is not an import, so the uncovered module is
     # correctly flagged.
     assert result.status == Status.WARN
     assert any("order" in w.message for w in result.warnings)
+
+
+# --------------------------------------------------------------------------- #
+# the production layout is found under source_root, or one level down
+# --------------------------------------------------------------------------- #
+
+
+def test_cli_from_the_project_root_finds_the_layout_under_source_root(tmp_path: Path, capsys):
+    # Arrange: config at the root names the source directory.
+    _project_with_uncovered_module(tmp_path, config='[tool.lanorme]\nsource_root = "src"\n')
+
+    # Act: scan the whole project, not the src dir.
+    try:
+        main(["check", str(tmp_path), "--check=test_coverage", "--json"])
+    except SystemExit:
+        pass
+
+    # Assert: the module is found under src/ and reported project-relative.
+    findings = _parse_testfile_findings(capsys)
+    assert [w["file"] for w in findings] == ["src/application/services/billing.py"]
+
+
+def test_source_dir_falls_back_to_the_root_then_one_level_down(tmp_path: Path):
+    # Arrange: a src/ layout with a decoy .venv holding the same directories.
+    from lanorme.checks.test_coverage import find_source_dir
+
+    (tmp_path / ".venv" / "application" / "services").mkdir(parents=True)
+    (tmp_path / "src" / "application" / "services").mkdir(parents=True)
+
+    # Act / Assert: configured wins, then the one-level src/ layout, then the root.
+    assert find_source_dir(run_root=tmp_path, source_root="app") == tmp_path / "app"
+    assert find_source_dir(run_root=tmp_path, source_root="") == tmp_path / "src"
+    assert find_source_dir(run_root=tmp_path / "src", source_root="") == tmp_path / "src"
+    assert find_source_dir(run_root=tmp_path / "empty", source_root="") == tmp_path / "empty"
+
+
+def test_import_of_a_longer_module_name_does_not_cover_a_prefix(tmp_path: Path):
+    # Arrange: bill.py and billing.py side by side; the only test imports
+    # billing, whose dotted path merely starts with `services.bill`.
+    src, integration = _build_layout(tmp_path)
+    (src / "application" / "services" / "bill.py").write_text("X = 1\n", encoding="utf-8")
+    (src / "application" / "services" / "billing.py").write_text("Y = 1\n", encoding="utf-8")
+    (integration / "test_billing.py").write_text(
+        "from app.application.services.billing import Y\n",
+        encoding="utf-8",
+    )
+
+    # Act.
+    result = CoverageCheck().check(Scan(root=src))
+
+    # Assert: whole segments only, so bill is the one uncovered module.
+    assert [(w.file, w.line) for w in result.warnings] == [
+        ("application/services/bill.py", 1),
+    ]
+
+
+def test_unparseable_test_file_still_covers_by_raw_text(tmp_path: Path):
+    # Arrange: the only partner does not parse, but names the module.
+    src, integration = _build_layout(tmp_path)
+    (src / "application" / "services" / "billing.py").write_text("def f(): ...\n")
+    (integration / "test_other.py").write_text("def test_x(:\n    services.billing\n")
+
+    # Act
+    result = CoverageCheck().check(Scan(root=src))
+
+    # Assert: the permissive raw-text fallback credits it.
+    assert result.warnings == []
+
+
+def test_test_file_with_a_coding_cookie_is_read(tmp_path: Path):
+    # Arrange: a latin-1 partner, decoded the way the interpreter decodes it.
+    src, integration = _build_layout(tmp_path)
+    (src / "application" / "services" / "billing.py").write_text("def f(): ...\n")
+    (integration / "test_other.py").write_bytes(
+        b"# -*- coding: latin-1 -*-\nfrom app.services.billing import f\nNAME = '\xe9'\n",
+    )
+
+    # Act
+    result = CoverageCheck().check(Scan(root=src))
+
+    # Assert
+    assert result.warnings == []
+    assert result.status == Status.PASS
+
+
+def test_a_scoped_scan_still_credits_partners_and_excludes_match_the_run_root(tmp_path: Path):
+    # Arrange: billing's partner under tests/integration/legacy/; a run scoped to src/.
+    src = _project_with_uncovered_module(tmp_path, config="[tool.lanorme]\n")
+    legacy = tmp_path / "tests" / "integration" / "legacy"
+    legacy.mkdir(parents=True)
+    (legacy / "test_billing.py").write_text("def test_charge(): ...\n", encoding="utf-8")
+
+    # Act: the Python API (run_check activates the scan), scoped to src/, with and
+    # without an exclude on the partner.
+    scoped = run_check(CoverageCheck(), scan=Scan(root=tmp_path, scope="src"))
+    excluded = run_check(
+        CoverageCheck(),
+        scan=Scan(root=tmp_path, scope="src", excludes=("tests/integration/legacy/*",)),
+    )
+    unrelated = run_check(
+        CoverageCheck(),
+        scan=Scan(root=tmp_path, scope="src", excludes=("legacy/*",)),
+    )
+
+    # Assert: the scope does not hide the partner; an exclude prunes it only when
+    # it matches the partner's run-relative path, as excludes match everywhere else.
+    assert [w.file for w in scoped.warnings] == []
+    assert [w.file for w in excluded.warnings] == ["src/application/services/billing.py"]
+    assert [w.file for w in unrelated.warnings] == []
+
+
+def test_cli_scoped_to_src_credits_a_nested_partner_under_the_test_root(tmp_path: Path, capsys):
+    # Arrange: billing's partner sits in a nested package under tests/integration;
+    # a second service has none. The run is scoped to src/, outside tests/.
+    src = _project_with_uncovered_module(tmp_path, config="[tool.lanorme]\n")
+    (src / "application" / "services" / "refunds.py").write_text(
+        "def refund(): ...\n",
+        encoding="utf-8",
+    )
+    nested = tmp_path / "tests" / "integration" / "services"
+    nested.mkdir(parents=True)
+    (nested / "test_billing.py").write_text("def test_charge(): ...\n", encoding="utf-8")
+
+    # Act: run the real CLI over the src dir only.
+    try:
+        main(["check", str(src), "--check=test_coverage", "--json"])
+    except SystemExit:
+        pass
+
+    # Assert: the partner walk is not confined to the src/ scope, so only the
+    # service without a partner is reported.
+    findings = _parse_testfile_findings(capsys)
+    assert [w["file"] for w in findings] == ["src/application/services/refunds.py"]

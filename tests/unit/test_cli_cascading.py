@@ -1,8 +1,8 @@
 """End-to-end tests for cascading per-directory config (issue #28).
 
-Each test builds a small tree with a nested ``lanorme.toml``, runs the full
-``check`` command (cascading only applies to a full run, not a single ``--check``
-selector), and asserts which files a check fires on. ``naming_consistency`` is a
+Each test builds a small tree with a nested ``lanorme.toml``, runs the
+``check`` command (a full run or a single ``--check`` selector, which cascades
+the same way), and asserts which files a check fires on. ``naming_consistency`` is a
 clean lever: its NAMING-001 repository rule is opt-in via ``repo_crud`` and fires
 on any method under ``infrastructure/repositories/`` whose name uses a synonym
 prefix, so toggling it per region is directly observable.
@@ -17,14 +17,7 @@ from lanorme.cli import main
 
 _REPO_METHOD = "class Repo:\n    def fetch_thing(self):\n        return 1\n"
 
-_DUP_FUNCTION = (
-    "def compute():\n"
-    "    a = 1\n"
-    "    b = 2\n"
-    "    c = a + b\n"
-    "    d = c * 2\n"
-    "    return d\n"
-)
+_DUP_FUNCTION = "def compute():\n    a = 1\n    b = 2\n    c = a + b\n    d = c * 2\n    return d\n"
 
 
 def _write_repo_file(directory: Path) -> None:
@@ -54,7 +47,7 @@ def _run_full(root: Path, capsys, *extra: str) -> dict:
     return {result["check"]: result for result in payload}
 
 
-def _violation_files(result: dict) -> set[str]:
+def _collect_violation_files(result: dict) -> set[str]:
     """The set of file paths a check reported violations on."""
     return {violation["file"] for violation in result["violations"]}
 
@@ -68,8 +61,8 @@ def test_nested_config_enables_check_only_in_its_subtree(tmp_path: Path, capsys)
     results = _run_full(tmp_path, capsys)
 
     # Assert
-    assert _violation_files(results["naming_consistency"]) == {
-        "strict/infrastructure/repositories/store.py"
+    assert _collect_violation_files(results["naming_consistency"]) == {
+        "strict/infrastructure/repositories/store.py",
     }
 
 
@@ -77,13 +70,15 @@ def test_nested_config_inherits_parent_setting(tmp_path: Path, capsys):
     """A nested region that sets only service_crud still inherits repo_crud."""
     # Arrange
     (tmp_path / "lanorme.toml").write_text(
-        "[naming_consistency]\nrepo_crud = true\n", encoding="utf-8"
+        "[naming_consistency]\nrepo_crud = true\n",
+        encoding="utf-8",
     )
     _write_repo_file(tmp_path)
     strict = tmp_path / "strict"
     strict.mkdir()
     (strict / "lanorme.toml").write_text(
-        "[naming_consistency]\nservice_crud = true\n", encoding="utf-8"
+        "[naming_consistency]\nservice_crud = true\n",
+        encoding="utf-8",
     )
     _write_repo_file(strict)
 
@@ -91,7 +86,7 @@ def test_nested_config_inherits_parent_setting(tmp_path: Path, capsys):
     results = _run_full(tmp_path, capsys)
 
     # Assert
-    assert _violation_files(results["naming_consistency"]) == {
+    assert _collect_violation_files(results["naming_consistency"]) == {
         "infrastructure/repositories/store.py",
         "strict/infrastructure/repositories/store.py",
     }
@@ -101,7 +96,8 @@ def test_root_true_stops_inheritance(tmp_path: Path, capsys):
     """``root = true`` in the nested region drops the inherited repo_crud."""
     # Arrange
     (tmp_path / "lanorme.toml").write_text(
-        "[naming_consistency]\nrepo_crud = true\n", encoding="utf-8"
+        "[naming_consistency]\nrepo_crud = true\n",
+        encoding="utf-8",
     )
     _write_repo_file(tmp_path)
     standalone = tmp_path / "standalone"
@@ -113,8 +109,8 @@ def test_root_true_stops_inheritance(tmp_path: Path, capsys):
     results = _run_full(tmp_path, capsys)
 
     # Assert
-    assert _violation_files(results["naming_consistency"]) == {
-        "infrastructure/repositories/store.py"
+    assert _collect_violation_files(results["naming_consistency"]) == {
+        "infrastructure/repositories/store.py",
     }
 
 
@@ -126,13 +122,14 @@ def test_whole_tree_check_spans_regions(tmp_path: Path, capsys):
     strict = tmp_path / "strict"
     strict.mkdir()
     (strict / "lanorme.toml").write_text(
-        "[similarity]\nenabled = false\n", encoding="utf-8"
+        "[similarity]\nenabled = false\n",
+        encoding="utf-8",
     )
     (strict / "second.py").write_text(_DUP_FUNCTION, encoding="utf-8")
 
     # Act
     results = _run_full(tmp_path, capsys)
-    reported = _violation_files(results["duplication"])
+    reported = _collect_violation_files(results["duplication"])
 
     # Assert
     assert "first.py" in reported
@@ -143,7 +140,8 @@ def test_user_exclude_drops_nested_region_findings(tmp_path: Path, capsys):
     """A user --exclude over a nested region still drops that region's findings."""
     # Arrange
     (tmp_path / "lanorme.toml").write_text(
-        "[naming_consistency]\nrepo_crud = true\n", encoding="utf-8"
+        "[naming_consistency]\nrepo_crud = true\n",
+        encoding="utf-8",
     )
     _write_repo_file(tmp_path)
     sub = tmp_path / "sub"
@@ -155,8 +153,8 @@ def test_user_exclude_drops_nested_region_findings(tmp_path: Path, capsys):
     results = _run_full(tmp_path, capsys, "--exclude", "sub/*")
 
     # Assert: only the root region's finding survives the exclude.
-    assert _violation_files(results["naming_consistency"]) == {
-        "infrastructure/repositories/store.py"
+    assert _collect_violation_files(results["naming_consistency"]) == {
+        "infrastructure/repositories/store.py",
     }
 
 
@@ -166,7 +164,8 @@ def test_config_does_not_leak_between_invocations(tmp_path: Path, capsys):
     enabled = tmp_path / "enabled"
     enabled.mkdir()
     (enabled / "lanorme.toml").write_text(
-        "[naming_consistency]\nrepo_crud = true\n", encoding="utf-8"
+        "[naming_consistency]\nrepo_crud = true\n",
+        encoding="utf-8",
     )
     _write_repo_file(enabled)
     plain = tmp_path / "plain"
@@ -178,17 +177,83 @@ def test_config_does_not_leak_between_invocations(tmp_path: Path, capsys):
     second = _run_full(plain, capsys)
 
     # Assert: the first fires NAMING-001; the second does not inherit it.
-    assert _violation_files(first["naming_consistency"])
-    assert _violation_files(second["naming_consistency"]) == set()
+    assert _collect_violation_files(first["naming_consistency"])
+    assert _collect_violation_files(second["naming_consistency"]) == set()
 
 
-def test_single_check_selector_uses_root_config_not_regions(tmp_path: Path, capsys):
-    """A ``--check NAME`` run bypasses cascading and uses the root config only."""
+def test_single_check_selector_honours_nested_regions(tmp_path: Path, capsys):
+    """A ``--check NAME`` run cascades exactly like a full run.
+
+    It used to run at the scan root under the root config only, so a rule a
+    subtree enabled fired in the full run and vanished under ``--check``.
+    """
     # Arrange: repo_crud is enabled only in the nested region, never at the root.
     _write_root_and_strict_repo(tmp_path, "[naming_consistency]\nrepo_crud = true\n")
 
-    # Act: a single-check run does not apply the nested region's config.
+    # Act: a single-check run applies the nested region's config to its files.
     results = _run_full(tmp_path, capsys, "--check", "naming_consistency")
 
-    # Assert: the nested repo_crud is not honoured under the bypass.
-    assert _violation_files(results["naming_consistency"]) == set()
+    # Assert: the nested repo_crud is honoured, and only the selected check ran.
+    assert _collect_violation_files(results["naming_consistency"]) == {
+        "strict/infrastructure/repositories/store.py",
+    }
+    assert set(results) == {"naming_consistency"}
+
+
+def _write_split_clones(tmp_path: Path, nested_config: str) -> Path:
+    """A project whose clone pair straddles ``sub`` (holding *nested_config*) and ``other``."""
+    (tmp_path / "lanorme.toml").write_text("", encoding="utf-8")
+    sub = tmp_path / "sub"
+    other = tmp_path / "other"
+    sub.mkdir()
+    other.mkdir()
+    (sub / "lanorme.toml").write_text(nested_config, encoding="utf-8")
+    (sub / "a.py").write_text(_DUP_FUNCTION, encoding="utf-8")
+    (other / "b.py").write_text(_DUP_FUNCTION, encoding="utf-8")
+    return sub
+
+
+def _collect_located_codes(result: dict) -> list[tuple[str, str, int]]:
+    """``(code, file, line)`` of every violation on a check's JSON result."""
+    return [
+        (violation["rule"].split(":")[0], violation["file"], violation["line"])
+        for violation in result["violations"]
+    ]
+
+
+def test_nested_ignore_does_not_narrow_a_subtree_scan(tmp_path: Path, capsys):
+    """``check sub`` reads ``ignore`` from the project root, as ``check .`` does."""
+    # Arrange
+    sub = _write_split_clones(tmp_path, 'ignore = ["DRY-001"]\n')
+
+    # Act
+    results = _run_full(sub, capsys)
+
+    # Assert
+    assert _collect_located_codes(results["duplication"]) == [("DRY-001", "sub/a.py", 1)]
+
+
+def test_nested_exclude_does_not_narrow_a_subtree_scan(tmp_path: Path, capsys):
+    """A nested ``exclude`` is a run key: the subtree scan takes the project root's."""
+    # Arrange
+    sub = _write_split_clones(tmp_path, 'exclude = ["sub/*", "other/*"]\n')
+
+    # Act
+    results = _run_full(sub, capsys)
+
+    # Assert
+    assert _collect_located_codes(results["duplication"]) == [("DRY-001", "sub/a.py", 1)]
+
+
+def test_nested_check_config_still_governs_a_subtree_scan(tmp_path: Path, capsys):
+    """The nested region's check settings still apply to its own files under ``check sub``."""
+    # Arrange
+    _write_root_and_strict_repo(tmp_path, "[naming_consistency]\nrepo_crud = true\n")
+
+    # Act
+    results = _run_full(tmp_path / "strict", capsys)
+
+    # Assert
+    assert _collect_located_codes(results["naming_consistency"]) == [
+        ("NAMING-001", "strict/infrastructure/repositories/store.py", 2),
+    ]
