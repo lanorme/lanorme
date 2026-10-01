@@ -23,7 +23,7 @@ flowchart TD
     G -- no --> I[Stays green]
 ```
 
-## What you will build
+## A. What you will build
 
 A small project with a few findings already in it. By the end:
 
@@ -32,7 +32,7 @@ A small project with a few findings already in it. By the end:
 - `lanorme check .` exits clean.
 - A freshly introduced violation reports, while the recorded debt stays silent.
 
-## Step 1: install
+## B. Step 1: install
 
 Install LaNorme into the environment you run checks from.
 
@@ -48,7 +48,7 @@ lanorme --version
 
 It prints `lanorme` followed by the installed version.
 
-## Step 2: create a project to work on
+## C. Step 2: create a project to work on
 
 So the steps are reproducible, build a throwaway project rather than pointing at
 your own repository on the first read. Everything below happens inside one
@@ -60,20 +60,12 @@ git init -q
 mkdir myapp
 ```
 
-Write a module with a few ordinary problems in it: a leftover commented-out
-line and a function that takes too many positional parameters.
+Write `myapp/users.py`, a module with a few ordinary problems in it: a leftover
+commented-out line and a function that takes too many positional parameters.
 
 ```python
-# myapp/users.py
-import os
-
-
 def get_user(id):
     # old = lookup(id)
-    return {"id": id}
-
-
-def fetch_user(id):
     return {"id": id}
 
 
@@ -95,7 +87,7 @@ name = "myapp"
 version = "0.1.0"
 ```
 
-## Step 3: run the first check
+## D. Step 3: run the first check
 
 Run LaNorme against the project. Expect findings; that is the point.
 
@@ -105,13 +97,13 @@ lanorme check .
 
 ```text
 [WARN] file_limits
-  WARNING: myapp/users.py:13 — Function 'process' has parameter count 6 (warn: 5)
+  WARNING: myapp/users.py:6 — Function 'process' has parameter count 6 (warn: 5)
     Rule: PARAM-001: Function approaching the parameter limit
     Fix: Consider grouping related parameters into a dataclass or TypedDict
 --- file_limits: 0 violations, 1 warnings ---
 
 [FAIL] comments
-  VIOLATION: myapp/users.py:5 — Commented-out code: old = lookup(id)
+  VIOLATION: myapp/users.py:2 — Commented-out code: old = lookup(id)
     Rule: CMT-001: No commented-out code
     Fix: Delete it; version control remembers
 --- comments: 1 violations, 0 warnings ---
@@ -126,7 +118,7 @@ warning on its own would have left it at `0`. The default `concise` format
 shows only checks that found something, plus a summary. The last line counts
 the checks that ship switched off; Step 4 turns them on. Other formats
 (`full`, `json`, `ndjson`, `github`, `summary`) are available through
-`--output-format`; see the [CLI reference](../reference/cli.md#output-formats).
+`--output-format`; see the [CLI reference](../reference/cli.md#g-output-formats).
 
 On a real codebase with 25 errors or more and no baseline, the summary ends
 with a pointer to this tutorial:
@@ -142,7 +134,7 @@ That is Step 5 below.
     violations, `2` a usage or config error. A CI step can branch on them
     directly.
 
-## Step 4: turn on the strict profile
+## E. Step 4: turn on the strict profile
 
 `extends` adopts a bundled profile. The `strict` profile enables the opt-in
 checks and escalates advisory warnings to build-failing errors, so the gate is
@@ -166,25 +158,25 @@ lanorme check .
 
 ```text
 [FAIL] file_limits
-  VIOLATION: myapp/users.py:13 — Function 'process' has parameter count 6 (warn: 5)
+  VIOLATION: myapp/users.py:6 — Function 'process' has parameter count 6 (warn: 5)
     Rule: PARAM-001: Function approaching the parameter limit
     Fix: Consider grouping related parameters into a dataclass or TypedDict
 --- file_limits: 1 violations, 0 warnings ---
 
 [FAIL] comments
-  VIOLATION: myapp/users.py:5 — Commented-out code: old = lookup(id)
+  VIOLATION: myapp/users.py:2 — Commented-out code: old = lookup(id)
     Rule: CMT-001: No commented-out code
     Fix: Delete it; version control remembers
 --- comments: 1 violations, 0 warnings ---
 
 [FAIL] docstrings
-  VIOLATION: myapp/users.py:13 — Function 'process' has no docstring
+  VIOLATION: myapp/users.py:6 — Function 'process' has no docstring
     Rule: CMT-006: Public definitions past the size floor need a docstring
     Fix: Say what it is for, or what a caller needs to know that the signature does not show
 --- docstrings: 1 violations, 0 warnings ---
 
 [FAIL] named_args
-  VIOLATION: myapp/users.py:13 — Function 'process' has 6 positional params without bare *
+  VIOLATION: myapp/users.py:6 — Function 'process' has 6 positional params without bare *
     Rule: KWARG-001: Functions with >1 parameter must use bare * separator
     Fix: Add a bare * separator: def foo(self, *, param1: str, param2: int)
 --- named_args: 1 violations, 0 warnings ---
@@ -204,7 +196,7 @@ point `extends` at a path to a local `.toml`. They merge left to right, and your
 own keys merge on top, so local settings always win. See
 [`extends`](../reference/configuration.md#extends).
 
-## Step 5: record the debt as a baseline
+## F. Step 5: record the debt as a baseline
 
 `lanorme baseline write` scans the project and records every current finding to
 a file. Anything in that file is suppressed on later runs, so only findings that
@@ -225,11 +217,11 @@ Add this to your configuration and commit the file like a lockfile:
 
 The command writes `lanorme-baseline.json` and prints the exact config block to
 add. The file is a JSON object with a `version` and an `entries` list. Each
-entry is keyed by file, rule code and an anchor, a hash of the source line at
-the finding rather than a line number, with a count of how many times it
-occurred, so it survives unrelated edits above it.
+entry is keyed by file, rule code and an anchor, plus a count of how many times
+the finding occurred. The anchor is a hash of the source line at the finding,
+not a line number, so the entry survives unrelated edits above it.
 
-## Step 6: point the config at the baseline
+## G. Step 6: point the config at the baseline
 
 Add the printed key so checks read the baseline:
 
@@ -244,21 +236,21 @@ extends = ["strict"]
 baseline = "lanorme-baseline.json"
 ```
 
-## Step 7: commit the baseline like a lockfile
+## H. Step 7: commit the baseline like a lockfile
 
 Commit `lanorme-baseline.json` alongside the config change. It is a shared,
-reviewable record of the debt every contributor inherits, the same way a lock
-file pins dependencies. Keep it in version control and review changes to it.
+reviewable record of the debt every contributor inherits, the same way a
+lockfile pins dependencies. Keep it in version control and review changes to it.
 
 ```bash
 git add pyproject.toml lanorme-baseline.json
 git commit -m "Adopt LaNorme strict profile with a debt baseline"
 ```
 
-## Step 8: confirm the gate is green
+## I. Step 8: confirm the gate is green
 
 Run the check once more. The recorded findings are suppressed, so the project
-passes:
+passes and exits `0`:
 
 ```bash
 lanorme check .
@@ -269,21 +261,16 @@ All 30 checks passed.
 Suppressed: 0 by inline ignores, 0 by per-file-ignores, 4 by the baseline.
 ```
 
-```text
-Exit code: 0
-```
-
 The gate is green and strict at the same time. The `Suppressed:` line counts
 the four recorded findings the baseline kept quiet. The starting debt did not
 move; it is recorded, not waived.
 
-## Step 9: see a new violation report
+## J. Step 9: see a new violation report
 
 The point of the baseline is that new problems still fail the gate. Add a second
-module with a fresh commented-out line:
+module, `myapp/orders.py`, with a fresh commented-out line:
 
 ```python
-# myapp/orders.py
 def place_order(cart):
     # total = compute(cart)
     return {"ok": True}
@@ -307,15 +294,15 @@ Suppressed: 0 by inline ignores, 0 by per-file-ignores, 4 by the baseline.
 
 Only the new finding in `myapp/orders.py` reports. The recorded debt in
 `myapp/users.py` stays quiet. New code is held to the full strict profile; old
-code is not blocking the build. Delete the commented-out line and the check goes
-green again.
+code is not blocking the build. Leave the new line in place for now; Step 10
+uses it.
 
-## Step 10: inspect the whole debt and stale entries
+## K. Step 10: inspect the whole debt and stale entries
 
 Two commands keep the baseline honest.
 
-To see everything the baseline is suppressing, including the recorded debt, run
-a check that ignores the baseline for that run:
+To see the whole debt, new findings and recorded ones together, run a check
+that ignores the baseline:
 
 ```bash
 lanorme check --no-baseline .
@@ -323,7 +310,7 @@ lanorme check --no-baseline .
 
 ```text
 [FAIL] file_limits
-  VIOLATION: myapp/users.py:13 — Function 'process' has parameter count 6 (warn: 5)
+  VIOLATION: myapp/users.py:6 — Function 'process' has parameter count 6 (warn: 5)
     Rule: PARAM-001: Function approaching the parameter limit
     Fix: Consider grouping related parameters into a dataclass or TypedDict
 --- file_limits: 1 violations, 0 warnings ---
@@ -332,19 +319,19 @@ lanorme check --no-baseline .
   VIOLATION: myapp/orders.py:2 — Commented-out code: total = compute(cart)
     Rule: CMT-001: No commented-out code
     Fix: Delete it; version control remembers
-  VIOLATION: myapp/users.py:5 — Commented-out code: old = lookup(id)
+  VIOLATION: myapp/users.py:2 — Commented-out code: old = lookup(id)
     Rule: CMT-001: No commented-out code
     Fix: Delete it; version control remembers
 --- comments: 2 violations, 0 warnings ---
 
 [FAIL] docstrings
-  VIOLATION: myapp/users.py:13 — Function 'process' has no docstring
+  VIOLATION: myapp/users.py:6 — Function 'process' has no docstring
     Rule: CMT-006: Public definitions past the size floor need a docstring
     Fix: Say what it is for, or what a caller needs to know that the signature does not show
 --- docstrings: 1 violations, 0 warnings ---
 
 [FAIL] named_args
-  VIOLATION: myapp/users.py:13 — Function 'process' has 6 positional params without bare *
+  VIOLATION: myapp/users.py:6 — Function 'process' has 6 positional params without bare *
     Rule: KWARG-001: Functions with >1 parameter must use bare * separator
     Fix: Add a bare * separator: def foo(self, *, param1: str, param2: int)
 --- named_args: 1 violations, 0 warnings ---
@@ -376,7 +363,7 @@ progress, run `lanorme baseline write` again to prune the stale entries and
 record the smaller debt. Over time the baseline shrinks toward empty, and the
 strict gate covers the whole codebase.
 
-## Step 11: see what a severity change does
+## L. Step 11: see what a severity change does
 
 The baseline records each finding at the severity its check reported, before
 `promote` applies. `PARAM-001` on `process` is recorded as a warning, even
@@ -393,10 +380,9 @@ A change in the severity the check itself reports is different:
 
 See the second case. Delete the commented-out line in `myapp/orders.py` so the
 gate is green, then lower the hard parameter limit to 6, the count `process`
-has:
+has, by adding this table to `pyproject.toml`:
 
 ```toml
-# pyproject.toml
 [tool.lanorme.file_limits]
 param_error = 6
 ```
@@ -407,7 +393,7 @@ lanorme check .
 
 ```text
 [FAIL] file_limits
-  VIOLATION: myapp/users.py:12 — Function 'process' has parameter count 6 (limit: 6)
+  VIOLATION: myapp/users.py:5 — Function 'process' has parameter count 6 (limit: 6)
     Rule: PARAM-001: Function exceeds the parameter limit
     Fix: Group related parameters into a dataclass or TypedDict
 --- file_limits: 1 violations, 0 warnings ---
@@ -421,12 +407,12 @@ The recorded warning no longer covers the finding, because the check now
 reports it as an error. Fix it, or run `lanorme baseline write` to record it
 at its new severity. Remove the `param_error` line to go back to the default.
 
-## What you learned
+## M. What you learned
 
 - `extends = ["strict"]` turns on the full profile, opt-in checks and all.
 - `lanorme baseline write` records the existing debt and prints the config block
   to add.
-- `baseline = "lanorme-baseline.json"`, committed like a lock file, suppresses
+- `baseline = "lanorme-baseline.json"`, committed like a lockfile, suppresses
   that debt so the gate passes.
 - New violations still report; recorded debt stays quiet until you pay it down.
 - `lanorme check --no-baseline` shows the whole debt; `lanorme baseline status`
@@ -438,7 +424,7 @@ at its new severity. Remove the `param_error` line to go back to the default.
 From here, every pull request is held to the strict profile on its new code,
 with no upfront cleanup required.
 
-## Next steps
+## N. Next steps
 
 - [Configuration reference](../reference/configuration.md): every
   `[tool.lanorme]` key, including `promote`, `per-file-ignores`, and `source_root`.

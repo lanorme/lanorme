@@ -9,6 +9,12 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
 
 ## [Unreleased]
 
+### Docs
+
+- The "Write a custom check" guide covers files that are not Python: a worked
+  shell-script check, the `lanorme.markdown` prose surface for Markdown
+  rules, and the built-in checks to copy.
+
 ## [0.21.0]
 
 ### Added
@@ -31,10 +37,11 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
   library, mapped to `ERROR: ...` and exit 2 in one place by the CLI.
   Diagnostics go through the `lanorme` logger (stderr); findings stay on
   stdout.
-- Ruff enforces trailing commas and formatting (dev dependency, the gates, the
-  pre-commit hooks). LaNorme itself is checked with Clean Code naming
-  (`NAMING-009..011`) enabled and promoted: every function is named for what
-  it does.
+- Ruff enforces trailing commas and formatting on LaNorme's own source (a
+  dev dependency, run by `scripts/check.sh` and the pre-commit hooks).
+  LaNorme itself is checked with Clean Code naming (`NAMING-009..011`)
+  enabled, with `NAMING-011` promoted to an error and `NAMING-009` /
+  `NAMING-010` reported as warnings.
 - `lanorme.errors.ConfigError`, the `UsageError` for a mistake in a config file
   or table, carrying the offending `key` and the `source` it was written in;
   the typed readers raise `lanorme.checkconfig.SettingError` (a `TypeError`).
@@ -53,26 +60,29 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
 - `lanorme.Registry` (`get_registry()`), whose `build_configured(config)` gives
   configured deep copies of the registered checks.
 - `lanorme.reports.format_violation` and `format_result`, the human rendering.
-- The evals keep every heuristic score honest. Each labelled corpus has a
-  `dev/` split rules may be tuned against and a sealed `holdout/` split; a
-  file's split is recorded per file in `labels.json` when it is added and
-  never moves, and the hash of its name only proposes a split for a new file.
-  Every label carries its provenance and a hash of the line it labels, and
-  `evals/validate_corpora.py --stamp` fills in a missing split or line hash.
-  `evals/validate_corpora.py` fails on an unlabelled file or comment, a label
-  with no line hash or one that drifted off its line, a positive under
-  `negatives/`, a `positives/` file with no positive, a misplaced file or
-  missing provenance.
-  `evals/generate_adversarial.py` writes seeded holdout cases whose labels come
-  from the edit that made them, never from a rule. The audit reports dev,
-  holdout and the gap per rule, records a digest of every holdout file, and
-  with `--gate latest` fails on a holdout file removed or changed since the
-  baseline, or on a holdout precision or recall more than 0.02 below the best
-  any release reached on the same holdout files (not merely the latest), and
-  prints a note when it had nothing to gate. An optional
-  `evals/holdout_revisions.json` accepts a deliberate holdout edit: one exact
-  new digest per file, with a reason. `scripts/check.sh` and
-  `scripts/release.sh` run that gate.
+- Corpus splits for the evals: each labelled corpus has a `dev/` split rules
+  may be tuned against and a sealed `holdout/` split. A file's split is
+  recorded per file in `labels.json` when it is added and never moves; the
+  hash of its name only proposes a split for a new file.
+- Label provenance: every label carries its provenance and a hash of the line
+  it labels, and `evals/validate_corpora.py --stamp` fills in a missing split
+  or line hash.
+- `evals/validate_corpora.py` fails on any of these:
+  - an unlabelled file or comment;
+  - a label with no line hash, or one that drifted off its line;
+  - a positive under `negatives/`, or a `positives/` file with no positive;
+  - a misplaced file;
+  - missing provenance.
+- `evals/generate_adversarial.py` writes seeded holdout cases whose labels come
+  from the edit that made them, never from a rule.
+- The eval audit reports dev, holdout and the gap per rule and records a
+  digest of every holdout file. With `--gate latest` it fails on a holdout
+  file removed or changed since the baseline, or on a holdout precision or
+  recall more than 0.02 below the best any release reached on the same
+  holdout files (not merely the latest), and prints a note when it had
+  nothing to gate. An optional `evals/holdout_revisions.json` accepts a
+  deliberate holdout edit: one exact new digest per file, with a reason.
+  `scripts/check.sh` and `scripts/release.sh` run that gate.
 
 ### Changed
 
@@ -203,20 +213,20 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
 - Configuration discovery walks up to the outermost config (stopping below one
   that sets `root = true`) and treats every config between it and the scan
   path as a region, so `lanorme check tests` under a `tests/lanorme.toml`
-  checks the subtree's files under the project's check settings with the
-  subtree's overrides instead of the subtree's file alone. Every check runs
-  from the project root: a subtree
-  scan (`lanorme check tests`, `lanorme check tests/helpers.py`) confines the
-  walk to the subtree instead of making it the root, so a nested region's
-  files keep their `tests/` and `migrations/` exemptions, `per-file-ignores`
-  globs match them, and the whole-tree checks (`docs`, `duplication`,
-  `layer_deps`, `port_coverage`, `test_coverage`) see the whole project.
-  `lanorme check <subdir>` reads `select`, `ignore`, `exclude`, `promote`,
-  `per-file-ignores`, `baseline`, `source_root` and the whole-tree checks'
-  settings from the project root's config, so `lanorme check tests` holds the
-  same standard as `lanorme check .`: a nested config governs only its own
-  region's file-level checks, and a nested `ignore` or `exclude` no longer
-  applies to a subtree run. The report is narrowed to the requested path.
+  applies the project's check settings with the subtree's overrides instead
+  of the subtree's file alone.
+- A subtree scan (`lanorme check tests`, `lanorme check tests/helpers.py`)
+  runs every check from the project root and confines the walk to the subtree
+  instead of making it the root. A nested region's files keep their `tests/`
+  and `migrations/` exemptions, `per-file-ignores` globs match them, and the
+  whole-tree checks (`docs`, `duplication`, `layer_deps`, `port_coverage`,
+  `test_coverage`) see the whole project. `select`, `ignore`, `exclude`,
+  `promote`, `per-file-ignores`, `baseline`, `source_root` and the whole-tree
+  checks' settings are read from the project root's config: a nested config
+  governs only its own region's file-level checks, and a nested `ignore` or
+  `exclude` no longer applies to a subtree run. `lanorme check tests` thus
+  holds the same standard as `lanorme check .`, with the report narrowed to
+  the requested path.
 - `test_coverage` honours the top-level `source_root` and otherwise finds its
   production directories one level down (a `src/` layout), so `lanorme check .`
   at the project root reports `TESTFILE-001` for a `src/app/...` tree.
@@ -262,7 +272,7 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
 - Only a `TypeError` or `ValueError` out of a check's `configure()` is
   reported as an invalid config value; an `AttributeError` or `KeyError` is a
   bug in the check and surfaces as one.
-- A `UsageError` raised inside a check's `run()` exits 2 instead of being
+- A `UsageError` raised inside a check exits 2 instead of being
   reported as a `RUN-000` crash notice.
 - Registered checks are never configured in place: each pass runs configured
   deep copies, so a check registered with constructor arguments keeps them
@@ -276,8 +286,8 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
 ### Deprecated
 
 - `Violation.format_human` and `CheckResult.format_human` warn and delegate to
-  `lanorme.reports.format_violation` / `format_result`; they go in the next
-  release.
+  `lanorme.reports.format_violation` / `format_result`; they are removed in
+  the next release.
 - `CheckResult(status=...)`. The argument is accepted for this release and
   ignored, with a `DeprecationWarning` that names the derived status when the
   two disagree. Drop the argument or build the result with
@@ -298,7 +308,8 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
 - `docs/RULES.md` no longer claims `SIMILAR-001` precision 1.000 and recall
   0.850: those were measured on files the thresholds were tuned against. It
   reports the dev, holdout and generated-case numbers side by side (holdout
-  P 0.519 / R 0.692), and the `CMT-001` corpus figures are current.
+  P 1.000 / R 0.966, dev P 1.000 / R 0.800, generated P 1.000 / R 1.000), and
+  the `CMT-001` corpus figures are current.
 - A baselined whole-file finding (one reported at line 1, such as `SIZE-001`)
   is anchored on its file and code rather than on the rule's wording, so a
   recorded error still covers the warning it improves into instead of
@@ -306,31 +317,36 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
   next `lanorme baseline write`, which the drift notice points to. Inline
   ignores and baseline anchors are read through the file's `coding:` cookie,
   so a `# noqa` in a latin-1 file is honoured.
-- The naming checks cry wolf less, after a red-team of framework hooks,
-  domain verbs and predicate shapes. `NAMING-007` / `NAMING-011` leave alone
-  the standard library's protocol methods on `asyncio`, `socketserver`,
-  `ast.NodeVisitor`, `xml.sax`, `cmd`, `io`, `logging` and `urllib` classes,
-  the method hooks Django, Django REST framework, Scrapy, pydantic and
-  SQLAlchemy fix (`ready`, `form_valid`, `perform_create`, `closed`,
-  `model_post_init`), a camelCase method on a subclass of an external class
-  (`mousePressEvent`, `dataReceived`: PEP 8 allows mixedCase only to match a
-  prevailing style; `object`, `ABC`, `Generic`, `Protocol`, `NamedTuple`,
-  `TypedDict` and the `Enum` family do not count, and a base in the same
-  module counts only when it has an external base or defines the method),
-  a hook named in camelCase (`onMessage`), a bare `callback` or `handler`,
-  and the WSGI `application` and ASGI `app` callables. `NAMING-011` also
-  leaves a decorator or closure factory (a function that returns a function
-  it defines) named for what it confers. The verb vocabulary gains business,
-  moderation and security verbs (`refund`, `invite`, `ban`, `redact`, ...)
-  and stops reading `enterprise`, `premise` and `-size` compounds as verbs.
-  `NAMING-006` treats an exception subclass and an outcome head
-  (`SendFailed`, `FetchAborted`) as things. `NAMING-009` accepts a noise word
-  a base already carries (`UserManager(models.Manager)`). `NAMING-004`
-  accepts every predicate shape (`exists`, `matches`, `needs_refresh`,
-  `user_is_active`, `isdir`) and the protocol and framework names above.
-  `NAMING-005` keeps a comprehension's, a lambda's or a nested function's
-  names to that scope (a keyword-only argument without a default included)
-  and counts a `match` capture as a binding.
+- The naming checks report fewer false positives, after a red-team of
+  framework hooks, domain verbs and predicate shapes:
+  - `NAMING-007` / `NAMING-011` leave alone the standard library's protocol
+    methods on `asyncio`, `socketserver`, `ast.NodeVisitor`, `xml.sax`, `cmd`,
+    `io`, `logging` and `urllib` classes; the method hooks Django, Django REST
+    framework, Scrapy, pydantic and SQLAlchemy fix (`ready`, `form_valid`,
+    `perform_create`, `closed`, `model_post_init`); a hook named in camelCase
+    (`onMessage`); a bare `callback` or `handler`; and the WSGI `application`
+    and ASGI `app` callables.
+  - `NAMING-007` / `NAMING-011` also leave alone a camelCase method on a
+    subclass of an external class (`mousePressEvent`, `dataReceived`), since
+    PEP 8 allows mixedCase to match a prevailing style. `object`, `ABC`,
+    `Generic`, `Protocol`, `NamedTuple`, `TypedDict` and the `Enum` family do
+    not count as external, and a base in the same module counts only when it
+    has an external base or defines the method.
+  - `NAMING-011` leaves a decorator or closure factory (a function that
+    returns a function it defines) named for what it confers.
+  - The verb vocabulary the naming rules share gains business, moderation and
+    security verbs (`refund`, `invite`, `ban`, `redact`, ...) and stops
+    reading `enterprise`, `premise` and `-size` compounds as verbs.
+  - `NAMING-006` treats an exception subclass and an outcome head
+    (`SendFailed`, `FetchAborted`) as things.
+  - `NAMING-009` accepts a noise word a base already carries
+    (`UserManager(models.Manager)`).
+  - `NAMING-004` accepts every predicate shape (`exists`, `matches`,
+    `needs_refresh`, `user_is_active`, `isdir`) and the protocol and framework
+    names above.
+  - `NAMING-005` keeps a comprehension's, a lambda's or a nested function's
+    names to that scope (a keyword-only argument without a default included)
+    and counts a `match` capture as a binding.
 - `CMT-001` no longer reads a labelled note (`# TODO: retries = 5`,
   `# default: timeout = 30`, `# cython: boundscheck=False`), a foreign
   literal (`# enabled = true`), a keyword followed only by an adverb
@@ -475,7 +491,7 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
   `naming_scope` and `suppressions` each landed default-off without being added
   to the profile, so `extends = ["strict"]` left the four of them off. A
   project on `strict` can see new findings from those checks on upgrade, which
-  is why the next release is a minor. Two of them carry assumptions worth
+  is why 0.18.0 is a minor. Two of them carry assumptions worth
   knowing: `suppressions` starts at a budget of zero, so set `max_total` to
   today's count and ratchet it down, and `docs` expects a Diataxis tree under
   `docs/`, inert when that directory is absent. A local

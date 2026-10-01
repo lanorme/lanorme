@@ -2,11 +2,11 @@
 
 This how-to shows how to turn an advisory warning into a build-failing error with `promote`, and explains how promotion interacts with suppression, skip notices, and the `strict` profile.
 
-A warning is only ever promoted if it survives every suppression mechanism first, and skip notices are never promoted at all. The decision a single warning runs through is:
+The decision a single warning runs through is:
 
 ```mermaid
 flowchart TD
-    W[Advisory warning] --> S{Suppressed by ignore, per-file-ignores,<br/>noqa, or lanorme: ignore?}
+    W[Advisory warning] --> S{Suppressed by ignore, per-file-ignores,<br/>noqa, lanorme: ignore, or the baseline?}
     S -- yes --> G[Gone before promotion: stays clear]
     S -- no --> N{A -000 skip or<br/>parse-error notice?}
     N -- yes --> K[Never promoted: stays a warning]
@@ -18,12 +18,10 @@ flowchart TD
 Some rules report at the advisory tier: they raise a warning, but the run
 still exits `0`. `TYPE-004` (a function with typed parameters and a real
 return value should declare a return type) is one such rule. When you want
-an advisory rule to break the build instead, promote it.
+an advisory rule to break the build instead, promote it: the run then exits
+`1` like any other finding.
 
-Promotion escalates a warning into a build-failing error. The run then exits
-`1`, the same as any other finding, so continuous integration stops on it.
-
-## Promote a single rule
+## A. Promote a single rule
 
 Add the rule code to `promote` in `[tool.lanorme]`:
 
@@ -34,7 +32,8 @@ promote = ["TYPE-004"]
 
 This is the `pyproject.toml` form. In a standalone `lanorme.toml` the prefix is
 dropped, so write `promote = ["TYPE-004"]` at the top level with no
-`[tool.lanorme]` header (a `[tool.lanorme]` header there is silently ignored).
+`[tool.lanorme]` header (a `[tool.lanorme]` table there is a configuration
+error and the run exits `2`).
 See the [configuration reference](../reference/configuration.md) for the header
 convention.
 
@@ -54,7 +53,7 @@ lanorme check src --promote TYPE-004
 lanorme check src --promote ALL
 ```
 
-## Before and after
+## B. Before and after
 
 Start with a function that has typed parameters but no return annotation:
 
@@ -97,17 +96,21 @@ $ echo $?
 1
 ```
 
+The rule string keeps its `(advisory warning)` tag, which names the rule's
+native tier; the `VIOLATION` label and the exit code are what changed.
+
 In the `json` and `ndjson` output the promoted finding carries
 `"promoted": true`, so a tool can tell it from a native error. The exit code
-is the signal CI reads: `0` clean, `1` findings, `2` usage or config error. See the [configuration reference](../reference/configuration.md)
-for the full table of keys and their command-line equivalents.
+is the signal CI reads: `0` clean, `1` findings, `2` usage or config error.
 
-## Promotion runs after suppression
+## C. Promotion runs after suppression
 
 Promotion is the last step. It runs after every suppression mechanism, so a
 warning that is already silenced is gone before promotion can see it. A code
-listed in `ignore`, matched by `per-file-ignores`, or carrying a `# noqa` or
-`# lanorme: ignore` comment is never promoted, even under `promote = ["ALL"]`.
+listed in `ignore`, matched by `per-file-ignores`, carrying a `# noqa` or
+`# lanorme: ignore` comment, or recorded in the baseline is never promoted,
+even under `promote = ["ALL"]`. To fail the build on a suppressed warning,
+remove the suppression first.
 
 A `# noqa` on the line suppresses the warning, so `--promote ALL` has nothing
 to escalate and the run passes:
@@ -137,17 +140,11 @@ $ echo $?
 0
 ```
 
-!!! note
-    This ordering means promotion cannot resurrect a finding you have
-    deliberately suppressed. If you want a suppressed warning to fail the
-    build, remove the suppression first, then promote.
-
-The baseline is a suppression too, and it matches before promotion, on the
-severity the check reported. A finding recorded as a warning stays quiet when
+The baseline matches on the severity the check reported. A finding recorded as a warning stays quiet when
 you later promote its code; `lanorme check --no-baseline` shows it. See
-[the adoption tutorial](../tutorials/adopt-on-existing-codebase.md#step-11-see-what-a-severity-change-does).
+[the adoption tutorial](../tutorials/adopt-on-existing-codebase.md#l-step-11-see-what-a-severity-change-does).
 
-## Skip notices are never promoted
+## D. Skip notices are never promoted
 
 A `-000` code (for example `TYPE-000`, `DRY-000`, `LAYER-000`) is a
 skip notice, not a finding. It means "could not analyse this file,
@@ -162,8 +159,9 @@ skipping", for one of three reasons named in the rule string:
 These notices stay warnings even under `promote = ["ALL"]`, so promotion
 never fails a build on a non-issue.
 
-Running a check over a file with a syntax error, with `--promote ALL`
-(the `full` format prints no summary):
+A `-000` notice is not matched by a rule selector, so this example runs the
+whole check with `--check strong_types` instead of `--select TYPE-004` (the
+`full` format prints no summary):
 
 ```console
 $ lanorme check broken.py --check strong_types --promote ALL --output-format full
@@ -179,7 +177,7 @@ $ echo $?
 
 The notice remains a `[WARN]` and the run exits `0`.
 
-## Interaction with strict
+## E. Interaction with strict
 
 The bundled `strict` profile sets `promote = ["ALL"]` (and enables the opt-in
 checks). Adopting it through `extends` therefore promotes every advisory
@@ -190,9 +188,8 @@ warning to a build-failing error:
 extends = ["strict"]
 ```
 
-Your own keys still merge on top, so you can adopt `strict` and then narrow
-the promotion. Because local keys win, setting `promote` yourself replaces the
-profile's `["ALL"]`:
+Your own keys merge on top, so setting `promote` yourself replaces the
+profile's `["ALL"]` and narrows the promotion:
 
 ```toml
 [tool.lanorme]

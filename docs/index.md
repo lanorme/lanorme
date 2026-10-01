@@ -7,9 +7,10 @@ turns the rules your team has agreed on into checks that run on every commit.
 Precision comes first. A false positive is the cardinal sin: a check that
 cries wolf trains people to ignore it, so LaNorme would rather stay silent
 than flag code that is fine. Opinionated rules report as warnings, which keep
-the exit code at `0`, until you promote them to errors.
+the exit code at `0` until you promote them to errors, and the most
+opinionated checks ship switched off until you enable them.
 
-## 30-second example
+## A. 30-second example
 
 Install LaNorme as a development dependency:
 
@@ -53,17 +54,20 @@ Two shortcuts help while you work:
   for the home page and each section landing page. The "View as Markdown"
   button on a page opens the same file.
 
-## Where to go next
+## B. Where to go next
 
 - [Adopt LaNorme on an existing codebase](tutorials/adopt-on-existing-codebase.md):
   a tutorial that records a baseline so only new findings fail the build while
-  the recorded debt stays quiet (see all of it any time with
-  `lanorme check --no-baseline` or `lanorme baseline status`).
+  the recorded debt stays quiet (see the whole debt any time with
+  `lanorme check --no-baseline`; `lanorme baseline status` lists recorded
+  entries that no longer match a finding).
 - [How-to guides](how-to/index.md): task-focused recipes for choosing which
   checks run and excluding paths, promoting warnings to errors, using
   configuration profiles, and writing a custom check.
-- Reference: the [configuration reference](reference/configuration.md) for
-  every `[tool.lanorme]` key, and [the rules](RULES.md) for each check and its
-  per-check settings.
+- [Reference](reference/index.md): the
+  [configuration reference](reference/configuration.md) for every
+  `[tool.lanorme]` key, [the rules](RULES.md) for each check and its per-check
+  settings, and the [CLI reference](reference/cli.md) for every flag and exit
+  code.
 - [Precision first](explanation/precision-first.md): why LaNorme treats a
   false positive as the cardinal sin, and what that costs and buys.

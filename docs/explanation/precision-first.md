@@ -5,10 +5,7 @@ executable and trustworthy enough to gate every commit, drives every design
 choice in the tool: the false-positive budget, the baseline, the stdlib-only
 stance, and the generated docs.
 
-The reasoning below ties the rules, the baseline, and the documentation
-together as parts of a single idea rather than a list of features.
-
-## The thesis: an executable standard
+## A. The thesis: an executable standard
 
 Most teams already have a standard. It lives in a style guide, in review
 comments, in the habits of whoever has been around longest. The problem is not
@@ -21,14 +18,14 @@ every change, with no human in the loop. `lanorme check .` either passes or it
 does not, and the exit code says which: `0` when nothing fails (a clean run,
 or one whose only findings are unpromoted warnings), `1` when at least one
 check fails (a violation, or a warning you have promoted), `2` on a usage or
-configuration error. That last property is what
-lets the command drop straight into a pre-commit hook or a CI step. A standard
+configuration error. Carrying the verdict in the exit code is what lets the
+command drop straight into a pre-commit hook or a CI step. A standard
 you can put behind a gate is a standard the team actually has.
 
 But a gate is only useful if people leave it switched on. Everything below is
 about earning and keeping that permission.
 
-## A false positive is the cardinal sin
+## B. A false positive is the cardinal sin
 
 The fastest way to kill a linter is to make it cry wolf. The first time a
 developer is blocked by a finding that is obviously wrong, they lose trust. The
@@ -75,12 +72,13 @@ exit `1`. The tool does not presume to know which of your standards are
 hard lines. You tell it, and until you do, it stays out of your way. See
 [Promote advisory warnings to build-failing errors](../how-to/promote-warnings.md).
 
-## It dogfoods itself
+## C. It dogfoods itself
 
 LaNorme runs its own checks on its own source and its own documentation. On
 top of the defaults, the project's `pyproject.toml` enables the opt-in checks
-`prose`, `docs`, `named_args`, `test_style`, `attribute_access` and
-`similarity`, promotes the naming canon (`NAMING-006..008`) to errors, and
+`prose`, `docs`, `named_args`, `test_style`, `attribute_access`,
+`naming_clean_code` and `similarity`, promotes the naming canon
+(`NAMING-006..008`) and verb-first function names (`NAMING-011`) to errors, and
 ignores only the rules that assume a layered domain application (`LAYER`,
 `PORT`, `TERM`) because LaNorme is a flat library, not a hexagonal app.
 `restating` is not among the enabled checks: the `# Assert` markers the test
@@ -97,12 +95,11 @@ This page is itself subject to that discipline. The prose checks
 (`PROSE-001/002/003`) lint LaNorme's Markdown for em dashes, American
 spellings, and emoji, which is why this document avoids all three.
 
-## It is stdlib-only
+## D. It is stdlib-only
 
 LaNorme has zero runtime dependencies. Every check is built on the Python
 standard library: `ast` and `tokenize` to read code, `tomllib` for config,
-`hashlib` to fingerprint baseline entries, and nothing outside the standard
-library.
+`hashlib` to fingerprint baseline entries.
 
 This is a trust decision as much as a convenience one. A tool meant to gate
 every commit sits on the critical path of every developer and every CI run.
@@ -117,22 +114,24 @@ sees exactly what Python's own parser sees, no more. That bounded view is part
 of why the precision-first promise is keepable: the tool does not pretend to
 understand more than it does.
 
-## The baseline is content-anchored
+## E. The baseline is content-anchored
 
 Real teams adopt a linter on a codebase that already has problems. If turning
 the tool on means fixing every pre-existing finding before a single commit can
 land, nobody turns it on. The baseline solves this. `lanorme baseline write`
 records the findings a codebase already has into `lanorme-baseline.json`; from
 then on those recorded findings are suppressed, and only new findings report.
-You adopt strict rules and a baseline together, and every new line is held to
-strict from day one of a legacy repo.
+Adopt `extends = ["strict"]` and a baseline together, and every new line in a
+legacy repo is held to the strict profile from the day the gate goes on.
 
 The hard part is matching a recorded finding to a current one across edits, and
 this is where the design earns its trust. The baseline is content-anchored, not
 line-number-anchored. Each finding is keyed by `(file, rule code, anchor)`,
 where the anchor is a hash of the stripped source line at the finding (or, for
-a finding about the whole file, which the tool reports at line 1, a hash of the
-rule's fixed description). Hashing every form keeps source text, and any secret, out of the
+a finding about the whole file, which the tool reports at line 1, the fixed
+marker `file`: the file and rule code already identify it, and unlike the rule
+description the marker does not change when the finding moves between warning
+and error). Neither form carries source text, so no secret reaches the
 committed file.
 
 Three properties follow from that, and each one defends the tool's
@@ -157,6 +156,7 @@ Add this to your configuration and commit the file like a lockfile:
     [tool.lanorme]
     baseline = "lanorme-baseline.json"
 
+$ # insert two lines above the finding in dirty.py
 $ lanorme check
 All 30 checks passed.
 Suppressed: 0 by inline ignores, 0 by per-file-ignores, 1 by the baseline.
@@ -166,8 +166,9 @@ Opt-in checks not enabled: 11 ('lanorme check --show-config' lists them).
 **It never resurrects paid-down noise.** When you fix a finding, its entry no
 longer matches anything. `lanorme baseline status` lists those stale entries so
 you can see what you have paid down, and the next `lanorme baseline write`
-prunes them. The baseline shrinks as the debt shrinks; it does not accumulate
-phantom entries that re-fire on a coincidental content match.
+prunes them. The baseline shrinks each time you rewrite it after paying down
+debt, and until then `baseline status` reports stale entries rather than
+keeping them silently.
 
 ```console
 $ lanorme baseline status
@@ -180,10 +181,10 @@ Run 'lanorme baseline write' to prune them.
 **It never hides new debt.** Two guards enforce this. A per-key count budget
 means that if the baseline recorded N occurrences of a finding, the (N+1)th
 still reports: adding a second `os.system(...)` next to a baselined one
-surfaces immediately, because an identically written line is the second
-occurrence of an anchor recorded once, so it exceeds the count budget, and a
-differently written line hashes to an anchor the baseline never recorded. And a severity gate means a baselined *warning*
-never suppresses a current *error*-tier finding, so a file that has been edited
+surfaces immediately. An identically written line is a second occurrence of an
+anchor recorded once, so it exceeds the budget; a differently written line
+hashes to an anchor the baseline never recorded. A severity gate also means a
+baselined *warning* never suppresses a current *error*-tier finding, so a file that has been edited
 until it crosses a hard threshold re-reports and fails the build. Debt that
 gets worse is new debt, and new debt always surfaces.
 
@@ -191,8 +192,15 @@ When you want to see the whole picture, ignore the baseline for one run:
 
 ```console
 $ lanorme check --no-baseline
-...
+[FAIL] security_calls
+  VIOLATION: dirty.py:5 — os.system runs the argument through the shell
+    Rule: SHELL-001: No subprocess shell=True / os.system / os.popen
+    Fix: Use subprocess.run([...], shell=False) with an argv list instead
 --- security_calls: 1 violations, 0 warnings ---
+
+Summary: 30 checks — 29 passed, 0 warned, 1 failed.
+Findings: 1 error to fix, 0 advisory warnings.
+Opt-in checks not enabled: 11 ('lanorme check --show-config' lists them).
 ```
 
 The run exits `1`, reporting the violation the baseline had been holding back.
@@ -201,12 +209,13 @@ The baseline, in short, is built so that it can only ever forgive the past, not
 the future. That is what makes it safe to gate on. For the full adoption path,
 see [Adopt LaNorme on an existing codebase](../tutorials/adopt-on-existing-codebase.md).
 
-## Facts in these docs are generated from the tool
+## F. Facts in these docs are generated from the tool
 
 A documentation page that contradicts the tool is itself a false positive: it
 teaches a reader something that is not true, and it spends the same trust. So
-the load-bearing facts in this documentation are generated from LaNorme rather
-than written from memory.
+the facts most likely to drift, the config keys and the rule index, are
+generated from LaNorme rather than written from memory, and a release gate fails
+when a committed page disagrees with the tool.
 
 The clearest example is the [configuration reference](../reference/configuration.md).
 Every top-level key in the `[tool.lanorme]` table (`select`, `ignore`,
@@ -223,7 +232,7 @@ tool's own behaviour checkable; and dogfooding makes both true of LaNorme
 itself. The whole system is built so that the thing you read, the thing you run,
 and the thing you gate on are the same thing.
 
-## Where to go next
+## G. Where to go next
 
 - [Configuration reference](../reference/configuration.md) for every config key.
 - [Rules reference](../RULES.md) for what each check catches and what it does not.

@@ -31,10 +31,14 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-from lanorme import get_all_checks
+from lanorme import extract_code, get_all_checks
+from lanorme.checkconfig import RUN_KEYS
+from lanorme.discovery import DEFAULT_PRUNE_DIRS
+from lanorme.reference import list_rules
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-SITE_BASE = "https://lanorme.github.io/lanorme"
+# The docs site is versioned with mike; `latest` always points at the newest release.
+SITE_BASE = "https://lanorme.github.io/lanorme/latest"
 
 
 @dataclass(frozen=True)
@@ -75,9 +79,11 @@ CONFIG_KEYS: tuple[ConfigKey, ...] = (
         name="exclude",
         toml_type="list of glob strings",
         json_schema={"type": "array", "items": {"type": "string"}},
-        default="[] (built-in junk dirs only)",
+        default="[] (the built-in prune list only)",
         feature="Filtering",
-        summary="File-path globs to skip entirely; matched files are never walked.",
+        summary="File-path globs to skip entirely; matched files are never walked. These directories are always skipped, whatever this key says: "
+        + ", ".join(f"``{name}``" for name in sorted(DEFAULT_PRUNE_DIRS))
+        + ".",
         example='exclude = ["**/migrations/*", "generated/*"]',
     ),
     ConfigKey(
@@ -98,7 +104,7 @@ CONFIG_KEYS: tuple[ConfigKey, ...] = (
         json_schema={"type": "array", "items": {"type": "string"}},
         default="[] (advisories stay warnings)",
         feature="Severity",
-        summary="Advisory warnings whose codes (or ``ALL``) become build-failing errors. Runs after every suppression, so an ignored or noqa'd warning is never promoted.",
+        summary="Rule codes or categories (or ``ALL``) whose advisory warnings become build-failing errors. Promotion runs after ``ignore``, ``per-file-ignores`` and ``# noqa``, so a suppressed warning is never promoted.",
         example='promote = ["TYPE-004"]   # or ["ALL"]',
     ),
     ConfigKey(
@@ -118,14 +124,14 @@ CONFIG_KEYS: tuple[ConfigKey, ...] = (
         json_schema={"type": "string"},
         default="none",
         feature="Adoption",
-        summary="Path to a baseline file. Findings recorded by ``lanorme baseline write`` are suppressed, so only new findings report. See the adoption tutorial.",
+        summary="Path to a baseline file. Findings recorded by ``lanorme baseline write`` are suppressed, so only new findings report. See the [adoption tutorial](../tutorials/adopt-on-existing-codebase.md).",
         example='baseline = "lanorme-baseline.json"',
     ),
     ConfigKey(
         name="source_root",
         toml_type="string (path)",
         json_schema={"type": "string"},
-        default="the project root",
+        default="the project root (`TESTFILE-001` also looks one directory down when the root holds no production directory)",
         feature="Architecture",
         summary="The top-level package directory when ports, adapters and layers live under a nested package; the architecture checks interpret their paths relative to it, `AUTHN-001` finds the `api/` layer under it, and `TESTFILE-001` its production directories.",
         example='source_root = "src/myapp"',
@@ -159,6 +165,21 @@ def _load_checks() -> dict[str, object]:
     return get_all_checks()
 
 
+def _render_check_schema(*, name: str, check: object) -> dict[str, object]:
+    """The schema of one ``[tool.lanorme.<check>]`` table, from its declared keys."""
+    table: dict[str, object] = {
+        "type": "object",
+        "description": f"Settings for the {name} check (see docs/RULES.md).",
+    }
+    declared = getattr(check, "settings_keys", None)
+    if declared is not None:
+        table["properties"] = {
+            key: {"type": "boolean"} if key == "enabled" else {} for key in sorted(declared)
+        }
+        table["additionalProperties"] = False
+    return table
+
+
 def render_schema() -> str:
     """Render the JSON Schema for ``[tool.lanorme]``."""
     properties: dict[str, object] = {}
@@ -168,13 +189,10 @@ def render_schema() -> str:
         properties[key.name] = schema
 
     # Per-check tables: each registered check may be configured under its own
-    # name, always with an ``enabled`` toggle (opt-in checks default off).
-    for name in sorted(_load_checks()):
-        properties[name] = {
-            "type": "object",
-            "description": f"Settings for the {name} check (see docs/RULES.md).",
-            "properties": {"enabled": {"type": "boolean"}},
-        }
+    # name. A check that declares ``settings_keys`` rejects any other key, so
+    # its table is closed; one without the declaration accepts anything.
+    for name, check in sorted(_load_checks().items()):
+        properties[name] = _render_check_schema(name=name, check=check)
 
     schema = {
         "$schema": "http://json-schema.org/draft-07/schema#",
@@ -217,16 +235,87 @@ def _render_per_directory_section() -> list[str]:
     ]
 
 
+def _render_default_on_toggles() -> str:
+    """The sentence on default-on checks, naming those that still accept ``enabled``."""
+    names = [
+        f"`{name}`"
+        for name, check in sorted(_load_checks().items())
+        if getattr(check, "enabled", False)
+        and "enabled" in (getattr(check, "settings_keys", None) or ())
+    ]
+    if not names:
+        return "A default-on check has no toggle."
+    listed = ", ".join(names)
+    return (
+        f"A default-on check has no toggle, except {listed}, which `enabled = false` switches off."
+    )
+
+
+def _render_editor_hookup() -> list[str]:
+    """How to point a taplo-based editor at the schema, for a standalone ``lanorme.toml``."""
+    url = f"{SITE_BASE}/lanorme.schema.json"
+    return [
+        "The schema describes a standalone `lanorme.toml`, whose keys are top-level. An",
+        "editor built on taplo (such as the Even Better TOML extension) picks it up from a",
+        "`#:schema` directive on the file's first line:",
+        "",
+        "```toml",
+        f"#:schema {url}",
+        'select = ["SECRETPY", "TYPE-004"]',
+        "```",
+        "",
+        "or, for every such file in the project, from a rule in `taplo.toml`:",
+        "",
+        "```toml",
+        "[[rule]]",
+        'include = ["**/lanorme.toml", "**/.lanorme.toml"]',
+        "",
+        "[rule.schema]",
+        f'path = "{url}"',
+        "```",
+        "",
+        "Do not add the directive to `pyproject.toml`: it applies to the whole file, and the",
+        "schema would reject its other tables.",
+        "",
+    ]
+
+
+def _render_per_check_section() -> list[str]:
+    """The configuration reference's section on per-check tables."""
+    return [
+        "## Per-check settings",
+        "",
+        "Each check is configured under its own table. An opt-in check carries an",
+        "`enabled` toggle that defaults to `false`.",
+        _render_default_on_toggles(),
+        "The keys a check accepts are listed in its",
+        "[rule reference](../RULES.md) section. For example:",
+        "",
+        "```toml",
+        "[tool.lanorme.prose]",
+        "enabled = true",
+        "",
+        "[tool.lanorme.layer_deps]",
+        'composition_root = ["api/dependencies.py"]',
+        "```",
+        "",
+    ]
+
+
 def render_config_reference() -> str:
     """Render docs/reference/configuration.md from the config-key source."""
     lines = [
         "# Configuration reference",
         "",
-        "This reference lists every top-level key in the `[tool.lanorme]` table, generated",
-        "from the tool so it cannot drift. Per-check settings (`[tool.lanorme.<check>]`) are",
-        "documented with each rule in the [rule reference](../RULES.md). A machine-readable",
-        f"[`lanorme.schema.json`]({SITE_BASE}/lanorme.schema.json) validates this table in editors.",
+        "This reference lists every top-level key in the `[tool.lanorme]` table. It is",
+        "generated by `scripts/gen_docs.py`, which refuses to run when its key list differs",
+        "from the keys the tool reads; edit that script, not this file. Per-check settings",
+        "(`[tool.lanorme.<check>]`) are documented with each rule in the",
+        "[rule reference](../RULES.md). A machine-readable",
+        f"[`lanorme.schema.json`]({SITE_BASE}/lanorme.schema.json) describes this table for",
+        "editors: the key names and the top-level types, not every value the tool checks.",
         "",
+        *_render_editor_hookup(),
         "Configuration lives in `[tool.lanorme]` in `pyproject.toml`, or in a standalone",
         "`lanorme.toml` / `.lanorme.toml`. **The table header differs between the two.** In",
         "`pyproject.toml` every key sits under `[tool.lanorme]`, and a per-check table under",
@@ -234,9 +323,10 @@ def render_config_reference() -> str:
         'are top-level (`promote = ["TYPE-004"]`) and a sub-table is bare (`[per-file-ignores]`,',
         "`[prose]`). The examples below show the `pyproject.toml` form; a `[tool.lanorme]` prefix",
         "written inside a `lanorme.toml` is a configuration error (exit `2`), as is any",
-        "top-level key that is neither one of the keys below nor the name of a check. Keys",
-        "also have command-line equivalents (`--select`, `--ignore`); the command line wins",
-        "over config.",
+        "top-level key that is neither one of the keys below nor the name of a check.",
+        "`select`, `ignore`, `exclude`, `promote` and `plugins` also have command-line flags",
+        "(`--select`, `--ignore`, `--exclude`, `--promote`, `--plugin`); a flag replaces the",
+        "config value for that run.",
         "",
         "| Key | Type | Default | Feature |",
         "| --- | --- | --- | --- |",
@@ -260,26 +350,25 @@ def render_config_reference() -> str:
             ],
         )
     lines.extend(_render_per_directory_section())
-    lines.extend(
-        [
-            "## Per-check settings",
-            "",
-            "Each check is configured under its own table. An opt-in check carries an",
-            "`enabled` toggle that defaults to `false`; a default-on check has no toggle, and",
-            "its table sets only the keys its rule reference lists. The settings a check",
-            "accepts are listed in its [rule reference](../RULES.md) section. For example:",
-            "",
-            "```toml",
-            "[tool.lanorme.prose]",
-            "enabled = true",
-            "",
-            "[tool.lanorme.layer_deps]",
-            'composition_root = ["api/dependencies.py"]',
-            "```",
-            "",
-        ],
-    )
+    lines.extend(_render_per_check_section())
     return "\n".join(lines)
+
+
+def _render_shared_code_note(checks: dict[str, object]) -> list[str]:
+    """A sentence naming the codes that more than one check emits, if any."""
+    emitters: dict[str, list[str]] = {}
+    for name, check in sorted(checks.items()):
+        for rule in getattr(check, "rules", []):
+            emitters.setdefault(extract_code(rule), []).append(name)
+    shared = sorted(code for code, names in emitters.items() if len(names) > 1)
+    if not shared:
+        return []
+    listed = ", ".join(f"`{code}`" for code in shared)
+    return [
+        f"A code emitted by more than one check ({listed}) appears once per check;",
+        "each check has its own switch.",
+        "",
+    ]
 
 
 def render_rules_index() -> str:
@@ -288,19 +377,26 @@ def render_rules_index() -> str:
     lines = [
         "# Rule index",
         "",
-        "This reference maps every rule code to its check and whether the check is opt-in",
-        "(default off), generated from the registry. Full descriptions, configuration and precision",
-        "notes for each rule are in the [rule reference](../RULES.md).",
+        "This reference maps every rule code to its check and whether the rule is opt-in",
+        "(off by default, because its check ships off or a setting turns the rule on),",
+        "generated from the registry. Full descriptions and configuration for each rule,",
+        "with measured precision where a labelled corpus exists, are in the",
+        "[rule reference](../RULES.md).",
+        "",
+        *_render_shared_code_note(checks),
+        "`TERM-NNN` stands for the codes you assign under `[[tool.lanorme.domain_terms.rules]]`,",
+        "for example `TERM-001`.",
         "",
         "| Rule | Check | Opt-in |",
         "| --- | --- | --- |",
     ]
-    rows: list[tuple[str, str, str]] = []
-    for name, check in checks.items():
-        opt_in = "yes" if not getattr(check, "enabled", True) else "no"
-        for rule in getattr(check, "rules", []):
-            code = rule.split(":", 1)[0].strip()
-            rows.append((code, name, opt_in))
+    # The same per-rule opt-in as `lanorme rules --json`: a rule is opt-in when
+    # its check ships off or the rule alone waits on a setting.
+    rows = [
+        (str(rule["code"]), str(entry["check"]), "yes" if rule["opt_in"] else "no")
+        for entry in list_rules()
+        for rule in entry["rules"]
+    ]
     for code, name, opt_in in sorted(rows):
         lines.append(f"| `{code}` | {name} | {opt_in} |")
     lines.append("")
@@ -354,7 +450,7 @@ def render_llms_txt() -> str:
         "",
         "Every page below is Markdown. Append `.md` to any docs URL to get its raw",
         "Markdown, or read these source files directly. `lanorme rule <CODE>` prints a",
-        "rule's reference in the terminal; `lanorme.schema.json` validates configuration.",
+        "rule's reference in the terminal; `lanorme.schema.json` describes configuration for editors.",
         "",
         "## Docs",
         "",
@@ -396,6 +492,15 @@ OUTPUTS: tuple[tuple[str, object], ...] = (
 )
 
 
+def _verify_config_keys() -> None:
+    """Refuse to generate when the documented keys differ from the keys the tool reads."""
+    documented = {key.name for key in CONFIG_KEYS}
+    if documented != RUN_KEYS:
+        missing = sorted(RUN_KEYS - documented)
+        extra = sorted(documented - RUN_KEYS)
+        raise SystemExit(f"CONFIG_KEYS out of step with RUN_KEYS: missing {missing}, extra {extra}")
+
+
 def _write_all() -> None:
     """Generate every output file."""
     for relative, render in OUTPUTS:
@@ -424,6 +529,7 @@ def _check_all() -> int:
 
 def main(*, argv: list[str]) -> int:
     """Write the generated docs, or with --check verify they are in sync."""
+    _verify_config_keys()
     if "--check" in argv:
         return _check_all()
     _write_all()

@@ -6,15 +6,14 @@
 [![Docs](https://img.shields.io/badge/docs-lanorme.github.io-blue.svg)](https://lanorme.github.io/lanorme/)
 [![Licence: MIT](https://img.shields.io/badge/licence-MIT-blue.svg)](LICENSE)
 
-LaNorme makes a codebase's standard executable. It automates the mechanical side
-of code review: on every commit it checks cyclomatic complexity, file and
-function size, duplication, stale doc references, architectural boundaries, and
-naming conventions, and fails the build when they drift.
+LaNorme makes a codebase's standard executable. In CI or a pre-commit hook it
+checks cyclomatic complexity, file and function size, duplication, dangerous
+calls and hardcoded secrets, architectural boundaries, and naming conventions,
+and fails the build when they drift.
 
-The built-in _normes_ cover the common ground. A plugin interface lets a team
-encode its own, so the standard you agree on is the standard the build keeps. The
-same gate runs in CI and inside an AI agent's loop, so people and agents write to
-one bar and the codebase stays clean as it grows.
+The built-in checks (_normes_) cover the rules most Python projects share. A
+plugin interface lets a team encode its own, so the standard you agree on is the
+standard the build keeps.
 
 Standard library only. No runtime dependencies. Python 3.13+.
 
@@ -23,30 +22,40 @@ Tutorials, how-to guides, the complete rule and configuration reference, and
 agent-friendly Markdown: every page is also served raw at its `.md` URL, with an
 `llms.txt` index for agents.
 
-## Why LaNorme
+## A. Why LaNorme
 
-- **Keep a growing codebase clean.** Complexity, size, duplication, and stale
-  docs are caught the moment they appear, while the fix is still small.
+- **Keep a growing codebase clean.** Complexity, size and duplication are
+  flagged on the commit that introduces them, while the fix is still small.
 - **Enforce architecture and conventions.** Layering, ports-and-adapters wiring,
   and your own domain vocabulary become checks any contributor can run.
-- **Gate AI-generated code.** Hand an agent the same _normes_ your team codes to:
-  it gets concrete, mechanical feedback on what good looks like here, and
-  non-compliant output fails before it reaches a human.
+- **Gate AI-generated code.** The same gate runs in CI and inside an agent's
+  loop: the agent gets concrete, mechanical feedback on what good looks like
+  here, and non-compliant output fails before it reaches a human.
 - **Spend review on judgement.** Reviewers focus on design and correctness
   because the mechanical checks are already green.
 
-## Install
+## B. Install
 
 ```console
 uv tool install lanorme       # or: pipx install lanorme, pip install lanorme
 uvx lanorme check .           # or run once without installing
 ```
 
+As a pre-commit hook, in `.pre-commit-config.yaml`:
+
+```yaml
+repos:
+  - repo: https://github.com/lanorme/lanorme
+    rev: v0.21.0
+    hooks:
+      - id: lanorme
+```
+
 Releases are tagged `vX.Y.Z`; see the [releases page](https://github.com/lanorme/lanorme/releases)
 for notes and the [documentation](https://lanorme.github.io/lanorme/) for other
 install methods.
 
-## Quickstart
+## C. Quickstart
 
 ```console
 lanorme check [PATHS...]               # run every enabled check (default path: .)
@@ -78,12 +87,12 @@ Every command, flag and output format is documented in the
 Inline suppression (`# noqa`, or the ruff-safe `# lanorme: ignore[CODE]`) is
 covered in [Configure which checks run](https://lanorme.github.io/lanorme/latest/how-to/configure-checks/#silence-one-line).
 
-## What it checks
+## D. What it checks
 
 `lanorme rules` prints the live list. The
 [rule reference](https://lanorme.github.io/lanorme/latest/RULES/) documents every rule: what it
-catches and what it does not, its config, and its measured precision and recall on
-the bundled corpora.
+catches and what it does not, its config, and, where a labelled corpus exists, its
+measured precision and recall.
 
 On by default, on any project, no config needed:
 
@@ -103,19 +112,19 @@ On by default, on any project, no config needed:
 | `META-001..005` | the checks themselves emit well-formed output |
 | `SKILL-001..006` | Agent Skill (`SKILL.md`) frontmatter, naming and link compliance |
 
-Also on by default, but firing only on a tree laid out as `domain/`,
-`application/`, `infrastructure/` and `api/` with ports under
-`application/ports/`: `LAYER` and `PORT`. Pick an architecture profile to set
+`LAYER` and `PORT` are also on by default but fire only on a tree laid out as
+`domain/`, `application/`, `infrastructure/` and `api/` with ports under
+`application/ports/`. Pick an architecture profile to set
 the layout you use, or `ignore` them.
 
-Off until you turn them on (domain vocabulary, house styles, Markdown docs
-structure, and experimental precision-first detectors): `TERM`, `KWARG`,
-`NAMING-001/002`, `NAMING-005`, `NAMING-009..011`, `AAA`, `CMT-005`,
-`CMT-006/007`, `SUPPRESS`, `SIMILAR`, `ATTR`, `PROSE`, `DOCS`, `PATH`, `STALE`.
+Off until you enable or configure them: vocabulary and path invariants (`TERM`,
+`PATH`, `STALE`), house styles (`KWARG`, `NAMING-001/002`, `NAMING-005`,
+`NAMING-009..011`, `AAA`, `SUPPRESS`, `ATTR`, `CMT-006/007`), Markdown docs
+(`PROSE`, `DOCS`), and experimental detectors (`CMT-005`, `SIMILAR`).
 The [rule reference](https://lanorme.github.io/lanorme/latest/RULES/) documents
 each.
 
-## Configuration
+## E. Configuration
 
 LaNorme reads a dedicated `lanorme.toml` (or `.lanorme.toml`), otherwise a
 `[tool.lanorme]` table in `pyproject.toml`. It walks up from the target path to
@@ -131,7 +140,7 @@ promote = ["TYPE-004"]              # advisory warnings become build-failing err
 exclude = ["postman/**", "vendor/*"]
 ```
 
-That is the surface. The docs cover the rest without repeating it here:
+Those are the top-level keys. The docs cover the rest:
 
 - [Configuration reference](https://lanorme.github.io/lanorme/latest/reference/configuration/):
   every key, its type and default, plus a machine-readable JSON schema.
@@ -140,7 +149,7 @@ That is the surface. The docs cover the rest without repeating it here:
 - [Per-directory config](https://lanorme.github.io/lanorme/latest/reference/configuration/#per-directory-config):
   drop a nested `lanorme.toml` to tighten one subtree while the rest stays lenient.
 
-## Adopting on an existing codebase
+## F. Adopting on an existing codebase
 
 A mature codebase has findings on day one. A baseline records the debt you
 already have so only *new* findings report; the whole adoption is one command
@@ -155,33 +164,32 @@ file like a lockfile. From then on every check runs at full strictness, but only
 what you add reports. The full walkthrough is the
 [adopt-on-an-existing-codebase tutorial](https://lanorme.github.io/lanorme/latest/tutorials/adopt-on-existing-codebase/).
 
-## Writing a check
+## G. Writing a check
 
-A check is any object with `name`, `description`, `rules`, and a `run` method;
+A check is any object with `name`, `description`, `rules`, and a `check(self, scan)` method;
 drop it in `lanorme/checks/`, ship it under the `lanorme.checks` entry-point
 group, or point at it with `[tool.lanorme] plugins = [...]`. The
 [write-a-check guide](https://lanorme.github.io/lanorme/latest/how-to/write-a-check/) and
 [`CONTRIBUTING.md`](CONTRIBUTING.md) cover the setup, the gates, and the
 conventions for a new rule.
 
-## Versioning
+## H. Versioning
 
 The public surface is the rule codes you put in `select` / `ignore` /
 `per-file-ignores` and the config keys under `[tool.lanorme]`. The question that
 decides a bump is whether a green codebase could go red on upgrade: a **patch**
 keeps every result unchanged, a **minor** can newly fail a previously-passing
-codebase (every pre-1.0 breaking change lands here), and a **major** is the
-stability commitment. Every change is listed in [`CHANGELOG.md`](CHANGELOG.md).
+codebase (every pre-1.0 breaking change lands here), and a **major** is reserved for
+1.0, the release that commits to keeping that surface stable. Every change is listed in [`CHANGELOG.md`](CHANGELOG.md).
 
 A rule's human-readable description is not part of that surface and may be
 reworded in a minor release. A baseline entry is keyed by file, rule code and
 the text of the finding's own line (a whole-file finding by file and code
 alone), never by the description, so rewording one leaves a committed baseline
-intact. When a release does change how entries are keyed, the matching entries
-detach and those findings report again until you run `lanorme baseline write`
-once; the run tells you when this has happened, naming the file and rule rather
-than letting old debt look new, and the changelog entry says so.
+intact. If a release changes how entries are keyed, the affected findings report
+again with a notice naming the file and rule; run `lanorme baseline write` once
+to re-record them. The changelog flags such releases.
 
-## Licence
+## I. Licence
 
 MIT. See [`LICENSE`](LICENSE).

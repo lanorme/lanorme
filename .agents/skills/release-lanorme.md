@@ -1,8 +1,8 @@
 ---
 name: release-lanorme
-description: Use when cutting, shipping, releasing, or publishing a new LaNorme version (a "0.x.y" bump, a tag, a PyPI release). Runs every release gate (unit tests, the dogfood, generated docs in sync), records a eval audit (precision/recall/F1 per scored rule plus end-to-end performance, stamped with the version and hardware) to evals/results/, bumps the version, tags, and creates the GitHub Release that auto-publishes to PyPI and deploys the versioned docs.
+description: Use when cutting, shipping, releasing, or publishing a new LaNorme version (a "0.x.y" bump, a tag, a PyPI release). Runs every release gate (unit tests, the dogfood, generated docs in sync), records an eval audit (precision/recall/F1 per scored rule plus the holdout gate, stamped with the version, commit and platform) to evals/results/, bumps the version, tags, and creates the GitHub Release that auto-publishes to PyPI and deploys the versioned docs.
 license: MIT
-compatibility: Requires Python 3.13+, uv, git, and gh, run from a clean main checkout.
+compatibility: Requires Python 3.13+, uv, git, and gh, run from a clean main checkout (the script commits whatever the tree holds).
 metadata:
   project: lanorme
 ---
@@ -23,20 +23,19 @@ Every release records the same evidence so a green tag is auditable later:
 1. **Tests and dogfood** pass (`pytest tests/unit`, `lanorme check .`).
 2. **Generated docs are in sync** with the tool (`scripts/gen_docs.py --check`):
    the configuration reference, JSON schema, rule index, and llms files.
-3. **A eval audit is recorded** to `evals/results/vX.Y.Z.json`: the
-   accuracy metrics (precision, recall, F1 per scored rule against the labelled
-   corpora, for the dev split, the sealed holdout split and the gap between
-   them) and the end-to-end performance numbers, each stamped with the
-   LaNorme version, the git commit, the Python version, and the hardware
-   (platform and processor). Accuracy is deterministic and is the audit's
-   backbone; performance is informative and machine-dependent (the hardware
-   stamp is what makes it interpretable).
+3. **An eval audit is recorded** to `evals/results/vX.Y.Z.json`: precision,
+   recall and F1 per scored rule against the labelled corpora (dev split,
+   sealed holdout split, and the gap between them), stamped with the LaNorme
+   version, the git commit, the Python version, and the platform. The script
+   records it with `--no-perf`, so its `performance` block is empty.
+   Performance is opt-in: `evals/audit.py` without `--no-perf` times the pinned
+   corpora; those numbers are machine-dependent and informational only.
 4. **No holdout regression.** The audit runs with `--gate latest`: it fails
    when any rule's holdout precision or recall falls more than 0.02 below the
    best value any comparable committed `evals/results/v*.json` recorded (one
    that scored the same holdout files), not merely the latest, and lists the
    rules. It also fails when a holdout file the newest recorded audit digested
-   was removed or changed, unless `evals/holdout_revisions.json` accepts that
+   was removed or changed, unless the optional `evals/holdout_revisions.json` accepts that
    exact new digest with a reason. Dev numbers are informational and never
    block.
 5. **RULES.md reflects the measured F1** for every rule that has a corpus. If a
@@ -69,7 +68,7 @@ The README "Versioning" section is canonical; keep them in step.
 
    ```
    uv run python scripts/gen_docs.py
-   uv run python evals/audit.py --version X.Y.Z --output /tmp/preview.json --gate latest
+   uv run python evals/audit.py --version X.Y.Z --no-perf --output /tmp/preview.json --gate latest
    ```
 
    Read the preview; if any F1 changed, update that rule's line in
@@ -84,12 +83,14 @@ The README "Versioning" section is canonical; keep them in step.
    scripts/release.sh X.Y.Z
    ```
 
-   It refuses unless you are on `main`, the CHANGELOG section exists, the docs
-   are in sync, and the gates pass (including an eval-audit precheck that the
-   corpora are complete and not stale and that no holdout number regressed). Then it bumps the version in `pyproject.toml` and
-   `src/lanorme/__init__.py`, builds, runs `twine check`, commits the release,
-   records the eval audit against that commit (a second `Record X.Y.Z eval
-   audit` commit), tags `vX.Y.Z`, pushes, and creates the GitHub Release.
+   It refuses unless you are on `main`, the CHANGELOG section exists, the tag
+   does not exist, the docs are in sync, and the gates pass (including an
+   eval-audit precheck that the corpora are complete and not stale and that no
+   holdout number regressed). Then it bumps the version in `pyproject.toml` and
+   `src/lanorme/__init__.py`, builds, runs `twine check`, commits the release
+   with `git add -A` (the bump plus the `uv.lock` uv rewrites), records the
+   eval audit against that commit (a second `Record X.Y.Z eval audit` commit),
+   tags `vX.Y.Z`, pushes, and creates the GitHub Release.
 5. Watch the publish and docs workflows, then verify the package is live:
 
    ```
@@ -102,12 +103,15 @@ The README "Versioning" section is canonical; keep them in step.
 
 ## Gotchas
 
-- `scripts/release.sh` refuses to do anything unless you are on `main`, the
-  working tree is clean, the `## [X.Y.Z]` CHANGELOG section exists, and the
-  gates pass. It is safe to run; it tags nothing until every gate is green.
+- `scripts/release.sh` refuses unless you are on `main`, the `## [X.Y.Z]`
+  CHANGELOG section exists, the tag is new, and the gates pass. It does not
+  check that the tree is clean: `git add -A` commits everything it finds, so
+  start from a clean tree. It tags nothing until every gate is green.
 - The version lives in **two** files (`pyproject.toml` and
-  `src/lanorme/__init__.py`); `release.sh` bumps both. The manual fallback must
-  too, or the build and `lanorme --version` disagree.
+  `src/lanorme/__init__.py`), and uv rewrites `uv.lock` to match, so the release
+  commit changes three files. The manual fallback must bump both and stage all
+  three, or the build and `lanorme --version` disagree and the next `uv run`
+  dirties the tree.
 - `uv publish` is never run by hand. PyPI publishing is OIDC Trusted Publishing,
   fired only by the GitHub Release.
 - The eval audit's accuracy step is strict: if a scorer sees a finding that
@@ -125,8 +129,8 @@ The README "Versioning" section is canonical; keep them in step.
   comparable audit has holdout numbers for is skipped, not failed, and the
   gate prints a note when it gated nothing, so the first release after a
   corpus gains a holdout split records the baseline the next one is held to.
-- Performance numbers are machine-dependent. The audit stamps the hardware so
-  they are interpretable, but do not compare them across machines.
+- Performance numbers, when you opt in, are machine-dependent. The audit stamps
+  the platform and processor; do not compare them across machines.
 
 ## If something fails
 
@@ -143,13 +147,37 @@ The README "Versioning" section is canonical; keep them in step.
   already exist, so do not re-tag. Re-run with `gh run rerun <id>` or
   `gh workflow run release.yml`.
 
+## Finish a half-done release
+
+When the `Release X.Y.Z` and `Record X.Y.Z eval audit` commits are on `main`
+but the tag or the GitHub Release is missing (for example the environment could
+not push tags or create releases), the script cannot resume: preflight passes,
+the gates re-run, the bump is a no-op, and the release commit fails with nothing
+to commit. Finish by hand:
+
+1. `git checkout main && git pull origin main`; confirm HEAD is the audit
+   commit and `pyproject.toml` says `version = "X.Y.Z"`.
+2. `git tag -a vX.Y.Z -m vX.Y.Z && git push origin vX.Y.Z` (skip if the tag
+   exists).
+3. `rm -rf dist && uv build`.
+4. `gh release create vX.Y.Z dist/lanorme-X.Y.Z-py3-none-any.whl
+   dist/lanorme-X.Y.Z.tar.gz --title vX.Y.Z --notes-file <file>`, where the
+   file holds the `## [X.Y.Z]` CHANGELOG section.
+5. Watch the workflows and verify with `uvx`, as in step 5 of Steps.
+
 ## Manual fallback (no script)
 
 Edit `CHANGELOG.md`, run `uv run python scripts/gen_docs.py`, `uv run --group
-dev pytest tests/unit`, and `uv run lanorme check .`. Bump `version` in
-`pyproject.toml` and `__version__` in `src/lanorme/__init__.py`, then `uv
-build`, `git commit -m "Release X.Y.Z"`. Now record the audit against that
-commit: `uv run python evals/audit.py --version X.Y.Z --gate latest` and `git commit -m
-"Record X.Y.Z eval audit" evals/results/`. Finally `git tag -a vX.Y.Z`, `git
-push origin main`, `git push origin vX.Y.Z`, and `gh release create vX.Y.Z
-dist/* --notes "..."`.
+dev pytest tests/unit`, `uv run lanorme check .`, and the audit precheck
+(`uv run python evals/audit.py --version X.Y.Z --no-perf --output /tmp/pre.json
+--gate latest`). Bump `version` in `pyproject.toml` and `__version__` in
+`src/lanorme/__init__.py`, then `rm -rf dist && uv build` and `uv run --with
+twine python -m twine check dist/*`. Stage `pyproject.toml`,
+`src/lanorme/__init__.py` and `uv.lock`, and `git commit -m "Release X.Y.Z"`.
+Record the audit against that commit: `uv run python evals/audit.py --version
+X.Y.Z --no-perf` and `git commit -m "Record X.Y.Z eval audit" evals/results/`.
+Finally `git tag -a vX.Y.Z -m vX.Y.Z`, `git push origin main`, `git push origin
+vX.Y.Z`, and `gh release create vX.Y.Z dist/lanorme-X.Y.Z-py3-none-any.whl
+dist/lanorme-X.Y.Z.tar.gz --title vX.Y.Z --notes-file <file>`, with the notes
+taken from the `## [X.Y.Z]` section (the `awk` in `scripts/release.sh` extracts
+it).
