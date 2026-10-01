@@ -1405,9 +1405,9 @@ line and a function that takes too many positional parameters.</p>
     Fix: Delete it; version control remembers
 --- comments: 1 violations, 0 warnings ---
 
-Summary: 30 checks — 28 passed, 1 warned, 1 failed.
+Summary: 31 checks — 29 passed, 1 warned, 1 failed.
 Findings: 1 error to fix, 1 advisory warning.
-Opt-in checks not enabled: 11 (&#39;lanorme check --show-config&#39; lists them).
+Opt-in checks not enabled: 12 (&#39;lanorme check --show-config&#39; lists them).
 </code></pre></div>
 <p>The exit code is <code>1</code> because a violation was reported; the <code>PARAM-001</code>
 warning on its own would have left it at <code>0</code>. The default <code>concise</code> format
@@ -1465,7 +1465,7 @@ as demanding as it gets from day one. Add it to <code>[tool.lanorme]</code>:</p>
     Fix: Add a bare * separator: def foo(self, *, param1: str, param2: int)
 --- named_args: 1 violations, 0 warnings ---
 
-Summary: 30 checks — 26 passed, 0 warned, 4 failed.
+Summary: 31 checks — 27 passed, 0 warned, 4 failed.
 Findings: 4 errors to fix, 0 advisory warnings.
 </code></pre></div>
 <p>Four failures now. The <code>PARAM-001</code> warning has become an error, and two opt-in
@@ -1518,7 +1518,7 @@ git<span class="w"> </span>commit<span class="w"> </span>-m<span class="w"> </sp
 passes:</p>
 <div class="highlight"><pre><span></span><code>lanorme<span class="w"> </span>check<span class="w"> </span>.
 </code></pre></div>
-<div class="highlight"><pre><span></span><code>All 30 checks passed.
+<div class="highlight"><pre><span></span><code>All 31 checks passed.
 Suppressed: 0 by inline ignores, 0 by per-file-ignores, 4 by the baseline.
 </code></pre></div>
 <div class="highlight"><pre><span></span><code>Exit code: 0
@@ -1542,7 +1542,7 @@ module with a fresh commented-out line:</p>
     Fix: Delete it; version control remembers
 --- comments: 1 violations, 0 warnings ---
 
-Summary: 30 checks — 29 passed, 0 warned, 1 failed.
+Summary: 31 checks — 30 passed, 0 warned, 1 failed.
 Findings: 1 error to fix, 0 advisory warnings.
 Suppressed: 0 by inline ignores, 0 by per-file-ignores, 4 by the baseline.
 </code></pre></div>
@@ -1583,7 +1583,7 @@ a check that ignores the baseline for that run:</p>
     Fix: Add a bare * separator: def foo(self, *, param1: str, param2: int)
 --- named_args: 1 violations, 0 warnings ---
 
-Summary: 30 checks — 26 passed, 0 warned, 4 failed.
+Summary: 31 checks — 27 passed, 0 warned, 4 failed.
 Findings: 5 errors to fix, 0 advisory warnings.
 </code></pre></div>
 <p>That is the full picture: the new finding plus the four recorded ones. It is
@@ -1630,7 +1630,7 @@ has:</p>
     Fix: Group related parameters into a dataclass or TypedDict
 --- file_limits: 1 violations, 0 warnings ---
 
-Summary: 30 checks — 29 passed, 0 warned, 1 failed.
+Summary: 31 checks — 30 passed, 0 warned, 1 failed.
 Findings: 1 error to fix, 0 advisory warnings.
 Suppressed: 0 by inline ignores, 0 by per-file-ignores, 2 by the baseline.
 </code></pre></div>

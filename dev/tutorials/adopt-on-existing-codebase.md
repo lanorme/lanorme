@@ -116,9 +116,9 @@ lanorme check .
     Fix: Delete it; version control remembers
 --- comments: 1 violations, 0 warnings ---
 
-Summary: 30 checks — 28 passed, 1 warned, 1 failed.
+Summary: 31 checks — 29 passed, 1 warned, 1 failed.
 Findings: 1 error to fix, 1 advisory warning.
-Opt-in checks not enabled: 11 ('lanorme check --show-config' lists them).
+Opt-in checks not enabled: 12 ('lanorme check --show-config' lists them).
 ```
 
 The exit code is `1` because a violation was reported; the `PARAM-001`
@@ -189,7 +189,7 @@ lanorme check .
     Fix: Add a bare * separator: def foo(self, *, param1: str, param2: int)
 --- named_args: 1 violations, 0 warnings ---
 
-Summary: 30 checks — 26 passed, 0 warned, 4 failed.
+Summary: 31 checks — 27 passed, 0 warned, 4 failed.
 Findings: 4 errors to fix, 0 advisory warnings.
 ```
 
@@ -265,7 +265,7 @@ lanorme check .
 ```
 
 ```text
-All 30 checks passed.
+All 31 checks passed.
 Suppressed: 0 by inline ignores, 0 by per-file-ignores, 4 by the baseline.
 ```
 
@@ -300,7 +300,7 @@ lanorme check .
     Fix: Delete it; version control remembers
 --- comments: 1 violations, 0 warnings ---
 
-Summary: 30 checks — 29 passed, 0 warned, 1 failed.
+Summary: 31 checks — 30 passed, 0 warned, 1 failed.
 Findings: 1 error to fix, 0 advisory warnings.
 Suppressed: 0 by inline ignores, 0 by per-file-ignores, 4 by the baseline.
 ```
@@ -349,7 +349,7 @@ lanorme check --no-baseline .
     Fix: Add a bare * separator: def foo(self, *, param1: str, param2: int)
 --- named_args: 1 violations, 0 warnings ---
 
-Summary: 30 checks — 26 passed, 0 warned, 4 failed.
+Summary: 31 checks — 27 passed, 0 warned, 4 failed.
 Findings: 5 errors to fix, 0 advisory warnings.
 ```
 
@@ -412,7 +412,7 @@ lanorme check .
     Fix: Group related parameters into a dataclass or TypedDict
 --- file_limits: 1 violations, 0 warnings ---
 
-Summary: 30 checks — 29 passed, 0 warned, 1 failed.
+Summary: 31 checks — 30 passed, 0 warned, 1 failed.
 Findings: 1 error to fix, 0 advisory warnings.
 Suppressed: 0 by inline ignores, 0 by per-file-ignores, 2 by the baseline.
 ```

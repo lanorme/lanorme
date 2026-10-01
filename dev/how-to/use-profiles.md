@@ -31,15 +31,16 @@ an architecture style.
 
 | Profile | What it does |
 | --- | --- |
-| `strict` | Turns on every check that ships with its `enabled` switch off and sets `promote = ["ALL"]`, so all advisory warnings become build-failing errors. |
+| `strict` | Turns on every check that ships with its `enabled` switch off and sets `promote = ["ALL"]`, so the advisory warnings become build-failing errors, except a rule advisory by nature (`SHALLOW-001`), which stays a warning. |
 | `hexagonal` | Sets `layer_deps` to a four-layer ports-and-adapters layout with explicit composition-root globs, and points `port_coverage` at `infrastructure/` as the adapter root (the built-in default is `infrastructure/services`). |
 | `clean` | Configures `layer_deps` for Clean Architecture's four layers (`entities`, `use_cases`, `interface_adapters`, `frameworks`). |
 | `layered` | Configures `layer_deps` for classic N-tier layers (`presentation`, `business`, `persistence`). |
 
 The default-off checks `strict` enables are `named_args`, `test_style`,
 `attribute_access`, `restating`, `similarity`, `prose`, `docstrings`,
-`naming_scope`, `suppressions`, `docs` and `naming_clean_code`. Two of those
-carry assumptions worth knowing before you adopt it:
+`naming_scope`, `suppressions`, `docs`, `naming_clean_code` and
+`shallow_modules`. Three of those carry assumptions worth knowing before you
+adopt it:
 
 - `suppressions` starts with a budget of zero, so any existing `# noqa` fails
   the build until you set `max_total` to today's count and ratchet it down.
@@ -47,6 +48,10 @@ carry assumptions worth knowing before you adopt it:
 - `docs` expects the Markdown under `docs/` to follow a Diataxis layout, and is
   inert when that directory is absent. Set `docs_root`, `sections` or
   `known_top_level` where your tree differs.
+- `shallow_modules` asks whether a small package split into many tiny modules
+  should be one module. It stays a warning under `promote = ["ALL"]`; silence a
+  deliberate split with a `per-file-ignores` entry for the package's
+  `__init__.py` rather than a `# noqa`, which the zero budget would count.
 
 Any one of them can be switched back off with a local table such as
 `[tool.lanorme.docs] enabled = false`, which wins over the profile because

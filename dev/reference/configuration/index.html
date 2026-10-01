@@ -1380,7 +1380,7 @@ over config.</p>
 <span class="s2">&quot;tests/*&quot;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;SIZE-001&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;AAA&quot;</span><span class="p">]</span>
 </code></pre></div>
 <h2 id="promote"><code>promote</code><a class="headerlink" href="#promote" title="Permanent link">&para;</a></h2>
-<p>Advisory warnings whose codes (or <code>ALL</code>) become build-failing errors. Runs after every suppression, so an ignored or noqa'd warning is never promoted.</p>
+<p>Advisory warnings whose codes (or <code>ALL</code>) become build-failing errors. Runs after every suppression, so an ignored or noqa'd warning is never promoted. A rule advisory by nature (<code>SHALLOW-001</code>) is promoted only when named, never by <code>ALL</code>.</p>
 <div class="highlight"><pre><span></span><code><span class="n">promote</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;TYPE-004&quot;</span><span class="p">]</span><span class="w">   </span><span class="c1"># or [&quot;ALL&quot;]</span>
 </code></pre></div>
 <h2 id="extends"><code>extends</code><a class="headerlink" href="#extends" title="Permanent link">&para;</a></h2>
@@ -1418,9 +1418,10 @@ stops the inheritance, so the subtree stands alone.</p>
 <p>Cascading governs per-check settings and <code>source_root</code>. The run-level filters
 (<code>select</code>, <code>ignore</code>, <code>exclude</code>, <code>per-file-ignores</code>, <code>promote</code>) are read once at
 the root and apply to the whole run. Checks that compare files across the tree
-(<code>duplication</code>, <code>test_coverage</code>, <code>layer_deps</code>, <code>port_coverage</code>, <code>docs</code>, <code>meta</code>)
-run once at the project root under the root config, so a region cannot relax
-them for its own subtree. <code>--check &lt;name&gt;</code> cascades exactly like a full run.</p>
+(<code>duplication</code>, <code>test_coverage</code>, <code>layer_deps</code>, <code>port_coverage</code>, <code>shallow_modules</code>,
+<code>docs</code>, <code>meta</code>) run once at the project root under the root config, so a region
+cannot relax them for its own subtree. <code>--check &lt;name&gt;</code> cascades exactly like a
+full run.</p>
 <h2 id="per-check-settings">Per-check settings<a class="headerlink" href="#per-check-settings" title="Permanent link">&para;</a></h2>
 <p>Each check is configured under its own table. An opt-in check carries an
 <code>enabled</code> toggle that defaults to <code>false</code>; a default-on check has no toggle, and

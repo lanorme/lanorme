@@ -1217,7 +1217,7 @@ an architecture style.</p>
 <tbody>
 <tr>
 <td><code>strict</code></td>
-<td>Turns on every check that ships with its <code>enabled</code> switch off and sets <code>promote = ["ALL"]</code>, so all advisory warnings become build-failing errors.</td>
+<td>Turns on every check that ships with its <code>enabled</code> switch off and sets <code>promote = ["ALL"]</code>, so the advisory warnings become build-failing errors, except a rule advisory by nature (<code>SHALLOW-001</code>), which stays a warning.</td>
 </tr>
 <tr>
 <td><code>hexagonal</code></td>
@@ -1235,8 +1235,9 @@ an architecture style.</p>
 </table>
 <p>The default-off checks <code>strict</code> enables are <code>named_args</code>, <code>test_style</code>,
 <code>attribute_access</code>, <code>restating</code>, <code>similarity</code>, <code>prose</code>, <code>docstrings</code>,
-<code>naming_scope</code>, <code>suppressions</code>, <code>docs</code> and <code>naming_clean_code</code>. Two of those
-carry assumptions worth knowing before you adopt it:</p>
+<code>naming_scope</code>, <code>suppressions</code>, <code>docs</code>, <code>naming_clean_code</code> and
+<code>shallow_modules</code>. Three of those carry assumptions worth knowing before you
+adopt it:</p>
 <ul>
 <li><code>suppressions</code> starts with a budget of zero, so any existing <code># noqa</code> fails
   the build until you set <code>max_total</code> to today's count and ratchet it down.
@@ -1244,6 +1245,10 @@ carry assumptions worth knowing before you adopt it:</p>
 <li><code>docs</code> expects the Markdown under <code>docs/</code> to follow a Diataxis layout, and is
   inert when that directory is absent. Set <code>docs_root</code>, <code>sections</code> or
   <code>known_top_level</code> where your tree differs.</li>
+<li><code>shallow_modules</code> asks whether a small package split into many tiny modules
+  should be one module. It stays a warning under <code>promote = ["ALL"]</code>; silence a
+  deliberate split with a <code>per-file-ignores</code> entry for the package's
+  <code>__init__.py</code> rather than a <code># noqa</code>, which the zero budget would count.</li>
 </ul>
 <p>Any one of them can be switched back off with a local table such as
 <code>[tool.lanorme.docs] enabled = false</code>, which wins over the profile because

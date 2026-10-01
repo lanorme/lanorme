@@ -64,7 +64,7 @@ Suppress specific rule codes or categories for files matching a glob.
 
 ## `promote`
 
-Advisory warnings whose codes (or `ALL`) become build-failing errors. Runs after every suppression, so an ignored or noqa'd warning is never promoted.
+Advisory warnings whose codes (or `ALL`) become build-failing errors. Runs after every suppression, so an ignored or noqa'd warning is never promoted. A rule advisory by nature (`SHALLOW-001`) is promoted only when named, never by `ALL`.
 
 ```toml
 promote = ["TYPE-004"]   # or ["ALL"]
@@ -129,9 +129,10 @@ func_warn_lines = 80
 Cascading governs per-check settings and `source_root`. The run-level filters
 (`select`, `ignore`, `exclude`, `per-file-ignores`, `promote`) are read once at
 the root and apply to the whole run. Checks that compare files across the tree
-(`duplication`, `test_coverage`, `layer_deps`, `port_coverage`, `docs`, `meta`)
-run once at the project root under the root config, so a region cannot relax
-them for its own subtree. `--check <name>` cascades exactly like a full run.
+(`duplication`, `test_coverage`, `layer_deps`, `port_coverage`, `shallow_modules`,
+`docs`, `meta`) run once at the project root under the root config, so a region
+cannot relax them for its own subtree. `--check <name>` cascades exactly like a
+full run.
 
 ## Per-check settings
 

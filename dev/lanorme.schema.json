@@ -41,7 +41,7 @@
       "items": {
         "type": "string"
       },
-      "description": "Advisory warnings whose codes (or `ALL`) become build-failing errors. Runs after every suppression, so an ignored or noqa'd warning is never promoted."
+      "description": "Advisory warnings whose codes (or `ALL`) become build-failing errors. Runs after every suppression, so an ignored or noqa'd warning is never promoted. A rule advisory by nature (`SHALLOW-001`) is promoted only when named, never by `ALL`."
     },
     "extends": {
       "oneOf": [
@@ -268,6 +268,15 @@
     "security_patterns": {
       "type": "object",
       "description": "Settings for the security_patterns check (see docs/RULES.md).",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "shallow_modules": {
+      "type": "object",
+      "description": "Settings for the shallow_modules check (see docs/RULES.md).",
       "properties": {
         "enabled": {
           "type": "boolean"

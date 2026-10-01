@@ -1245,9 +1245,9 @@ names no known code or category, in a flag, in <code>[tool.lanorme]</code> or in
 <span class="go">    Fix: Use ast.literal_eval for trusted-shape parsing, or build a dispatch table</span>
 <span class="go">--- security_calls: 1 violations, 0 warnings ---</span>
 
-<span class="go">Summary: 30 checks — 29 passed, 0 warned, 1 failed.</span>
+<span class="go">Summary: 31 checks — 30 passed, 0 warned, 1 failed.</span>
 <span class="go">Findings: 1 error to fix, 0 advisory warnings.</span>
-<span class="go">Opt-in checks not enabled: 11 (&#39;lanorme check --show-config&#39; lists them).</span>
+<span class="go">Opt-in checks not enabled: 12 (&#39;lanorme check --show-config&#39; lists them).</span>
 </code></pre></div>
 <p>A category selects every code under it: <code>--select CMT</code> runs every comment
 rule; <code>--select ALL</code> runs everything enabled. <code>--select</code> takes codes and
@@ -1302,9 +1302,9 @@ directory at any depth, so <code>**/migrations/*</code> excludes <code>src/pkg/m
 <span class="go">    Fix: Use ast.literal_eval for trusted-shape parsing, or build a dispatch table</span>
 <span class="go">--- security_calls: 2 violations, 0 warnings ---</span>
 
-<span class="go">Summary: 30 checks — 29 passed, 0 warned, 1 failed.</span>
+<span class="go">Summary: 31 checks — 30 passed, 0 warned, 1 failed.</span>
 <span class="go">Findings: 2 errors to fix, 0 advisory warnings.</span>
-<span class="go">Opt-in checks not enabled: 11 (&#39;lanorme check --show-config&#39; lists them).</span>
+<span class="go">Opt-in checks not enabled: 12 (&#39;lanorme check --show-config&#39; lists them).</span>
 
 <span class="gp">$ </span>lanorme<span class="w"> </span>check<span class="w"> </span>.<span class="w"> </span>--select<span class="w"> </span>EVAL-001<span class="w"> </span>--exclude<span class="w"> </span><span class="s1">&#39;**/migrations/*&#39;</span>
 <span class="go">[FAIL] security_calls</span>
@@ -1313,9 +1313,9 @@ directory at any depth, so <code>**/migrations/*</code> excludes <code>src/pkg/m
 <span class="go">    Fix: Use ast.literal_eval for trusted-shape parsing, or build a dispatch table</span>
 <span class="go">--- security_calls: 1 violations, 0 warnings ---</span>
 
-<span class="go">Summary: 30 checks — 29 passed, 0 warned, 1 failed.</span>
+<span class="go">Summary: 31 checks — 30 passed, 0 warned, 1 failed.</span>
 <span class="go">Findings: 1 error to fix, 0 advisory warnings.</span>
-<span class="go">Opt-in checks not enabled: 11 (&#39;lanorme check --show-config&#39; lists them).</span>
+<span class="go">Opt-in checks not enabled: 12 (&#39;lanorme check --show-config&#39; lists them).</span>
 </code></pre></div>
 <p>Match the depth you have. To exclude a <code>migrations/</code> directory sitting at the
 project root, use <code>migrations/*</code>; the leading <code>**/</code> form needs a parent
@@ -1325,8 +1325,8 @@ segment and will not match a top-level directory.</p>
 nothing: the run reports a clean tree and a note on stderr says so.</p>
 <div class="highlight"><pre><span></span><code><span class="gp">$ </span>lanorme<span class="w"> </span>check<span class="w"> </span>src/pkg/migrations/m.py<span class="w"> </span>--select<span class="w"> </span>EVAL-001
 <span class="go">Note: every requested path matches an exclude glob, so nothing was checked. Pass --exclude with another glob to override the configured excludes for one run.</span>
-<span class="go">All 30 checks passed.</span>
-<span class="go">Opt-in checks not enabled: 11 (&#39;lanorme check --show-config&#39; lists them).</span>
+<span class="go">All 31 checks passed.</span>
+<span class="go">Opt-in checks not enabled: 12 (&#39;lanorme check --show-config&#39; lists them).</span>
 </code></pre></div>
 <h2 id="silence-a-rule-for-a-path-glob">Silence a rule for a path glob<a class="headerlink" href="#silence-a-rule-for-a-path-glob" title="Permanent link">&para;</a></h2>
 <p>Goal: keep a rule on, but accept it for files matching a glob (for example,
@@ -1341,9 +1341,9 @@ reports <code>PARAM-001</code>:</p>
 <span class="go">    Fix: Group related parameters into a dataclass or TypedDict</span>
 <span class="go">--- file_limits: 1 violations, 0 warnings ---</span>
 
-<span class="go">Summary: 30 checks — 29 passed, 0 warned, 1 failed.</span>
+<span class="go">Summary: 31 checks — 30 passed, 0 warned, 1 failed.</span>
 <span class="go">Findings: 1 error to fix, 0 advisory warnings.</span>
-<span class="go">Opt-in checks not enabled: 11 (&#39;lanorme check --show-config&#39; lists them).</span>
+<span class="go">Opt-in checks not enabled: 12 (&#39;lanorme check --show-config&#39; lists them).</span>
 </code></pre></div>
 <p>The key is a glob; the value is a list of codes or categories suppressed for
 matching files. In <code>pyproject.toml</code> the table carries the <code>tool.lanorme</code>
@@ -1359,9 +1359,9 @@ header is bare. The prefixed form is silently ignored there:</p>
 <p>With either form in place, the matching file is no longer reported, and the
 summary counts what the glob suppressed:</p>
 <div class="highlight"><pre><span></span><code><span class="gp">$ </span>lanorme<span class="w"> </span>check<span class="w"> </span>.<span class="w"> </span>--select<span class="w"> </span>PARAM-001
-<span class="go">All 30 checks passed.</span>
+<span class="go">All 31 checks passed.</span>
 <span class="go">Suppressed: 0 by inline ignores, 1 by per-file-ignores, 0 by the baseline.</span>
-<span class="go">Opt-in checks not enabled: 11 (&#39;lanorme check --show-config&#39; lists them).</span>
+<span class="go">Opt-in checks not enabled: 12 (&#39;lanorme check --show-config&#39; lists them).</span>
 </code></pre></div>
 <p>Globs match paths relative to the project root, and so does a nested region:
 a <code>tests/lanorme.toml</code> does not change what <code>"tests/*"</code> matches.</p>
@@ -1421,10 +1421,10 @@ to carry a directive; silence it with <code>per-file-ignores</code> instead.</p>
 <span class="go">    Fix: Use ast.literal_eval for trusted-shape parsing, or build a dispatch table</span>
 <span class="go">--- security_calls: 2 violations, 0 warnings ---</span>
 
-<span class="go">Summary: 30 checks — 29 passed, 0 warned, 1 failed.</span>
+<span class="go">Summary: 31 checks — 30 passed, 0 warned, 1 failed.</span>
 <span class="go">Findings: 2 errors to fix, 0 advisory warnings.</span>
 <span class="go">Suppressed: 3 by inline ignores, 0 by per-file-ignores, 0 by the baseline.</span>
-<span class="go">Opt-in checks not enabled: 11 (&#39;lanorme check --show-config&#39; lists them).</span>
+<span class="go">Opt-in checks not enabled: 12 (&#39;lanorme check --show-config&#39; lists them).</span>
 </code></pre></div>
 <h2 id="tune-a-checks-settings">Tune a check's settings<a class="headerlink" href="#tune-a-checks-settings" title="Permanent link">&para;</a></h2>
 <p>Goal: change a check's threshold or option, such as the parameter limit.</p>
@@ -1473,8 +1473,8 @@ on a <code>keys:</code> line under it, the keys its table accepts:</p>
 when there are violations, and <code>2</code> on a usage or config error. This drives
 CI: a silenced finding leaves the run clean.</p>
 <div class="highlight"><pre><span></span><code><span class="gp">$ </span>lanorme<span class="w"> </span>check<span class="w"> </span>src<span class="w"> </span>--select<span class="w"> </span>EVAL-001<span class="w">   </span><span class="c1"># no eval in src</span>
-<span class="go">All 30 checks passed.</span>
-<span class="go">Opt-in checks not enabled: 11 (&#39;lanorme check --show-config&#39; lists them).</span>
+<span class="go">All 31 checks passed.</span>
+<span class="go">Opt-in checks not enabled: 12 (&#39;lanorme check --show-config&#39; lists them).</span>
 <span class="gp">$ </span><span class="nb">echo</span><span class="w"> </span><span class="nv">$?</span>
 <span class="go">0</span>
 </code></pre></div>

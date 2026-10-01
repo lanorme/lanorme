@@ -1742,6 +1742,16 @@ fail the build can escalate the code with
 ["ALL"]</code> escalates every advisory at once. A code in <code>promote</code> must be one a
 loaded check declares, so load the plugin in the same run; otherwise the run
 exits <code>2</code> with <code>'promote' names no known rule code or category</code>.</p>
+<p>A rule that asks a question about a design choice rather than reporting a
+defect can stay advisory under <code>ALL</code> (and so under the <code>strict</code> profile).
+Declare its code in an <code>advisory_codes</code> class attribute; only a <code>promote</code> entry
+naming the code or its category escalates it then:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">ClassVar</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">HouseRulesCheck</span><span class="p">:</span>
+    <span class="n">advisory_codes</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="nb">frozenset</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span><span class="s2">&quot;HOUSE-001&quot;</span><span class="p">})</span>
+</code></pre></div>
 <h2 id="loading-the-plugin">Loading the plugin<a class="headerlink" href="#loading-the-plugin" title="Permanent link">&para;</a></h2>
 <p>LaNorme has three ways to load a plugin module so its <code>register()</code> call runs.
 Choose one.</p>

@@ -1229,8 +1229,8 @@ hard lines. You tell it, and until you do, it stays out of your way. See
 <h2 id="it-dogfoods-itself">It dogfoods itself<a class="headerlink" href="#it-dogfoods-itself" title="Permanent link">&para;</a></h2>
 <p>LaNorme runs its own checks on its own source and its own documentation. On
 top of the defaults, the project's <code>pyproject.toml</code> enables the opt-in checks
-<code>prose</code>, <code>docs</code>, <code>named_args</code>, <code>test_style</code>, <code>attribute_access</code> and
-<code>similarity</code>, promotes the naming canon (<code>NAMING-006..008</code>) to errors, and
+<code>prose</code>, <code>docs</code>, <code>named_args</code>, <code>test_style</code>, <code>attribute_access</code>, <code>similarity</code>,
+<code>naming_clean_code</code> and <code>shallow_modules</code>, promotes the naming canon (<code>NAMING-006..008</code>) to errors, and
 ignores only the rules that assume a layered domain application (<code>LAYER</code>,
 <code>PORT</code>, <code>TERM</code>) because LaNorme is a flat library, not a hexagonal app.
 <code>restating</code> is not among the enabled checks: the <code># Assert</code> markers the test
@@ -1294,9 +1294,9 @@ re-check:</p>
 <span class="go">    baseline = &quot;lanorme-baseline.json&quot;</span>
 
 <span class="gp">$ </span>lanorme<span class="w"> </span>check
-<span class="go">All 30 checks passed.</span>
+<span class="go">All 31 checks passed.</span>
 <span class="go">Suppressed: 0 by inline ignores, 0 by per-file-ignores, 1 by the baseline.</span>
-<span class="go">Opt-in checks not enabled: 11 (&#39;lanorme check --show-config&#39; lists them).</span>
+<span class="go">Opt-in checks not enabled: 12 (&#39;lanorme check --show-config&#39; lists them).</span>
 </code></pre></div>
 <p><strong>It never resurrects paid-down noise.</strong> When you fix a finding, its entry no
 longer matches anything. <code>lanorme baseline status</code> lists those stale entries so

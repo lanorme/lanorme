@@ -1650,9 +1650,9 @@ threshold both apply, and the path is relative to the project root:</p>
 <span class="go">    Fix: Consider splitting into smaller modules before it grows further</span>
 <span class="go">--- file_limits: 0 violations, 1 warnings ---</span>
 
-<span class="go">Summary: 30 checks — 29 passed, 1 warned, 0 failed.</span>
+<span class="go">Summary: 31 checks — 30 passed, 1 warned, 0 failed.</span>
 <span class="go">Findings: 0 errors to fix, 1 advisory warning.</span>
-<span class="go">Opt-in checks not enabled: 11 (&#39;lanorme check --show-config&#39; lists them).</span>
+<span class="go">Opt-in checks not enabled: 12 (&#39;lanorme check --show-config&#39; lists them).</span>
 </code></pre></div>
 <p>Every check runs from the project root, whichever path the command names.
 <code>lanorme check tests</code> confines the file walk to <code>tests/</code> instead of making it
@@ -1660,7 +1660,7 @@ the root, so checks are handed <code>tests/helpers.py</code>, not <code>helpers.
 path-based exemptions some checks apply (the <code>tests/</code> and <code>migrations/</code> skips)
 hold; <code>per-file-ignores</code> globs such as <code>"tests/*"</code> match the same path. Checks
 that compare files across the tree (<code>docs</code>, <code>duplication</code>, <code>test_coverage</code>,
-<code>layer_deps</code>, <code>port_coverage</code>) still see the whole project, so a duplicate of
+<code>layer_deps</code>, <code>port_coverage</code>, <code>shallow_modules</code>) still see the whole project, so a duplicate of
 a scanned file elsewhere in the project is found and <code>source_root</code> is read
 from the project root; the report is then narrowed to the requested path. Each
 region is checked in its own pass under its merged settings, confined the same
@@ -2099,9 +2099,9 @@ errors to fix and the advisory warnings across them:</p>
 <span class="go">    Fix: Delete it; version control remembers</span>
 <span class="go">--- comments: 1 violations, 0 warnings ---</span>
 
-<span class="go">Summary: 30 checks — 29 passed, 0 warned, 1 failed.</span>
+<span class="go">Summary: 31 checks — 30 passed, 0 warned, 1 failed.</span>
 <span class="go">Findings: 1 error to fix, 0 advisory warnings.</span>
-<span class="go">Opt-in checks not enabled: 11 (&#39;lanorme check --show-config&#39; lists them).</span>
+<span class="go">Opt-in checks not enabled: 12 (&#39;lanorme check --show-config&#39; lists them).</span>
 </code></pre></div>
 <h3 id="summary-notes">Summary notes<a class="headerlink" href="#summary-notes" title="Permanent link">&para;</a></h3>
 <p>After the totals, <code>concise</code> prints up to three notes, each only when it
@@ -2119,9 +2119,9 @@ applies:</p>
   it.</li>
 </ul>
 <div class="highlight"><pre><span></span><code><span class="gp">$ </span>lanorme<span class="w"> </span>check<span class="w"> </span>.
-<span class="go">All 30 checks passed.</span>
+<span class="go">All 31 checks passed.</span>
 <span class="go">Suppressed: 0 by inline ignores, 0 by per-file-ignores, 1 by the baseline.</span>
-<span class="go">Opt-in checks not enabled: 11 (&#39;lanorme check --show-config&#39; lists them).</span>
+<span class="go">Opt-in checks not enabled: 12 (&#39;lanorme check --show-config&#39; lists them).</span>
 </code></pre></div>
 <h3 id="finding-records">Finding records<a class="headerlink" href="#finding-records" title="Permanent link">&para;</a></h3>
 <p><code>json</code> emits one object per check, with <code>violations</code> and <code>warnings</code> arrays of
@@ -2249,7 +2249,7 @@ columns are 1-based, so <code>col</code> is the record's <code>column</code> plu
 and by top-level directory. A file at the root counts under <code>./</code>. Reach for it
 on a large tree, before reading the findings one by one:</p>
 <div class="highlight"><pre><span></span><code><span class="gp">$ </span>lanorme<span class="w"> </span>check<span class="w"> </span>--output-format<span class="w"> </span>summary<span class="w"> </span>.
-<span class="go">Summary: 30 checks — 27 passed, 1 warned, 2 failed.</span>
+<span class="go">Summary: 31 checks — 28 passed, 1 warned, 2 failed.</span>
 <span class="go">Findings: 3 errors to fix, 1 advisory warning.</span>
 <span class="go">By code:</span>
 <span class="go">  CMT-001          error    2</span>

@@ -606,6 +606,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Interaction with strict">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#rules-that-stay-advisory-under-all" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Rules that stay advisory under ALL
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
     </ul>
@@ -1077,6 +1094,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Interaction with strict">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#rules-that-stay-advisory-under-all" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Rules that stay advisory under ALL
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
     </ul>
@@ -1171,9 +1205,9 @@ lanorme<span class="w"> </span>check<span class="w"> </span>src<span class="w"> 
 <span class="go">    Fix: Add a return annotation (for example &#39;-&gt; ResultType&#39;) to the signature</span>
 <span class="go">--- strong_types: 0 violations, 1 warnings ---</span>
 
-<span class="go">Summary: 30 checks — 29 passed, 1 warned, 0 failed.</span>
+<span class="go">Summary: 31 checks — 30 passed, 1 warned, 0 failed.</span>
 <span class="go">Findings: 0 errors to fix, 1 advisory warning.</span>
-<span class="go">Opt-in checks not enabled: 11 (&#39;lanorme check --show-config&#39; lists them).</span>
+<span class="go">Opt-in checks not enabled: 12 (&#39;lanorme check --show-config&#39; lists them).</span>
 <span class="gp">$ </span><span class="nb">echo</span><span class="w"> </span><span class="nv">$?</span>
 <span class="go">0</span>
 </code></pre></div>
@@ -1185,9 +1219,9 @@ lanorme<span class="w"> </span>check<span class="w"> </span>src<span class="w"> 
 <span class="go">    Fix: Add a return annotation (for example &#39;-&gt; ResultType&#39;) to the signature</span>
 <span class="go">--- strong_types: 1 violations, 0 warnings ---</span>
 
-<span class="go">Summary: 30 checks — 29 passed, 0 warned, 1 failed.</span>
+<span class="go">Summary: 31 checks — 30 passed, 0 warned, 1 failed.</span>
 <span class="go">Findings: 1 error to fix, 0 advisory warnings.</span>
-<span class="go">Opt-in checks not enabled: 11 (&#39;lanorme check --show-config&#39; lists them).</span>
+<span class="go">Opt-in checks not enabled: 12 (&#39;lanorme check --show-config&#39; lists them).</span>
 <span class="gp">$ </span><span class="nb">echo</span><span class="w"> </span><span class="nv">$?</span>
 <span class="go">1</span>
 </code></pre></div>
@@ -1206,17 +1240,17 @@ to escalate and the run passes:</p>
     <span class="k">return</span> <span class="n">quantity</span> <span class="o">*</span> <span class="n">unit_price</span>
 </code></pre></div>
 <div class="highlight"><pre><span></span><code><span class="gp">$ </span>lanorme<span class="w"> </span>check<span class="w"> </span>orders.py<span class="w"> </span>--select<span class="w"> </span>TYPE-004<span class="w"> </span>--promote<span class="w"> </span>ALL
-<span class="go">All 30 checks passed.</span>
+<span class="go">All 31 checks passed.</span>
 <span class="go">Suppressed: 1 by inline ignores, 0 by per-file-ignores, 0 by the baseline.</span>
-<span class="go">Opt-in checks not enabled: 11 (&#39;lanorme check --show-config&#39; lists them).</span>
+<span class="go">Opt-in checks not enabled: 12 (&#39;lanorme check --show-config&#39; lists them).</span>
 <span class="gp">$ </span><span class="nb">echo</span><span class="w"> </span><span class="nv">$?</span>
 <span class="go">0</span>
 </code></pre></div>
 <p>The same holds for <code>ignore</code>. Ignoring and promoting the same code leaves
 nothing to promote:</p>
 <div class="highlight"><pre><span></span><code><span class="gp">$ </span>lanorme<span class="w"> </span>check<span class="w"> </span>orders.py<span class="w"> </span>--select<span class="w"> </span>TYPE-004<span class="w"> </span>--ignore<span class="w"> </span>TYPE-004<span class="w"> </span>--promote<span class="w"> </span>TYPE-004
-<span class="go">All 30 checks passed.</span>
-<span class="go">Opt-in checks not enabled: 11 (&#39;lanorme check --show-config&#39; lists them).</span>
+<span class="go">All 31 checks passed.</span>
+<span class="go">Opt-in checks not enabled: 12 (&#39;lanorme check --show-config&#39; lists them).</span>
 <span class="gp">$ </span><span class="nb">echo</span><span class="w"> </span><span class="nv">$?</span>
 <span class="go">0</span>
 </code></pre></div>
@@ -1259,7 +1293,8 @@ never fails a build on a non-issue.</p>
 <h2 id="interaction-with-strict">Interaction with strict<a class="headerlink" href="#interaction-with-strict" title="Permanent link">&para;</a></h2>
 <p>The bundled <code>strict</code> profile sets <code>promote = ["ALL"]</code> (and enables the opt-in
 checks). Adopting it through <code>extends</code> therefore promotes every advisory
-warning to a build-failing error:</p>
+warning to a build-failing error, except the rules a check declares advisory by
+nature:</p>
 <div class="highlight"><pre><span></span><code><span class="k">[tool.lanorme]</span>
 <span class="n">extends</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;strict&quot;</span><span class="p">]</span>
 </code></pre></div>
@@ -1270,6 +1305,18 @@ profile's <code>["ALL"]</code>:</p>
 <span class="n">extends</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;strict&quot;</span><span class="p">]</span>
 <span class="n">promote</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;TYPE-004&quot;</span><span class="p">]</span><span class="w">   </span><span class="c1"># only TYPE-004 fails the build, not every advisory</span>
 </code></pre></div>
+<h3 id="rules-that-stay-advisory-under-all">Rules that stay advisory under <code>ALL</code><a class="headerlink" href="#rules-that-stay-advisory-under-all" title="Permanent link">&para;</a></h3>
+<p>A few rules ask a question about a design choice rather than report a defect,
+so their check declares them advisory by nature: <code>ALL</code> passes over them, as it
+passes over the <code>-000</code> skip notices. Today that is <code>SHALLOW-001</code>, which asks
+whether a small package split into many tiny modules should be one module.
+Name the code or its category to make it fail the build anyway:</p>
+<div class="highlight"><pre><span></span><code><span class="k">[tool.lanorme]</span>
+<span class="n">extends</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;strict&quot;</span><span class="p">]</span>
+<span class="n">promote</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;ALL&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;SHALLOW&quot;</span><span class="p">]</span><span class="w">   </span><span class="c1"># every advisory, SHALLOW-001 included</span>
+</code></pre></div>
+<p>A check declares such codes in an <code>advisory_codes</code> class attribute (see
+<a href="../write-a-check/">Write a custom check</a>).</p>
 <p>See <a href="../../reference/configuration/#extends"><code>extends</code></a> and
 <a href="../../reference/configuration/#promote"><code>promote</code></a> in the configuration
 reference, and the <a href="../../RULES/">rule reference</a> for which rules report at the
