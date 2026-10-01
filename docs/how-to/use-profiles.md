@@ -9,7 +9,7 @@ turn on a coherent set of checks in one line, then override individual keys
 locally where a project differs. For the full meaning of every key a profile can
 set, see the [configuration reference](../reference/configuration.md).
 
-## Adopt a single profile
+## A. Adopt a single profile
 
 Add `extends` to the `[tool.lanorme]` table in `pyproject.toml`:
 
@@ -19,12 +19,14 @@ extends = ["strict"]
 ```
 
 In a standalone `lanorme.toml` or `.lanorme.toml`, write the same keys at the
-top level with no `[tool.lanorme]` header; a header there is silently ignored.
+top level with no `[tool.lanorme]` header. A header there is a configuration
+error: `lanorme check` reports that the file "holds a [tool.lanorme] table, but
+in a dedicated config file the keys are top level" and exits with code 2.
 
 `extends` takes one profile name or a list. A single name may also be given as
 a bare string (`extends = "strict"`).
 
-## The bundled profiles
+## B. The bundled profiles
 
 Four profiles ship inside the package. One tightens severity, three configure
 an architecture style.
@@ -52,7 +54,7 @@ Any one of them can be switched back off with a local table such as
 `[tool.lanorme.docs] enabled = false`, which wins over the profile because
 tables merge key by key.
 
-It does not add architecture rules. `layer_deps` and `port_coverage` have no
+`strict` does not add architecture rules. `layer_deps` and `port_coverage` have no
 `enabled` switch and always run with their built-in hexagonal layout (`domain`,
 `application`, `infrastructure`, `api`; ports under `application/ports`,
 adapters under `infrastructure/services`), which only bites on a tree that
@@ -62,7 +64,7 @@ layout your tree uses, and compose it with `strict` if you want both.
 The architecture profiles are mutually exclusive in practice: each configures
 `layer_deps` for a different layer layout, so extend exactly one of them.
 
-## Compose several profiles
+## C. Compose several profiles
 
 List more than one name to merge them. The common pairing is strict severity
 plus an architecture style:
@@ -75,7 +77,7 @@ extends = ["strict", "hexagonal"]
 This gives you every default-off check, `promote = ["ALL"]`, the hexagonal
 layer rules and adapter roots, all from two profile names.
 
-## Extend a local `.toml`
+## D. Extend a local `.toml`
 
 An `extends` entry that ends in `.toml`, or contains a path separator, is read
 as a file relative to the project root instead of a bundled name. Use this to
@@ -99,7 +101,7 @@ enabled = true
 
 An `extends` key inside a profile is ignored, so profiles do not chain.
 
-## How merging works
+## E. How merging works
 
 Profiles merge left to right, then your own keys merge on top, so a local key
 always wins. Tables merge per key: a local `[tool.lanorme.layer_deps]` that sets
@@ -119,7 +121,7 @@ Order matters when two profiles set the same key. In `extends = ["strict",
 whose value should win further right, or set the key in your own
 `[tool.lanorme]` table to beat every profile.
 
-## Confirm the merged result
+## F. Confirm the merged result
 
 Run `check` with `--show-config` to print the discovered config and the
 effective per-check settings, then exit without running any check. Given this
@@ -177,9 +179,10 @@ The `config file` and `project root` paths vary per machine.
     An unknown profile name is a configuration error. `lanorme check`
     prints the available bundled names and exits with code 2 (usage or
     config error), the same exit code as a config file that is not valid
-    TOML, an invalid config value, or a missing local profile file.
+    TOML, an invalid config value, a missing local profile file, or a
+    `[tool.lanorme]` header in a standalone `lanorme.toml`.
 
-## Command-line flags still override
+## G. Command-line flags still override
 
 Command-line flags override config, including anything a profile sets. To
 include or skip a category for one run without editing the profile, pass
@@ -189,18 +192,20 @@ include or skip a category for one run without editing the profile, pass
 $ lanorme check src --ignore PORT
 ```
 
-The `--promote` flag does the same for severity, so you can escalate or hold
-back warnings for one run regardless of the profile's `promote` value.
+`--promote` replaces the profile's `promote` list for that run, so
+`--promote TYPE-004` under `strict` promotes only that code.
 
-## Related
-
-- [Configuration reference](../reference/configuration.md) for every
-  `[tool.lanorme]` key, including `extends`, `promote` and `baseline`.
-- [Rule reference](../RULES.md) for what each check flags and the per-check
-  settings a profile configures.
+## H. Adopt `strict` on an existing codebase
 
 A profile sets policy, not adoption pace. To roll a strict profile onto an
 existing codebase without drowning in pre-existing findings, pair it with a
 baseline: record current findings with `lanorme baseline write`, set the
 `baseline` key, and only new findings report. See the `baseline` entry in the
 configuration reference.
+
+## I. Related
+
+- [Configuration reference](../reference/configuration.md) for every
+  `[tool.lanorme]` key, including `extends`, `promote` and `baseline`.
+- [Rule reference](../RULES.md) for what each check flags and the per-check
+  settings a profile configures.

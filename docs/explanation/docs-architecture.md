@@ -2,9 +2,9 @@
 
 This page is the contributor's guide to where documentation lives. It tells you, for any piece of content you are about to write, which kind of page it belongs on, what to name the file, and how to draw a diagram. Follow it and every page on the site stays familiar: a reader who learns the shape once can navigate anything.
 
-It is an explanation page on purpose. It does not teach a task or list config keys; it explains the reasoning behind the layout so the layout makes sense rather than being a rule you obey blindly. If you only read one section, read the decision guide.
+It is an explanation page on purpose. It does not teach a task or list config keys; it explains the reasoning behind the layout so the layout makes sense rather than being a rule you obey blindly. If you only read one section, read the decision guide; when a new contributor asks where a page goes, send them here.
 
-## The four kinds of page (Diataxis)
+## A. The four kinds of page (Diataxis)
 
 LaNorme's documentation follows the Diataxis framework. Every page serves exactly one of four reader needs, and the four are kept apart because mixing them is what makes documentation hard to use. A reader trying to get a job done does not want theory in the way; a reader trying to understand does not want a step list. The four quadrants split along two axes: whether the reader is *studying* or *working*, and whether the page is about *practical steps* or *theoretical knowledge*.
 
@@ -15,9 +15,9 @@ LaNorme's documentation follows the Diataxis framework. Every page serves exactl
 | **Reference** | information | "What exactly is X?" | Every `[tool.lanorme]` config key; every rule code |
 | **Explanation** | understanding | "Why is it built this way?" | Why a false positive is the cardinal sin |
 
-These map one-to-one onto LaNorme's four flagship pages, which already conform: `tutorials/adopt-on-existing-codebase.md`, `how-to/promote-warnings.md`, `reference/configuration.md`, `explanation/precision-first.md`. When in doubt, open the matching flagship page and copy its shape.
+These map one-to-one onto four LaNorme pages: `tutorials/adopt-on-existing-codebase.md`, `how-to/promote-warnings.md`, `reference/configuration.md`, `explanation/precision-first.md`. When in doubt, open the matching flagship page and copy its shape.
 
-## Decision guide: which quadrant does my content belong in?
+## B. Decision guide: which quadrant does my content belong in?
 
 Ask these questions in order. The first "yes" wins.
 
@@ -45,7 +45,7 @@ Two traps to avoid:
 - **Do not mix quadrants on one page.** If a reference page starts explaining *why*, move the why to an explanation page and link to it. If a how-to starts teaching from scratch, it wants to be a tutorial or to link to one.
 - **Verb-led naming does not decide the quadrant.** Both tutorials and how-to guides are written as actions ("adopt ...", "promote ..."), so the file name cannot tell them apart. What separates them is reader intent: a tutorial is for *learning the tool*; a how-to is for *getting a specific job done*. Decide on intent, then name the file.
 
-## Directory layout
+## C. Directory layout
 
 The four quadrants are the four directories under `docs/`. The layout *is* the architecture; putting a file in a directory is how you declare its kind.
 
@@ -59,15 +59,15 @@ docs/
   explanation/              # understanding-oriented, the "why"
 ```
 
-Every published Markdown page lives in one of the four section directories or is one of the two known top-level pages, `index.md` and `RULES.md`. There is no third option for published content. (Working documents are handled separately; see "Working documents" below.)
+Every published Markdown page lives in one of the four section directories or is one of the two known top-level pages, `index.md` and `RULES.md`. There is no third option for published content. (The check's default `known_top_level` also lists the three reference pages, which already sit in a section.) (Working documents are handled separately; see "Working documents" below.)
 
-## The skimmer line
+## D. The skimmer line
 
 Every content page opens with a **skimmer**: a one-line scope statement placed as the first prose paragraph immediately under the H1, before any sub-heading, list, table, or code block. It is the page's promise of scope, so a reader (human or agent) learns what the page covers within one paragraph of the title.
 
-The skimmer must begin with a literal opener naming the page kind, drawn from a fixed set: "This page ...", "This tutorial ...", "This guide ...", "This reference ...", "This how-to ...", or "This explanation ...". That opener is required, not merely recommended; the `docs` check (`DOCS-003`) treats it as a closed whitelist and accepts no other phrasing. A near-miss such as "This recipe ...", "Use this how-to ...", or any opener that does not start with one of those six exact phrases is flagged as a build-failing error. The skimmer must also be a plain prose paragraph: a leading mkdocs-material admonition (`!!! note`) or a blockquote callout under the H1 does *not* satisfy the rule, because the check reads the first non-blank prose line and requires the canonical opener there. Index and home pages are exempt, since their body is legitimately a list.
+The skimmer must begin with a literal opener naming the page kind, drawn from a fixed set: "This page ...", "This tutorial ...", "This guide ...", "This reference ...", "This how-to ...", or "This explanation ...". The opener list is closed: `DOCS-003` fails the build on any other phrasing, including near-misses such as "This recipe ..." or "Use this how-to ...". The skimmer must also be a plain prose paragraph: a leading mkdocs-material admonition (`!!! note`) or a blockquote callout under the H1 does *not* satisfy the rule, because the check reads the first non-blank prose line and requires the canonical opener there. Index and home pages are exempt, since their body is legitimately a list.
 
-## Naming convention
+## E. Naming convention
 
 File names are **kebab-case** (lowercase words joined by hyphens), with the `.md` extension. The name describes the page's content, not its position.
 
@@ -78,49 +78,45 @@ File names are **kebab-case** (lowercase words joined by hyphens), with the `.md
 
 Each section should carry an `index.md` that lists its pages, so a reader landing on the section has a map. The site navigation in `mkdocs.yml` lists pages explicitly; a new page is not visible until it is added to the `nav`.
 
-## Headings and numbering
+## F. Headings and numbering
 
 Headings descend without gaps: an H2 is followed by an H2 or an H3, never an H4. There is exactly one H1, the title. Do **not** manually number sections (`## 1. Setup`, `### 2.3) Details`): mkdocs auto-generates the on-page table of contents from the heading text, so explicit numbers duplicate it and rot when sections are reordered. A digit-led title without a trailing dot or paren, like `## 30-second example`, is fine. Do not hand-write an in-page table of contents on a content page; the mkdocs ToC already covers it. An explicit list of pages belongs only on a section index page.
 
-## Diagrams
+## G. Diagrams
 
 The default diagram format is **Mermaid** in a ```` ```mermaid ```` fence. The source lives in the Markdown, so an agent reads the same artifact a human sees rendered to SVG. Use it for flowcharts, sequence diagrams, and state, relationship, or class diagrams (the decision guide above is one).
 
-For richer visuals Mermaid cannot express, use a hand-authored **`.svg`** referenced with `![descriptive alt](path.svg)` or `<img src="..." alt="...">`. The alt text is the agent's and the screen-reader's text alternative and is **mandatory on every image**, decorative ones included: the `docs` check (`DOCS-004`) flags an empty alt, whether an empty-string `alt=""` attribute or a Markdown image with empty brackets, as a build-failing error exactly as it flags a missing one. There is no decorative escape hatch, so describe what the image shows even when it is ornamental. A Mermaid fence is its own text alternative and needs no alt.
+For richer visuals Mermaid cannot express, use a hand-authored **`.svg`** referenced with `![descriptive alt](path.svg)` or `<img src="..." alt="...">`. The alt text is the agent's and the screen-reader's text alternative and is **mandatory on every image**, decorative ones included: the `docs` check (`DOCS-004`) flags an empty alt, whether an empty-string `alt=""` attribute or a Markdown image with empty brackets, as a build-failing error exactly as it flags a missing one. A Mermaid fence is its own text alternative and needs no alt.
 
-**Raster** formats (`.png`, `.jpg`, and friends) are discouraged for diagrams: they are opaque to an agent and do not scale. A genuine UI screenshot or photo is legitimate raster and stays allowed; the discouragement is an escapable nudge, not a hard rule. Rendering Mermaid to SVG requires the `pymdownx.superfences` custom_fence named `mermaid` in `mkdocs.yml`; without it, Mermaid blocks dump as raw code.
+**Raster** formats (`.png`, `.jpg`, and friends) are discouraged for diagrams: they are opaque to an agent and do not scale. A genuine UI screenshot or photo is legitimate raster and stays allowed; `DOCS-005` is an advisory warning, and `[tool.lanorme.docs] allow` exempts specific images. Rendering Mermaid to SVG requires the `pymdownx.superfences` custom_fence named `mermaid` in `mkdocs.yml`; without it, Mermaid blocks dump as raw code.
 
-## Reference: generated versus authored
+## H. Reference: generated versus authored
 
 Reference is the quadrant most likely to drift from the tool, so LaNorme generates the parts that are pure fact and authors the parts that are explanation-with-structure. The two must never be confused.
 
 **Generated reference pages are produced by `scripts/gen_docs.py` and are never hand-edited.** Exactly two pages under `docs/` are generated today:
 
-- `reference/configuration.md` — every top-level `[tool.lanorme]` key, its type and default, emitted from the config-key source of truth.
-- `reference/rules-index.md` — the code-to-check-to-opt-in table, emitted from the live rule registry.
+- `reference/configuration.md`: every top-level `[tool.lanorme]` key, its type and default, emitted from the config-key source of truth.
+- `reference/rules-index.md`: the code-to-check-to-opt-in table, emitted from the live rule registry.
 
 (The script also writes `lanorme.schema.json`, `llms.txt`, and `llms-full.txt` at the repo root; those are outside `docs/`.)
 
-Each generated page opens with a sentence stating it is generated from the tool "so it cannot drift". To change a generated page you change the tool or the generator, then run `python3 scripts/gen_docs.py`. A documentation page that contradicts the tool is itself a false positive, so this is non-negotiable. CI enforces it: `python3 scripts/gen_docs.py --check` exits non-zero if any committed generated file is stale. **Do not reimplement that staleness check inside the linter** — it already exists, and duplicating it imprecisely would risk firing on files a contributor legitimately regenerated.
+Each generated page opens with a sentence stating it is generated from the tool. To change a generated page you change the tool or the generator, then run `python3 scripts/gen_docs.py`. A documentation page that contradicts the tool is itself a false positive, so this is non-negotiable. CI enforces it: `python3 scripts/gen_docs.py --check` exits non-zero if any committed generated file is stale.
 
 **The other two reference pages are authored and meant to be hand-edited:**
 
-- `RULES.md` — what each rule catches, why, and its precision notes. This is prose with structure, not a generated table, so it is authored. (It is concatenated into `llms-full.txt` by the generator, but it is not generated.)
-- `reference/cli.md` — the command and flag reference, authored.
+- `RULES.md`: what each rule catches, why, and its precision notes. This is prose with structure, not a generated table, so it is authored. (It is concatenated into `llms-full.txt` by the generator, but it is not generated.)
+- `reference/cli.md`: the command and flag reference, authored.
 
 The dividing line: if a page is a mechanical projection of a data structure in the code, it is generated; if it is human-written description that happens to be organised for lookup, it is authored.
 
-## Working documents
+## I. Working documents
 
-Corpus designs, corpus audits, and the multi-reviewer audit live under `docs/` for convenience but are *not* part of the published site. They are working documents: `*-design.md`, `*-corpus-design.md`, `*-corpus-audit.md`, and anything under `docs/audit/`. `mkdocs.yml` already excludes exactly these through its `exclude_docs` setting, and the docs check exempts the same globs so they are never asked to fit a quadrant. If you add a new working document, match one of those name patterns (or place it under `docs/audit/`) so both the site build and the check leave it alone.
+Corpus designs, corpus audits, and the multi-reviewer audit live under `docs/` for convenience but are *not* part of the published site. They are working documents: `*-design.md`, `*-corpus-design.md`, `*-corpus-audit.md`, and anything under `docs/audit/`. `mkdocs.yml` keeps them off the site through its `exclude_docs` setting. The docs check does not know these patterns: LaNorme's own run skips them only because the `exclude` list in `[tool.lanorme]` in `pyproject.toml` names each one. When you add a working document, match one of the name patterns and add its path to `exclude`, or put it under `docs/audit/`, which both already cover by glob.
 
-## Where this page lives, and why
+## J. Mechanically checkable rules
 
-This page is `explanation/docs-architecture.md`. It is an explanation because it explains a design decision (the layout) rather than teaching a task or listing facts. It is also the contributor's guide: when someone asks "where does this new page go?", the answer is "read `explanation/docs-architecture.md` and run the decision guide". Linking new contributors here keeps the architecture self-documenting and self-enforcing.
-
-## Mechanically checkable rules
-
-The architecture, the page conventions, and the diagram policy are enforced by one new opt-in check, `docs`, defaulting **off** like `prose` and `skills`, because these are LaNorme's house standards and must not be imposed on a repository with a different docs structure. Its section directories, known top-level pages, and raster extensions are configurable via `[tool.lanorme.docs]`, defaulting to LaNorme's own layout. LaNorme enables it on itself and dogfoods to zero hard-error findings.
+The architecture, the page conventions, and the diagram policy are enforced by one opt-in check, `docs`, which defaults **off** like `prose` and `docstrings`, because these are LaNorme's house standards and must not be imposed on a repository with a different docs structure. Its section directories, known top-level pages, and raster extensions are configurable via `[tool.lanorme.docs]`, defaulting to LaNorme's own layout. LaNorme enables it on itself and dogfoods to zero hard-error findings.
 
 Only objective, measured-clean conventions are **errors**; every subjective convention is an advisory **warning**, so the cardinal sin (a false positive on genuinely good docs) is structurally avoided.
 

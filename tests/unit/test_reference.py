@@ -49,7 +49,9 @@ def test_rule_prefers_the_exact_heading_over_the_family(capsys):
     out = capsys.readouterr().out
 
     # Assert: the ``### `NAMING-007``` section, not the whole canon chapter.
-    assert "### `NAMING-007`" in out and "### `NAMING-006`" not in out
+    headings = [line for line in out.splitlines() if line.startswith("### ")]
+    assert any("`NAMING-007`" in line for line in headings)
+    assert not any("`NAMING-006`" in line for line in headings)
 
 
 def test_section_boundaries_ignore_headings_inside_fenced_code():
@@ -81,7 +83,9 @@ def test_rule_json_carries_declaration_and_section(capsys):
 
     # Assert.
     assert detail["code"] == "KWARG-001" and detail["check"] == "named_args"
-    assert detail["opt_in"] is True and detail["section"].startswith("## Keyword arguments")
+    first_line = detail["section"].splitlines()[0]
+    assert detail["opt_in"] is True
+    assert first_line.startswith("## ") and "Keyword arguments" in first_line
 
 
 def test_rules_json_lists_every_check(capsys):

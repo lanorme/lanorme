@@ -7,7 +7,7 @@ flag overrides added. For the configuration keys themselves, see the
 [configuration reference](configuration.md). For what each rule catches, see
 the [rule reference](../RULES.md) and the [rule index](rules-index.md).
 
-## Synopsis
+## A. Synopsis
 
 ```text
 lanorme [-h] [--version] {check,baseline,rules,rule} ...
@@ -18,14 +18,16 @@ lanorme [-h] [--version] {check,baseline,rules,rule} ...
 | `-h`, `--help` | Show help and exit. |
 | `--version` | Print the program version and exit, as `lanorme X.Y.Z`. |
 
+`python -m lanorme` is the same command.
+
 The four subcommands:
 
 | Command | Purpose |
 | --- | --- |
-| [`check`](#check) | Run checks against one or more paths. |
-| [`baseline`](#baseline) | Record or inspect the warning baseline. |
-| [`rules`](#rules) | List all registered rules and exit. |
-| [`rule`](#rule) | Print the reference section for a single rule code. |
+| [`check`](#c-check) | Run checks against one or more paths. |
+| [`baseline`](#d-baseline) | Record or inspect the warning baseline. |
+| [`rules`](#e-rules) | List all registered rules and exit. |
+| [`rule`](#f-rule) | Print the reference section for a single rule code. |
 
 Only `baseline` nests further, into `write` and `status`:
 
@@ -39,7 +41,7 @@ flowchart LR
     B --> S[status]
 ```
 
-## Config discovery
+## B. Config discovery
 
 A command that runs checks looks for config in the scan path's directory and
 in each parent. In each directory it tries three files, in this order:
@@ -65,8 +67,8 @@ select = ["SEC", "CMT-001"]
 baseline = "lanorme-baseline.json"
 ```
 
-The walk does not stop at the first config. It climbs to the outermost one, or
-to the first config that sets `root = true`, whichever it meets first. That
+The walk does not stop at the first config. It climbs until it meets a config
+that sets `root = true`, or else to the outermost config. That
 config's directory is the project root. Every finding is reported relative to
 it, whichever directory the command ran from, and `per-file-ignores` and
 `exclude` globs match against those paths.
@@ -74,12 +76,12 @@ it, whichever directory the command ran from, and `per-file-ignores` and
 Every config between the project root and the scan path is a region, and so is
 every config below the scan path. A region's check settings cascade over the
 ones above it, table by table and key by key, for the file-level checks over
-that region's files. So `lanorme check tests` with a `tests/lanorme.toml`
-checks `tests/` under the project's check settings plus the subtree's
+that region's files. So `lanorme check pkg` with a `pkg/lanorme.toml`
+checks `pkg/` under the project's check settings plus the subtree's
 overrides, not the subtree's file alone. The run keys (`select`, `ignore`,
 `exclude`, `promote`, `per-file-ignores`, `baseline`, `source_root`) and the
 whole-tree checks' settings come from the project root's config whatever path
-is scanned, so `lanorme check tests` holds the same standard as
+is scanned, so `lanorme check pkg` holds the same standard as
 `lanorme check .`: a nested config governs only its own region's file-level
 checks. Given this tree:
 
@@ -92,18 +94,18 @@ file_warn_lines = 5
 ```
 
 ```toml
-# tests/lanorme.toml
+# pkg/lanorme.toml
 [file_limits]
 file_warn_lines = 3
 ```
 
-`tests/helpers.py` has four lines. The project's `select` and the subtree's
+`pkg/helpers.py` has four lines. The project's `select` and the subtree's
 threshold both apply, and the path is relative to the project root:
 
 ```console
-$ lanorme check tests
+$ lanorme check pkg
 [WARN] file_limits
-  WARNING: tests/helpers.py:1 — File has 4 effective lines (warn: 3)
+  WARNING: pkg/helpers.py:1 — File has 4 effective lines (warn: 3)
     Rule: SIZE-001: File approaching the effective line limit
     Fix: Consider splitting into smaller modules before it grows further
 --- file_limits: 0 violations, 1 warnings ---
@@ -114,12 +116,12 @@ Opt-in checks not enabled: 11 ('lanorme check --show-config' lists them).
 ```
 
 Every check runs from the project root, whichever path the command names.
-`lanorme check tests` confines the file walk to `tests/` instead of making it
-the root, so checks are handed `tests/helpers.py`, not `helpers.py`, and the
+`lanorme check pkg` confines the file walk to `pkg/` instead of making it
+the root, so checks are handed `pkg/helpers.py`, not `helpers.py`, and the
 path-based exemptions some checks apply (the `tests/` and `migrations/` skips)
-hold; `per-file-ignores` globs such as `"tests/*"` match the same path. Checks
-that compare files across the tree (`docs`, `duplication`, `test_coverage`,
-`layer_deps`, `port_coverage`) still see the whole project, so a duplicate of
+hold; `per-file-ignores` globs such as `"pkg/*"` match the same path. Checks
+that compare files across the tree (`docs`, `duplication`, `layer_deps`,
+`meta`, `port_coverage`, `test_coverage`) still see the whole project, so a duplicate of
 a scanned file elsewhere in the project is found and `source_root` is read
 from the project root; the report is then narrowed to the requested path. Each
 region is checked in its own pass under its merged settings, confined the same
@@ -137,8 +139,8 @@ effective per-check settings. Under each check a `keys:` line lists the TOML
 keys that check reads:
 
 ```console
-$ cd tests && lanorme check --show-config .
-config file:  /path/to/proj/lanorme.toml (+ nested: /path/to/proj/tests/lanorme.toml)
+$ cd pkg && lanorme check --show-config .
+config file:  /path/to/proj/lanorme.toml (+ nested: /path/to/proj/pkg/lanorme.toml)
 project root: /path/to/proj
 
 [tool.lanorme]
@@ -154,7 +156,7 @@ checks (effective settings):
 The absolute paths vary per machine. With no config anywhere, the
 `config file:` line says so and names the files it looked for.
 
-### Per-check settings are validated
+### B.1 Per-check settings are validated
 
 Every `[tool.lanorme.<check>]` table is checked before the run. A value of the
 wrong type or a key the check does not read exits `2`, naming the table and the
@@ -201,7 +203,7 @@ A `[tool.lanorme]` table inside a `lanorme.toml` or `.lanorme.toml` is the
 `pyproject.toml` form in the wrong file; it exits `2` with a message saying
 the keys go top level there.
 
-## check
+## C. check
 
 Run checks against one or more paths.
 
@@ -214,13 +216,13 @@ lanorme check [-h] [--check SINGLE] [--select SELECT] [--ignore IGNORE]
               [paths ...]
 ```
 
-### Arguments
+### C.1 Arguments
 
 | Argument | Description |
 | --- | --- |
 | `paths` | Path(s) to check. Default: `.` (the current directory). |
 
-### Flags
+### C.2 Flags
 
 | Flag | Description |
 | --- | --- |
@@ -231,7 +233,7 @@ lanorme check [-h] [--check SINGLE] [--select SELECT] [--ignore IGNORE]
 | `--promote PROMOTE` | Comma-separated rule codes or categories whose warnings become build-failing errors, or `ALL`. Overrides config `promote`. |
 | `--show-config` | Print the discovered config files, the `[tool.lanorme]` keys in force (including `extends` and `baseline`) and each check's effective settings and TOML keys, then exit. |
 | `--plugin PLUGIN` | Plugin module to load. Repeatable. Adds to config `plugins`. |
-| `--output-format {concise,full,json,ndjson,github,summary}` | Output format. Default: `concise`. See [output formats](#output-formats). |
+| `--output-format {concise,full,json,ndjson,github,summary}` | Output format. Default: `concise`. See [output formats](#g-output-formats). |
 | `--json` | Alias for `--output-format=json`. |
 | `--no-baseline` | Ignore the configured baseline for this run and report the whole debt. |
 
@@ -242,8 +244,10 @@ baseline. The recipes are in
 
 For `--select`, `--ignore` and `--promote`, a category name (the part of a code
 before the dash, such as `CMT`) covers every code in it and `ALL` covers every
-code. `--check` takes a single check name, rule code or category and ignores
-`--select`; it honours cascading per-directory config exactly like a full run.
+code. `--check` narrows the run to one check, or to the checks behind one rule
+code or category. `--select`, `--ignore` and their config keys still filter the
+codes it reports, so `--check comments --select SIZE` reports nothing. It
+honours cascading per-directory config exactly like a full run.
 The selection, ignore, exclude and promote keys are documented in the
 [configuration reference](configuration.md); a CLI flag wins over its config
 key for that run.
@@ -282,13 +286,13 @@ note on stderr saying so, with a hint to pass `--exclude` to override the
 configured globs for one run.
 
 Source files are decoded the way the interpreter decodes them, so a UTF-8 BOM
-and a `coding:` cookie are honoured. A file the parser rejects, overflows on,
-or cannot read is skipped by every check with a `<PREFIX>-000` notice from
-those that report one; see [skip notices](../how-to/promote-warnings.md#skip-notices-are-never-promoted).
+and a `coding:` cookie are honoured. A file the parser rejects, nests too
+deeply to parse, or cannot be read is skipped by every check; the checks that
+report skips emit a `<PREFIX>-000` notice. See [skip notices](../how-to/promote-warnings.md#d-skip-notices-are-never-promoted).
 A check that raises is reported as a `RUN-000` warning whose message carries
 the exception type and text, and the rest of the run continues.
 
-### Promotion
+### C.3 Promotion
 
 `--promote` escalates the named advisory warnings, or `ALL` warnings, to
 build-failing errors. A run with only warnings exits `0`; promoting those
@@ -325,7 +329,7 @@ $ echo $?
 In the `json` and `ndjson` records a promoted finding carries
 `"promoted": true`.
 
-### Baseline interaction
+### C.4 Baseline interaction
 
 When config sets `baseline`, `check` suppresses every recorded finding and
 reports only new debt. `--no-baseline` ignores the baseline and reports the
@@ -333,7 +337,7 @@ whole debt. If `baseline` is set but the file does not exist, `check` exits
 `2` and tells you to run `lanorme baseline write` first. The
 `lanorme baseline` subcommand records and inspects that file.
 
-## baseline
+## D. baseline
 
 Record or inspect the warning baseline.
 
@@ -341,7 +345,7 @@ Record or inspect the warning baseline.
 lanorme baseline [-h] {write,status} [paths ...]
 ```
 
-### Arguments
+### D.1 Arguments
 
 | Argument | Description |
 | --- | --- |
@@ -366,7 +370,7 @@ $ echo $?
 The baseline file path comes from the `baseline` config key. When that key is
 unset, the default path is `lanorme-baseline.json` at the project root.
 
-### baseline write
+### D.2 baseline write
 
 Record the current findings into the baseline file. On the first write it
 also prints the config block to adopt. Exits `0`.
@@ -382,16 +386,17 @@ Add this to your configuration and commit the file like a lockfile:
 ```
 
 Matching is content-anchored, not line-number-anchored, so a recorded entry
-survives unrelated edits above it. Commit the file like a lockfile. With a
+survives unrelated edits above it. With a
 baseline in place, `check` holds the project to account only for findings it
 adds.
 
-### baseline status
+### D.3 baseline status
 
 List baseline entries that match nothing in the current run, the stale debt
 to prune. Entries are grouped by file and code, with `(xN)` when one file has
 several stale entries for the same code. Exits `0`, and ends quietly when
-piped into a reader that stops early.
+piped into a reader that stops early. With no baseline file it exits `2` and
+says to run `lanorme baseline write` first.
 
 ```console
 $ lanorme baseline status .
@@ -409,7 +414,7 @@ $ lanorme baseline status .
 Baseline is current: all 1 entries still match a finding.
 ```
 
-## rules
+## E. rules
 
 List all registered rules and exit.
 
@@ -449,7 +454,8 @@ $ lanorme rules
     "rules": [
       {
         "code": "ATTR-001",
-        "rule": "ATTR-001: Avoid hasattr() for type discrimination"
+        "rule": "ATTR-001: Avoid hasattr() for type discrimination",
+        "opt_in": true
       },
       ...
     ]
@@ -458,22 +464,30 @@ $ lanorme rules
 ]
 ```
 
-The same data, with the opt-in column, is in the
+A rule's own `opt_in` is `true` when its check is opt-in or when the rule alone
+waits on a setting inside a default-on check (`PROSE-001` under `comments`,
+`NAMING-001` under `naming_consistency`). The same data, with the opt-in
+column, is in the
 [rule index](rules-index.md). Exits `0`.
 
-## rule
+## F. rule
 
-Print the reference section for a single rule code.
+Print the reference section for a single rule code or category.
 
 ```text
 lanorme rule [-h] [--json] code
 ```
 
-### Arguments
+### F.1 Arguments
 
 | Argument | Description |
 | --- | --- |
-| `code` | The rule code to look up (for example `CMT-001`, `SQL-001`). Case does not matter. |
+| `code` | The rule code or category to look up (for example `CMT-001`, `SIZE`). Case does not matter. |
+
+### F.2 Flags
+
+| Flag | Description |
+| --- | --- |
 | `--json` | Print the declaration and the section as one JSON object. |
 
 The output opens with the declared rule string and the check that emits it,
@@ -498,11 +512,14 @@ A heading that names the code exactly wins over a heading that names its
 family, such as `NAMING-001..004`. A code with no heading of its own prints
 its family's section, so `lanorme rule NAMING-003` prints the naming
 conventions section. A `#` line inside a fenced code block never ends a
-section early.
+section early. A category prints the section that covers it, so
+`lanorme rule SIZE` prints the file limits section.
 
-`--json` returns `{code, rule, check, opt_in, section}`. `rule`, `check` and
-`opt_in` are `null` for a code no check declares, such as `TERM-042` from a
-`TERM-NNN` family:
+`--json` returns `{code, rule, check, opt_in, opt_in_setting, section}`.
+`opt_in_setting` names the `[tool.lanorme.<check>]` key that turns the rule on
+when the rule alone waits on one (`em_dash` for `PROSE-001`), else `null`.
+`rule`, `check`, `opt_in` and `opt_in_setting` are `null` for a category and
+for a code no check declares, such as `TERM-042` from a `TERM-NNN` family:
 
 ```console
 $ lanorme rule CMT-001 --json
@@ -511,6 +528,7 @@ $ lanorme rule CMT-001 --json
   "rule": "CMT-001: No commented-out code",
   "check": "comments",
   "opt_in": false,
+  "opt_in_setting": null,
   "section": "### `CMT-001`: No commented-out code\n\nDefault-on. ..."
 }
 ```
@@ -524,13 +542,13 @@ $ echo $?
 2
 ```
 
-## Output formats
+## G. Output formats
 
 `check` accepts six formats via `--output-format`.
 
 | Format | Shape |
 | --- | --- |
-| `concise` | Default. Only checks with findings, then a `Summary:` line counting checks by status, a `Findings:` line counting errors and advisory warnings, and any [notes](#summary-notes). |
+| `concise` | Default. Only checks with findings, then a `Summary:` line counting checks by status, a `Findings:` line counting errors and advisory warnings, and any [notes](#g1-summary-notes). |
 | `full` | Every check, including those that passed, with no summary. |
 | `json` | One JSON object per check (a single array). `--json` is the alias. |
 | `ndjson` | One finding per line, as JSON. |
@@ -559,7 +577,7 @@ Findings: 1 error to fix, 0 advisory warnings.
 Opt-in checks not enabled: 11 ('lanorme check --show-config' lists them).
 ```
 
-### Summary notes
+### G.1 Summary notes
 
 After the totals, `concise` prints up to three notes, each only when it
 applies:
@@ -582,7 +600,7 @@ Suppressed: 0 by inline ignores, 0 by per-file-ignores, 1 by the baseline.
 Opt-in checks not enabled: 11 ('lanorme check --show-config' lists them).
 ```
 
-### Finding records
+### G.2 Finding records
 
 `json` emits one object per check, with `violations` and `warnings` arrays of
 finding records. `ndjson` emits the same records, one per line. Every record
@@ -658,7 +676,7 @@ Piping any format into a reader that stops early, such as `| head` or a `jq`
 filter that exits after its first match, ends the run quietly with the normal
 exit code.
 
-### github
+### G.3 github
 
 `github` emits workflow commands that annotate the diff in a GitHub Actions
 run. It is selected automatically when `GITHUB_ACTIONS=true`. The annotation
@@ -670,7 +688,7 @@ $ lanorme check --output-format github ev.py
 ::error file=ev.py,line=2,endLine=2,col=12,endColumn=21,title=EVAL-001::eval() on a non-literal argument is an RCE primitive
 ```
 
-### summary
+### G.4 summary
 
 `summary` prints the totals, then the finding counts by code (with severity)
 and by top-level directory. A file at the root counts under `./`. Reach for it
@@ -689,11 +707,11 @@ By directory:
   tests/                   1
 ```
 
-## Exit codes
+## H. Exit codes
 
 | Code | Meaning |
 | --- | --- |
-| `0` | Clean run, or warnings only. No violations (warnings alone, or a baseline-suppressed run, still exit `0`). |
+| `0` | No violations: a clean run, warnings only, or a run whose findings the baseline suppresses. |
 | `1` | Violations found. |
 | `2` | Usage or configuration error. |
 
@@ -702,6 +720,7 @@ value (such as a bad `--output-format` choice or an unknown `--check` name), a
 selector in `--select`, `--ignore`, `--promote`, their config keys or
 `per-file-ignores` that names no known rule code or category, a
 nonexistent scan path, a `baseline` write or status given file targets, a
-configured baseline file that does not exist, a config file that is not valid
+configured baseline file that does not exist (for `check` and
+`baseline status`), a config file that is not valid
 TOML, a mistyped or unknown per-check setting, an unknown profile, and
 `lanorme rule <CODE>` with an unknown code.

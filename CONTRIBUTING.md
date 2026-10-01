@@ -5,7 +5,7 @@ standalone, standard-library-only tool that checks quality, style, architecture,
 and structure mechanically, with ready-made checks (_normes_) and an interface to
 add your own. This guide covers the setup, the conventions, and how to add a rule.
 
-## Where to start
+## A. Where to start
 
 The roadmap lives in the [issues](https://github.com/lanorme/lanorme/issues).
 Issues tagged `help wanted` are ready for someone to pick up, and the `roadmap`
@@ -14,56 +14,66 @@ so two people do not write the same fix. If you want to propose something new,
 open an issue first and describe the rule or change, so the design can be agreed
 before you write the code.
 
-## Principles
+## B. Principles
 
-- **Standard library only.** No runtime dependencies. The only dev dependency
-  is `pytest`. A change that adds a runtime dependency will not be accepted.
+- **Standard library only.** No runtime dependencies. The `dev` group holds
+  `pytest` and `ruff`; the `docs` group (mkdocs-material, mike) builds the docs
+  site only. A change that adds a runtime dependency will not be accepted.
 - **Precision over recall.** A noisy rule trains people to ignore the tool. New
   heuristics are expected to be high precision, with the noisy or debatable
   cases left out or gated behind config.
-- **LaNorme lints itself.** There is no separate formatter or linter in the
-  toolchain; `lanorme check .` is the style gate, and the repo passes its own
-  rules.
+- **LaNorme lints itself.** Ruff covers formatting (Python code blocks in
+  Markdown included), trailing commas, and unused imports. `lanorme check .`
+  is the gate for everything else, and the repo passes its own rules.
 
-## Setup
+## C. Setup
 
 You need [`uv`](https://docs.astral.sh/uv/) and Python 3.13 or newer.
 
 ```console
 uv sync --group dev
-uvx pre-commit install     # install the hook; runs the checks and tests on every commit thereafter
+uvx pre-commit install     # install the hooks
 ```
 
-The pre-commit hooks run `lanorme check .` and the unit tests, so a commit only
-lands when the tree is LaNorme-compliant. `pre-commit` is fetched on demand with
-`uvx`, so it is not added to the project dependencies (the only dev dependency
-stays `pytest`).
+When a Python file is staged, the hooks run ruff (fix and format), `lanorme
+check .` on the whole tree, and the unit tests. Five generic hooks (trailing
+whitespace, end of file, YAML, TOML, merge-conflict markers) run on every
+commit. A commit that touches only Markdown or TOML therefore skips the dogfood
+and the tests, so run `scripts/check.sh` yourself before pushing one.
+`pre-commit` is fetched on demand with `uvx`, so it is not a project
+dependency.
 
-## The gates
+## D. The gates
 
-A change is ready when all of these pass:
+A change is ready when `scripts/check.sh` passes. It runs these gates in order:
 
 ```console
-uv run --group dev ruff check .          # trailing commas
+scripts/sync-agents.sh --check           # generated agent copies match their sources
+uv run python scripts/gen_docs.py --check  # generated docs match the tool
+uv run --group dev ruff check .          # trailing commas, unused imports
 uv run --group dev ruff format --check . # formatting, Markdown code blocks included
 uv run --group dev pytest tests/unit     # unit tests
+uv run python evals/audit.py --version check --no-perf --output "$(mktemp)" --gate latest
 uv run lanorme check .                   # dogfood: exits 0 when the tree is clean
 uv build                                 # the package still builds
 ```
 
-`uv run --group dev ruff check --fix . && uv run --group dev ruff format .`
-fixes what ruff reports. Or run every gate at once:
+The eval audit fails when a labelled corpus is incomplete or stale, or when a
+rule's holdout precision or recall drops more than 0.02 below the best any
+recorded audit scored on the same holdout files, so a rule change that loses
+accuracy does not pass. This fixes what ruff reports:
 
 ```console
-scripts/check.sh
+uv run --group dev ruff check --fix . && uv run --group dev ruff format .
 ```
 
-`lanorme check .` exits `1` on any failing rule. Size and complexity are
-two-tier: they warn at the soft limit (exit `0`) and fail at the hard limit
-(500-line files, 80-line functions, complexity 15, 8 parameters). Keep even the
+`lanorme check .` exits `1` on any failing rule. Size, complexity and
+parameter-count rules are two-tier: a warning at the soft limit (exit `0`), a
+failure at the hard one; the limits are listed under
+[Adding or changing a check](#e-adding-or-changing-a-check). Keep even the
 warnings down: refactor rather than suppress where you reasonably can.
 
-## Adding or changing a check
+## E. Adding or changing a check
 
 A check is any object with `name`, `description`, `rules`, and a `check`
 method that receives the `lanorme.scan.Scan` for the pass. An optional
@@ -90,11 +100,12 @@ class MyCheck:
 register(MyCheck())
 ```
 
-The result's status is derived from its findings; a check never sets one. The
-previous entry point, `run(self, *, src_root)`, is deprecated: a plugin that
-still defines it runs with a `DeprecationWarning`, and no built-in check
-carries one, so do not add it to a new check. See
-[Write a custom check](docs/how-to/write-a-check.md) for the scan.
+The result's status is derived from its findings; a check never sets one.
+`run(self, *, src_root)` is a deprecated entry point a plugin may define; it
+runs with a `DeprecationWarning` when the plugin has no `check`. No built-in
+check has one, and a new check must not add it. See
+[Write a custom check](docs/how-to/write-a-check.md) for what the `Scan`
+carries and how a check reads it.
 
 Drop the module in `src/lanorme/checks/`; it is discovered and registered
 automatically. Third-party checks can instead ship under the `lanorme.checks`
@@ -102,11 +113,12 @@ entry-point group or be named in `[tool.lanorme] plugins = [...]`.
 
 Conventions for a new rule:
 
-- **Read Python sources through `lanorme.sources`** (`iter_parsed_modules` for the
-  files that parse, `iter_modules` when the check reports the ones that do
-  not, with `build_unparseable_notice` building the `-000` notice) and other files
-  through `lanorme.discovery.iter_files` / `iter_dirs`, never `Path.rglob` or
-  `os.walk`, so the built-in directory pruning and the user's `exclude` globs
+- **Read Python sources through `lanorme.sources`** (`iter_parsed_modules` for
+  the files that parse, `iter_modules` when the check reports the ones that do
+  not, with `build_unparseable_notice` building the `<PREFIX>-000` warning for
+  a file that does not parse; see `docs/RULES.md` for what a `-000` code is)
+  and other files through `lanorme.discovery.iter_files` / `iter_dirs`, never
+  `Path.rglob` or `os.walk`, so the built-in directory pruning and the user's `exclude` globs
   are honoured. Each file is read and parsed once per run and the tree is
   shared by every check, so never read, `ast.parse` or mutate one yourself.
   `build_skip_notice` reports a file the check skips on its own.
@@ -134,12 +146,13 @@ Conventions for a new rule:
   and key, and `--show-config` lists the keys.
 - **Raise `lanorme.errors.UsageError` for a user's mistake,** or its subclass
   `ConfigError` (carrying `key` and `source`) for one in a config file or
-  table. The CLI maps both to `ERROR: ...` and exit `2`. Never print to stderr or call `sys.exit`
-  outside `cli.main`; diagnostics go through `logging.getLogger(__name__)`.
+  table. The CLI maps both to `ERROR: ...` and exit `2`. Never print to
+  stderr or call `sys.exit` outside `cli.main`; diagnostics go through
+  `logging.getLogger(__name__)`.
 - **One category prefix per check.** Rule codes (`SQL-001`, `LAYER-005`) are the
   public surface: people put them in `select` / `ignore` / `per-file-ignores`.
   Treat them as stable. Renaming or removing one is a breaking change.
-- **Findings vs warnings.** Put a hard finding in `violations` (it fails the
+- **Violations vs warnings.** Put a hard finding in `violations` (it fails the
   run); put an advisory in `warnings` (it reports but keeps exit 0). Advisory,
   opinionated, or stylistic rules should be warnings.
 - **Cross-file checks declare `scope = "tree"`.** A check whose findings depend
@@ -176,12 +189,10 @@ Conventions for a new rule:
     file with none, and missing provenance.
   - Report the dev and holdout numbers side by side. A large dev-minus-holdout
     gap is overfitting to explain, not a number to tune away. The audit records
-    a digest of every holdout file (its content and labels), and `--gate latest`
-    fails a change that removes or changes a holdout file a baseline recorded,
-    or that lowers a rule's holdout precision or recall by more than 0.02 below
-    the best any comparable release reached over the history (one that scored
-    the same holdout files), not merely the latest. It prints a note when it
-    gated nothing.
+    a digest of every holdout file (its content and labels). `--gate latest`
+    fails a change that removes or alters a holdout file the newest recorded
+    audit holds a digest of, or that breaks the precision and recall tolerance
+    under [The gates](#d-the-gates). It prints a note when it gated nothing.
   - A deliberate holdout edit (a label proved wrong) is its own reviewed
     change: an entry in the optional `evals/holdout_revisions.json` accepts one
     exact new digest per file, with a reason.
@@ -191,23 +202,34 @@ Conventions for a new rule:
   15; parameters warn at 5 and fail at 8 (excluding `self` / `cls`). Split
   helpers out rather than growing one function.
 
-## Tests
+## F. Tests
 
 Tests live in `tests/unit/` and are written in clear Arrange / Act / Assert
 sections (LaNorme dogfoods its own `AAA` rules on them). Shared setup goes in
 `tests/unit/conftest.py` so the per-test arrange blocks stay small. Add a
 positive and a negative case for each rule you touch.
 
-## Documentation
+## G. Documentation
 
 Docs state the current truth of the codebase and nothing else. History lives in
 `CHANGELOG.md` only: do not write "previously", "was X now Y", or "split out
-from" in `README.md`, `docs/RULES.md`, or docstrings. When you add or change a
+from" in any doc, docstring or help text. When you add or change a
 rule, update its section in `docs/RULES.md` and the rule tables in `README.md`
 in the same change. The Markdown is itself linted (British spelling, no em
 dashes, no emoji), so run the dogfood after editing.
 
-## Sending a pull request
+`uv run python scripts/gen_docs.py` generates `lanorme.schema.json`,
+`docs/reference/configuration.md`, `docs/reference/rules-index.md`, `llms.txt`,
+and `llms-full.txt` from the tool itself. When you add or change a config key,
+a rule, or anything else the generator reads, regenerate them in the same
+change. `scripts/gen_docs.py --check` verifies them, and `scripts/check.sh`, CI and
+`scripts/release.sh` all fail while they are stale.
+
+Edit `AGENTS.md` and the skills under `.claude/skills/`, never `CLAUDE.md` or
+`.agents/skills/`: those are generated copies, and `scripts/sync-agents.sh`
+regenerates them.
+
+## H. Sending a pull request
 
 LaNorme uses the standard fork and pull-request flow, so you do not need write
 access to the repository.
@@ -243,8 +265,7 @@ access to the repository.
    scripts/check.sh
    ```
 
-   The pre-commit hook runs the same gate, so a commit only lands when the tree
-   is LaNorme-compliant.
+   The pre-commit hooks run only a subset, so run the script yourself.
 
 5. **Commit** with a message that describes the user-facing effect, and reference
    the issue it closes:
@@ -262,10 +283,10 @@ access to the repository.
 
    The push prints a link to open the pull request, or run `gh pr create`.
 
-7. **CI** runs the unit tests and the dogfood on your pull request across the
-   supported Python versions. Keep it green. A maintainer then reviews it, may
-   ask for changes (push more commits to the same branch and they join the pull
-   request), and merges it when it is ready.
+7. **CI** runs the same gates as `scripts/check.sh` on Python 3.13 and 3.14.
+   Keep it green. A maintainer then reviews it, may ask for changes (push more
+   commits to the same branch and they join the pull request), and merges it
+   when it is ready.
 
 If `main` moves on while you work, rebase your branch on `upstream/main` and
 resolve any conflicts on the branch rather than in the pull request:
@@ -275,14 +296,14 @@ git fetch upstream
 git rebase upstream/main
 ```
 
-## Releasing (maintainers)
+## I. Releasing (maintainers)
 
 Releases are automated: creating a GitHub Release publishes to PyPI through
 Trusted Publishing, no token required. Use `scripts/release.sh X.Y.Z` (see the
 `release-lanorme` skill in `.claude/skills/`) after adding a `## [X.Y.Z]`
 section to `CHANGELOG.md`.
 
-## Licence
+## J. Licence
 
 By contributing you agree that your work is released under the MIT licence (see
 the `LICENSE` file).

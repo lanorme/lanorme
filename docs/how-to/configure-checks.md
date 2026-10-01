@@ -3,8 +3,8 @@
 This how-to gives recipes for narrowing what LaNorme runs and silencing the
 noise you have decided to accept, from selecting a subset of rules down to
 silencing a single line. Each recipe gives the goal, the `[tool.lanorme]`
-config, the equivalent command-line flag where one exists, and a verified
-example.
+config, the equivalent command-line flag where one exists, and an example
+run.
 
 A finding has to survive every stage below to be reported, applied in this
 order:
@@ -21,7 +21,7 @@ flowchart LR
 Config is read from `[tool.lanorme]` in `pyproject.toml`, or from a
 `lanorme.toml` / `.lanorme.toml` file. LaNorme walks up from the scan path to
 the outermost config, and a nested config cascades over the ones above it; see
-[config discovery](../reference/cli.md#config-discovery). Command-line flags
+[config discovery](../reference/cli.md#b-config-discovery). Command-line flags
 override config for a single run. For the full key list and types, see the
 [configuration reference](../reference/configuration.md). Rule codes and
 categories are listed by `lanorme rules`; per-check settings live in the
@@ -30,12 +30,12 @@ categories are listed by `lanorme rules`; per-check settings live in the
 !!! note
     The recipes below use the `pyproject.toml` layout. In a standalone
     `lanorme.toml` / `.lanorme.toml` the `tool.lanorme` prefix is dropped:
-    top-level scalar keys go bare (`select = [...]`) and sub-tables lose the
+    top-level keys go bare (`select = [...]`) and sub-tables lose the
     prefix too, so `[tool.lanorme.per-file-ignores]` becomes
     `[per-file-ignores]`. A prefixed header in a `lanorme.toml` is a
     configuration error (exit `2`), as is any top-level key that is neither a
     run key nor the name of a check. See the
-    [config discovery](../reference/cli.md#config-discovery) note in the CLI
+    [config discovery](../reference/cli.md#b-config-discovery) note in the CLI
     reference.
 
 Targets are rule codes (`EVAL-001`), categories (the part before the dash:
@@ -52,7 +52,7 @@ $ echo $?
 2
 ```
 
-## Run only some checks
+## A. Run only some checks
 
 Goal: run a chosen subset and skip everything else.
 
@@ -86,7 +86,7 @@ categories, not check names. To run one check by name, use `--check`
     with `[tool.lanorme.<check>] enabled = true` (for example
     `[tool.lanorme.prose]`). See the [rule reference](../RULES.md).
 
-## Skip a rule everywhere
+## B. Skip a rule everywhere
 
 Goal: keep the full run but drop one rule (or one category) you do not want.
 
@@ -123,7 +123,7 @@ codes the same way, leaving `PARAM` out.
 `ignore` applies after `select`, so a rule that is both selected and ignored
 is skipped.
 
-## Exclude paths from the scan
+## C. Exclude paths from the scan
 
 Goal: never walk certain files, such as generated code or migrations.
 
@@ -179,20 +179,20 @@ All 30 checks passed.
 Opt-in checks not enabled: 11 ('lanorme check --show-config' lists them).
 ```
 
-## Silence a rule for a path glob
+## D. Silence a rule for a path glob
 
 Goal: keep a rule on, but accept it for files matching a glob (for example,
-allow wide-signature test factories under `tests/` to keep `PARAM-001`).
+allow a wide-signature factory module to keep `PARAM-001`).
 
 This is config only; there is no command-line equivalent.
 
-Without any suppression, a nine-parameter factory in `tests/factories.py`
-reports `PARAM-001`:
+Without any suppression, a nine-parameter factory in
+`src/myapp/factories.py` reports `PARAM-001`:
 
 ```console
 $ lanorme check . --select PARAM-001
 [FAIL] file_limits
-  VIOLATION: tests/factories.py:1 — Function 'build' has parameter count 9 (limit: 8)
+  VIOLATION: src/myapp/factories.py:1 — Function 'build' has parameter count 9 (limit: 8)
     Rule: PARAM-001: Function exceeds the parameter limit
     Fix: Group related parameters into a dataclass or TypedDict
 --- file_limits: 1 violations, 0 warnings ---
@@ -202,21 +202,21 @@ Findings: 1 error to fix, 0 advisory warnings.
 Opt-in checks not enabled: 11 ('lanorme check --show-config' lists them).
 ```
 
-The key is a glob; the value is a list of codes or categories suppressed for
-matching files. In `pyproject.toml` the table carries the `tool.lanorme`
-prefix:
+In the `per-file-ignores` table each key is a glob and its value a list of
+codes or categories suppressed for matching files. In `pyproject.toml` the
+table carries the `tool.lanorme` prefix:
 
 ```toml
 [tool.lanorme.per-file-ignores]
-"tests/*" = ["PARAM-001"]
+"src/myapp/factories.py" = ["PARAM-001"]
 ```
 
-In a standalone `lanorme.toml` / `.lanorme.toml` the prefix is dropped and the
-header is bare. The prefixed form is silently ignored there:
+In a standalone `lanorme.toml` / `.lanorme.toml` the header is bare; the
+prefixed form is refused there (exit `2`):
 
 ```toml
 [per-file-ignores]
-"tests/*" = ["PARAM-001"]
+"src/myapp/factories.py" = ["PARAM-001"]
 ```
 
 With either form in place, the matching file is no longer reported, and the
@@ -229,24 +229,27 @@ Suppressed: 0 by inline ignores, 1 by per-file-ignores, 0 by the baseline.
 Opt-in checks not enabled: 11 ('lanorme check --show-config' lists them).
 ```
 
-Globs match paths relative to the project root, and so does a nested region:
-a `tests/lanorme.toml` does not change what `"tests/*"` matches.
+`per-file-ignores` is read from the project root's config only, and its
+globs match paths relative to the project root; a table in a nested
+`src/lanorme.toml` is not applied.
 
 Confirm the discovered config and effective per-check settings with
 `lanorme check --show-config`.
 
-## Silence one line
+## E. Silence one line
 
 Goal: accept a single finding in place, at the source line.
 
-This is a source pragma; there is no command-line equivalent. Two directives
-are read, both on the finding's own line:
+This is a source pragma; there is no command-line equivalent. Either
+directive works, on the finding's own line:
 
-- `# noqa` suppresses every finding on that line.
-- `# noqa: CODE` suppresses only that rule code on that line; other findings
-  on the line still report, and a different code does not suppress.
+- `# noqa` suppresses every finding on that line; `# noqa: CODE` suppresses
+  only that code, so other findings on the line still report.
 - `# lanorme: ignore` and `# lanorme: ignore[CODE, CODE]` behave the same way,
   bare or with a bracketed code list.
+
+The one exception is the `SUPPRESS` category (the opt-in `suppressions`
+check): neither directive silences it; configure the check instead.
 
 `# noqa` is shared with ruff and other linters, so a bare `# noqa` you add for
 ruff also silences LaNorme on that line. Reach for `# lanorme: ignore[...]`
@@ -304,7 +307,7 @@ Suppressed: 3 by inline ignores, 0 by per-file-ignores, 0 by the baseline.
 Opt-in checks not enabled: 11 ('lanorme check --show-config' lists them).
 ```
 
-## Tune a check's settings
+## F. Tune a check's settings
 
 Goal: change a check's threshold or option, such as the parameter limit.
 
@@ -316,9 +319,22 @@ are in its [rule reference](../RULES.md) section.
 param_error = 10
 ```
 
-With the limit raised to 10, the nine-parameter factory drops from an error to
-an advisory warning (it is still past the warning threshold of 5), and the run
-exits `0`.
+With the limit raised to 10, the nine-parameter factory in
+`src/myapp/factories.py` drops from an error to an advisory warning (it is
+still past the warning threshold of 5), and the run exits `0`:
+
+```console
+$ lanorme check . --select PARAM-001
+[WARN] file_limits
+  WARNING: src/myapp/factories.py:1 — Function 'build' has parameter count 9 (warn: 5)
+    Rule: PARAM-001: Function approaching the parameter limit
+    Fix: Consider grouping related parameters into a dataclass or TypedDict
+--- file_limits: 0 violations, 1 warnings ---
+
+Summary: 30 checks — 29 passed, 1 warned, 0 failed.
+Findings: 0 errors to fix, 1 advisory warning.
+Opt-in checks not enabled: 11 ('lanorme check --show-config' lists them).
+```
 
 Every table is validated before the run. A value of the wrong type exits `2`
 and names the table and the key. That covers a quoted number, a bare string
@@ -345,11 +361,8 @@ ERROR: unknown key in [tool.lanorme.file_limits]: 'param_limit'.
   Keys this check reads: class_method_warn, complexity_error, complexity_warn, file_error_lines, file_warn_lines, func_error_lines, func_warn_lines, param_error, param_warn.
 ```
 
-The top level is strict in the same way: a key that is neither a run key
-(`select`, `promote`, `source_root`, ...) nor the name of a check exits `2`
-and lists both, and a `[tool.lanorme]` table inside a `lanorme.toml` is
-refused with a message saying the keys go top level there. See
-[config discovery](../reference/cli.md#config-discovery).
+The top level is strict in the same way: an unknown key exits `2` and the
+message lists the run keys and the check names.
 
 `lanorme check --show-config` prints each check's effective settings and,
 on a `keys:` line under it, the keys its table accepts:
@@ -362,7 +375,7 @@ $ lanorme check . --show-config
 ...
 ```
 
-## Exit codes
+## G. Exit codes
 
 `lanorme check` exits `0` when clean or when only warnings were found, `1`
 when there are violations, and `2` on a usage or config error. This drives
@@ -376,7 +389,7 @@ $ echo $?
 0
 ```
 
-## See also
+## H. See also
 
 - [Configuration reference](../reference/configuration.md) for every
   `[tool.lanorme]` key, including `promote`, `extends`, `baseline`,

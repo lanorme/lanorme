@@ -279,9 +279,10 @@ def locate(node: ast.AST) -> dict[str, int | None]:
 def build_skip_notice(*, prefix: str, file: str, name: str, reason: str) -> Violation:
     """The advisory ``<PREFIX>-000`` notice a check emits when it skips a file.
 
-    A ``-000`` code is a notice, not a finding: promotion never escalates it and
-    the baseline never records it as debt. *reason* is one of the module
-    constants; *name* is the file's basename for the message.
+    A ``-000`` code is a notice, not a finding: promotion never escalates it,
+    though the baseline records and suppresses it like any other warning.
+    *reason* is one of the module constants; *name* is the file's basename for
+    the message.
     """
     if reason == TOO_DEEP:
         message = f"{name} is too deeply nested to analyse — skipping"

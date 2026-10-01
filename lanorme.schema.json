@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://lanorme.github.io/lanorme/lanorme.schema.json",
+  "$id": "https://lanorme.github.io/lanorme/latest/lanorme.schema.json",
   "title": "LaNorme configuration",
   "description": "The [tool.lanorme] table in pyproject.toml, or top-level keys in a standalone lanorme.toml.",
   "type": "object",
@@ -24,7 +24,7 @@
       "items": {
         "type": "string"
       },
-      "description": "File-path globs to skip entirely; matched files are never walked."
+      "description": "File-path globs to skip entirely; matched files are never walked. These directories are always skipped, whatever this key says: `.git`, `.mypy_cache`, `.pytest_cache`, `.ruff_cache`, `.venv`, `__pycache__`, `build`, `dist`, `node_modules`, `venv`."
     },
     "per-file-ignores": {
       "type": "object",
@@ -41,7 +41,7 @@
       "items": {
         "type": "string"
       },
-      "description": "Advisory warnings whose codes (or `ALL`) become build-failing errors. Runs after every suppression, so an ignored or noqa'd warning is never promoted."
+      "description": "Rule codes or categories (or `ALL`) whose advisory warnings become build-failing errors. Promotion runs after `ignore`, `per-file-ignores` and `# noqa`, so a suppressed warning is never promoted."
     },
     "extends": {
       "oneOf": [
@@ -59,7 +59,7 @@
     },
     "baseline": {
       "type": "string",
-      "description": "Path to a baseline file. Findings recorded by `lanorme baseline write` are suppressed, so only new findings report. See the adoption tutorial."
+      "description": "Path to a baseline file. Findings recorded by `lanorme baseline write` are suppressed, so only new findings report. See the [adoption tutorial](../tutorials/adopt-on-existing-codebase.md)."
     },
     "source_root": {
       "type": "string",
@@ -82,26 +82,39 @@
       "properties": {
         "enabled": {
           "type": "boolean"
-        }
-      }
+        },
+        "flag_dynamic": {}
+      },
+      "additionalProperties": false
     },
     "comments": {
       "type": "object",
       "description": "Settings for the comments check (see docs/RULES.md).",
       "properties": {
-        "enabled": {
-          "type": "boolean"
-        }
-      }
+        "block_lines_per_branch": {},
+        "commented_code": {},
+        "em_dash": {},
+        "emoji": {},
+        "max_block_lines": {},
+        "max_comment_chars": {},
+        "verbose": {}
+      },
+      "additionalProperties": false
     },
     "docs": {
       "type": "object",
       "description": "Settings for the docs check (see docs/RULES.md).",
       "properties": {
+        "allow": {},
+        "docs_root": {},
         "enabled": {
           "type": "boolean"
-        }
-      }
+        },
+        "known_top_level": {},
+        "raster_extensions": {},
+        "sections": {}
+      },
+      "additionalProperties": false
     },
     "docstrings": {
       "type": "object",
@@ -109,62 +122,63 @@
       "properties": {
         "enabled": {
           "type": "boolean"
-        }
-      }
+        },
+        "min_lines": {},
+        "require_private": {}
+      },
+      "additionalProperties": false
     },
     "domain_terms": {
       "type": "object",
       "description": "Settings for the domain_terms check (see docs/RULES.md).",
       "properties": {
-        "enabled": {
-          "type": "boolean"
-        }
-      }
+        "rules": {}
+      },
+      "additionalProperties": false
     },
     "duplication": {
       "type": "object",
-      "description": "Settings for the duplication check (see docs/RULES.md).",
-      "properties": {
-        "enabled": {
-          "type": "boolean"
-        }
-      }
+      "description": "Settings for the duplication check (see docs/RULES.md)."
     },
     "file_limits": {
       "type": "object",
       "description": "Settings for the file_limits check (see docs/RULES.md).",
       "properties": {
-        "enabled": {
-          "type": "boolean"
-        }
-      }
+        "class_method_warn": {},
+        "complexity_error": {},
+        "complexity_warn": {},
+        "file_error_lines": {},
+        "file_warn_lines": {},
+        "func_error_lines": {},
+        "func_warn_lines": {},
+        "param_error": {},
+        "param_warn": {}
+      },
+      "additionalProperties": false
     },
     "forbidden_paths": {
       "type": "object",
       "description": "Settings for the forbidden_paths check (see docs/RULES.md).",
       "properties": {
-        "enabled": {
-          "type": "boolean"
-        }
-      }
+        "dirs": {}
+      },
+      "additionalProperties": false
     },
     "layer_deps": {
       "type": "object",
       "description": "Settings for the layer_deps check (see docs/RULES.md).",
       "properties": {
-        "enabled": {
-          "type": "boolean"
-        }
-      }
+        "allowed": {},
+        "composition_root": {},
+        "layers": {},
+        "source_root": {},
+        "transport_layers": {}
+      },
+      "additionalProperties": false
     },
     "meta": {
       "type": "object",
-      "description": "Settings for the meta check (see docs/RULES.md).",
-      "properties": {
-        "enabled": {
-          "type": "boolean"
-        }
-      }
+      "description": "Settings for the meta check (see docs/RULES.md)."
     },
     "named_args": {
       "type": "object",
@@ -173,16 +187,19 @@
         "enabled": {
           "type": "boolean"
         }
-      }
+      },
+      "additionalProperties": false
     },
     "naming_canon": {
       "type": "object",
       "description": "Settings for the naming_canon check (see docs/RULES.md).",
       "properties": {
-        "enabled": {
-          "type": "boolean"
-        }
-      }
+        "command_suffixes": {},
+        "exempt": {},
+        "verbs": {},
+        "weak_verbs": {}
+      },
+      "additionalProperties": false
     },
     "naming_clean_code": {
       "type": "object",
@@ -190,53 +207,66 @@
       "properties": {
         "enabled": {
           "type": "boolean"
-        }
-      }
+        },
+        "exempt": {},
+        "verbs": {}
+      },
+      "additionalProperties": false
     },
     "naming_consistency": {
       "type": "object",
       "description": "Settings for the naming_consistency check (see docs/RULES.md).",
       "properties": {
-        "enabled": {
-          "type": "boolean"
-        }
-      }
+        "repo_crud": {},
+        "service_crud": {}
+      },
+      "additionalProperties": false
     },
     "naming_scope": {
       "type": "object",
       "description": "Settings for the naming_scope check (see docs/RULES.md).",
       "properties": {
+        "allow": {},
         "enabled": {
           "type": "boolean"
-        }
-      }
+        },
+        "max_short_length": {},
+        "max_span": {}
+      },
+      "additionalProperties": false
     },
     "pattern_divergence": {
       "type": "object",
-      "description": "Settings for the pattern_divergence check (see docs/RULES.md).",
-      "properties": {
-        "enabled": {
-          "type": "boolean"
-        }
-      }
+      "description": "Settings for the pattern_divergence check (see docs/RULES.md)."
     },
     "port_coverage": {
       "type": "object",
       "description": "Settings for the port_coverage check (see docs/RULES.md).",
       "properties": {
-        "enabled": {
-          "type": "boolean"
-        }
-      }
+        "adapter_roots": {},
+        "composition_root": {},
+        "ports_dir": {},
+        "ports_without_impl": {},
+        "skip_files": {},
+        "source_root": {}
+      },
+      "additionalProperties": false
     },
     "prose": {
       "type": "object",
       "description": "Settings for the prose check (see docs/RULES.md).",
       "properties": {
+        "density": {},
+        "em_dash": {},
+        "em_dash_density": {},
+        "emoji": {},
         "enabled": {
           "type": "boolean"
-        }
-      }
+        },
+        "extensions": {},
+        "spellings": {}
+      },
+      "additionalProperties": false
     },
     "restating": {
       "type": "object",
@@ -245,106 +275,110 @@
         "enabled": {
           "type": "boolean"
         }
-      }
+      },
+      "additionalProperties": false
     },
     "secrets": {
       "type": "object",
-      "description": "Settings for the secrets check (see docs/RULES.md).",
-      "properties": {
-        "enabled": {
-          "type": "boolean"
-        }
-      }
+      "description": "Settings for the secrets check (see docs/RULES.md)."
     },
     "security_calls": {
       "type": "object",
-      "description": "Settings for the security_calls check (see docs/RULES.md).",
-      "properties": {
-        "enabled": {
-          "type": "boolean"
-        }
-      }
+      "description": "Settings for the security_calls check (see docs/RULES.md)."
     },
     "security_patterns": {
       "type": "object",
       "description": "Settings for the security_patterns check (see docs/RULES.md).",
       "properties": {
-        "enabled": {
-          "type": "boolean"
-        }
-      }
+        "source_root": {}
+      },
+      "additionalProperties": false
     },
     "similarity": {
       "type": "object",
       "description": "Settings for the similarity check (see docs/RULES.md).",
       "properties": {
+        "attr_jaccard": {},
+        "call_jaccard": {},
         "enabled": {
           "type": "boolean"
-        }
-      }
+        },
+        "min_statements": {},
+        "op_jaccard": {},
+        "str_jaccard": {},
+        "struct_ratio": {}
+      },
+      "additionalProperties": false
     },
     "skills": {
       "type": "object",
       "description": "Settings for the skills check (see docs/RULES.md).",
       "properties": {
+        "check_links": {},
         "enabled": {
           "type": "boolean"
         }
-      }
+      },
+      "additionalProperties": false
     },
     "stale_paths": {
       "type": "object",
       "description": "Settings for the stale_paths check (see docs/RULES.md).",
       "properties": {
-        "enabled": {
-          "type": "boolean"
-        }
-      }
+        "tokens": {}
+      },
+      "additionalProperties": false
     },
     "stray_artifacts": {
       "type": "object",
       "description": "Settings for the stray_artifacts check (see docs/RULES.md).",
       "properties": {
-        "enabled": {
-          "type": "boolean"
-        }
-      }
+        "allow": {},
+        "assets": {},
+        "exclude": {},
+        "extensions": {},
+        "patterns": {}
+      },
+      "additionalProperties": false
     },
     "strong_types": {
       "type": "object",
-      "description": "Settings for the strong_types check (see docs/RULES.md).",
-      "properties": {
-        "enabled": {
-          "type": "boolean"
-        }
-      }
+      "description": "Settings for the strong_types check (see docs/RULES.md)."
     },
     "suppressions": {
       "type": "object",
       "description": "Settings for the suppressions check (see docs/RULES.md).",
       "properties": {
+        "allow_blanket": {},
         "enabled": {
           "type": "boolean"
-        }
-      }
+        },
+        "max_total": {}
+      },
+      "additionalProperties": false
     },
     "test_coverage": {
       "type": "object",
       "description": "Settings for the test_coverage check (see docs/RULES.md).",
       "properties": {
-        "enabled": {
-          "type": "boolean"
-        }
-      }
+        "source_root": {},
+        "test_roots": {}
+      },
+      "additionalProperties": false
     },
     "test_style": {
       "type": "object",
       "description": "Settings for the test_style check (see docs/RULES.md).",
       "properties": {
+        "dry_prefix_statements": {},
         "enabled": {
           "type": "boolean"
-        }
-      }
+        },
+        "min_statements": {},
+        "required_markers": {},
+        "synonyms": {}
+      },
+      "additionalProperties": false
     }
   },
   "additionalProperties": false

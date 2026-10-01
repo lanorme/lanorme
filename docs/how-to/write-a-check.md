@@ -9,7 +9,7 @@ mechanical standard your team agrees on.
 You do not fork LaNorme. A check is an ordinary object; you ship it in your own
 package and point LaNorme at it.
 
-## The Check protocol
+## A. The Check protocol
 
 A check is any object with four members:
 
@@ -52,11 +52,11 @@ findings. `CheckResult(check=, violations=, warnings=)` builds the same
 result; its `status=` argument is deprecated and ignored, with a
 `DeprecationWarning`.
 
-The previous entry point, `run(self, *, src_root: str)`, is deprecated. A
-check that defines `run` and no `check` still runs: LaNorme calls `run` with
-the scan active and `src_root` set to `str(scan.root)`, and emits a
-`DeprecationWarning` once per check class. Implement `check(scan)` before the
-old entry point is removed.
+`run(self, *, src_root: str)` is a deprecated entry point. A check that
+defines `run` and no `check` still runs: LaNorme calls `run` with the scan
+active and `src_root` set to `str(scan.root)`, and emits a
+`DeprecationWarning` once per check class. Implement `check(scan)`; `run` will
+be removed.
 
 A `Violation` records where and what:
 
@@ -95,9 +95,9 @@ Violation(
 A node without positions gives `None` for each. The JSON and ndjson records
 carry these fields, derive the finding's `scope` (`span`, `line` or `file`)
 from them, and the `github` format turns them into annotation columns. See
-[finding records](../reference/cli.md#finding-records).
+[finding records](../reference/cli.md#g2-finding-records).
 
-## Register the check
+## B. Register the check
 
 Call `register()` with an instance at import time. That is what makes LaNorme
 find and run it.
@@ -122,9 +122,9 @@ instance.
 
 A check that reads configuration may also implement `configure(self, *,
 settings)`, which receives its `[tool.lanorme.<name>]` table before the run. See
-[Configuring a check](#configuring-a-check) below.
+[Configuring a check](#h-configuring-a-check) below.
 
-## Read sources through `lanorme.sources`
+## C. Read sources through `lanorme.sources`
 
 Read Python files through `lanorme.sources`, never `Path.rglob`. The module
 walks the tree with the same pruning as discovery (the built-in never-source
@@ -186,7 +186,8 @@ for item in iter_modules(scan.root):
 
 The notice's rule is `MYCODE-000: <reason>`, with the reason one of `parse
 error`, `too deeply nested` or `unreadable`. A `-000` code is a notice, not a
-finding: promotion never escalates it and the baseline never records it.
+finding: promotion never escalates it, though the baseline records and
+suppresses it like any other warning.
 `build_skip_notice(prefix=, file=, name=, reason=)` builds the same notice for a
 file the check skips on its own.
 
@@ -194,11 +195,10 @@ Trees are shared with every other check in the run, so a check must never
 mutate one, or read and `ast.parse` a file itself. Copy the tree first, or
 collect what you need without changing nodes.
 
-For files that are not Python, `lanorme.discovery.iter_files(root,
-suffix=".md")` walks the tree with the same pruning and returns the paths,
-sorted.
+Files that are not Python go through the discovery walk instead; see
+[Check files that are not Python](#d-check-files-that-are-not-python).
 
-### Walk the tree through `module.index`
+### C.1 Walk the tree through `module.index`
 
 `module.index` is the file's `NodeIndex`: every node grouped by type, from one
 walk of the tree that all checks share. Ask it for the nodes you need instead
@@ -216,10 +216,9 @@ for module in iter_parsed_modules(scan.root):
 
 `collect(*types)` returns the nodes whose exact type is one of `types`.
 `functions` is `collect(ast.FunctionDef, ast.AsyncFunctionDef)`. Both keep
-`ast.walk` order, so a check that switches from a walk reports the same
-findings in the same order.
+`ast.walk` order, so findings come out in the order a walk would give.
 
-### Read names off nodes through `lanorme.astnames`
+### C.2 Read names off nodes through `lanorme.astnames`
 
 `lanorme.astnames` answers the small questions many checks ask of a node:
 
@@ -232,11 +231,11 @@ findings in the same order.
   (`hashlib.md5` gives `("hashlib", "md5")`), or `()`.
 - `read_str_constant(node)` gives the value of a string literal, or `None`.
 
-### The run context: `lanorme.scan.Scan`
+### C.3 The run context: `lanorme.scan.Scan`
 
-`iter_files`, `iter_dirs`, `iter_modules` and `parse_module` honour the run's
-exclude globs and subtree scope and share one parse cache, but a check never
-passes these around: they belong to the current `Scan`, the one `check`
+`iter_files`, `iter_dirs` and `iter_modules` honour the run's exclude globs
+and subtree scope, and all of them, `parse_module` included, share one parse
+cache, but a check never passes these around: they belong to the current `Scan`, the one `check`
 receives, which LaNorme activates around the call. A check reads `scan.root`
 and calls the functions. To run a check by hand under the same confinement,
 hand `lanorme.run_check` the scan; it activates the scan around the call and
@@ -276,7 +275,138 @@ with ThreadPoolExecutor() as pool:
 Take one `copy_context()` per task: a context can be entered by only one
 thread at a time.
 
-## Conventions
+## D. Check files that are not Python
+
+Only Python goes through the parse layer. Every other file type goes through
+the discovery walk, which applies the same pruning and the user's `exclude`
+globs: `lanorme.discovery.iter_files(root, suffix=".sh")` returns the matching
+paths, sorted, and `iter_dirs(root)` the directories. Omit `suffix` to see
+every file. The check reads each file itself, decides per line, and builds
+each `Violation` with the file's root-relative posix path. `line=0` with no
+column marks a whole-file finding (its `scope` is `file`); a line number, with
+`column`, `end_line` and `end_column` when known, marks a line or a span. A
+file the check cannot read gets the same `<PREFIX>-000` notice as an
+unparseable Python file, through `build_skip_notice` with `reason=UNREADABLE`.
+
+This check reads every `*.sh` in the tree. It fails a script that never
+enables strict mode and warns once per line that uses a backtick command
+substitution:
+
+```python
+# shell_rules.py
+from __future__ import annotations
+
+from lanorme import CheckResult, Violation, register
+from lanorme.discovery import iter_files
+from lanorme.scan import Scan
+from lanorme.sources import UNREADABLE, build_skip_notice
+
+STRICT_MODE = "set -euo pipefail"
+
+
+class ShellRules:
+    name = "shell_rules"
+    description = "House rules for shell scripts"
+    rules = [
+        "SH-001: A shell script enables strict mode (set -euo pipefail)",
+        "SH-002: Command substitution uses $(...) rather than backticks",
+    ]
+
+    def check(self, scan: Scan) -> CheckResult:
+        violations: list[Violation] = []
+        warnings: list[Violation] = []
+        for path in iter_files(scan.root, suffix=".sh"):
+            relative = path.relative_to(scan.root).as_posix()
+            try:
+                lines = path.read_text(encoding="utf-8").splitlines()
+            except (OSError, UnicodeDecodeError):
+                warnings.append(
+                    build_skip_notice(
+                        prefix="SH", file=relative, name=path.name, reason=UNREADABLE
+                    ),
+                )
+                continue
+            if not any(line.strip() == STRICT_MODE for line in lines):
+                violations.append(
+                    Violation(
+                        file=relative,
+                        line=0,
+                        rule="SH-001",
+                        message="Script does not enable strict mode",
+                        fix=f"Add '{STRICT_MODE}' after the shebang",
+                    ),
+                )
+            for lineno, line in enumerate(lines, start=1):
+                column = line.find("`")
+                if column >= 0 and not line.lstrip().startswith("#"):
+                    warnings.append(
+                        Violation(
+                            file=relative,
+                            line=lineno,
+                            column=column,
+                            rule="SH-002",
+                            message="Backtick command substitution",
+                            fix="Use $(...) so substitutions nest and read clearly",
+                        ),
+                    )
+        return CheckResult.from_findings(
+            check=self.name,
+            violations=violations,
+            warnings=warnings,
+        )
+
+
+register(ShellRules())
+```
+
+With a `scripts/deploy.sh` that substitutes a command with backticks on its
+third line and never enables strict mode:
+
+```console
+$ lanorme check . --plugin shell_rules --check shell_rules
+[FAIL] shell_rules
+  VIOLATION: scripts/deploy.sh:0 — Script does not enable strict mode
+    Rule: SH-001: A shell script enables strict mode (set -euo pipefail)
+    Fix: Add 'set -euo pipefail' after the shebang
+  WARNING: scripts/deploy.sh:3 — Backtick command substitution
+    Rule: SH-002: Command substitution uses $(...) rather than backticks
+    Fix: Use $(...) so substitutions nest and read clearly
+--- shell_rules: 1 violations, 1 warnings ---
+
+Summary: 1 checks — 0 passed, 0 warned, 1 failed.
+Findings: 1 error to fix, 1 advisory warning.
+```
+
+In the `ndjson` output the violation carries `"scope": "file"` and the
+warning `"line": 3, "column": 8, "scope": "line"`.
+
+### D.1 Markdown
+
+`lanorme.markdown` holds the prose surface the built-in `prose` and `docs`
+checks share, so a rule written on it agrees with them about what is prose.
+`iter_prose_lines(lines)` yields `(lineno, line)` for every line outside YAML
+front matter and fenced code blocks, fence lines excluded, and
+`strip_inline_code(line)` blanks inline code spans while keeping every column
+in place:
+
+```python
+from lanorme.discovery import iter_files
+from lanorme.markdown import iter_prose_lines, strip_inline_code
+
+for path in iter_files(scan.root, suffix=".md"):
+    lines = path.read_text(encoding="utf-8").splitlines()
+    for lineno, line in iter_prose_lines(lines):
+        text = strip_inline_code(line)
+        ...  # match the rule against prose only
+```
+
+The built-in checks that read files other than Python are the models to copy:
+`prose` (Markdown by default, any extension its `extensions` list names),
+`docs` (the layout of the docs tree), `skills` (`SKILL.md` against the Agent
+Skills specification), and `stray_artifacts` and `forbidden_paths` (any file,
+by name or location).
+
+## E. Conventions
 
 These conventions keep a custom check consistent with the built-ins. The same
 rules apply whether the check ships inside LaNorme or as your plugin.
@@ -303,7 +433,7 @@ rules apply whether the check ships inside LaNorme or as your plugin.
   nested region.
 - **Default off when opinionated or broad.** A rule that fires often on ordinary
   code should ship default-off behind an `enabled` flag, so users opt in (see
-  [Configuring a check](#configuring-a-check)).
+  [Configuring a check](#h-configuring-a-check)).
 - **Raise `UsageError` for a user's mistake.** A setting that makes no sense is
   not a crash. Raise `lanorme.errors.ConfigError` (a `UsageError` that also
   carries the offending `key` and the `source` table) from `configure`, or
@@ -317,7 +447,7 @@ that raises and reports it as a `RUN-000` warning whose message carries the
 exception type and text, so one bug cannot sink the whole run. A clean check
 should not rely on that safety net.
 
-## A worked example
+## F. A worked example
 
 This check fails when a module is named exactly `utils.py`, on the house rule
 that every module should be named after what it does. LaNorme ships the same
@@ -357,13 +487,15 @@ class NoUtilsModule:
 register(NoUtilsModule())
 ```
 
-With `house_rules.py` importable (on `sys.path` or installed), load it with
-`--plugin` and run it:
+With `house_rules.py` importable (on `sys.path` or installed), a
+`pyproject.toml` at the project root and a `src/utils.py`, load it with
+`--plugin` and run it. Paths are relative to the project root, the directory
+holding the config file:
 
 ```console
 $ lanorme check src/ --plugin house_rules --check no_utils_module
 [FAIL] no_utils_module
-  VIOLATION: utils.py:0 — Module named 'utils.py' has no clear responsibility
+  VIOLATION: src/utils.py:0 — Module named 'utils.py' has no clear responsibility
     Rule: HOUSE-001: Module must not be named 'utils.py'
     Fix: Rename it after what it actually does
 --- no_utils_module: 1 violations, 0 warnings ---
@@ -388,7 +520,7 @@ The exit code is `0`.
     `--plugin` is repeatable (`--plugin a --plugin b`), not comma-separated.
     Pass the dotted module path, for example `--plugin myproject.checks.house_rules`.
 
-### Make it an advisory
+### F.1 Make it an advisory
 
 To report without failing the build, collect the findings in a `warnings`
 list instead and pass it as `warnings`:
@@ -411,12 +543,12 @@ That turns the advisory into a build-failing error (exit code `1`). `promote =
 loaded check declares, so load the plugin in the same run; otherwise the run
 exits `2` with `'promote' names no known rule code or category`.
 
-## Loading the plugin
+## G. Loading the plugin
 
 LaNorme has three ways to load a plugin module so its `register()` call runs.
 Choose one.
 
-### Name it in config
+### G.1 Name it in config
 
 List the module under `plugins` in `[tool.lanorme]`. LaNorme imports each named
 module before the run, so the check self-registers:
@@ -429,7 +561,7 @@ plugins = ["myproject.checks.house_rules"]
 This is the usual choice for a check that lives in your own repository. The
 [`plugins` reference](../reference/configuration.md#plugins) documents the key.
 
-### Ship it under the entry-point group
+### G.2 Ship it under the entry-point group
 
 A distributable package can advertise its check module under the
 `lanorme.checks` entry-point group. Any environment that installs the package
@@ -443,7 +575,7 @@ house-rules = "myproject.checks.house_rules"
 
 The entry-point value is the dotted module path; LaNorme imports it on every run.
 
-### Pass it on the command line
+### G.3 Pass it on the command line
 
 Use `--plugin` for a one-off run, a quick experiment, or CI wiring that prefers
 explicit flags over config:
@@ -452,10 +584,10 @@ explicit flags over config:
 $ lanorme check src/ --plugin myproject.checks.house_rules
 ```
 
-CLI flags override config, so `--plugin` adds to whatever `plugins` already
-lists.
+`--plugin` adds to whatever `plugins` already lists; it does not replace the
+list.
 
-## Configuring a check
+## H. Configuring a check
 
 To accept settings from a `[tool.lanorme.<name>]` table, implement an optional
 `configure` method. LaNorme hands it the table (a dict) before the run.
@@ -579,7 +711,7 @@ For a mistake `configure` cannot express as a type, such as two settings that
 contradict each other, raise `lanorme.errors.ConfigError` with the `key` and
 `source` it concerns. The CLI reports it the same way, with exit `2`.
 
-## Verify it is loaded
+## I. Verify it is loaded
 
 Run the check and confirm it executed. `--output-format full` shows passing
 checks too, so a loaded check appears even when it found nothing:
@@ -600,7 +732,7 @@ developing, use `--output-format ndjson` (one finding per line) or
 not one loaded via `[tool.lanorme] plugins` or `--plugin`. The `rules` command
 also takes no `--plugin` flag.
 
-## Related pages
+## J. Related pages
 
 - [Configuration reference](../reference/configuration.md): every
   `[tool.lanorme]` key, including `plugins`, `select`, `ignore`, and `promote`.

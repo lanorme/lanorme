@@ -1,8 +1,8 @@
 name: CI
 
-# Runs the project gates on every pull request and on pushes to main:
-# the unit tests, the LaNorme dogfood lint, and a package build. Mirrors the
-# local pre-commit hooks so a green PR means a clean tree.
+# Runs the project gates on every pull request and on pushes to main: the same
+# set as scripts/check.sh (agent-copy sync, generated docs, ruff, unit tests,
+# eval audit, dogfood lint, package build), so a green check.sh means a green PR.
 
 on:
   pull_request:
@@ -38,8 +38,19 @@ jobs:
       - name: Agent artifacts in sync
         run: scripts/sync-agents.sh --check
 
+      - name: Generated docs in sync
+        run: uv run python scripts/gen_docs.py --check
+
+      - name: Ruff (trailing commas, formatting)
+        run: |
+          uv run --group dev ruff check .
+          uv run --group dev ruff format --check .
+
       - name: Unit tests
         run: uv run --group dev pytest tests/unit
+
+      - name: Eval audit (corpora complete, holdout not below the last release)
+        run: uv run python evals/audit.py --version check --no-perf --output "$(mktemp)" --gate latest
 
       - name: Lint (lanorme dogfood)
         run: uv run lanorme check .

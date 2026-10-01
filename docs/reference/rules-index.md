@@ -1,8 +1,16 @@
 # Rule index
 
-This reference maps every rule code to its check and whether the check is opt-in
-(default off), generated from the registry. Full descriptions, configuration and precision
-notes for each rule are in the [rule reference](../RULES.md).
+This reference maps every rule code to its check and whether the rule is opt-in
+(off by default, because its check ships off or a setting turns the rule on),
+generated from the registry. Full descriptions and configuration for each rule,
+with measured precision where a labelled corpus exists, are in the
+[rule reference](../RULES.md).
+
+A code emitted by more than one check (`PROSE-001`, `PROSE-003`) appears once per check;
+each check has its own switch.
+
+`TERM-NNN` stands for the codes you assign under `[[tool.lanorme.domain_terms.rules]]`,
+for example `TERM-001`.
 
 | Rule | Check | Opt-in |
 | --- | --- | --- |
@@ -47,8 +55,8 @@ notes for each rule are in the [rule reference](../RULES.md).
 | `META-003` | meta | no |
 | `META-004` | meta | no |
 | `META-005` | meta | no |
-| `NAMING-001` | naming_consistency | no |
-| `NAMING-002` | naming_consistency | no |
+| `NAMING-001` | naming_consistency | yes |
+| `NAMING-002` | naming_consistency | yes |
 | `NAMING-003` | naming_consistency | no |
 | `NAMING-004` | naming_consistency | no |
 | `NAMING-005` | naming_scope | yes |
@@ -63,10 +71,10 @@ notes for each rule are in the [rule reference](../RULES.md).
 | `PORT-001` | port_coverage | no |
 | `PORT-002` | port_coverage | no |
 | `PORT-003` | port_coverage | no |
-| `PROSE-001` | comments | no |
+| `PROSE-001` | comments | yes |
 | `PROSE-001` | prose | yes |
 | `PROSE-002` | prose | yes |
-| `PROSE-003` | comments | no |
+| `PROSE-003` | comments | yes |
 | `PROSE-003` | prose | yes |
 | `PROSE-004` | prose | yes |
 | `SECRETPY-001` | secrets | no |
