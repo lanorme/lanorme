@@ -9,37 +9,63 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
 
 ## [Unreleased]
 
+## [0.21.1]
+
 ### Added
 
-- The `shallow_modules` check (`SHALLOW-001`), off by default: it asks whether
-  a small leaf package split into many tiny modules is really several things,
-  with each module's size, the total and the module to merge into. The merge
-  is sized under SIZE-001's warning (as the root config sets it) and keeps the
-  directories other rules read by path and the files that are not members; see
-  `docs/RULES.md` for what it keeps legal and its limits. It is advisory: a
-  warning that `promote = ["ALL"]` leaves alone. Silence a deliberate split
-  with `per-file-ignores` on the package's `__init__.py` or `# noqa:
-  SHALLOW-001` on its line 1.
+- The `shallow_modules` check (`SHALLOW-001`), the counterweight to the size
+  rules: it asks whether a small leaf package split into many tiny modules is
+  really several things, with each module's size, the total and the module to
+  merge into. It is off by default and advisory. The `strict` profile enables
+  it, but its findings stay warnings there, so turning it on never fails a
+  build. To make it an error under `strict`, set `promote = ["ALL",
+  "SHALLOW"]` (a local `promote` replaces the profile's). The merge is sized
+  under SIZE-001's warning (as the root config sets it), is not proposed when
+  it would close a new import cycle, and keeps the directories other rules
+  read by path and the files that are not members; see `docs/RULES.md` for
+  what it keeps legal and its limits. Silence a deliberate split with `per-file-ignores` on the
+  package's `__init__.py` or `# noqa: SHALLOW-001` on its line 1.
 - A check can declare `advisory_codes`, rule codes that are advisory by
   nature: `promote = ["ALL"]` leaves them warnings, and a `promote` entry naming
-  the code or its category still escalates them.
-- `lanorme.module_graph`, the shared import graph of a scanned tree (who
-  imports which in-tree module, and whether merging modules closes a new
-  import cycle), and `lanorme.line_counts`, SIZE-001's line measure in one
-  place.
+  the code or its category still escalates them. `SHALLOW-001` is the first.
 - Mirrored settings: `shallow_modules` reads `file_warn_lines` and
   `file_error_lines` from `[file_limits]`, `layers` and `composition_root` from
   `[layer_deps]`, and `ports_dir`, `adapter_roots` and `composition_root` from
-  `[port_coverage]` (profiles included), unless its own table sets them.
+  `[port_coverage]` (profiles included), unless its own table sets them, so its
+  advice holds in a custom layout too.
 - A labelled corpus (`evals/corpora/shallow_modules/`) and its scorer
   (`evals/score_shallow001.py`), which runs the check once per small project
   under `cases/`. Dev: precision 0.783, recall 0.783, F1 0.783; sealed
   holdout: precision 0.571, recall 0.400, F1 0.471 (gap 0.211, 0.383, 0.312).
+- `lanorme.module_graph`, the shared import graph of a scanned tree (who
+  imports which in-tree module, and whether merging modules closes a new
+  import cycle), and `lanorme.line_counts`, SIZE-001's line measure in one
+  place.
 
-### Changed
+### Research
 
-- The `strict` profile enables `shallow_modules`; its findings stay warnings
-  there.
+- An agent A/B experiment (`experiments/agent-ab/`): six Opus 5.5 agents built
+  the same service in three stages, three told to configure and use LaNorme
+  0.21.0 and three not, scored only by third-party tools, a hidden acceptance
+  suite and a blind pairwise judge. The LaNorme arm's code was more modular,
+  with lower complexity, shorter functions and a maintainability index 11 to
+  13 points higher; correctness was a draw (all 18 snapshots pass every
+  acceptance test); the blind judge preferred LaNorme 5 to 4; it cost about
+  1.7 times as much. Its agents also split the code finely (15 to 31 files
+  against 8), which is what `SHALLOW-001` now asks about. The results are in
+  `experiments/agent-ab/README.md`; the raw runs are in
+  [lanorme/lanorme-experiments](https://github.com/lanorme/lanorme-experiments).
+- `AGENTS.md` records vocabulary and citation conventions for contributors:
+  spelled-out names, canonical terms over coined ones, changes grounded in the
+  literature or an evaluation, and Pandoc-syntax citations backed by
+  `docs/references.bib`, which `tests/unit/test_citations.py` keeps in step.
+
+### Fixed
+
+- The source distribution no longer carries nested `README.md` and
+  `pyproject.toml` copies from `evals/`, `benchmarks/` and `tests/fixtures/`:
+  its include list matched those names at any depth and is now anchored to the
+  repository root.
 
 ## [0.21.0]
 
