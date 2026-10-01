@@ -1,0 +1,179 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+#
+# CodeRabbit review settings for LaNorme. AGENTS.md (and its generated copy
+# CLAUDE.md) is read automatically as the code guidelines; the path
+# instructions below add what a reviewer must hold each part of the tree to.
+# The configuration on a pull request's own branch is the one that applies.
+
+language: en-GB
+tone_instructions: >-
+  Be direct and specific. Cite file:line. Say whether each point blocks the
+  merge or is a nit. Use British spelling and the canonical software
+  engineering term; do not coin new ones.
+
+reviews:
+  profile: assertive
+  request_changes_workflow: false
+  high_level_summary: true
+  high_level_summary_instructions: >-
+    Summarise what changed for a LaNorme user: new or changed rule codes,
+    defaults, config keys and CLI behaviour, then internal changes. Name every
+    rule code touched.
+  review_status: true
+  collapse_walkthrough: true
+  sequence_diagrams: false
+  poem: false
+  in_progress_fortune: false
+  enable_prompt_for_ai_agents: true
+  suggested_labels: true
+  suggested_reviewers: true
+
+  # Verbatim corpora, fixtures, agent-written experiment output and generated
+  # files are inputs or outputs, not code to review.
+  path_filters:
+    - "!evals/corpora/**"
+    - "!evals/results/**"
+    - "!evals/articulacy/runs/**"
+    - "!evals/articulacy/runs_control/**"
+    - "!evals/readability/runs/**"
+    - "!tests/fixtures/**"
+    - "!experiments/agent-ab/runs/**"
+    - "!experiments/agent-ab/results/**"
+    - "!benchmarks/.corpora/**"
+    - "!CLAUDE.md"
+    - "!.agents/**"
+    - "!llms-full.txt"
+    - "!lanorme.schema.json"
+    - "!docs/reference/rules-index.md"
+    - "!docs/reference/configuration.md"
+
+  path_instructions:
+    - path: "src/lanorme/checks/**/*.py"
+      instructions: |
+        Hold every check to AGENTS.md "When you touch a check" and CONTRIBUTING.md "Adding or changing a check". Flag as blocking:
+        - Reading or ast-parsing a file directly, ast.walk(tree), Path.rglob or os.walk, or a hand-written import resolver: sources go through lanorme.sources and module.index, other files through lanorme.discovery, imports through lanorme.module_graph.
+        - Any exception that can escape check(), process-global state, configuring a registered check in place, or a check that is not deep-copyable.
+        - A finding built without CheckResult.from_findings, or with status= passed.
+        - Settings read outside lanorme.checkconfig readers, or keys missing from settings_keys.
+        - A cross-file check without scope = "tree".
+        - A renamed or removed rule code (public surface) with no CHANGELOG entry marking it breaking.
+        - An opinionated rule shipped default-on without the measurement on third-party code that CONTRIBUTING requires.
+        Also check naming (verb-first functions, noun modules and classes, no shorthand or coined terms) and that literature the rule relies on is cited as [@key].
+    - path: "src/lanorme/**/*.py"
+      instructions: |
+        Standard library only: flag any new third-party import as blocking. Errors a user made raise lanorme.errors.UsageError or ConfigError; nothing prints to stderr or calls sys.exit outside cli.main. Diagnostics go through logging.getLogger(__name__). House limits: files warn at 300 effective lines, functions at 50, complexity at 10, parameters at 5; suggest splitting rather than growing.
+    - path: "tests/**/*.py"
+      instructions: |
+        Tests use Arrange / Act / Assert sections and shared setup in tests/unit/conftest.py. For a rule change, expect a positive case, a negative case, the boundary, and a regression for the exact behaviour. Flag tautological tests: ones that would still pass if the code under test were deleted or its condition removed (for example an exemption test whose extra file is never imported, so another condition hides it). Use lanorme.paths.is_test_file rather than another test_ prefix check.
+    - path: "evals/**"
+      instructions: |
+        Corpus discipline from CONTRIBUTING.md is blocking: a change to a check's source or thresholds must not add, edit, relabel or move that rule's holdout files in the same commit; labels carry split, source, labelled_by, labelled_before_rule and a line_hash; dev and holdout scores are reported side by side and a large gap is explained, never tuned away. Flag any scorer that could read holdout labels while tuning.
+    - path: "**/*.md"
+      instructions: |
+        Docs state current truth only; history belongs in CHANGELOG.md. British spelling, no em dashes, no emoji. Every number quoted for a rule (precision, recall, finding counts) must match what the evals and scripts produce now; flag stale or one-sided figures (for example a dev score quoted without the holdout). Every [@key] citation must exist in docs/references.bib and actually support the sentence it is attached to. A rule change updates its docs/RULES.md section and the README tables in the same pull request.
+    - path: "docs/references.bib"
+      instructions: |
+        Each entry must be a real, verifiable work: check authors, title, venue, year and DOI or arXiv identifier are consistent. Flag any field that looks invented or a placeholder.
+    - path: "src/lanorme/profiles/*.toml"
+      instructions: |
+        Profiles are public behaviour. The strict profile must enable every default-off check or tests/unit/test_profiles.py must list the exclusion with its reason. Check that comments describe what the profile really does, including which rules promote = ["ALL"] does not promote.
+    - path: "experiments/**"
+      instructions: |
+        Experiment harnesses must keep arms isolated (the control arm never sees LaNorme), keep the blind judge blind (no key, no LaNorme trace reachable from the judged tree), and record enough to reproduce a run. Flag any result in a README that the committed data does not support.
+
+  auto_review:
+    enabled: true
+    drafts: false
+    auto_incremental_review: true
+
+  finishing_touches:
+    docstrings:
+      enabled: true
+    unit_tests:
+      enabled: true
+
+  pre_merge_checks:
+    title:
+      mode: warning
+    description:
+      mode: warning
+    docstrings:
+      mode: "off"
+    custom_checks:
+      - name: "Standard library only"
+        mode: error
+        instructions: >-
+          Pass if pyproject.toml declares no runtime dependencies and no file
+          under src/lanorme imports a module outside the Python standard
+          library or the lanorme package itself. Fail otherwise, naming the
+          import.
+      - name: "Rule codes and docs move together"
+        mode: warning
+        instructions: >-
+          If the pull request adds, renames, removes or changes the behaviour
+          or default of a rule code (such as SIZE-001 or SHALLOW-001), pass only
+          if docs/RULES.md, the README.md rule tables and CHANGELOG.md are
+          updated in the same pull request, and a renamed or removed code is
+          marked as a breaking change in CHANGELOG.md. Pass if no rule code is
+          affected.
+      - name: "Holdout untouched by rule changes"
+        mode: warning
+        instructions: >-
+          For each commit that changes a check under src/lanorme/checks/, fail
+          if the same commit adds, edits, relabels or moves files under that
+          rule's evals/corpora/<corpus>/holdout/ directory or their entries in
+          its labels.json. A holdout added in a separate commit that leaves the
+          rule alone passes.
+      - name: "Grounded and cited"
+        mode: warning
+        instructions: >-
+          If the pull request adds or changes a rule, a default threshold or an
+          agent-facing protocol, pass only if the change states its grounding
+          (literature, or an evaluation in evals/ or experiments/) and cites
+          any literature as [@key] with a matching entry in
+          docs/references.bib. Fail if a new identifier, rule name or config
+          key uses shorthand or a coined term where a canonical one exists.
+
+  tools:
+    ruff:
+      enabled: true
+    # The project lints with ruff and its own dogfood; pylint and flake8 would
+    # report against a different standard.
+    pylint:
+      enabled: false
+    flake8:
+      enabled: false
+    languagetool:
+      enabled: true
+    markdownlint:
+      enabled: true
+    shellcheck:
+      enabled: true
+    actionlint:
+      enabled: true
+    yamllint:
+      enabled: true
+    gitleaks:
+      enabled: true
+    semgrep:
+      enabled: true
+    ast-grep:
+      essential_rules: true
+
+knowledge_base:
+  web_search:
+    enabled: true
+  code_guidelines:
+    enabled: true
+    filePatterns:
+      - files: "CONTRIBUTING.md"
+        applyTo: "**"
+      - files: "evals/README.md"
+        applyTo: "evals/**"
+      - files: ".claude/skills/merge-ready/SKILL.md"
+        applyTo: "**"
+  learnings:
+    scope: auto
+
+chat:
+  auto_reply: true
