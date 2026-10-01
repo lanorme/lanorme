@@ -105,6 +105,77 @@ def test_a_relative_import_above_the_root_is_unresolved(tmp_path: Path):
     assert graph.imports.get("p/a.py", frozenset()) == frozenset()
 
 
+@pytest.mark.parametrize(
+    ("files", "importer"),
+    [
+        ({"p/__init__.py": "", "p/a.py": "from .. import b\n", "b.py": ""}, "p/a.py"),
+        ({"script.py": "from . import b\n", "b.py": ""}, "script.py"),
+    ],
+    ids=["two dots from a top-level package", "one dot from a top-level module"],
+)
+def test_a_relative_import_to_or_above_the_top_level_is_unresolved(
+    tmp_path: Path,
+    files: dict[str, str],
+    importer: str,
+):
+    # Arrange: Python raises ImportError on both, so no edge may be invented.
+
+    # Act
+    graph = build_graph(tmp_path, files)
+
+    # Assert
+    assert "b.py" not in graph.imports.get(importer, frozenset())
+
+
+def test_a_relative_import_inside_the_top_level_package_resolves(tmp_path: Path):
+    # Arrange: the boundary's other side: one dot from the package's own __init__.py.
+    files = {"p/__init__.py": "from . import b\n", "p/b.py": ""}
+
+    # Act
+    graph = build_graph(tmp_path, files)
+
+    # Assert
+    assert graph.imports["p/__init__.py"] == frozenset({"p/b.py"})
+
+
+def test_an_import_runs_the_target_ancestors_but_not_the_importers_own(tmp_path: Path):
+    # Arrange
+    files = {
+        "app/__init__.py": "",
+        "app/pkg/__init__.py": "",
+        "app/pkg/m.py": "from app.other.x import X\n",
+        "app/other/__init__.py": "",
+        "app/other/x.py": "X = 1\n",
+    }
+
+    # Act
+    graph = build_graph(tmp_path, files)
+
+    # Assert: app/other/__init__.py runs first; app/__init__.py is already loading.
+    assert graph.imports["app/pkg/m.py"] == frozenset({"app/other/x.py", "app/other/__init__.py"})
+
+
+def test_regression_a_cycle_through_an_ancestor_package_is_found(tmp_path: Path):
+    # Arrange: m1 imports app.other.x; app/other/__init__.py imports m2.
+    files = {
+        "app/__init__.py": "",
+        "app/pkg/__init__.py": "",
+        "app/pkg/m1.py": "from app.other.x import X\n",
+        "app/pkg/m2.py": "Y = 2\n",
+        "app/other/__init__.py": "from app.pkg.m2 import Y\n",
+        "app/other/x.py": "X = 1\n",
+    }
+    graph = build_graph(tmp_path, files)
+
+    # Act
+    found = graph.find_cycle_through(
+        group=frozenset({"app/pkg/__init__.py", "app/pkg/m1.py", "app/pkg/m2.py"}),
+    )
+
+    # Assert
+    assert found is not None
+
+
 def test_from_package_import_submodule_records_both(tmp_path: Path):
     # Arrange
     files = {"pkg/__init__.py": "", "pkg/sub.py": "", "user.py": "from pkg import sub\n"}
@@ -123,8 +194,8 @@ def test_a_dotted_import_resolves_to_its_longest_known_prefix(tmp_path: Path):
     # Act
     graph = build_graph(tmp_path, files)
 
-    # Assert
-    assert graph.imports["user.py"] == frozenset({"a/b.py"})
+    # Assert: a/__init__.py runs on the way to a.b, so it is an edge too.
+    assert graph.imports["user.py"] == frozenset({"a/b.py", "a/__init__.py"})
 
 
 def test_a_star_import_names_no_submodule(tmp_path: Path):
@@ -199,15 +270,24 @@ def test_ambiguous_names_and_self_imports_get_no_edges(tmp_path: Path):
         ({"m1": {"m2"}, "out": {"m1"}}, None),
         ({"m1": {"out"}, "out": {"m1"}}, None),
         ({"m1": {"out"}, "out": {"m2"}, "m2": {"m1"}}, None),
+        ({"m1": {"out"}, "out": {"m1", "m2"}}, "out"),
+        ({"m1": {"out"}, "out": {"p/__init__.py"}}, None),
     ],
-    ids=["new cycle", "dag", "back to the same member", "already on one cycle"],
+    ids=[
+        "new cycle",
+        "dag",
+        "back to the same member",
+        "already on one cycle",
+        "a second member through a module already on a cycle",
+        "a package file that imports nothing",
+    ],
 )
 def test_find_cycle_through_reports_only_a_new_cycle(edges: dict[str, set[str]], expected):
     # Arrange
     graph = build_cycle_graph(edges)
 
     # Act
-    found = graph.find_cycle_through(group=frozenset({"m1", "m2"}))
+    found = graph.find_cycle_through(group=frozenset({"m1", "m2", "p/__init__.py"}))
 
     # Assert
     assert found == expected

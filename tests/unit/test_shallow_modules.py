@@ -14,15 +14,18 @@ package, and members imported only by tests).
 
 from __future__ import annotations
 
+import ast
 import copy
 import json
 import random
+from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path
 
 import pytest
 
 from lanorme import Violation, get_registry
+from lanorme.checks import package_members
 from lanorme.checks.file_limits import FileLimitsCheck
 from lanorme.checks.shallow_modules import ShallowModulesCheck
 from lanorme.cli import _load_builtin_checks, main
@@ -163,7 +166,7 @@ def test_a_plain_package_becomes_a_module_that_keeps_its_import_path(tmp_path: P
         ("application/commands", "TESTFILE-001 pairs its modules with tests"),
     ],
 )
-def test_rule_located_directories_fold_into_their_largest_member(
+def test_directories_read_by_path_fold_into_their_largest_member(
     tmp_path: Path,
     directory: str,
     reason: str,
@@ -369,6 +372,56 @@ def test_a_layout_repeated_by_two_other_packages_is_exempt(
     assert ("one/feature/__init__.py" in flagged) is fires
 
 
+@pytest.mark.parametrize(("shared", "fires"), [(["alpha"], True), (["alpha", "beta"], False)])
+def test_a_two_name_package_needs_relatives_sharing_both_names(
+    tmp_path: Path,
+    shared: list[str],
+    fires: bool,
+):
+    # Arrange: alpha, beta and a code-bearing __init__.py; half of two names
+    # rounds to one, but a repeated layout always needs two shared names.
+    files = build_package_files("one/feature", {"alpha": 10, "beta": 10})
+    files["one/feature/__init__.py"] = "def build():\n    return 1\n"
+    for index in range(2):
+        files.update(build_package_files(f"other{index}/feature", dict.fromkeys(shared, 150)))
+    write_tree(tmp_path, files)
+
+    # Act
+    flagged = list_flagged(tmp_path)
+
+    # Assert
+    assert ("one/feature/__init__.py" in flagged) is fires
+
+
+def test_a_file_too_deep_to_classify_skips_its_package_only(tmp_path: Path, monkeypatch):
+    # Arrange: classifying the module that binds DEEP overflows the stack.
+    files = build_package_files("pkg/inner", {"a": 10, "b": 10, "c": 10})
+    files["pkg/inner/a.py"] = "DEEP = 1\n" + files["pkg/inner/a.py"]
+    files.update(build_package_files("pkg/other", {"d": 10, "e": 10, "f": 10}))
+    write_tree(tmp_path, files)
+    original = package_members.is_reexport_only
+
+    def is_reexport_only_unless_deep(*, tree: ast.Module) -> bool:
+        names = {
+            target.id
+            for node in tree.body
+            if isinstance(node, ast.Assign)
+            for target in node.targets
+            if isinstance(target, ast.Name)
+        }
+        if "DEEP" in names:
+            raise RecursionError
+        return original(tree=tree)
+
+    monkeypatch.setattr(package_members, "is_reexport_only", is_reexport_only_unless_deep)
+
+    # Act
+    flagged = list_flagged(tmp_path)
+
+    # Assert: the run survives, the package is skipped, its neighbour is reported.
+    assert flagged == ["pkg/other/__init__.py"]
+
+
 @pytest.mark.parametrize(
     ("settings", "total", "fires"),
     [
@@ -421,7 +474,7 @@ def test_a_package_with_code_in_a_subpackage_is_not_a_leaf(tmp_path: Path):
 
 @pytest.mark.parametrize("package", ["app/migrations", "app/alembic/versions", "tests/helpers"])
 def test_migrations_alembic_and_test_packages_are_skipped(tmp_path: Path, package: str):
-    # Arrange
+    # Arrange: production code at the root imports every module.
     write_tree(tmp_path, build_package_files(package, {"a": 10, "b": 10, "c": 10}))
 
     # Act
@@ -432,9 +485,10 @@ def test_migrations_alembic_and_test_packages_are_skipped(tmp_path: Path, packag
 
 
 def test_a_test_module_inside_a_package_is_not_a_member(tmp_path: Path):
-    # Arrange: two members and a test module, below min_modules.
+    # Arrange: two members and a test module production code imports, below min_modules.
     files = build_package_files("pkg/inner", {"a": 10, "b": 10})
     files["pkg/inner/test_a.py"] = "from pkg.inner import a\n"
+    files["uses_pkg_inner.py"] += "import pkg.inner.test_a\n"
     write_tree(tmp_path, files)
 
     # Act
@@ -484,9 +538,10 @@ def test_a_framework_loaded_module_exempts_the_package(tmp_path: Path, stem: str
     ],
 )
 def test_generated_code_exempts_the_package(tmp_path: Path, name: str, body: str):
-    # Arrange
+    # Arrange: production code imports the generated module, so only the exemption hides it.
     files = build_package_files("pkg/inner", {"a": 10, "b": 10, "c": 10})
     files[f"pkg/inner/{name}"] = body
+    files["uses_pkg_inner.py"] += f"import pkg.inner.{name.removesuffix('.py')}\n"
     write_tree(tmp_path, files)
 
     # Act
@@ -541,16 +596,19 @@ def test_a_composition_root_is_not_a_member(tmp_path: Path, settings: dict, wiri
 
 @pytest.mark.parametrize("name", ["__main__.py", "manage.py", "setup.py", "0001_initial.py"])
 def test_scripts_and_unimportable_names_are_not_members(tmp_path: Path, name: str):
-    # Arrange
+    # Arrange: two members, and a script production code imports where it can.
     files = build_package_files("pkg/inner", {"a": 10, "b": 10})
     files[f"pkg/inner/{name}"] = "VALUE = 1\n"
+    if name.removesuffix(".py").isidentifier():
+        files["uses_pkg_inner.py"] += f"import pkg.inner.{name.removesuffix('.py')}\n"
     write_tree(tmp_path, files)
 
     # Act
-    flagged = list_flagged(tmp_path)
+    (warning,) = run_shallow_check(tmp_path, min_modules=2)
 
-    # Assert
-    assert flagged == []
+    # Assert: two members counted, and the script keeps the directory.
+    assert warning.message.startswith("Package 'pkg/inner/' holds 2 modules")
+    assert f"because {name} stays in it." in warning.fix
 
 
 def test_a_namespace_package_is_never_judged(tmp_path: Path):
@@ -845,11 +903,11 @@ def test_promote_all_leaves_it_a_warning_and_naming_it_promotes_it(
 
 
 # --------------------------------------------------------------------------- #
-# Invariants: following the fix never trips SIZE-001 or SHALLOW-001 again
+# Invariants: following the fix trips no rule, under the defaults or strict
 # --------------------------------------------------------------------------- #
 
-# Generated trees put each package under app/; ``domain`` is a rule-located
-# layer (fold inside), the others become ``app/<name>.py``.
+# Generated trees put each package under app/; ``domain`` is a layer another
+# rule reads by path (fold inside), the others become ``app/<name>.py``.
 _GENERATED_PACKAGES = ("domain", "alpha", "beta")
 _WARNING_LINES = 300
 
@@ -944,8 +1002,38 @@ def run_size_and_shallow(root: Path) -> list[Violation]:
     return [finding for finding in findings if finding.code in {"SIZE-001", "SHALLOW-001"}]
 
 
+# The rule sets a merge is checked against: the defaults and the strict profile.
+_RULE_SET_CONFIGS = ("[tool.lanorme]\n", '[tool.lanorme]\nextends = ["strict"]\n')
+
+
+def read_rule_findings(root: Path, *, config: str, capsys) -> Counter[str]:
+    """How often each code fires in a full CLI run on *root* under *config*, SHALLOW-001 aside."""
+    (root / "pyproject.toml").write_text(config, encoding="utf-8")
+    capsys.readouterr()
+    run_cli(["check", str(root), "--output-format", "ndjson"])
+    findings = read_ndjson_findings(capsys.readouterr().out)
+    return Counter(f["code"] for f in findings if f["code"] != "SHALLOW-001")
+
+
+def find_new_findings(*, before: Path, after: Path, capsys) -> set[tuple[str, str]]:
+    """The codes that fire more often after following a fix, under the defaults or strict.
+
+    Counted per code rather than per file, so a finding that moves with its
+    code into the merged module is not new; one more finding of a code is.
+    """
+    new: set[tuple[str, str]] = set()
+    for config in _RULE_SET_CONFIGS:
+        added = read_rule_findings(after, config=config, capsys=capsys) - read_rule_findings(
+            before,
+            config=config,
+            capsys=capsys,
+        )
+        new |= {(config, code) for code in added}
+    return new
+
+
 @pytest.mark.parametrize("seed", range(60))
-def test_property_following_the_fix_is_legal(tmp_path: Path, seed: int):
+def test_property_following_the_fix_is_legal(tmp_path: Path, seed: int, capsys):
     # Arrange
     files = render_generated_tree(generate_packages(seed))
     write_tree(tmp_path / "before", files)
@@ -964,6 +1052,151 @@ def test_property_following_the_fix_is_legal(tmp_path: Path, seed: int):
         write_tree(after, apply_merge(files, package=package, target=target))
         again = run_size_and_shallow(after)
         assert not [f for f in again if f.file in {finding.file, target}], again
+        # Nothing else in the default or the strict rule set is new either.
+        assert find_new_findings(before=tmp_path / "before", after=after, capsys=capsys) == set()
+
+
+_CLOCK_PORT = (
+    '"""The clock port."""\n\nfrom typing import Protocol\n\n\n'
+    "class Clock(Protocol):\n"
+    '    """Tells the time."""\n\n'
+    "    def read_time(self) -> float:\n"
+    '        """Seconds since the epoch."""\n'
+    "        ...\n"
+)
+_SYSTEM_CLOCK = (
+    '"""The system clock adapter, retrying through its helpers."""\n\n'
+    "import infrastructure.services.retrying._backoff\n"
+    "import infrastructure.services.retrying._jitter\n"
+    "import infrastructure.services.retrying._policy\n"
+    "from application.ports.clock import Clock\n\n\n"
+    "class SystemClock(Clock):\n"
+    '    """The machine\'s clock."""\n\n'
+    "    def read_time(self) -> float:\n"
+    '        """Always zero here."""\n'
+    "        return 0.0\n"
+)
+
+
+def build_nested_adapter_tree() -> dict[str, str]:
+    """An adapter whose private helpers sit in a package under the adapter root."""
+    files = build_package_files(
+        "infrastructure/services/retrying",
+        {"_backoff": 10, "_jitter": 10, "_policy": 12},
+    )
+    del files["uses_infrastructure_services_retrying.py"]
+    files.update(
+        {
+            "application/__init__.py": "",
+            "application/ports/__init__.py": "",
+            "application/ports/clock.py": _CLOCK_PORT,
+            "infrastructure/services/system_clock.py": _SYSTEM_CLOCK,
+            "main.py": "import infrastructure.services.system_clock\n",
+        },
+    )
+    return files
+
+
+def build_nested_service_tree() -> dict[str, str]:
+    """A service package under application/services, which TESTFILE-001 reads by path."""
+    files = build_package_files(
+        "application/services/billing",
+        {"invoice": 12, "tax": 10, "discount": 10},
+    )
+    files["application/__init__.py"] = ""
+    files["application/services/__init__.py"] = ""
+    return files
+
+
+def build_package_with_entry_point() -> dict[str, str]:
+    """A package whose composition root (``main.py``) is not a member and must stay."""
+    files = build_package_files("web/v1", {"users": 10, "items": 10, "orders": 10})
+    files["web/v1/main.py"] = "import web.v1.users\nimport web.v1.items\nimport web.v1.orders\n"
+    return files
+
+
+@pytest.mark.parametrize(
+    ("build_tree", "target", "reason"),
+    [
+        (
+            build_nested_adapter_tree,
+            "infrastructure/services/retrying/_policy.py",
+            "it sits under 'infrastructure/services/', which [port_coverage] adapter_roots "
+            "reads by path",
+        ),
+        (
+            build_nested_service_tree,
+            "application/services/billing/invoice.py",
+            "it sits under 'application/services/', which NAMING-002 reads by path",
+        ),
+        (build_package_with_entry_point, "web/v1/users.py", "main.py stays in it"),
+    ],
+    ids=["under an adapter root", "under application/services", "holding a composition root"],
+)
+def test_regression_a_package_that_cannot_become_a_module_folds_inside_legally(
+    tmp_path: Path,
+    capsys,
+    build_tree,
+    target: str,
+    reason: str,
+):
+    # Arrange: ``<package>.py`` would lose PORT-001 or TESTFILE-001 coverage, or
+    # strand main.py; the fix folds inside instead.
+    files = build_tree()
+    write_tree(tmp_path / "before", files)
+    (warning,) = run_shallow_check(tmp_path / "before")
+    package = warning.file.removesuffix("/__init__.py")
+
+    # Act
+    write_tree(tmp_path / "after", apply_merge(files, package=package, target=target))
+    new = find_new_findings(before=tmp_path / "before", after=tmp_path / "after", capsys=capsys)
+
+    # Assert
+    assert read_merge_target(warning.fix) == target
+    assert f"because {reason}." in warning.fix
+    assert new == set()
+
+
+@pytest.mark.parametrize(
+    ("build_tree", "package", "rule"),
+    [
+        (build_nested_adapter_tree, "infrastructure/services/retrying", "PORT-001"),
+        (build_nested_service_tree, "application/services/billing", "TESTFILE-001"),
+    ],
+)
+def test_the_package_module_merge_would_have_tripped_another_rule(
+    tmp_path: Path,
+    capsys,
+    build_tree,
+    package: str,
+    rule: str,
+):
+    # Arrange: what the fix avoids: collapsing the package into ``<package>.py``.
+    files = build_tree()
+    write_tree(tmp_path / "before", files)
+    write_tree(tmp_path / "after", apply_merge(files, package=package, target=f"{package}.py"))
+
+    # Act
+    new = find_new_findings(before=tmp_path / "before", after=tmp_path / "after", capsys=capsys)
+
+    # Assert
+    assert rule in {code for _config, code in new}
+
+
+def test_regression_a_cycle_through_an_ancestor_package_blocks_the_merge(tmp_path: Path):
+    # Arrange: m1 imports app.other.x, which runs app/other/__init__.py, which
+    # imports m2: merged, the module would import itself.
+    files = build_package_files("app/pkg", {"m1": 10, "m2": 10, "m3": 10})
+    files["app/pkg/m1.py"] = "from app.other.x import X\n" + files["app/pkg/m1.py"]
+    files["app/other/__init__.py"] = "from app.pkg.m2 import VALUE_0\n"
+    files["app/other/x.py"] = "X = 1\n"
+    write_tree(tmp_path, files)
+
+    # Act
+    flagged = list_flagged(tmp_path)
+
+    # Assert
+    assert flagged == []
 
 
 @pytest.mark.parametrize("seed", range(20))
@@ -1181,3 +1414,8 @@ def test_merge_move_replica_follows_every_fix_without_new_findings(tmp_path: Pat
     assert codes_after <= codes_before - {"SHALLOW-001"}
     guarded = ("SIZE", "LAYER", "PORT", "NAMING", "AUTHN", "IMPORT", "TESTFILE")
     assert not [code for code in codes_after - codes_before if code.startswith(guarded)]
+    # And nothing is new under the default rule set or plain strict either.
+    assert (
+        find_new_findings(before=tmp_path / "before", after=tmp_path / "after", capsys=capsys)
+        == set()
+    )

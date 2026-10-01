@@ -119,6 +119,28 @@ def test_a_mistyped_owner_value_is_reported_against_its_owner(tmp_path: Path, ca
     assert "shallow_modules" not in err
 
 
+@pytest.mark.parametrize("value", [True, 2.5, ["domain", 1]])
+def test_a_mistyped_owner_value_is_not_mirrored(value: object):
+    # Arrange: shallow_modules alone, so only a mirrored value could reach it;
+    # a bool is not an integer here, though Python counts it as one.
+    _load_builtin_checks()
+    registry = Registry({"shallow_modules": get_registry()["shallow_modules"]})
+
+    # Act
+    configured = registry.build_configured(
+        {"file_limits": {"file_warn_lines": value}, "layer_deps": {"layers": value}},
+    )
+
+    # Assert: the defaults stand; the owner reports its own value in a real run.
+    assert configured["shallow_modules"].file_warn_lines == 300
+    assert configured["shallow_modules"].layers == (
+        "domain",
+        "application",
+        "infrastructure",
+        "api",
+    )
+
+
 def test_only_shallow_modules_receives_mirrored_keys():
     # Arrange: a spy reads every key it is handed.
     _load_builtin_checks()

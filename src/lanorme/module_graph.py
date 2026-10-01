@@ -1,28 +1,27 @@
 """The import graph of a scanned tree: which in-tree module imports which.
 
 A cross-file rule that asks "who imports this module?" or "would merging these
-modules close an import cycle?" needs every import resolved to a file. This
-module does that once per call from the shared per-file views
-(``module.imports``), so a rule never writes its own resolver.
+modules close an import cycle?" resolves imports here, once, from the shared
+per-file views (``module.imports``), and never writes its own resolver.
 
-**Names.** A package is a directory holding an ``__init__.py`` (the scan
-root's own ``__init__.py`` does not make the root one). A file's dotted name
-climbs through the packages above it; what is left above the top-level package
-is its import root (``src`` for ``src/pkg/x.py``, which is ``pkg.x``; ``""``
-for ``pkg/x.py``). Two files that claim one name in one root, as ``pkg/a.py``
-and ``pkg/a/__init__.py`` do, are ambiguous: both are left out of the graph
-rather than guessed between.
+**Names.** A package is a directory holding an ``__init__.py`` (not the scan
+root's own). A file's dotted name climbs through the packages above it; what is
+left above is its import root (``src`` for ``src/pkg/x.py``, named ``pkg.x``).
+Two files claiming one name in one root (``pkg/a.py``, ``pkg/a/__init__.py``)
+are ambiguous and left out rather than guessed between.
 
-**Resolution.** Every import in a file counts, those inside functions and
-under ``if TYPE_CHECKING:`` included. A relative import resolves inside the
-importer's own root; one that climbs above it stays unresolved. An absolute
-import resolves in the importer's root first and otherwise in the one other
-root that holds the name, which covers a ``tests/`` tree importing a ``src/``
-layout; a name two other roots hold stays unresolved. ``from pkg import x``
-records ``pkg.x`` when it is a module, and the longest known prefix of the
-imported name (``pkg``) for ``from`` and plain imports alike. Namespace
-packages and ``importlib`` strings resolve to nothing, so the graph can only
-miss an edge, never invent one.
+**Resolution.** Every import counts, inside functions and ``if
+TYPE_CHECKING:`` too. A relative import resolves in the importer's root, and
+stays unresolved when it climbs to or above the top-level package, as
+``from .. import b`` in ``p/a.py`` does, since Python refuses it. An absolute
+import resolves in the importer's root, else in the one other root holding the
+name (a ``tests/`` tree importing a ``src/`` layout). ``from pkg import x``
+records ``pkg.x`` when it is a module, and every import records the longest
+known prefix of its name. Each package ``__init__.py`` Python runs on the way
+(``import app.other.x`` runs ``app/other/__init__.py``) is an edge too, except
+the importer's own ancestors, already loading. Namespace packages and
+``importlib`` strings resolve to nothing: the graph can miss an edge, never
+invent one.
 """
 
 from __future__ import annotations
@@ -35,7 +34,8 @@ from dataclasses import dataclass
 from lanorme.source_views import ImportedModule
 from lanorme.sources import Module
 
-_PACKAGE_FILE = "__init__.py"
+# The file that makes a directory a package.
+PACKAGE_FILE = "__init__.py"
 # Module-level hooks a PEP 562 shim defines in place of real code.
 _MODULE_HOOKS = frozenset({"__getattr__", "__dir__"})
 
@@ -83,14 +83,21 @@ class ModuleGraph:
         re-entering it. Reaching a different member that cannot already reach
         the first one means the merged module would import itself through the
         outside path: a cycle that does not exist today. The first outside
-        module on that path is returned. A path back to the same member, or
-        between two members already on one cycle, is not new.
+        module on that path is returned. A path back to the same member, between
+        two members already on one cycle, or to a package ``__init__.py`` that
+        imports nothing (Python ran it first), is not new.
         """
         for member in sorted(group):
             found = self._find_outside_path(member=member, group=group)
             if found is not None:
                 return found
         return None
+
+    def _is_harmless_to_reach(self, *, member: str, reached: str) -> bool:
+        """True when *reached* already imports *member*, or is a package file importing nothing."""
+        if reached.endswith(f"/{PACKAGE_FILE}") and not self.imports.get(reached):
+            return True
+        return self.can_reach(start=reached, goal=member)
 
     def _find_outside_path(self, *, member: str, group: frozenset[str]) -> str | None:
         first = [target for target in self.imports.get(member, ()) if target not in group]
@@ -100,7 +107,7 @@ class ModuleGraph:
             current = stack.pop()
             for target in self.imports.get(current, ()):
                 if target in group:
-                    if target != member and not self.can_reach(start=target, goal=member):
+                    if not self._is_harmless_to_reach(member=member, reached=target):
                         return entry_of[current]
                     continue
                 if target not in entry_of:
@@ -164,7 +171,7 @@ def _resolve_relative_target(*, node: ModuleNode, imported: ImportedModule) -> s
     if not node.is_package:
         base = base[:-1]
     climb = imported.level - 1
-    if climb > len(base):
+    if climb >= len(base):
         return None
     base = base[: len(base) - climb]
     return ".".join([*base, imported.module] if imported.module else base)
@@ -192,6 +199,28 @@ def _resolve_import(*, node: ModuleNode, imported: ImportedModule, table: _NameT
     return _look_up_in_root(names=names, submodules=submodules, prefixes=prefixes)
 
 
+def _list_executed_ancestors(
+    *,
+    target: ModuleNode,
+    importer: ModuleNode,
+    table: _NameTable,
+) -> set[str]:
+    """The package ``__init__.py`` files Python runs on the way to *target*.
+
+    Importing ``app.other.x`` runs ``app/__init__.py`` and
+    ``app/other/__init__.py`` first. The importer's own ancestors are left out:
+    they are already being imported by the time the importer runs.
+    """
+    names = table.by_root.get(target.root, {})
+    own: set[str] = set()
+    if importer.root == target.root:
+        importer_parts = importer.dotted.split(".")
+        own = {".".join(importer_parts[:end]) for end in range(1, len(importer_parts) + 1)}
+    parts = target.dotted.split(".")
+    prefixes = (".".join(parts[:end]) for end in range(1, len(parts)))
+    return {names[prefix] for prefix in prefixes if prefix not in own and prefix in names}
+
+
 def _build_name_table(
     *,
     modules: list[Module],
@@ -214,7 +243,7 @@ def _build_name_table(
             relative=relative,
             root=root,
             dotted=dotted,
-            is_package=relative.rsplit("/", 1)[-1] == _PACKAGE_FILE,
+            is_package=relative.rsplit("/", 1)[-1] == PACKAGE_FILE,
         )
         by_root[root][dotted] = relative
         roots_of[dotted].add(root)
@@ -225,13 +254,30 @@ def _build_name_table(
     return nodes, table
 
 
+def _collect_targets(
+    *,
+    module: Module,
+    node: ModuleNode,
+    nodes: Mapping[str, ModuleNode],
+    table: _NameTable,
+) -> set[str]:
+    """Every in-tree module importing *module* runs: what it names and their packages."""
+    found: set[str] = set()
+    for imported in module.imports:
+        for target in _resolve_import(node=node, imported=imported, table=table):
+            found.add(target)
+            found |= _list_executed_ancestors(target=nodes[target], importer=node, table=table)
+    found.discard(node.relative)
+    return found
+
+
 def build_module_graph(*, modules: Iterable[Module]) -> ModuleGraph:
     """Resolve every import of *modules* to the in-tree modules it names."""
     listed = list(modules)
     packages = frozenset(
         module.relative.rsplit("/", 1)[0]
         for module in listed
-        if module.relative.endswith(f"/{_PACKAGE_FILE}")
+        if module.relative.endswith(f"/{PACKAGE_FILE}")
     )
     nodes, table = _build_name_table(modules=listed, packages=packages)
     importers: dict[str, set[str]] = defaultdict(set)
@@ -240,11 +286,9 @@ def build_module_graph(*, modules: Iterable[Module]) -> ModuleGraph:
         node = nodes.get(module.relative)
         if node is None:
             continue
-        for imported in module.imports:
-            for target in _resolve_import(node=node, imported=imported, table=table):
-                if target != node.relative:
-                    importers[target].add(node.relative)
-                    imports[node.relative].add(target)
+        for target in _collect_targets(module=module, node=node, nodes=nodes, table=table):
+            importers[target].add(node.relative)
+            imports[node.relative].add(target)
     return ModuleGraph(
         nodes=nodes,
         packages=packages,

@@ -767,8 +767,10 @@ code needs, with a merge budget below this warning so the two never disagree.
 
 Opt-in (`enabled = true`); the `strict` profile turns it on. Advisory: a
 warning that keeps exit 0, and it stays a warning under `promote = ["ALL"]`
-(so under `strict` too); only `promote = ["SHALLOW-001"]` or `["SHALLOW"]`
-makes it an error.
+(so under `strict` too); only a `promote` entry naming `SHALLOW-001` or
+`SHALLOW` makes it an error. Under `strict` write `promote = ["ALL", "SHALLOW"]`:
+a local `promote` replaces the profile's `["ALL"]`, so `["SHALLOW"]` alone would
+stop promoting everything else.
 
 **What it flags.** A leaf package whose modules are mostly tiny and which,
 taken together, would fit in one module well under SIZE-001's warning. The
@@ -802,9 +804,11 @@ a shallow module, and splitting into many of them multiplies interfaces
 longer pays for itself [@fowler2018refactoring, ch. 3]. Modules that are always
 used together are better together [@ousterhout2018philosophy, ch. 9], and a
 module boundary earns its place by the design decision it hides, not by a
-size [@parnas1972criteria]. Splitting has a reading cost too: in an
-eye-tracking study, extracted code made simple tasks slower as readers moved
-back and forth between call sites and definitions [@dacosta2026extract].
+size [@parnas1972criteria]. Splitting has a reading cost too, though the
+evidence is about methods, not modules: in an eye-tracking study of novice Java
+readers, Extract Method cut task time by up to 78.8% on the harder tasks and
+raised it by up to 166.9% on simple ones, as readers moved back and forth
+between call sites and the extracted methods [@dacosta2026extract].
 
 **What it does not judge.** It measures size and count, not the interface
 itself. There is no rule against short functions: SIZE-002 stands, and the
@@ -869,21 +873,31 @@ removes in apps A would also close a new import cycle.
 
 **Where the fix merges.** The first matching case wins:
 
-1. **A directory another rule locates files by: fold inside it.** The target
-   is the largest member (ties broken by path), never `__init__.py`, and the
-   directory stays. In the ports directory a member PORT-002 expects no adapter
-   for (`repositories.py`, `unit_of_work.py`, `otel.py`, `metrics.py`) is not
-   the target while another member is.
-2. **A junk name** (`utils/`, `helpers/`, `common/`, `misc/`...): one module in
+1. **A directory another rule reads by path, or a package anywhere under one:
+   fold inside it.** The target is the largest member (ties broken by path),
+   never `__init__.py`, and the directory stays. Collapsing it into a module
+   would move code those rules read by where it sits: helpers under an adapter
+   root would become an adapter file PORT-001 checks, and a package under
+   `application/services` would become a service module TESTFILE-001 wants a
+   test for. In the ports directory itself a member PORT-002 expects no
+   adapter for (`repositories.py`, `unit_of_work.py`, `otel.py`, `metrics.py`)
+   is not the target while another member is.
+2. **A package holding files that are not members: fold inside**, as in case 1.
+   A composition root, `__main__.py`, a script, a test module or a re-export
+   shim stays where it is, and the fix names it; a re-export `__init__.py`
+   alone does not count.
+3. **A junk name** (`utils/`, `helpers/`, `common/`, `misc/`...): one module in
    the parent, named for what it holds, never `utils.py`, which NAMING-010
    would flag.
-3. **A top-level package, or a package beside a module of its own name: fold
+4. **A top-level package, or a package beside a module of its own name: fold
    inside**, as in case 1. A top-level name is what installers and entry points
    use.
-4. **Otherwise** the package becomes the module `<package>.py`, which keeps its
+5. **Otherwise** the package becomes the module `<package>.py`, which keeps its
    import path: imports of `pkg.sub.<module>` become `pkg.sub`.
 
-A package is in case 1 when it is, or ends with, one of these directories:
+A package is in case 1 when it is one of these directories, at any depth, or
+sits anywhere under one. When it is one, the table's reason is given; when it
+sits under several, the deepest names the reason:
 
 | Directory | Read from | Why it stays |
 |---|---|---|
@@ -896,8 +910,9 @@ A package is in case 1 when it is, or ends with, one of these directories:
 | `api/v1/endpoints` | fixed | NAMING-003 matches endpoint modules under it |
 | `api/v1/endpoints`, `application/services`, `application/commands`, `application/queries`, `infrastructure/repositories`, `infrastructure/signing`, `infrastructure/secrets` | fixed | TESTFILE-001 pairs their modules with tests |
 
-**Following the fix never trips another rule.** Let `W` be SIZE-001's
-effective warning and `B` two thirds of it, rounded down. The rule fires only
+**What following the fix keeps legal, and its limits.** Let `W` be SIZE-001's
+effective warning and `B` two thirds of it, rounded down, both read from the
+root config. The rule fires only
 when the members total at most `B`, and merging moves code without adding a
 counted line, so the merged module stays under `W` and SIZE-001 is silent on
 it. The package then has one member (or is gone), so SHALLOW-001 is silent
@@ -906,11 +921,26 @@ removes a module, so the sequence ends. A split SIZE-001 asks for keeps at
 least `W` lines, more than `B`, so it never trips SHALLOW-001; between `B` and
 `W` lies a quiet band of a third of `W` (100 lines at the defaults) where
 neither rule speaks. Whole modules move with their functions and classes, so
-SIZE-002, SIZE-003, COMPLEXITY-001 and PARAM-001 see no change. Rule-located
-directories stay, composition roots are never members, junk names are not
-carried into a module, and a merge that would close a new import cycle is not
-proposed, so no LAYER, PORT, AUTHN, NAMING or IMPORT finding is created by
-following it.
+SIZE-002, SIZE-003, COMPLEXITY-001 and PARAM-001 see no change. Directories
+other rules read by path stay, with every package under them; files that are
+not members stay, so their directory does; junk names are not carried into a
+module; and a merge that would close a new import cycle among the imports the
+graph resolves is not proposed. The unit tests follow the fix on generated
+trees and on hexagonal replicas and count every code under the default rule
+set and under `strict`: none fires more often afterwards. The limits:
+
+- Only the root config is read, like every whole-tree check: a nested region
+  that lowers `file_warn_lines`, or renames a layer, is not seen.
+- Only the seven mirrored keys follow a project's own settings. The
+  directories NAMING-001..003 and TESTFILE-001 read and the port files PORT-002
+  expects no adapter for are the built-in lists, so a custom
+  `ports_without_impl` or test layout is not known.
+- The cycle guard sees the imports the graph resolves: every static import,
+  and each package `__init__.py` it runs (one that imports nothing has run
+  before its package's modules and closes no cycle). Imports from strings
+  (`importlib`) and through namespace packages are not seen.
+- It does not check that the merged modules' top-level names are distinct, or
+  rewrite imports and tests; following the fix means doing both.
 
 **Configuration.**
 
@@ -943,13 +973,21 @@ the suppressions check counts that comment against the SUPPRESS-001 budget
 
 **Measured.** The rates per 1,000 lines on the corpora above are 0 on
 libraries, 0.005 on applications, 1.87 on the LaNorme arm of the A/B
-experiment (10 findings in 8 of 9 snapshots) and 0 on the control arm. The
-labelled corpus (`evals/corpora/shallow_modules/`, dev split; the holdout is
-built separately) scores precision 0.783, recall 0.783 and F1 0.783. Its false
-positives are contested conventions labelled false: a FastAPI router per
-resource, a use case per module, per-environment settings. Its misses are a
-two-module package below `min_modules`, three packages the repeated-layout
-condition removes, and a 201-line package just over the budget.
+experiment (10 findings in 8 of 9 snapshots) and 0 on the control arm. On the
+labelled corpus (`evals/corpora/shallow_modules/`):
+
+| Split | Precision | Recall | F1 |
+|---|---|---|---|
+| dev (tuned against) | 0.783 | 0.783 | 0.783 |
+| holdout (sealed, labelled blind) | 0.571 | 0.400 | 0.471 |
+| gap, dev minus holdout | 0.211 | 0.383 | 0.312 |
+
+The gap is large: the dev numbers overstate how the rule does on unseen code.
+On dev, the false positives are contested conventions labelled false (a
+FastAPI router per resource, a use case per module, per-environment settings),
+and the misses are a two-module package below `min_modules`, three packages the
+repeated-layout condition removes, and a 201-line package just over the
+budget.
 
 **Limits.**
 

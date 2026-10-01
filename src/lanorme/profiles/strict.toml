@@ -29,7 +29,8 @@
 # Every warning (advisory rules such as TYPE-004 and SIMILAR-001, plus the
 # size and placeholder-type warnings) becomes a build-failing error. A rule its
 # check declares advisory by nature (SHALLOW-001, a question about a design
-# choice) stays a warning; name it in a local `promote` to escalate it.
+# choice) stays a warning. To escalate it too, set a local
+# `promote = ["ALL", "SHALLOW"]`: a local `promote` replaces this one.
 promote = ["ALL"]
 
 # Opt-in checks, switched on. Each keeps its shipped defaults; the comments

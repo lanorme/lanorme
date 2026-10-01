@@ -13,8 +13,10 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
 
 - The `shallow_modules` check (`SHALLOW-001`), off by default: it asks whether
   a small leaf package split into many tiny modules is really several things,
-  with each module's size, the total and the module to merge into, sized under
-  SIZE-001's warning so following it never trips SIZE-001. It is advisory: a
+  with each module's size, the total and the module to merge into. The merge
+  is sized under SIZE-001's warning (as the root config sets it) and keeps the
+  directories other rules read by path and the files that are not members; see
+  `docs/RULES.md` for what it keeps legal and its limits. It is advisory: a
   warning that `promote = ["ALL"]` leaves alone. Silence a deliberate split
   with `per-file-ignores` on the package's `__init__.py` or `# noqa:
   SHALLOW-001` on its line 1.
@@ -29,9 +31,10 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
   `file_error_lines` from `[file_limits]`, `layers` and `composition_root` from
   `[layer_deps]`, and `ports_dir`, `adapter_roots` and `composition_root` from
   `[port_coverage]` (profiles included), unless its own table sets them.
-- A labelled corpus (`evals/corpora/shallow_modules/`, dev split) and its
-  scorer (`evals/score_shallow001.py`), which run the check once per small
-  project under `cases/`.
+- A labelled corpus (`evals/corpora/shallow_modules/`) and its scorer
+  (`evals/score_shallow001.py`), which runs the check once per small project
+  under `cases/`. Dev: precision 0.783, recall 0.783, F1 0.783; sealed
+  holdout: precision 0.571, recall 0.400, F1 0.471 (gap 0.211, 0.383, 0.312).
 
 ### Changed
 

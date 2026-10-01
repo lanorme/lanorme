@@ -27,9 +27,9 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 
 from lanorme.checks.file_limits import EXCLUDED_DIR_PARTS
-from lanorme.checks.merge_targets import PACKAGE_FILE, PackageMember
+from lanorme.checks.merge_targets import PackageMember
 from lanorme.line_counts import count_code_lines
-from lanorme.module_graph import ModuleGraph, build_module_graph, is_reexport_only
+from lanorme.module_graph import PACKAGE_FILE, ModuleGraph, build_module_graph, is_reexport_only
 from lanorme.paths import is_test_file
 from lanorme.scan import Scan
 from lanorme.sources import Module, iter_modules
@@ -66,6 +66,7 @@ class ScannedTree:
     by_directory: dict[str, list[Module]]
     broken_directories: set[str]
     relatives: frozenset[str]
+    reexport_only: dict[str, bool] = field(default_factory=dict)
     code_lines: dict[str, int] = field(default_factory=dict)
     sibling_stems: dict[str, frozenset[str]] | None = None
 
@@ -84,10 +85,11 @@ def read_scanned_tree(*, scan: Scan) -> ScannedTree:
     """
     modules: list[Module] = []
     broken: set[str] = set()
+    reexport_only: dict[str, bool] = {}
     for module in iter_modules(scan.root):
         if isinstance(module, Module):
             try:
-                is_reexport_only(tree=module.tree)
+                reexport_only[module.relative] = is_reexport_only(tree=module.tree)
             except RecursionError:
                 broken.add(find_directory(module.relative))
                 continue
@@ -102,14 +104,19 @@ def read_scanned_tree(*, scan: Scan) -> ScannedTree:
         by_directory=dict(by_directory),
         broken_directories=broken,
         relatives=frozenset(module.relative for module in modules),
+        reexport_only=reexport_only,
     )
 
 
 def is_skipped_package(*, package: str, tree: ScannedTree) -> bool:
-    """Migrations, alembic, test packages and packages holding an unparseable file."""
+    """Migrations, alembic and packages holding an unparseable file.
+
+    A test package needs no rule of its own: its modules are test files, which
+    are never members.
+    """
     if any(part in EXCLUDED_DIR_PARTS for part in package.split("/")):
         return True
-    return is_test_file(f"{package}/{PACKAGE_FILE}") or package in tree.broken_directories
+    return package in tree.broken_directories
 
 
 def _is_exempting_file(module: Module) -> bool:
@@ -122,7 +129,7 @@ def _is_exempting_file(module: Module) -> bool:
     return GENERATED_MARKER in "\n".join(module.lines[:HEADER_LINES]).lower()
 
 
-def _is_member(*, module: Module, composition_globs: tuple[str, ...]) -> bool:
+def _is_member(*, module: Module, composition_globs: tuple[str, ...], tree: ScannedTree) -> bool:
     """True for a module that is part of the package's own code.
 
     ``__init__.py`` is a member when it holds more than re-exports. Tests,
@@ -138,13 +145,14 @@ def _is_member(*, module: Module, composition_globs: tuple[str, ...]) -> bool:
             for pattern in composition_globs
         ):
             return False
-    return not is_reexport_only(tree=module.tree)
+    return not tree.reexport_only[relative]
 
 
 def collect_package_members(
     *,
     modules: list[Module],
     composition_globs: tuple[str, ...],
+    tree: ScannedTree,
 ) -> list[Module] | None:
     """The modules of one package that count towards its split; ``None`` when it is exempt."""
     if any(_is_exempting_file(module) for module in modules):
@@ -152,17 +160,18 @@ def collect_package_members(
     return [
         module
         for module in modules
-        if _is_member(module=module, composition_globs=composition_globs)
+        if _is_member(module=module, composition_globs=composition_globs, tree=tree)
     ]
 
 
 @dataclass(frozen=True)
 class PackageCandidate:
-    """A package under review: every module directly in it, and its sized members."""
+    """A package under review: every module directly in it, its sized members, its tiny count."""
 
     package: str
     modules: list[Module]
     members: list[PackageMember]
+    tiny_count: int = 0
 
 
 def is_reachable(*, candidate: PackageCandidate, tree: ScannedTree) -> bool:
@@ -230,3 +239,16 @@ def is_structurally_shallow(*, candidate: PackageCandidate, tree: ScannedTree) -
         return False
     group = frozenset(module.relative for module in candidate.modules)
     return tree.graph.find_cycle_through(group=group) is None
+
+
+def list_staying_files(*, candidate: PackageCandidate, tree: ScannedTree) -> tuple[str, ...]:
+    """The files of the package that are not members and stay put, a re-export ``__init__.py`` aside."""
+    members = {member.relative for member in candidate.members}
+    return tuple(
+        module.relative.rsplit("/", 1)[-1]
+        for module in sorted(candidate.modules, key=lambda module: module.relative)
+        if module.relative not in members
+        and not (
+            module.relative.endswith(f"/{PACKAGE_FILE}") and tree.reexport_only[module.relative]
+        )
+    )

@@ -47,7 +47,6 @@ from lanorme.checkconfig import is_flag_set, read_int, read_str, read_str_list
 from lanorme.checks.file_limits import FILE_ERROR_LINES, FILE_WARN_LINES
 from lanorme.checks.layer_deps import COMPOSITION_ROOT_GLOBS, LAYERS
 from lanorme.checks.merge_targets import (
-    PACKAGE_FILE,
     TINY_CODE_LINES,
     FixContext,
     PackageMember,
@@ -55,7 +54,7 @@ from lanorme.checks.merge_targets import (
     build_fix,
     build_message,
     choose_merge_target,
-    list_rule_located_directories,
+    list_directories_read_by_path,
 )
 from lanorme.checks.package_members import (
     PackageCandidate,
@@ -64,6 +63,7 @@ from lanorme.checks.package_members import (
     find_directory,
     is_skipped_package,
     is_structurally_shallow,
+    list_staying_files,
     read_scanned_tree,
 )
 from lanorme.checks.port_coverage import (
@@ -72,6 +72,7 @@ from lanorme.checks.port_coverage import (
     DEFAULT_PORTS_DIR,
 )
 from lanorme.line_counts import count_effective_lines
+from lanorme.module_graph import PACKAGE_FILE
 from lanorme.scan import Scan
 
 DEFAULT_MIN_MODULES = 3
@@ -148,7 +149,7 @@ class ShallowModulesCheck:
         """The package's members, when there are enough of them, small enough and mostly tiny."""
         modules = tree.by_directory.get(package, [])
         globs = (*self.layer_composition_root, *self.port_composition_root)
-        found = collect_package_members(modules=modules, composition_globs=globs)
+        found = collect_package_members(modules=modules, composition_globs=globs, tree=tree)
         if found is None or len(found) < self.min_modules:
             return None
         sized = [(module, count_effective_lines(source=module.source)) for module in found]
@@ -161,7 +162,7 @@ class ShallowModulesCheck:
         tiny = sum(1 for member in members if member.code_lines < TINY_CODE_LINES)
         if 2 * tiny < len(members):
             return None
-        return PackageCandidate(package=package, modules=modules, members=members)
+        return PackageCandidate(package=package, modules=modules, members=members, tiny_count=tiny)
 
     def _build_finding(self, *, candidate: PackageCandidate, tree: ScannedTree) -> Violation:
         package = candidate.package
@@ -170,8 +171,9 @@ class ShallowModulesCheck:
             package=package,
             is_top_level=parent not in tree.graph.packages,
             has_sibling_module=f"{package}.py" in tree.relatives,
+            staying_files=list_staying_files(candidate=candidate, tree=tree),
         )
-        directories = list_rule_located_directories(
+        directories = list_directories_read_by_path(
             layers=self.layers,
             ports_directory=self.ports_dir,
             adapter_roots=self.adapter_roots,
@@ -188,12 +190,15 @@ class ShallowModulesCheck:
             members=candidate.members,
             warning_lines=min(self.file_warn_lines, self.file_error_lines),
         )
-        tiny = sum(1 for member in candidate.members if member.code_lines < TINY_CODE_LINES)
         return Violation(
             file=f"{package}/{PACKAGE_FILE}",
             line=1,
             rule="SHALLOW-001",
-            message=build_message(package=package, members=candidate.members, tiny_count=tiny),
+            message=build_message(
+                package=package,
+                members=candidate.members,
+                tiny_count=candidate.tiny_count,
+            ),
             fix=build_fix(context=context, target=target),
         )
 

@@ -2,20 +2,23 @@
 
 A helper of the ``shallow_modules`` check; it registers nothing. The merge it
 suggests must stay legal under every other LaNorme rule, so the target depends
-on how the package's directory is used:
+on how the package's directory is used. The first matching case wins:
 
-1. **Rule-located directory: fold inside it.** Other rules find files by these
-   directory names (the ``[layer_deps]`` layers, the ``[port_coverage]`` ports
-   directory and adapter roots, the ``api/`` AUTHN-001 scans, the directories
-   NAMING-001..003 and TESTFILE-001 read). Collapsing one into a module would
-   take its code out of those rules, so the target is its largest member and
-   the directory stays.
-2. **Junk name** (``utils/``, ``common/``): one module in the parent, named for
-   what it holds. The junk name is never carried into a file, which NAMING-010
-   would flag.
-3. **Top-level package, or a sibling module of the same name: fold inside.** A
-   top-level name is what installers and entry points use.
-4. **Otherwise** the package becomes the module ``<package>.py``, which keeps
+1. **A directory another rule reads by path, or a package under one: fold
+   inside.** The ``[layer_deps]`` layers, the ``[port_coverage]`` ports
+   directory and adapter roots, the ``api/`` AUTHN-001 scans and the
+   directories NAMING-001..003 and TESTFILE-001 read find files by where they
+   sit. Collapsing the package into a module would move its code, so the
+   target is its largest member and the directory stays.
+2. **A package holding files that are not members: fold inside.** A
+   composition root, ``__main__.py``, a script, a test module or a re-export
+   shim stays where it is, so the directory does too.
+3. **A junk name** (``utils/``, ``common/``): one module in the parent, named
+   for what it holds. The junk name is never carried into a file, which
+   NAMING-010 would flag.
+4. **A top-level package, or a sibling module of the same name: fold inside.**
+   A top-level name is what installers and entry points use.
+5. **Otherwise** the package becomes the module ``<package>.py``, which keeps
    its import path.
 """
 
@@ -28,14 +31,13 @@ from lanorme.checks.naming_consistency import ENDPOINT_DIRS, REPO_DIRS, SERVICE_
 from lanorme.checks.naming_words import JUNK_MODULES
 from lanorme.checks.port_coverage import PORT_FILES_WITHOUT_SERVICE_IMPL
 from lanorme.checks.test_coverage import TESTABLE_DIRS
+from lanorme.module_graph import PACKAGE_FILE
 
 # A member below this many lines of code (docstrings left out) is tiny.
 TINY_CODE_LINES = 20
 
 # How many members a finding names before it says "and N more".
 MAX_LISTED_MEMBERS = 6
-
-PACKAGE_FILE = "__init__.py"
 
 # The directory AUTHN-001 reads endpoints from.
 _AUTHENTICATED_DIRECTORY = "api"
@@ -61,10 +63,11 @@ class PackageMember:
 
 
 @dataclass(frozen=True)
-class RuleLocatedDirectory:
-    """A directory another rule finds files by, and why, as the fix words it."""
+class DirectoryReadByPath:
+    """A directory another rule finds files by, what reads it, and why it stays, as the fix says."""
 
     path: str
+    reader: str
     reason: str
     is_ports_directory: bool = False
 
@@ -83,56 +86,82 @@ NAMED_FOR_CONTENTS = "named for contents"
 PACKAGE_MODULE = "package module"
 
 
-def list_rule_located_directories(
+# Directories fixed in other checks, with the rule that reads each and why.
+_FIXED_DIRECTORIES: tuple[tuple[tuple[str, ...], str, str], ...] = (
+    ((_AUTHENTICATED_DIRECTORY,), "AUTHN-001", "AUTHN-001 checks the endpoints under it"),
+    (REPO_DIRS, "NAMING-001", "NAMING-001 matches repository modules under it"),
+    (SERVICE_DIRS, "NAMING-002", "NAMING-002 matches service modules under it"),
+    (ENDPOINT_DIRS, "NAMING-003", "NAMING-003 matches endpoint modules under it"),
+    (
+        tuple(path for path, _prefix in TESTABLE_DIRS),
+        "TESTFILE-001",
+        "TESTFILE-001 pairs its modules with tests",
+    ),
+)
+
+
+def list_directories_read_by_path(
     *,
     layers: Iterable[str],
     ports_directory: str,
     adapter_roots: Iterable[str],
-) -> tuple[RuleLocatedDirectory, ...]:
-    """Every directory a rule locates files by, in the order the reason is chosen."""
-    found = [
-        RuleLocatedDirectory(path=layer, reason="[layer_deps] layers names it") for layer in layers
+) -> tuple[DirectoryReadByPath, ...]:
+    """Every directory another rule reads by path, in the order the reason is chosen."""
+    configured = [
+        *((layer, "[layer_deps] layers") for layer in layers),
+        (ports_directory, "[port_coverage] ports_dir"),
+        *((root, "[port_coverage] adapter_roots") for root in adapter_roots),
     ]
-    found.append(
-        RuleLocatedDirectory(
-            path=ports_directory,
-            reason="[port_coverage] ports_dir names it",
-            is_ports_directory=True,
-        ),
-    )
+    found = [
+        DirectoryReadByPath(
+            path=path,
+            reader=reader,
+            reason=f"{reader} names it",
+            is_ports_directory=reader.endswith("ports_dir"),
+        )
+        for path, reader in configured
+    ]
     found.extend(
-        RuleLocatedDirectory(path=root, reason="[port_coverage] adapter_roots names it")
-        for root in adapter_roots
+        DirectoryReadByPath(path=path, reader=reader, reason=reason)
+        for directories, reader, reason in _FIXED_DIRECTORIES
+        for path in directories
     )
-    found.append(
-        RuleLocatedDirectory(
-            path=_AUTHENTICATED_DIRECTORY,
-            reason="AUTHN-001 checks the endpoints under it",
-        ),
-    )
-    for directories, reason in (
-        (REPO_DIRS, "NAMING-001 matches repository modules under it"),
-        (SERVICE_DIRS, "NAMING-002 matches service modules under it"),
-        (ENDPOINT_DIRS, "NAMING-003 matches endpoint modules under it"),
-        (
-            tuple(path for path, _prefix in TESTABLE_DIRS),
-            "TESTFILE-001 pairs its modules with tests",
-        ),
-    ):
-        found.extend(RuleLocatedDirectory(path=path, reason=reason) for path in directories)
     return tuple(found)
 
 
-def find_rule_located_directory(
+def _find_exact_directory(
     *,
     package: str,
-    directories: tuple[RuleLocatedDirectory, ...],
-) -> RuleLocatedDirectory | None:
-    """The first rule-located directory *package* is, at any depth, or ``None``."""
+    directories: tuple[DirectoryReadByPath, ...],
+) -> DirectoryReadByPath | None:
     for directory in directories:
-        if package == directory.path or package.endswith(f"/{directory.path}"):
+        if directory.path and (package == directory.path or package.endswith(f"/{directory.path}")):
             return directory
     return None
+
+
+def find_directory_read_by_path(
+    *,
+    package: str,
+    directories: tuple[DirectoryReadByPath, ...],
+) -> tuple[DirectoryReadByPath, str] | None:
+    """The directory read by path that *package* is, or else sits under, and its full path.
+
+    The directory may appear at any depth (``src/app/domain``) and the package
+    anywhere below it (``app/infrastructure/services/retrying``). A package
+    that is such a directory wins over one it merely sits under, and among the
+    directories it sits under the deepest names the reason.
+    """
+    exact = _find_exact_directory(package=package, directories=directories)
+    if exact is not None:
+        return exact, package
+    padded = f"/{package}/"
+    enclosing = [
+        (directory, padded[1 : padded.rfind(f"/{directory.path}/") + len(directory.path) + 1])
+        for directory in directories
+        if directory.path and f"/{directory.path}/" in padded
+    ]
+    return max(enclosing, key=lambda found: len(found[1]), default=None)
 
 
 def _choose_largest_member(
@@ -152,38 +181,57 @@ def _choose_largest_member(
 
 @dataclass(frozen=True)
 class PackagePlacement:
-    """What the target choice needs to know about where a package sits."""
+    """What the target choice needs to know about where a package sits and what it holds."""
 
     package: str
     is_top_level: bool
     has_sibling_module: bool
+    staying_files: tuple[str, ...] = ()
+
+
+def _find_fold_reason(*, placement: PackagePlacement) -> str | None:
+    """Why the package keeps its directory, when nothing but its own name would move."""
+    package = placement.package
+    if placement.staying_files:
+        staying = join_in_english(names=list(placement.staying_files))
+        verb = "stays" if len(placement.staying_files) == 1 else "stay"
+        return f"{staying} {verb} in it"
+    if package.rsplit("/", 1)[-1] in JUNK_MODULES:
+        return None
+    if placement.is_top_level:
+        return "it is a top-level package, the name installers and entry points use"
+    if placement.has_sibling_module:
+        return f"'{package}.py' already exists beside it"
+    return None
 
 
 def choose_merge_target(
     *,
     placement: PackagePlacement,
     members: list[PackageMember],
-    directories: tuple[RuleLocatedDirectory, ...],
+    directories: tuple[DirectoryReadByPath, ...],
 ) -> MergeTarget:
     """The target the fix names for *placement*'s package; the first matching case wins."""
     package = placement.package
-    located = find_rule_located_directory(package=package, directories=directories)
-    if located is not None:
+    found = find_directory_read_by_path(package=package, directories=directories)
+    if found is not None:
+        directory, anchor = found
         path = _choose_largest_member(
             members=members,
-            avoid_ports_without_adapter=located.is_ports_directory,
+            avoid_ports_without_adapter=directory.is_ports_directory and anchor == package,
         )
-        return MergeTarget(kind=FOLD_INSIDE, path=path, reason=located.reason)
-    if package.rsplit("/", 1)[-1] in JUNK_MODULES:
-        return MergeTarget(kind=NAMED_FOR_CONTENTS)
-    if placement.is_top_level or placement.has_sibling_module:
         reason = (
-            "it is a top-level package, the name installers and entry points use"
-            if placement.is_top_level
-            else f"'{package}.py' already exists beside it"
+            directory.reason
+            if anchor == package
+            else f"it sits under '{anchor}/', which {directory.reader} reads by path"
         )
+        return MergeTarget(kind=FOLD_INSIDE, path=path, reason=reason)
+    reason = _find_fold_reason(placement=placement)
+    if reason is not None:
         path = _choose_largest_member(members=members, avoid_ports_without_adapter=False)
         return MergeTarget(kind=FOLD_INSIDE, path=path, reason=reason)
+    if package.rsplit("/", 1)[-1] in JUNK_MODULES:
+        return MergeTarget(kind=NAMED_FOR_CONTENTS)
     return MergeTarget(kind=PACKAGE_MODULE, path=f"{package}.py")
 
 

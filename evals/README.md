@@ -42,8 +42,8 @@ SIMILAR-001 and DRY-001.
 A rule that judges a file against the rest of its project (SHALLOW-001 reads
 who imports each module and which sibling packages repeat a layout) needs whole
 projects, not lone files. Its corpus keeps one small project per directory
-under `cases/` (`dev/cases/<case>/...`, and `holdout/cases/<case>/...` once a
-holdout exists), and its scorer runs the check once per case, so two cases
+under `cases/` (`dev/cases/<case>/...` and `holdout/cases/<case>/...`), and
+its scorer runs the check once per case, so two cases
 that share package names never see each other. The directory is `cases/`, not
 `positives/` or `negatives/`, because a case holds both. Every file of a case
 records the same `split` by hand, so a case is never scattered across the two
@@ -68,8 +68,7 @@ A corpus with no holdout file reports dev numbers only (`"split": "dev_only"`
 in the audit record) and nothing gates it. Today that is the five naming
 corpora (`naming_command`, `naming_every_verb`, `naming_scope`,
 `naming_verb_class`, `naming_weak_verb`), two files each, all tuned against, so
-NAMING-005 to NAMING-011 have dev numbers only, and `shallow_modules`, whose
-sealed holdout is built and labelled apart from the rule. Some of their files' names
+NAMING-005 to NAMING-011 have dev numbers only. Some of their files' names
 propose holdout; their recorded `dev` keeps them out of it, since a tuned file
 in the holdout would grade the rule on data it was fitted to.
 
@@ -78,8 +77,16 @@ is sealed: a change to a rule's thresholds or source must not touch that rule's
 holdout files (see [`CONTRIBUTING.md`](../CONTRIBUTING.md)). The files in the
 corpora before the split were all visible while their rules were tuned, so for
 them the holdout is a random slice, not unseen data: it guards future changes
-and, today, mostly reproduces dev. The generated cases are the only holdout no
-rule has been tuned against yet.
+and, today, mostly reproduces dev. The generated cases, and the
+`shallow_modules` holdout, are the holdout no rule has been tuned against: that
+holdout was built and labelled by a separate session before SHALLOW-001 ran on
+it. There the gap shows:
+
+| SHALLOW-001 | Precision | Recall | F1 |
+|---|---|---|---|
+| dev | 0.783 | 0.783 | 0.783 |
+| holdout | 0.571 | 0.400 | 0.471 |
+| gap | 0.211 | 0.383 | 0.312 |
 
 ## Labels and provenance
 
