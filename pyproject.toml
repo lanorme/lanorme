@@ -70,7 +70,7 @@ include = [
 [tool.ruff]
 line-length = 100
 target-version = "py313"
-extend-exclude = ["tests/fixtures", "evals/corpora", "evals/articulacy/runs", "evals/articulacy/runs_control", "evals/readability/runs", "benchmarks/.corpora"]
+extend-exclude = ["tests/fixtures", "evals/corpora", "evals/articulacy/runs", "evals/articulacy/runs_control", "evals/readability/runs", "benchmarks/.corpora", "experiments/agent-ab/runs"]
 
 [tool.ruff.lint]
 select = ["COM", "F401"]
@@ -91,6 +91,7 @@ exclude = [
     "evals/readability/runs/*",  # verbatim model output, the readability eval subject
     "evals/articulacy/runs/*",   # verbatim model output, the articulacy eval subject
     "evals/articulacy/runs_control/*",  # ditto, the no-report-requested control arm
+    "experiments/agent-ab/runs/*",  # verbatim agent-written codebases, the A/B experiment subject
     "benchmarks/.corpora/*",     # downloaded third-party corpora
     ".claude/worktrees/*",       # nested git worktrees the Claude desktop app creates
     "evals/score_*.py",          # per-check scorers share boilerplate by design
