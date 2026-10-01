@@ -54,13 +54,15 @@ packages = ["src/lanorme"]
 "docs/RULES.md" = "lanorme/RULES.md"
 
 [tool.hatch.build.targets.sdist]
+# Patterns are gitignore-style: a bare file name matches at any depth, so each
+# is anchored to the root with "/" to keep corpora and experiments out.
 include = [
-    "src/lanorme",
-    "README.md",
-    "CHANGELOG.md",
-    "LICENSE",
-    "docs/RULES.md",
-    "pyproject.toml",
+    "/src/lanorme",
+    "/README.md",
+    "/CHANGELOG.md",
+    "/LICENSE",
+    "/docs/RULES.md",
+    "/pyproject.toml",
 ]
 
 # Ruff enforces the layout LaNorme does not judge: trailing commas on every
