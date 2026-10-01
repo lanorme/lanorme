@@ -29,9 +29,11 @@ reviews:
   suggested_reviewers: true
 
   # Verbatim corpora, fixtures, agent-written experiment output and generated
-  # files are inputs or outputs, not code to review.
+  # files are inputs or outputs, not code to review. A corpus's code is
+  # skipped but its labels.json stays in review, so a relabelled or added
+  # holdout file is seen.
   path_filters:
-    - "!evals/corpora/**"
+    - "!evals/corpora/**/*.py"
     - "!evals/results/**"
     - "!evals/articulacy/runs/**"
     - "!evals/articulacy/runs_control/**"

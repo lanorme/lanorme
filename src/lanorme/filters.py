@@ -201,7 +201,7 @@ def apply_promotions(
     *,
     results: list[CheckResult],
     promote: list[str],
-    advisory_codes: frozenset[str] = frozenset(),
+    advisory_codes: frozenset[str],
 ) -> list[CheckResult]:
     """Promote advisory warnings whose code matches *promote* into violations.
 
@@ -212,7 +212,8 @@ def apply_promotions(
     ``ignore`` / ``per-file-ignores`` / ``# noqa`` is gone and never promoted.
     The codes in *advisory_codes* (see
     :func:`lanorme.selectors.collect_advisory_codes`) stay
-    warnings under ``ALL`` and are promoted only when named.
+    warnings under ``ALL`` and are promoted only when named. It has no
+    default, so a caller cannot forget it and let ``ALL`` escalate them.
     """
     if not promote:
         return results

@@ -23,26 +23,36 @@ COMMENT_NAMING_LANORME = re.compile(r"\s*#[^\n]*lanorme[^\n]*", re.IGNORECASE)
 TEXT_SUFFIXES = {".py", ".md", ".toml", ".txt", ".cfg", ".ini", ".yaml", ".yml"}
 
 
-def strip_lanorme_text(path: Path) -> None:
-    """Remove every trace of LaNorme from one text file, in place."""
+def strip_lanorme_text(path: Path) -> list[str]:
+    """Remove every trace of LaNorme from one text file, in place.
+
+    In a Python file only comments are removed, since dropping a code line
+    would break the program; any mention left in code is returned for a
+    person to review. Other files lose every line that mentions LaNorme.
+    """
     text = path.read_text(encoding="utf-8", errors="replace")
     if path.name == "pyproject.toml":
         text = LANORME_TABLE.sub("", text)
     if path.suffix == ".py":
-        # Dropping a whole code line would break the program; drop only the comment.
         text = COMMENT_NAMING_LANORME.sub("", text)
+        path.write_text(text, encoding="utf-8")
+        return [line for line in text.splitlines() if "lanorme" in line.lower()]
     kept = [line for line in text.splitlines(keepends=True) if "lanorme" not in line.lower()]
     path.write_text("".join(kept), encoding="utf-8")
+    return []
 
 
 def copy_blinded(*, source: Path, target: Path) -> None:
-    """Copy one snapshot to target with LaNorme removed."""
+    """Copy one snapshot to target with LaNorme removed, warning on any mention left in code."""
     shutil.copytree(source, target, ignore=shutil.ignore_patterns(".venv", ".git", "__pycache__"))
     for name in DROPPED_FILES:
         (target / name).unlink(missing_ok=True)
     for path in target.rglob("*"):
         if path.is_file() and path.suffix in TEXT_SUFFIXES:
-            strip_lanorme_text(path)
+            for line in strip_lanorme_text(path):
+                print(
+                    f"warning: LaNorme still named in code, review by hand: {path}: {line.strip()}",
+                )
 
 
 def build_pairs(*, runs: Path, out: Path, seed: int) -> dict[str, dict[str, str]]:

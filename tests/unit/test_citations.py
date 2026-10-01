@@ -29,8 +29,13 @@ CITING_GLOBS = (
 # A bracketed group holding at least one "@", such as [@a; see @b, p. 3].
 CITATION_GROUP = re.compile(r"\[[^\[\]]*@[^\[\]]*\]")
 # Inside a group, a key follows "[", whitespace, ";" or the "-" that suppresses
-# the author; the lookbehind keeps an e-mail address from reading as a key.
-CITATION_KEY = re.compile(r"(?:(?<=\[)|(?<=[\s;-]))@([A-Za-z0-9_][\w:.\-]*\w)")
+# the author; the lookbehind keeps an e-mail address from reading as a key. As
+# in Pandoc, a key starts with a letter, digit or "_", may hold the internal
+# punctuation :.#$%&-+?<>~/ when a word character follows it, and may instead
+# be written in braces, @{key}.
+CITATION_KEY = re.compile(
+    r"(?:(?<=\[)|(?<=[\s;-]))@(?:\{([^{}\s]+)\}|(\w+(?:[:.#$%&\-+?<>~/]\w+)*))",
+)
 BIBTEX_ENTRY_KEY = re.compile(r"^@\w+\s*\{\s*([^,\s]+)\s*,", re.MULTILINE)
 
 
@@ -38,7 +43,7 @@ def find_citation_keys(text: str) -> set[str]:
     """Return every key cited in Pandoc citation syntax in *text*."""
     keys: set[str] = set()
     for group in CITATION_GROUP.findall(text):
-        keys.update(CITATION_KEY.findall(group))
+        keys.update(braced or bare for braced, bare in CITATION_KEY.findall(group))
     return keys
 
 
@@ -64,6 +69,14 @@ def test_find_citation_keys_reads_pandoc_syntax():
     keys = find_citation_keys(text)
 
     assert keys == {"ousterhout2018philosophy", "parnas1972criteria"}
+
+
+def test_find_citation_keys_reads_short_punctuated_and_braced_keys():
+    text = "See [@a], [@doe/99, p. 2], [@smith+jones], [@{https://doi.org/10.1/x}] and [@end.]."
+
+    keys = find_citation_keys(text)
+
+    assert keys == {"a", "doe/99", "smith+jones", "https://doi.org/10.1/x", "end"}
 
 
 def test_find_citation_keys_ignores_email_addresses_and_plain_brackets():

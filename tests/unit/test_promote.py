@@ -216,12 +216,12 @@ def test_an_advisory_code_is_promoted_only_when_named(promote: list[str], escala
     assert {w.code for w in promoted.warnings} == {"SHALLOW-001", "PARAM-001"} - escalated
 
 
-def test_without_advisory_codes_all_promotes_every_finding():
-    # Arrange: a library caller that passes no advisory codes keeps the old behaviour.
+def test_with_no_advisory_codes_all_promotes_every_finding():
+    # Arrange: a caller whose checks declare no advisory codes.
     result = _build_advisory_result()
 
     # Act
-    (promoted,) = apply_promotions(results=[result], promote=["ALL"])
+    (promoted,) = apply_promotions(results=[result], promote=["ALL"], advisory_codes=frozenset())
 
     # Assert
     assert {v.code for v in promoted.violations} == {"SHALLOW-001", "PARAM-001"}
