@@ -21,6 +21,7 @@ for k in $(seq 1 "$stage"); do
 done
 
 mkdir -p "$out"
+out=$(cd "$out" && pwd)
 cd "$dir"
 timeout 3600 claude -p "$(cat "$here/prompts/judge.md")" \
     --model "$model" \
