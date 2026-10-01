@@ -7,7 +7,18 @@
 # outside any repository, so the agent sees only its own CLAUDE.md. The stage
 # runs as a fresh headless Claude Code session; its transcript and the snapshot
 # land in experiments/agent-ab/runs/<ARM>-<N>/.
+#
+# The agent runs with permission prompts off, so it can run any command with
+# the invoking user's rights. Run this only in a disposable environment (a
+# throwaway container or virtual machine with no credentials you care about),
+# and confirm that by setting AGENT_AB_DISPOSABLE_ENVIRONMENT=1.
 set -euo pipefail
+
+if [[ ${AGENT_AB_DISPOSABLE_ENVIRONMENT:-} != 1 ]]; then
+    echo "run_stage.sh: agents run without permission prompts; run this only in a disposable" >&2
+    echo "environment and confirm it with AGENT_AB_DISPOSABLE_ENVIRONMENT=1" >&2
+    exit 2
+fi
 
 arm=$1 n=$2 stage=$3
 here=$(cd "$(dirname "$0")/.." && pwd)
@@ -44,7 +55,11 @@ echo "{\"arm\": \"$arm\", \"run\": $n, \"stage\": $stage, \"wall_seconds\": $((e
     > "$out/stage$stage.timing.json"
 
 git -C "$work" add -A
-git -C "$work" -c user.name=agent-ab -c user.email=agent-ab@localhost commit -qm "stage $stage" || true
+# Always record the stage, even when the agent changed nothing, and ignore any
+# hook the agent installed: a failed commit would otherwise snapshot the
+# previous stage. Any remaining failure stops the run (set -e).
+git -C "$work" -c user.name=agent-ab -c user.email=agent-ab@localhost \
+    commit -q --no-verify --allow-empty -m "stage $stage"
 
 rm -rf "$out/stage$stage"
 mkdir -p "$out/stage$stage"

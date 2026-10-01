@@ -13,6 +13,11 @@ Both arms run the same model (Opus 5.5) on the same prompts, each run in a fresh
 directory with no access to this repository and no mention of LaNorme anywhere
 in its context except where stated.
 
+Agents run headless with permission prompts off, so a run must happen in a
+disposable environment (a throwaway container or virtual machine with no
+credentials worth protecting). `harness/run_stage.sh` refuses to start until
+`AGENT_AB_DISPOSABLE_ENVIRONMENT=1` confirms it.
+
 | Arm | Project `CLAUDE.md` | LaNorme config |
 | --- | --- | --- |
 | `control` | the shared baseline (`arms/baseline.md`) | none |

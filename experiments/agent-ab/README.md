@@ -158,9 +158,13 @@ git clone https://github.com/lanorme/lanorme-experiments /tmp/lanorme-experiment
 cp -r /tmp/lanorme-experiments/agent-ab/runs experiments/agent-ab/runs
 ```
 
-To run the experiment again from scratch:
+To run the experiment again from scratch, use a disposable environment (a
+throwaway container or virtual machine with no credentials you care about):
+the agents run with permission prompts off, so they can run any command with
+your rights. The stage runner refuses to start until you confirm it.
 
 ```console
+export AGENT_AB_DISPOSABLE_ENVIRONMENT=1
 export AGENT_AB_WORK=/some/dir/outside/any/repo
 harness/run_all.sh 3                                    # the 18 agent stages
 python3.13 harness/measure.py --all runs --out results/metrics.json
