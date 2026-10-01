@@ -118,6 +118,24 @@ one-line fix, a doc edit. Anything larger gets the phases above.
 See `CONTRIBUTING.md` for the full set (corpus discipline for heuristics, how to
 choose a default by measurement, the docs rules).
 
+## Vocabulary and citations
+
+- Spell names out: no abbreviations or shorthand in identifiers, rule names,
+  config keys or messages (`dependency`, not `dep`), unless the short form is
+  itself the standard term (`ast`, `url`).
+- Use the canonical term from software engineering, AI/ML, technical AI safety
+  or AI control literature; never coin a new one when an established term
+  exists ("shallow module", "Middle Man", "trusted monitoring", not a home-made
+  label).
+- Ground a change to a rule, a default or an agent-facing protocol in that
+  literature or in a solid evaluation or benchmark (our own `evals/` count),
+  and say which.
+- Cite it. Every work goes in `docs/references.bib` as a BibTeX entry, and the
+  place that applies it cites the key in Pandoc citation syntax, such as
+  `[@ousterhout2018philosophy, ch. 4]`, in a docstring, comment or Markdown
+  page. `tests/unit/test_citations.py` fails on any cited key with no entry, so
+  citations stay mechanically checkable.
+
 ## Documentation
 
 Docs state current truth only; history lives in `CHANGELOG.md`. Update a rule's
