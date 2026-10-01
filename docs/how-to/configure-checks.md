@@ -71,9 +71,9 @@ $ lanorme check src --select EVAL-001
     Fix: Use ast.literal_eval for trusted-shape parsing, or build a dispatch table
 --- security_calls: 1 violations, 0 warnings ---
 
-Summary: 30 checks — 29 passed, 0 warned, 1 failed.
+Summary: 31 checks — 30 passed, 0 warned, 1 failed.
 Findings: 1 error to fix, 0 advisory warnings.
-Opt-in checks not enabled: 11 ('lanorme check --show-config' lists them).
+Opt-in checks not enabled: 12 ('lanorme check --show-config' lists them).
 ```
 
 A category selects every code under it: `--select CMT` runs every comment
@@ -148,9 +148,9 @@ $ lanorme check . --select EVAL-001
     Fix: Use ast.literal_eval for trusted-shape parsing, or build a dispatch table
 --- security_calls: 2 violations, 0 warnings ---
 
-Summary: 30 checks — 29 passed, 0 warned, 1 failed.
+Summary: 31 checks — 30 passed, 0 warned, 1 failed.
 Findings: 2 errors to fix, 0 advisory warnings.
-Opt-in checks not enabled: 11 ('lanorme check --show-config' lists them).
+Opt-in checks not enabled: 12 ('lanorme check --show-config' lists them).
 
 $ lanorme check . --select EVAL-001 --exclude '**/migrations/*'
 [FAIL] security_calls
@@ -159,9 +159,9 @@ $ lanorme check . --select EVAL-001 --exclude '**/migrations/*'
     Fix: Use ast.literal_eval for trusted-shape parsing, or build a dispatch table
 --- security_calls: 1 violations, 0 warnings ---
 
-Summary: 30 checks — 29 passed, 0 warned, 1 failed.
+Summary: 31 checks — 30 passed, 0 warned, 1 failed.
 Findings: 1 error to fix, 0 advisory warnings.
-Opt-in checks not enabled: 11 ('lanorme check --show-config' lists them).
+Opt-in checks not enabled: 12 ('lanorme check --show-config' lists them).
 ```
 
 Match the depth you have. To exclude a `migrations/` directory sitting at the
@@ -175,8 +175,8 @@ nothing: the run reports a clean tree and a note on stderr says so.
 ```console
 $ lanorme check src/pkg/migrations/m.py --select EVAL-001
 Note: every requested path matches an exclude glob, so nothing was checked. Pass --exclude with another glob to override the configured excludes for one run.
-All 30 checks passed.
-Opt-in checks not enabled: 11 ('lanorme check --show-config' lists them).
+All 31 checks passed.
+Opt-in checks not enabled: 12 ('lanorme check --show-config' lists them).
 ```
 
 ## Silence a rule for a path glob
@@ -197,9 +197,9 @@ $ lanorme check . --select PARAM-001
     Fix: Group related parameters into a dataclass or TypedDict
 --- file_limits: 1 violations, 0 warnings ---
 
-Summary: 30 checks — 29 passed, 0 warned, 1 failed.
+Summary: 31 checks — 30 passed, 0 warned, 1 failed.
 Findings: 1 error to fix, 0 advisory warnings.
-Opt-in checks not enabled: 11 ('lanorme check --show-config' lists them).
+Opt-in checks not enabled: 12 ('lanorme check --show-config' lists them).
 ```
 
 The key is a glob; the value is a list of codes or categories suppressed for
@@ -224,9 +224,9 @@ summary counts what the glob suppressed:
 
 ```console
 $ lanorme check . --select PARAM-001
-All 30 checks passed.
+All 31 checks passed.
 Suppressed: 0 by inline ignores, 1 by per-file-ignores, 0 by the baseline.
-Opt-in checks not enabled: 11 ('lanorme check --show-config' lists them).
+Opt-in checks not enabled: 12 ('lanorme check --show-config' lists them).
 ```
 
 Globs match paths relative to the project root, and so does a nested region:
@@ -298,10 +298,10 @@ $ lanorme check a.py --select EVAL-001
     Fix: Use ast.literal_eval for trusted-shape parsing, or build a dispatch table
 --- security_calls: 2 violations, 0 warnings ---
 
-Summary: 30 checks — 29 passed, 0 warned, 1 failed.
+Summary: 31 checks — 30 passed, 0 warned, 1 failed.
 Findings: 2 errors to fix, 0 advisory warnings.
 Suppressed: 3 by inline ignores, 0 by per-file-ignores, 0 by the baseline.
-Opt-in checks not enabled: 11 ('lanorme check --show-config' lists them).
+Opt-in checks not enabled: 12 ('lanorme check --show-config' lists them).
 ```
 
 ## Tune a check's settings
@@ -370,8 +370,8 @@ CI: a silenced finding leaves the run clean.
 
 ```console
 $ lanorme check src --select EVAL-001   # no eval in src
-All 30 checks passed.
-Opt-in checks not enabled: 11 ('lanorme check --show-config' lists them).
+All 31 checks passed.
+Opt-in checks not enabled: 12 ('lanorme check --show-config' lists them).
 $ echo $?
 0
 ```

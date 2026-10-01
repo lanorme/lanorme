@@ -30,14 +30,27 @@ evals/
   holdout_revisions.json   accepted holdout edits (absent until one is needed)
   corpora/<name>/
     labels.json            every label, with its provenance
-    dev/                   tuning allowed: positives/, negatives/
-    holdout/               sealed: positives/, negatives/, generated/
+    dev/                   tuning allowed: positives/, negatives/ (or cases/)
+    holdout/               sealed: positives/, negatives/, generated/ (or cases/)
   results/v<x>.json        one committed audit per release (the trail)
 ```
 
 Each scorer pairs with one corpus. The corpus is the dataset; the scorer is the
 code that grades the rule against it. `duplication_similar` grades two rules,
 SIMILAR-001 and DRY-001.
+
+A rule that judges a file against the rest of its project (SHALLOW-001 reads
+who imports each module and which sibling packages repeat a layout) needs whole
+projects, not lone files. Its corpus keeps one small project per directory
+under `cases/` (`dev/cases/<case>/...`, and `holdout/cases/<case>/...` once a
+holdout exists), and its scorer runs the check once per case, so two cases
+that share package names never see each other. The directory is `cases/`, not
+`positives/` or `negatives/`, because a case holds both. Every file of a case
+records the same `split` by hand, so a case is never scattered across the two
+splits by the per-file proposal. Cases taken from third-party projects are
+structural replicas: file names, import statements, line counts and docstring
+spans are kept and bodies replaced with neutral code, and each file's `note`
+names the `repo@sha:path` it replicates.
 
 ## The dev and holdout split
 
@@ -55,7 +68,8 @@ A corpus with no holdout file reports dev numbers only (`"split": "dev_only"`
 in the audit record) and nothing gates it. Today that is the five naming
 corpora (`naming_command`, `naming_every_verb`, `naming_scope`,
 `naming_verb_class`, `naming_weak_verb`), two files each, all tuned against, so
-NAMING-005 to NAMING-011 have dev numbers only. Some of their files' names
+NAMING-005 to NAMING-011 have dev numbers only, and `shallow_modules`, whose
+sealed holdout is built and labelled apart from the rule. Some of their files' names
 propose holdout; their recorded `dev` keeps them out of it, since a tuned file
 in the holdout would grade the rule on data it was fitted to.
 

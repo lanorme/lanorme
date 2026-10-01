@@ -68,9 +68,9 @@ $ lanorme check src/
     Fix: Read the value from an environment variable, secrets manager, or settings module
 --- secrets: 1 violations, 0 warnings ---
 
-Summary: 30 checks — 29 passed, 0 warned, 1 failed.
+Summary: 31 checks — 30 passed, 0 warned, 1 failed.
 Findings: 1 error to fix, 0 advisory warnings.
-Opt-in checks not enabled: 11 ('lanorme check --show-config' lists them).
+Opt-in checks not enabled: 12 ('lanorme check --show-config' lists them).
 ```
 
 Every command, flag and output format is documented in the
@@ -111,7 +111,8 @@ the layout you use, or `ignore` them.
 Off until you turn them on (domain vocabulary, house styles, Markdown docs
 structure, and experimental precision-first detectors): `TERM`, `KWARG`,
 `NAMING-001/002`, `NAMING-005`, `NAMING-009..011`, `AAA`, `CMT-005`,
-`CMT-006/007`, `SUPPRESS`, `SIMILAR`, `ATTR`, `PROSE`, `DOCS`, `PATH`, `STALE`.
+`CMT-006/007`, `SUPPRESS`, `SIMILAR`, `SHALLOW`, `ATTR`, `PROSE`, `DOCS`, `PATH`,
+`STALE`.
 The [rule reference](https://lanorme.github.io/lanorme/latest/RULES/) documents
 each.
 

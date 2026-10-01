@@ -17,7 +17,8 @@ Two kinds of check resolve differently:
   region. The runner scopes a region's pass to its own files by excluding the
   nested regions below it.
 - **Whole-tree** checks (``duplication``, ``test_coverage``, the architecture
-  checks ``layer_deps`` / ``port_coverage``, and the ``meta`` self-check)
+  checks ``layer_deps`` / ``port_coverage``, ``shallow_modules``, and the
+  ``meta`` self-check)
   compare or aggregate across files, so partitioning them by region would hide
   a duplicate pair split across two regions. They run once at the scan root
   under the root config. A region therefore cannot relax a whole-tree check for

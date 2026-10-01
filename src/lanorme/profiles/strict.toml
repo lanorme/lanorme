@@ -27,7 +27,9 @@
 # deliberate exclusion with its reason.
 
 # Every warning (advisory rules such as TYPE-004 and SIMILAR-001, plus the
-# size and placeholder-type warnings) becomes a build-failing error.
+# size and placeholder-type warnings) becomes a build-failing error. A rule its
+# check declares advisory by nature (SHALLOW-001, a question about a design
+# choice) stays a warning; name it in a local `promote` to escalate it.
 promote = ["ALL"]
 
 # Opt-in checks, switched on. Each keeps its shipped defaults; the comments
@@ -76,4 +78,12 @@ enabled = true
 # function starts with a verb. The Clean Code reading of the naming canon;
 # the canon itself (NAMING-006..008) is default-on and needs no switch.
 [naming_clean_code]
+enabled = true
+
+# SHALLOW-001: asks whether a small leaf package split into many shallow
+# modules should be one module, and names the module to merge into. It stays a
+# warning under promote = ["ALL"]. The merge budget is two thirds of
+# [file_limits] file_warn_lines, so following the advice never trips SIZE-001.
+# Keep a deliberate split with a per-file-ignores entry for its __init__.py.
+[shallow_modules]
 enabled = true

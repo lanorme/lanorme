@@ -79,8 +79,8 @@ hard lines. You tell it, and until you do, it stays out of your way. See
 
 LaNorme runs its own checks on its own source and its own documentation. On
 top of the defaults, the project's `pyproject.toml` enables the opt-in checks
-`prose`, `docs`, `named_args`, `test_style`, `attribute_access` and
-`similarity`, promotes the naming canon (`NAMING-006..008`) to errors, and
+`prose`, `docs`, `named_args`, `test_style`, `attribute_access`, `similarity`,
+`naming_clean_code` and `shallow_modules`, promotes the naming canon (`NAMING-006..008`) to errors, and
 ignores only the rules that assume a layered domain application (`LAYER`,
 `PORT`, `TERM`) because LaNorme is a flat library, not a hexagonal app.
 `restating` is not among the enabled checks: the `# Assert` markers the test
@@ -158,9 +158,9 @@ Add this to your configuration and commit the file like a lockfile:
     baseline = "lanorme-baseline.json"
 
 $ lanorme check
-All 30 checks passed.
+All 31 checks passed.
 Suppressed: 0 by inline ignores, 0 by per-file-ignores, 1 by the baseline.
-Opt-in checks not enabled: 11 ('lanorme check --show-config' lists them).
+Opt-in checks not enabled: 12 ('lanorme check --show-config' lists them).
 ```
 
 **It never resurrects paid-down noise.** When you fix a finding, its entry no

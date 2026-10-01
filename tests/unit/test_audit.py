@@ -40,7 +40,15 @@ _METADATA_KEYS = {
     "processor",
     "timestamp_utc",
 }
-_KNOWN_RULES = {"CMT-001", "CMT-005", "SQL-001", "SECRETPY-001", "SIMILAR-001", "DRY-001"}
+_KNOWN_RULES = {
+    "CMT-001",
+    "CMT-005",
+    "SQL-001",
+    "SECRETPY-001",
+    "SIMILAR-001",
+    "DRY-001",
+    "SHALLOW-001",
+}
 
 
 def run_audit(*, args: list[str], audit: Path = _AUDIT) -> subprocess.CompletedProcess[str]:

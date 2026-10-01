@@ -411,6 +411,19 @@ That turns the advisory into a build-failing error (exit code `1`). `promote =
 loaded check declares, so load the plugin in the same run; otherwise the run
 exits `2` with `'promote' names no known rule code or category`.
 
+A rule that asks a question about a design choice rather than reporting a
+defect can stay advisory under `ALL` (and so under the `strict` profile).
+Declare its code in an `advisory_codes` class attribute; only a `promote` entry
+naming the code or its category escalates it then:
+
+```python
+from typing import ClassVar
+
+
+class HouseRulesCheck:
+    advisory_codes: ClassVar[frozenset[str]] = frozenset({"HOUSE-001"})
+```
+
 ## Loading the plugin
 
 LaNorme has three ways to load a plugin module so its `register()` call runs.

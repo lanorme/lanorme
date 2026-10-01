@@ -108,9 +108,9 @@ $ lanorme check tests
     Fix: Consider splitting into smaller modules before it grows further
 --- file_limits: 0 violations, 1 warnings ---
 
-Summary: 30 checks — 29 passed, 1 warned, 0 failed.
+Summary: 31 checks — 30 passed, 1 warned, 0 failed.
 Findings: 0 errors to fix, 1 advisory warning.
-Opt-in checks not enabled: 11 ('lanorme check --show-config' lists them).
+Opt-in checks not enabled: 12 ('lanorme check --show-config' lists them).
 ```
 
 Every check runs from the project root, whichever path the command names.
@@ -119,7 +119,7 @@ the root, so checks are handed `tests/helpers.py`, not `helpers.py`, and the
 path-based exemptions some checks apply (the `tests/` and `migrations/` skips)
 hold; `per-file-ignores` globs such as `"tests/*"` match the same path. Checks
 that compare files across the tree (`docs`, `duplication`, `test_coverage`,
-`layer_deps`, `port_coverage`) still see the whole project, so a duplicate of
+`layer_deps`, `port_coverage`, `shallow_modules`) still see the whole project, so a duplicate of
 a scanned file elsewhere in the project is found and `source_root` is read
 from the project root; the report is then narrowed to the requested path. Each
 region is checked in its own pass under its merged settings, confined the same
@@ -554,9 +554,9 @@ $ lanorme check bad.py
     Fix: Delete it; version control remembers
 --- comments: 1 violations, 0 warnings ---
 
-Summary: 30 checks — 29 passed, 0 warned, 1 failed.
+Summary: 31 checks — 30 passed, 0 warned, 1 failed.
 Findings: 1 error to fix, 0 advisory warnings.
-Opt-in checks not enabled: 11 ('lanorme check --show-config' lists them).
+Opt-in checks not enabled: 12 ('lanorme check --show-config' lists them).
 ```
 
 ### Summary notes
@@ -577,9 +577,9 @@ applies:
 
 ```console
 $ lanorme check .
-All 30 checks passed.
+All 31 checks passed.
 Suppressed: 0 by inline ignores, 0 by per-file-ignores, 1 by the baseline.
-Opt-in checks not enabled: 11 ('lanorme check --show-config' lists them).
+Opt-in checks not enabled: 12 ('lanorme check --show-config' lists them).
 ```
 
 ### Finding records
@@ -678,7 +678,7 @@ on a large tree, before reading the findings one by one:
 
 ```console
 $ lanorme check --output-format summary .
-Summary: 30 checks — 27 passed, 1 warned, 2 failed.
+Summary: 31 checks — 28 passed, 1 warned, 2 failed.
 Findings: 3 errors to fix, 1 advisory warning.
 By code:
   CMT-001          error    2

@@ -53,6 +53,86 @@ def test_source_root_injected_only_into_layout_checks():
     assert configured["spy_check"].received == {"some_key": 1}
 
 
+_OWNER_TABLES = {
+    "file_limits": {"file_warn_lines": 150, "file_error_lines": 240},
+    "layer_deps": {"layers": ["entities"], "composition_root": ["wiring.py"]},
+    "port_coverage": {
+        "ports_dir": "core/ports",
+        "adapter_roots": ["adapters"],
+        "composition_root": ["boot.py"],
+    },
+}
+
+
+@pytest.mark.parametrize(
+    ("key", "expected"),
+    [
+        ("file_warn_lines", 150),
+        ("file_error_lines", 240),
+        ("layers", ("entities",)),
+        ("layer_composition_root", ("wiring.py",)),
+        ("ports_dir", "core/ports"),
+        ("adapter_roots", ("adapters",)),
+        ("port_composition_root", ("boot.py",)),
+    ],
+)
+def test_owner_settings_are_mirrored_into_shallow_modules(key: str, expected: object):
+    # Arrange
+    _load_builtin_checks()
+
+    # Act
+    configured = get_registry().build_configured(_OWNER_TABLES)
+
+    # Assert
+    assert getattr(configured["shallow_modules"], key) == expected
+
+
+def test_a_value_set_in_shallow_modules_wins_over_the_mirror():
+    # Arrange
+    _load_builtin_checks()
+    config = {**_OWNER_TABLES, "shallow_modules": {"file_warn_lines": 210, "layers": ["core"]}}
+
+    # Act
+    configured = get_registry().build_configured(config)
+
+    # Assert
+    assert configured["shallow_modules"].file_warn_lines == 210
+    assert configured["shallow_modules"].layers == ("core",)
+
+
+def test_a_mistyped_owner_value_is_reported_against_its_owner(tmp_path: Path, capsys):
+    # Arrange
+    (tmp_path / "pyproject.toml").write_text(
+        '[tool.lanorme.layer_deps]\nlayers = "domain"\n',
+        encoding="utf-8",
+    )
+    (tmp_path / "m.py").write_text("x = 1\n", encoding="utf-8")
+
+    # Act
+    with pytest.raises(SystemExit) as exit_signal:
+        main(["check", str(tmp_path)])
+    err = capsys.readouterr().err
+
+    # Assert
+    assert exit_signal.value.code == 2
+    assert "[tool.lanorme.layer_deps]" in err
+    assert "shallow_modules" not in err
+
+
+def test_only_shallow_modules_receives_mirrored_keys():
+    # Arrange: a spy reads every key it is handed.
+    _load_builtin_checks()
+    registry = Registry({**get_registry(), "spy_check": _Spy()})
+
+    # Act
+    configured = registry.build_configured({**_OWNER_TABLES, "spy_check": {"some_key": 1}})
+
+    # Assert
+    assert configured["spy_check"].received == {"some_key": 1}
+    assert configured["layer_deps"].layers == ("entities",)
+    assert configured["file_limits"].file_warn_lines == 150
+
+
 def test_configured_copies_leave_the_registered_checks_untouched():
     # Arrange
     _load_builtin_checks()

@@ -9,6 +9,7 @@ or ``[tool.lanorme] ignore`` is a usage error rather than a silently clean run.
 from __future__ import annotations
 
 import re
+from collections.abc import Iterable
 
 from lanorme import Check, extract_code, get_all_checks
 from lanorme.errors import UsageError
@@ -33,6 +34,13 @@ def is_code_matched(*, code: str, patterns: list[str]) -> bool:
     category = extract_category(code_upper)
     wanted = {p.strip().upper() for p in patterns if p.strip()}
     return any(p in ("ALL", code_upper, category) for p in wanted)
+
+
+def collect_advisory_codes(*, checks: Iterable[object]) -> frozenset[str]:
+    """The rule codes *checks* declare advisory by nature, in their ``advisory_codes``."""
+    return frozenset(
+        code.upper() for check in checks for code in getattr(check, "advisory_codes", ())
+    )
 
 
 def checks_for_selector(*, selector: str) -> list[Check]:

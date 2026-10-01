@@ -9,6 +9,35 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
 
 ## [Unreleased]
 
+### Added
+
+- The `shallow_modules` check (`SHALLOW-001`), off by default: it asks whether
+  a small leaf package split into many tiny modules is really several things,
+  with each module's size, the total and the module to merge into, sized under
+  SIZE-001's warning so following it never trips SIZE-001. It is advisory: a
+  warning that `promote = ["ALL"]` leaves alone. Silence a deliberate split
+  with `per-file-ignores` on the package's `__init__.py` or `# noqa:
+  SHALLOW-001` on its line 1.
+- A check can declare `advisory_codes`, rule codes that are advisory by
+  nature: `promote = ["ALL"]` leaves them warnings, and a `promote` entry naming
+  the code or its category still escalates them.
+- `lanorme.module_graph`, the shared import graph of a scanned tree (who
+  imports which in-tree module, and whether merging modules closes a new
+  import cycle), and `lanorme.line_counts`, SIZE-001's line measure in one
+  place.
+- Mirrored settings: `shallow_modules` reads `file_warn_lines` and
+  `file_error_lines` from `[file_limits]`, `layers` and `composition_root` from
+  `[layer_deps]`, and `ports_dir`, `adapter_roots` and `composition_root` from
+  `[port_coverage]` (profiles included), unless its own table sets them.
+- A labelled corpus (`evals/corpora/shallow_modules/`, dev split) and its
+  scorer (`evals/score_shallow001.py`), which run the check once per small
+  project under `cases/`.
+
+### Changed
+
+- The `strict` profile enables `shallow_modules`; its findings stay warnings
+  there.
+
 ## [0.21.0]
 
 ### Added

@@ -32,8 +32,8 @@ lanorme check .
 A clean run reports that every check passed and exits `0`:
 
 ```text
-All 30 checks passed.
-Opt-in checks not enabled: 11 ('lanorme check --show-config' lists them).
+All 31 checks passed.
+Opt-in checks not enabled: 12 ('lanorme check --show-config' lists them).
 ```
 
 The second line counts the checks that ship switched off;

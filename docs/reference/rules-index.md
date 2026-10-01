@@ -70,6 +70,7 @@ notes for each rule are in the [rule reference](../RULES.md).
 | `PROSE-003` | prose | yes |
 | `PROSE-004` | prose | yes |
 | `SECRETPY-001` | secrets | no |
+| `SHALLOW-001` | shallow_modules | yes |
 | `SHELL-001` | security_calls | no |
 | `SIMILAR-001` | similarity | yes |
 | `SIZE-001` | file_limits | no |

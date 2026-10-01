@@ -181,7 +181,28 @@ def note_excluded_targets(
     )
 
 
-def apply_promotions(*, results: list[CheckResult], promote: list[str]) -> list[CheckResult]:
+def _is_promoted(*, code: str, promote: list[str], advisory_codes: frozenset[str]) -> bool:
+    """True when a warning's *code* matches *promote* and promotion may escalate it.
+
+    ``-000`` codes are skip/parse-error notices ("could not analyse,
+    skipping"), not findings, so promotion (including ``ALL``) leaves them as
+    warnings rather than failing the build on a non-issue. A code a check
+    declares advisory by nature is escalated only by a selector that names it
+    (its code or its category), never by ``ALL``.
+    """
+    if code.endswith("-000"):
+        return False
+    if code.upper() in advisory_codes:
+        promote = [pattern for pattern in promote if pattern.strip().upper() != "ALL"]
+    return is_code_matched(code=code, patterns=promote)
+
+
+def apply_promotions(
+    *,
+    results: list[CheckResult],
+    promote: list[str],
+    advisory_codes: frozenset[str] = frozenset(),
+) -> list[CheckResult]:
     """Promote advisory warnings whose code matches *promote* into violations.
 
     Lets a project escalate heuristic, default-warning rules (for example
@@ -189,6 +210,9 @@ def apply_promotions(*, results: list[CheckResult], promote: list[str]) -> list[
     ``[tool.lanorme] promote`` or ``--promote`` (a code, a category, or
     ``ALL``). Promotion runs last, so a warning already silenced by
     ``ignore`` / ``per-file-ignores`` / ``# noqa`` is gone and never promoted.
+    The codes in *advisory_codes* (see
+    :func:`lanorme.selectors.collect_advisory_codes`) stay
+    warnings under ``ALL`` and are promoted only when named.
     """
     if not promote:
         return results
@@ -199,10 +223,7 @@ def apply_promotions(*, results: list[CheckResult], promote: list[str]) -> list[
         kept: list[Violation] = []
         for warning in result.warnings:
             code = extract_code(warning.rule)
-            # ``-000`` codes are skip/parse-error notices ("could not analyse,
-            # skipping"), not findings, so promotion (including ``ALL``) leaves
-            # them as warnings rather than failing the build on a non-issue.
-            if not code.endswith("-000") and is_code_matched(code=code, patterns=promote):
+            if _is_promoted(code=code, promote=promote, advisory_codes=advisory_codes):
                 escalated.append(replace(warning, promoted=True))
             else:
                 kept.append(warning)

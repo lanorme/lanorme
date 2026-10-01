@@ -136,3 +136,8 @@ enabled = true
 # Dogfood the docs-structure check on our own documentation.
 [tool.lanorme.docs]
 enabled = true
+
+# Dogfood the opt-in shallow-modules check: LaNorme's own packages stay split
+# only where the code needs it.
+[tool.lanorme.shallow_modules]
+enabled = true

@@ -43,7 +43,7 @@ from lanorme.filters import apply_promotions, count_findings, note_excluded_targ
 from lanorme.presets import _resolve_extends
 from lanorme.regions import DiscoveredConfig, discover_config, reject_unknown_top_level_keys
 from lanorme.runner import Filters, RunConfigs, RunOutcome, collect_results
-from lanorme.selectors import checks_for_selector, reject_unknown_selectors
+from lanorme.selectors import checks_for_selector, collect_advisory_codes, reject_unknown_selectors
 
 logger = logging.getLogger(__name__)
 
@@ -336,7 +336,9 @@ def _run_and_report(
     drifted: list[tuple[str, str]] = []
     if not args.no_baseline:
         outcome, drifted = _apply_baseline(outcome=outcome, config=config)
-    outcome = replace(outcome, results=apply_promotions(results=outcome.results, promote=promote))
+    advisory = collect_advisory_codes(checks=root_checks.values())
+    promoted = apply_promotions(results=outcome.results, promote=promote, advisory_codes=advisory)
+    outcome = replace(outcome, results=promoted)
     failed = any(r.status == Status.FAIL for r in outcome.results)
     with reports.tolerate_closed_pipe():
         reports.emit(outcome=outcome, output_format=output_format)

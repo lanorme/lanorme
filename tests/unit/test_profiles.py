@@ -111,6 +111,22 @@ def test_extends_strict_turns_on_default_off_checks_and_promotes(tmp_path: Path,
     assert code == 1
 
 
+def test_strict_enables_shallow_modules_and_leaves_it_a_warning(tmp_path: Path, capsys):
+    # Arrange: a package of three tiny modules, each imported from the root.
+    (tmp_path / "pkg").mkdir()
+    (tmp_path / "pkg" / "__init__.py").write_text("", encoding="utf-8")
+    _write_project(tmp_path, config=_STRICT, main="from pkg import a, b, c\n")
+    for stem in ("a", "b", "c"):
+        (tmp_path / "pkg" / f"{stem}.py").write_text("x = 1\n", encoding="utf-8")
+
+    # Act
+    code = _run(["check", str(tmp_path), "--select", "SHALLOW", "--output-format", "ndjson"])
+
+    # Assert: promote = ["ALL"] skips a code its check declares advisory.
+    assert _read_findings(capsys) == {("SHALLOW-001", "pkg/__init__.py", 1, "warning")}
+    assert code == 0
+
+
 def test_strict_enables_every_default_off_check(tmp_path: Path, capsys):
     # Arrange
     default_off = _default_off_checks()
