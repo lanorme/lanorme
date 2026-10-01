@@ -1,0 +1,63 @@
+# LaNorme configuration for the guarded agent service.
+#
+# The project is new and small, so there is no legacy debt to excuse: adopt the
+# bundled "strict" profile, which enables every opt-in check and promotes every
+# advisory warning to a build-failing error. Starting strict is cheap now and
+# much harder to retrofit later.
+#
+# What "strict" switches on, and why it suits this service:
+#   named_args (KWARG-001)        guardrail and agent wiring passes several
+#                                 knobs of the same type (ints, strings), so
+#                                 keyword-only call sites stop silent mix-ups.
+#   docstrings (CMT-006/007)      the guardrails are a contract other systems
+#                                 rely on; public pieces should say what they
+#                                 promise, not restate their signature.
+#   test_style (AAA-001/002)      the tests double as the guardrail spec, so
+#                                 they should read as arrange / act / assert.
+#   restating, naming_scope,      cheap, precise readability checks.
+#   naming_clean_code,
+#   attribute_access, similarity
+#   suppressions (budget 0)       a standard that one '# noqa' can waive is a
+#                                 suggestion. Any exception must live here,
+#                                 reviewed, not inline.
+#   prose (PROSE-001..003)        README in British English, no em dashes or
+#                                 emoji, matching the house style of the brief.
+#   docs (DOCS-*)                 inert until a docs/ tree exists.
+extends = ["strict"]
+
+# The package is app/, so path-scoped rules (AUTHN-001 on api/, layer_deps,
+# test_coverage) find its api/ directory relative to it.
+source_root = "app"
+
+# Comments and docstrings follow the same prose rules as the README.
+[comments]
+em_dash = true
+emoji = true
+
+# Tests live in a flat tests/ directory rather than the default
+# tests/integration layout.
+[test_coverage]
+test_roots = ["tests"]
+
+# Routes live in app/api/, so AUTHN-001 enforces an auth dependency on every
+# mutating endpoint (the tenant policy routes use require_admin_key). The
+# reviewed exceptions are the routes the published contract leaves
+# unauthenticated, where the tenant comes from X-Tenant-ID alone:
+#   chat.py      POST /chat and POST /chat/stream
+#   sessions.py  DELETE /sessions/{session_id}
+# The tenant lookup (resolve_tenant_id) is deliberately not named require_*:
+# it identifies the tenant without authenticating anyone, and dressing it up
+# would hide that from this rule. Keep both files free of any other mutating
+# route so these exemptions cover nothing else.
+[per-file-ignores]
+"app/api/chat.py" = ["AUTHN-001"]
+"app/api/sessions.py" = ["AUTHN-001"]
+
+# Not applicable here, deliberately left at their defaults:
+#   layer_deps / port_coverage  revisited when conversation memory arrived.
+#       The service is still about a dozen small modules, and both kinds of
+#       state (tenant policies, conversations) already sit behind Protocols
+#       (PolicyStore, ConversationStore) that create_app lets callers replace;
+#       that is the seam a database needs. Splitting into domain/application/
+#       infrastructure directories would add ceremony without a second
+#       implementation to protect. Revisit when the first database adapter lands.
