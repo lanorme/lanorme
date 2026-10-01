@@ -35,7 +35,7 @@ def strip_lanorme_text(path: Path) -> None:
     path.write_text("".join(kept), encoding="utf-8")
 
 
-def copy_blinded(source: Path, target: Path) -> None:
+def copy_blinded(*, source: Path, target: Path) -> None:
     """Copy one snapshot to target with LaNorme removed."""
     shutil.copytree(source, target, ignore=shutil.ignore_patterns(".venv", ".git", "__pycache__"))
     for name in DROPPED_FILES:
@@ -45,7 +45,7 @@ def copy_blinded(source: Path, target: Path) -> None:
             strip_lanorme_text(path)
 
 
-def build_pairs(runs: Path, out: Path, seed: int) -> dict[str, dict[str, str]]:
+def build_pairs(*, runs: Path, out: Path, seed: int) -> dict[str, dict[str, str]]:
     """Write every A/B pair and return the key mapping pair to arm per letter."""
     rng = random.Random(seed)
     key: dict[str, dict[str, str]] = {}
@@ -60,7 +60,7 @@ def build_pairs(runs: Path, out: Path, seed: int) -> dict[str, dict[str, str]]:
         arms = [("control", control), ("lanorme", treated)]
         rng.shuffle(arms)
         for letter, (arm, source) in zip("AB", arms, strict=True):
-            copy_blinded(source, out / pair / letter)
+            copy_blinded(source=source, target=out / pair / letter)
             key.setdefault(pair, {})[letter] = arm
     return key
 
@@ -73,7 +73,7 @@ def main() -> None:
     args = parser.parse_args()
     if args.out.exists():
         shutil.rmtree(args.out)
-    key = build_pairs(args.runs, args.out, args.seed)
+    key = build_pairs(runs=args.runs, out=args.out, seed=args.seed)
     key_path = args.out.with_name(f"{args.out.name}.key.json")
     key_path.write_text(json.dumps(key, indent=2) + "\n", encoding="utf-8")
     print(f"{len(key)} pairs written to {args.out}")
