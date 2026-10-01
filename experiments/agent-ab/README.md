@@ -2,8 +2,11 @@
 
 Six Opus 5.5 agents built the same service in three stages: three told to use
 LaNorme (version 0.21.0, configured by the agent itself), three not. `SPEC.md`
-has the design; this page has what came out. Everything here can be
-regenerated from `runs/` with the scripts in `harness/`.
+has the design; this page has what came out. The raw runs (the agents' code
+and transcripts) are kept in
+[lanorme/lanorme-experiments](https://github.com/lanorme/lanorme-experiments)
+under `agent-ab/runs/`; everything here can be regenerated from them with the
+scripts in `harness/`.
 
 ## Headline
 
@@ -137,13 +140,25 @@ not stable; the resulting code was nonetheless consistently more modular.
 
 ## Layout
 
-- `runs/<arm>-<n>/stage<k>/`: the code each agent left after each stage.
-- `runs/<arm>-<n>/stage<k>.transcript.jsonl`: the full agent session.
+- `runs/` (not in this repository; in lanorme/lanorme-experiments under
+  `agent-ab/runs/`):
+  - `runs/<arm>-<n>/stage<k>/`: the code each agent left after each stage.
+  - `runs/<arm>-<n>/stage<k>.transcript.jsonl`: the full agent session.
 - `results/metrics.json`: every third-party measurement.
 - `results/acceptance/`: hidden acceptance results per snapshot.
 - `results/judge/`: the nine verdicts and the unblinding key.
 
 ## Reproducing it
+
+To re-measure or re-judge the published runs, fetch them first (git ignores
+`runs/` here):
+
+```console
+git clone https://github.com/lanorme/lanorme-experiments /tmp/lanorme-experiments
+cp -r /tmp/lanorme-experiments/agent-ab/runs experiments/agent-ab/runs
+```
+
+To run the experiment again from scratch:
 
 ```console
 export AGENT_AB_WORK=/some/dir/outside/any/repo

@@ -95,7 +95,9 @@ experiments/agent-ab/
   README.md                  the results and what they show
 ```
 
-`runs/` is excluded from the dogfood lint, ruff and pytest collection.
+`runs/` is not committed here: the published runs are in
+lanorme/lanorme-experiments under `agent-ab/runs/`, and git ignores a local
+copy. It is also excluded from the dogfood lint, ruff and pytest collection.
 
 ## Limits
 

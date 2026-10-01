@@ -14,3 +14,7 @@ CLAUDE.local.md
 # Antigravity CLI per-workspace artifacts
 .antigravitycli/
 site/
+
+# Raw agent-ab runs live in lanorme/lanorme-experiments (agent-ab/runs/);
+# clone them here to re-measure or re-judge.
+experiments/agent-ab/runs/
