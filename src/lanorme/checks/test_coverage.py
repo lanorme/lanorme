@@ -49,7 +49,7 @@ Each entry maps a directory (relative to src/) to the import path pattern
 used when searching test files for corresponding imports. Modules in these
 directories should each have at least one test.
 """
-_TESTABLE_DIRS: list[tuple[str, str]] = [
+TESTABLE_DIRS: list[tuple[str, str]] = [
     ("api/v1/endpoints", "endpoints"),
     ("application/services", "services"),
     ("application/commands", "commands"),
@@ -75,7 +75,7 @@ _DEFAULT_TEST_ROOTS: tuple[str, ...] = ("tests/integration",)
 
 def _has_testable_dir(directory: Path) -> bool:
     """True when *directory* holds at least one of the hardwired production directories."""
-    return any((directory / dir_rel).is_dir() for dir_rel, _prefix in _TESTABLE_DIRS)
+    return any((directory / dir_rel).is_dir() for dir_rel, _prefix in TESTABLE_DIRS)
 
 
 def find_source_dir(*, run_root: Path, source_root: str) -> Path:
@@ -107,7 +107,7 @@ def _find_production_modules(*, run_root: Path, source_dir: Path) -> list[tuple[
     """
     modules: list[tuple[str, str, str]] = []
 
-    for dir_rel, import_prefix in _TESTABLE_DIRS:
+    for dir_rel, import_prefix in TESTABLE_DIRS:
         target_dir = source_dir / dir_rel
         if not target_dir.is_dir():
             continue

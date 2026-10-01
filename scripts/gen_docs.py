@@ -98,7 +98,7 @@ CONFIG_KEYS: tuple[ConfigKey, ...] = (
         json_schema={"type": "array", "items": {"type": "string"}},
         default="[] (advisories stay warnings)",
         feature="Severity",
-        summary="Advisory warnings whose codes (or ``ALL``) become build-failing errors. Runs after every suppression, so an ignored or noqa'd warning is never promoted.",
+        summary="Advisory warnings whose codes (or ``ALL``) become build-failing errors. Runs after every suppression, so an ignored or noqa'd warning is never promoted. A rule advisory by nature (``SHALLOW-001``) is promoted only when named, never by ``ALL``.",
         example='promote = ["TYPE-004"]   # or ["ALL"]',
     ),
     ConfigKey(
@@ -210,9 +210,10 @@ def _render_per_directory_section() -> list[str]:
         "Cascading governs per-check settings and `source_root`. The run-level filters",
         "(`select`, `ignore`, `exclude`, `per-file-ignores`, `promote`) are read once at",
         "the root and apply to the whole run. Checks that compare files across the tree",
-        "(`duplication`, `test_coverage`, `layer_deps`, `port_coverage`, `docs`, `meta`)",
-        "run once at the project root under the root config, so a region cannot relax",
-        "them for its own subtree. `--check <name>` cascades exactly like a full run.",
+        "(`duplication`, `test_coverage`, `layer_deps`, `port_coverage`, `shallow_modules`,",
+        "`docs`, `meta`) run once at the project root under the root config, so a region",
+        "cannot relax them for its own subtree. `--check <name>` cascades exactly like a",
+        "full run.",
         "",
     ]
 

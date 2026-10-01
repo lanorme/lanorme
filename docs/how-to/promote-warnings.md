@@ -73,9 +73,9 @@ $ lanorme check orders.py --select TYPE-004
     Fix: Add a return annotation (for example '-> ResultType') to the signature
 --- strong_types: 0 violations, 1 warnings ---
 
-Summary: 30 checks — 29 passed, 1 warned, 0 failed.
+Summary: 31 checks — 30 passed, 1 warned, 0 failed.
 Findings: 0 errors to fix, 1 advisory warning.
-Opt-in checks not enabled: 11 ('lanorme check --show-config' lists them).
+Opt-in checks not enabled: 12 ('lanorme check --show-config' lists them).
 $ echo $?
 0
 ```
@@ -90,9 +90,9 @@ $ lanorme check orders.py --select TYPE-004 --promote TYPE-004
     Fix: Add a return annotation (for example '-> ResultType') to the signature
 --- strong_types: 1 violations, 0 warnings ---
 
-Summary: 30 checks — 29 passed, 0 warned, 1 failed.
+Summary: 31 checks — 30 passed, 0 warned, 1 failed.
 Findings: 1 error to fix, 0 advisory warnings.
-Opt-in checks not enabled: 11 ('lanorme check --show-config' lists them).
+Opt-in checks not enabled: 12 ('lanorme check --show-config' lists them).
 $ echo $?
 1
 ```
@@ -119,9 +119,9 @@ def total_price(quantity: int, unit_price: float):  # noqa: TYPE-004
 
 ```console
 $ lanorme check orders.py --select TYPE-004 --promote ALL
-All 30 checks passed.
+All 31 checks passed.
 Suppressed: 1 by inline ignores, 0 by per-file-ignores, 0 by the baseline.
-Opt-in checks not enabled: 11 ('lanorme check --show-config' lists them).
+Opt-in checks not enabled: 12 ('lanorme check --show-config' lists them).
 $ echo $?
 0
 ```
@@ -131,8 +131,8 @@ nothing to promote:
 
 ```console
 $ lanorme check orders.py --select TYPE-004 --ignore TYPE-004 --promote TYPE-004
-All 30 checks passed.
-Opt-in checks not enabled: 11 ('lanorme check --show-config' lists them).
+All 31 checks passed.
+Opt-in checks not enabled: 12 ('lanorme check --show-config' lists them).
 $ echo $?
 0
 ```
@@ -183,7 +183,8 @@ The notice remains a `[WARN]` and the run exits `0`.
 
 The bundled `strict` profile sets `promote = ["ALL"]` (and enables the opt-in
 checks). Adopting it through `extends` therefore promotes every advisory
-warning to a build-failing error:
+warning to a build-failing error, except the rules a check declares advisory by
+nature:
 
 ```toml
 [tool.lanorme]
@@ -199,6 +200,23 @@ profile's `["ALL"]`:
 extends = ["strict"]
 promote = ["TYPE-004"]   # only TYPE-004 fails the build, not every advisory
 ```
+
+### Rules that stay advisory under `ALL`
+
+A few rules ask a question about a design choice rather than report a defect,
+so their check declares them advisory by nature: `ALL` passes over them, as it
+passes over the `-000` skip notices. Today that is `SHALLOW-001`, which asks
+whether a small package split into many tiny modules should be one module.
+Name the code or its category to make it fail the build anyway:
+
+```toml
+[tool.lanorme]
+extends = ["strict"]
+promote = ["ALL", "SHALLOW"]   # every advisory, SHALLOW-001 included
+```
+
+A check declares such codes in an `advisory_codes` class attribute (see
+[Write a custom check](write-a-check.md)).
 
 See [`extends`](../reference/configuration.md#extends) and
 [`promote`](../reference/configuration.md#promote) in the configuration

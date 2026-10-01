@@ -12,7 +12,9 @@ The rules are grouped by category, roughly in the order `lanorme rules` uses;
 `docstrings`, `secrets`). A `-000` code (`TYPE-000`, `DRY-000`, ...) is not a
 rule but a notice that a check skipped a file it could not parse, and
 `RUN-000` reports a check that raised; both stay warnings whatever `promote`
-says.
+says. A rule that is advisory by nature (today `SHALLOW-001`) stays a warning
+under `promote = ["ALL"]`; a `promote` entry naming its code or category still
+escalates it.
 
 ## Test files
 
@@ -32,7 +34,7 @@ predicates, each on the path relative to the scan root:
 A production rule exempts the union of the three: `KWARG-001`, `DRY-001`,
 `SIMILAR-001`, `SIZE-*`, `COMPLEXITY-001`, `PARAM-001`, `SECRETPY-001`,
 `SQL-001`, `IMPORT-001`, `NAMING-005`, `CMT-006`, `CMT-007`, the `TERM` rules,
-`TYPE-001..004`, `STALE-001`, `ATTR-001` and `ATTR-002`. `AAA-001` and
+`TYPE-001..004`, `STALE-001`, `ATTR-001`, `ATTR-002` and `SHALLOW-001`. `AAA-001` and
 `AAA-002` judge collected test modules only. `TESTFILE-001` counts collected
 test modules under each configured root as partners.
 
@@ -495,6 +497,248 @@ The rule strings carry no number (`SIZE-001: File exceeds the effective
 line limit`, not `... exceeds 500 effective lines`), so retuning a
 threshold does not move a finding's baseline anchor. The number a finding
 was measured against appears in its message.
+
+`SHALLOW-001` is the counterweight: it flags a package split finer than its
+code needs, with a merge budget below this warning so the two never disagree.
+
+---
+
+## Shallow modules: `SHALLOW-001`
+
+Opt-in (`enabled = true`); the `strict` profile turns it on. Advisory: a
+warning that keeps exit 0, and it stays a warning under `promote = ["ALL"]`
+(so under `strict` too); only a `promote` entry naming `SHALLOW-001` or
+`SHALLOW` makes it an error. Under `strict` write `promote = ["ALL", "SHALLOW"]`:
+a local `promote` replaces the profile's `["ALL"]`, so `["SHALLOW"]` alone would
+stop promoting everything else.
+
+**What it flags.** A leaf package whose modules are mostly tiny and which,
+taken together, would fit in one module well under SIZE-001's warning. The
+finding sits on line 1 of the package's `__init__.py` and asks a question
+rather than giving an order. On the hexagonal A/B run its message reads:
+
+> Package 'app/domain/' holds 6 modules in 152 lines, 5 of them under 20 lines
+> of code (conversation.py 17, errors.py 18, guardrails.py 10, pii.py 75,
+> policy.py 15, topics.py 17). Is each of these really its own thing?
+
+Its fix offers the merge, with the merged size against SIZE-001 and the reason
+a directory stays, and says how to keep a deliberate split:
+
+> If they belong together, consider folding conversation.py, errors.py,
+> guardrails.py, policy.py and topics.py into 'app/domain/pii.py' (152 lines,
+> under SIZE-001's 300-line warning) and keeping the 'app/domain/' directory,
+> because [layer_deps] layers names it. If the split is deliberate, keep it and
+> silence this with a per-file-ignores entry for 'app/domain/__init__.py', or
+> '# noqa: SHALLOW-001' on its line 1 (which counts against a SUPPRESS-001
+> budget).
+
+**Why.** SIZE-001 and SIZE-002 push code apart when a file or a function grows
+too big; nothing pushed back. In LaNorme's own agent A/B experiment
+(`experiments/agent-ab/README.md`) every LaNorme run split the code into 15 to
+31 app files by stage 3 where every control run stayed at 8 flat files, and
+the run that went fully hexagonal put six modules of 10 to 75 lines in its
+domain layer. A module that adds an
+import path and a namespace for a few lines of code is what Ousterhout calls
+a shallow module, and splitting into many of them multiplies interfaces
+[@ousterhout2018philosophy, ch. 4]; Fowler's Lazy Element is a unit that no
+longer pays for itself [@fowler2018refactoring, ch. 3]. Modules that are always
+used together are better together [@ousterhout2018philosophy, ch. 9], and a
+module boundary earns its place by the design decision it hides, not by a
+size [@parnas1972criteria]. Splitting has a reading cost too, though the
+evidence is about methods, not modules: in an eye-tracking study of novice Java
+readers, Extract Method cut task time by up to 78.8% on the harder tasks and
+raised it by up to 166.9% on simple ones, as readers moved back and forth
+between call sites and the extracted methods [@dacosta2026extract].
+
+**What it does not judge.** It measures size and count, not the interface
+itself. There is no rule against short functions: SIZE-002 stands, and the
+evidence favours small methods [@chowdhury2022method]. It makes no claim about
+defects: the size-defect evidence finds no size threshold
+[@elemam2002optimal] and disagrees on the shape of the curve
+[@syer2015relative]. Pass-through layers, single-implementation Protocols and
+small classes are not judged.
+
+**Conditions.** A package is reported when all of these hold, checked in this
+order:
+
+1. It holds at least `min_modules` members (default 3).
+2. The members total at most two thirds of SIZE-001's warning, counted in
+   SIZE-001 lines (200 at the defaults). The warning is the smaller of
+   `file_warn_lines` and `file_error_lines`, as SIZE-001 reads them.
+3. At least half the members are tiny: under 20 lines of code, docstrings
+   left out.
+4. Production code imports every member. A module only tests import, or
+   nothing imports, is loaded by name (a Django command, a template tag
+   library, a plugin, an entry point), so the package is left alone.
+5. It is a leaf: no subdirectory holds code or an unparseable file. An empty
+   or docstring-only subpackage does not count.
+6. Two or more other packages do not share at least half of its module names
+   (a per-feature layout such as netbox's `*/graphql` packages).
+7. Merging its modules does not put the merged module on a new import cycle,
+   which only a function-local import (`IMPORT-001`) could break.
+
+A member is a module directly in the package. `__init__.py` is one only when it
+holds more than re-exports; tests, `conftest.py`, `__main__.py`, `manage.py`,
+`setup.py`, non-importable names (`0001_initial.py`), composition roots (the
+`[layer_deps]` and `[port_coverage]` `composition_root` globs) and re-export
+shims (star imports, a PEP 562 `__getattr__` forwarding a deprecated name) are
+not. A package holding `admin.py`, `apps.py`, `asgi.py`, `settings.py`,
+`tasks.py`, `urls.py` or `wsgi.py` (loaded by a framework) or generated code
+(`_version.py`, `*_pb2.py`, `*_pb2_grpc.py`, or "do not edit" in its first five
+lines) is exempt, as are `migrations/`, `alembic/`, test packages and packages
+holding a file that does not parse.
+
+**What each condition removes**, measured on 1.59 million lines of application
+code (apps A: django, netbox, dispatch, warehouse, full-stack-fastapi-template,
+cosmicpython, py-clean-arch, clean-architecture, home-assistant core; apps B:
+fastapi-realworld-example-app, label-studio, litestar-fullstack, mealie,
+paperless-ngx, prefect, python-patterns, saleor, superset, wagtail), 524,354
+lines of libraries (the standard library, flask, requests, rich, SQLAlchemy and
+17 installed packages) and the 18 A/B snapshots, each condition applied after
+the ones before it:
+
+| Step | Libraries | Apps A | Apps B | A/B LaNorme | A/B control |
+|---|---|---|---|---|---|
+| Size alone (conditions 1 and 2) | 1 | 37 | 40 | 11 | 0 |
+| Tiny members | -1 | -27 | -22 | -1 | 0 |
+| Imported by production code | 0 | -2 | -2 | 0 | 0 |
+| Not a repeated layout | 0 | -5 | -10 | 0 | 0 |
+| No new import cycle | 0 | 0 | -1 | 0 | 0 |
+| **Reported** | **0** | **3** | **5** | **10** | **0** |
+
+A size-and-count signal with no conditions at all reports 92 packages on the
+same application code. The conditions overlap, so leaving one out alone can
+change less than its row: the five packages the repeated-layout condition
+removes in apps A would also close a new import cycle.
+
+**Where the fix merges.** The first matching case wins:
+
+1. **A directory another rule reads by path, or a package anywhere under one:
+   fold inside it.** The target is the largest member (ties broken by path),
+   never `__init__.py`, and the directory stays. Collapsing it into a module
+   would move code those rules read by where it sits: helpers under an adapter
+   root would become an adapter file PORT-001 checks, and a package under
+   `application/services` would become a service module TESTFILE-001 wants a
+   test for. In the ports directory itself a member PORT-002 expects no
+   adapter for (`repositories.py`, `unit_of_work.py`, `otel.py`, `metrics.py`)
+   is not the target while another member is.
+2. **A package holding files that are not members: fold inside**, as in case 1.
+   A composition root, `__main__.py`, a script, a test module or a re-export
+   shim stays where it is, and the fix names it; a re-export `__init__.py`
+   alone does not count.
+3. **A junk name** (`utils/`, `helpers/`, `common/`, `misc/`...): one module in
+   the parent, named for what it holds, never `utils.py`, which NAMING-010
+   would flag.
+4. **A top-level package, or a package beside a module of its own name: fold
+   inside**, as in case 1. A top-level name is what installers and entry points
+   use.
+5. **Otherwise** the package becomes the module `<package>.py`, which keeps its
+   import path: imports of `pkg.sub.<module>` become `pkg.sub`.
+
+A package is in case 1 when it is one of these directories, at any depth, or
+sits anywhere under one. When it is one, the table's reason is given; when it
+sits under several, the deepest names the reason:
+
+| Directory | Read from | Why it stays |
+|---|---|---|
+| each of `layers` | `[layer_deps] layers` (default `domain`, `application`, `infrastructure`, `api`) | the LAYER rules classify files by it |
+| `ports_dir` | `[port_coverage] ports_dir` (default `application/ports`) | PORT-002 reads port Protocols from it |
+| each of `adapter_roots` | `[port_coverage] adapter_roots` (default `infrastructure/services`) | PORT-001 and PORT-002 find adapters under it |
+| `api` | fixed | AUTHN-001 checks the endpoints under it |
+| `infrastructure/repositories`, `infrastructure/persistence` | fixed | NAMING-001 matches repository modules under it |
+| `application/services` | fixed | NAMING-002 matches service modules under it |
+| `api/v1/endpoints` | fixed | NAMING-003 matches endpoint modules under it |
+| `api/v1/endpoints`, `application/services`, `application/commands`, `application/queries`, `infrastructure/repositories`, `infrastructure/signing`, `infrastructure/secrets` | fixed | TESTFILE-001 pairs their modules with tests |
+
+**What following the fix keeps legal, and its limits.** Let `W` be SIZE-001's
+effective warning and `B` two thirds of it, rounded down, both read from the
+root config. The rule fires only
+when the members total at most `B`, and merging moves code without adding a
+counted line, so the merged module stays under `W` and SIZE-001 is silent on
+it. The package then has one member (or is gone), so SHALLOW-001 is silent
+too; a parent that becomes a small leaf merges the same way, and every step
+removes a module, so the sequence ends. A split SIZE-001 asks for keeps at
+least `W` lines, more than `B`, so it never trips SHALLOW-001; between `B` and
+`W` lies a quiet band of a third of `W` (100 lines at the defaults) where
+neither rule speaks. Whole modules move with their functions and classes, so
+SIZE-002, SIZE-003, COMPLEXITY-001 and PARAM-001 see no change. Directories
+other rules read by path stay, with every package under them; files that are
+not members stay, so their directory does; junk names are not carried into a
+module; and a merge that would close a new import cycle among the imports the
+graph resolves is not proposed. The unit tests follow the fix on generated
+trees and on hexagonal replicas and count every code under the default rule
+set and under `strict`: none fires more often afterwards. The limits:
+
+- Only the root config is read, like every whole-tree check: a nested region
+  that lowers `file_warn_lines`, or renames a layer, is not seen.
+- Only the seven mirrored keys follow a project's own settings. The
+  directories NAMING-001..003 and TESTFILE-001 read and the port files PORT-002
+  expects no adapter for are the built-in lists, so a custom
+  `ports_without_impl` or test layout is not known.
+- The cycle guard sees the imports the graph resolves: every static import,
+  and each package `__init__.py` it runs (one that imports nothing has run
+  before its package's modules and closes no cycle). Imports from strings
+  (`importlib`) and through namespace packages are not seen.
+- It does not check that the merged modules' top-level names are distinct, or
+  rewrite imports and tests; following the fix means doing both.
+
+**Configuration.**
+
+```toml
+[tool.lanorme.shallow_modules]
+enabled = true
+min_modules = 3   # at least 2
+```
+
+Seven more keys are read from the checks that own them, so the merge stays
+legal under their rules: `file_warn_lines` and `file_error_lines` from
+`[file_limits]`, `layers` and `layer_composition_root` from `[layer_deps]`
+(`layers`, `composition_root`), and `ports_dir`, `adapter_roots` and
+`port_composition_root` from `[port_coverage]` (`ports_dir`, `adapter_roots`,
+`composition_root`). Profiles count, so `hexagonal`, `clean` and `layered`
+reach the check with no extra setting. Set a key in
+`[tool.lanorme.shallow_modules]` only to override its owner;
+`lanorme check . --show-config` shows the values in force.
+
+**Keeping a deliberate split.** Silence the package in config:
+
+```toml
+[tool.lanorme.per-file-ignores]
+"**/api/__init__.py" = ["SHALLOW-001"]
+```
+
+or put `# noqa: SHALLOW-001` on line 1 of its `__init__.py`. Under `strict`,
+the suppressions check counts that comment against the SUPPRESS-001 budget
+(0 by default), so there `per-file-ignores` is the way.
+
+**Measured.** The rates per 1,000 lines on the corpora above are 0 on
+libraries, 0.005 on applications, 1.87 on the LaNorme arm of the A/B
+experiment (10 findings in 8 of 9 snapshots) and 0 on the control arm. On the
+labelled corpus (`evals/corpora/shallow_modules/`):
+
+| Split | Precision | Recall | F1 |
+|---|---|---|---|
+| dev (tuned against) | 0.783 | 0.783 | 0.783 |
+| holdout (sealed, labelled blind) | 0.571 | 0.400 | 0.471 |
+| gap, dev minus holdout | 0.211 | 0.383 | 0.312 |
+
+The gap is large: the dev numbers overstate how the rule does on unseen code.
+On dev, the false positives are contested conventions labelled false (a
+FastAPI router per resource, a use case per module, per-environment settings),
+and the misses are a two-module package below `min_modules`, three packages the
+repeated-layout condition removes, and a 201-line package just over the
+budget.
+
+**Limits.**
+
+- It reads the root config only, like every whole-tree check: a nested region
+  that lowers `file_warn_lines` is not seen. Set the limit at the root or use
+  `per-file-ignores`.
+- Importers under an `exclude` glob, entry points and modules loaded from
+  strings are invisible. Each makes the rule quieter, never noisier.
+- A package collapsed into its `__init__.py` is not seen, because SIZE-001
+  skips `__init__.py`. The fix never suggests it.
+- A subpackage holding one line of code keeps the package from being a leaf.
 
 ---
 

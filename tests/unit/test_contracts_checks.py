@@ -13,6 +13,7 @@ from pathlib import Path
 from lanorme.checks.file_limits import FileLimitsCheck
 from lanorme.checks.layer_deps import LayerDepsCheck
 from lanorme.checks.named_args import NamedArgsCheck
+from lanorme.checks.shallow_modules import ShallowModulesCheck
 from lanorme.checks.similarity import SimilarityCheck
 from lanorme.checks.strong_types import StrongTypesCheck
 from lanorme.scan import Scan
@@ -135,3 +136,22 @@ def test_kwarg001_is_reported_at_the_def_line(tmp_path: Path):
 
     # Assert
     assert [(v.code, v.file, v.line) for v in result.violations] == [("KWARG-001", "tp.py", 3)]
+
+
+def test_shallow001_is_reported_on_line_one_of_the_package_file(tmp_path: Path):
+    # Arrange: three ten-line modules in pkg/, each imported from the root.
+    package = tmp_path / "pkg"
+    package.mkdir()
+    (package / "__init__.py").write_text("", encoding="utf-8")
+    for stem in ("a", "b", "c"):
+        (package / f"{stem}.py").write_text("x = 1\n" * 10, encoding="utf-8")
+    (tmp_path / "main.py").write_text("from pkg import a, b, c\n", encoding="utf-8")
+    check = ShallowModulesCheck(enabled=True)
+
+    # Act
+    result = check.check(Scan(root=tmp_path))
+
+    # Assert
+    assert [(w.code, w.file, w.line, w.column) for w in result.warnings] == [
+        ("SHALLOW-001", "pkg/__init__.py", 1, None),
+    ]

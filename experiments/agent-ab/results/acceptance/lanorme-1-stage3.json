@@ -1,0 +1,20 @@
+{
+  "stage1": {
+    "passed": 31,
+    "failed": 0,
+    "errors": 0,
+    "failed_tests": []
+  },
+  "stage2": {
+    "passed": 28,
+    "failed": 0,
+    "errors": 0,
+    "failed_tests": []
+  },
+  "stage3": {
+    "passed": 23,
+    "failed": 0,
+    "errors": 0,
+    "failed_tests": []
+  }
+}

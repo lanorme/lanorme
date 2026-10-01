@@ -15,6 +15,12 @@ A check that reads its table through them never carries a mistyped value into
 ``run()``. A ``configure()`` that validates a value itself raises
 ``TypeError`` or ``ValueError``, which is reported the same way; any other
 exception is a bug in the check and is left to surface as one.
+
+A check may also read a setting from another check's table, when the move its
+finding asks for must stay legal under that other check's rules: the owner's
+value is mirrored into the reader's settings unless the reader's own table sets
+the key (see ``_MIRRORED_SETTINGS``). Profiles are resolved before this runs, so
+a mirrored layout set by ``hexagonal`` or ``clean`` reaches the reader too.
 """
 
 from __future__ import annotations
@@ -126,6 +132,46 @@ _SOURCE_ROOT_CHECKS = frozenset(
 )
 
 
+# Settings a check reads from another check's table, so the move its finding
+# asks for stays legal under that check's rules: (owner table, owner key, key
+# in the reader's table). SHALLOW-001 sizes its merge below SIZE-001's warning
+# and keeps the directories the LAYER and PORT rules locate files by.
+_MIRRORED_SETTINGS: dict[str, tuple[tuple[str, str, str], ...]] = {
+    "shallow_modules": (
+        ("file_limits", "file_warn_lines", "file_warn_lines"),
+        ("file_limits", "file_error_lines", "file_error_lines"),
+        ("layer_deps", "layers", "layers"),
+        ("layer_deps", "composition_root", "layer_composition_root"),
+        ("port_coverage", "ports_dir", "ports_dir"),
+        ("port_coverage", "adapter_roots", "adapter_roots"),
+        ("port_coverage", "composition_root", "port_composition_root"),
+    ),
+}
+
+
+def _is_mirrorable(value: object) -> bool:
+    """True for a well-typed value: an integer (not a bool), a string, or a list of strings.
+
+    A mistyped value is left in its owner's table, where the owner reports it
+    once, rather than being blamed on the check that mirrors it.
+    """
+    if isinstance(value, bool):
+        return False
+    if isinstance(value, int | str):
+        return True
+    return isinstance(value, list) and all(isinstance(item, str) for item in value)
+
+
+def _mirror_owner_settings(*, name: str, config: Settings, settings: Settings) -> None:
+    """Copy into *settings* the owner values check *name* mirrors, unless it sets them itself."""
+    for owner, owner_key, key in _MIRRORED_SETTINGS.get(name, ()):
+        table = config.get(owner)
+        if key in settings or not isinstance(table, dict) or owner_key not in table:
+            continue
+        if _is_mirrorable(table[owner_key]):
+            settings[key] = table[owner_key]
+
+
 def _find_offending_key(*, template: ConfigurableCheck, settings: Settings) -> str | None:
     """The first key in *settings* the check rejects, when it can be isolated.
 
@@ -201,7 +247,7 @@ def _configure_or_fail(
 
 
 def _build_settings(*, name: str, config: Settings) -> Settings:
-    """The settings table for check *name*, with the top-level ``source_root`` injected.
+    """The settings table for check *name*, with ``source_root`` and mirrored keys added.
 
     The top-level ``source_root`` is merged into the settings of the
     layout-aware checks (``layer_deps`` / ``port_coverage``,
@@ -209,6 +255,10 @@ def _build_settings(*, name: str, config: Settings) -> Settings:
     ``test_coverage`` for its production directories) so a single
     ``lanorme check .`` from the repo root can locate layers under a nested
     package directory while every other check keeps scanning the whole tree.
+
+    A check listed in ``_MIRRORED_SETTINGS`` then receives the values its
+    owners' tables set (``[file_limits] file_warn_lines`` for
+    ``shallow_modules``, for instance), unless its own table sets the key.
     """
     section = config.get(name)
     settings = dict(section) if isinstance(section, dict) else {}
@@ -220,6 +270,7 @@ def _build_settings(*, name: str, config: Settings) -> Settings:
         and "source_root" not in settings
     ):
         settings["source_root"] = source_root
+    _mirror_owner_settings(name=name, config=config, settings=settings)
     return settings
 
 

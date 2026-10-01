@@ -39,7 +39,9 @@ to fix, `0` clean or advisory only, `2` a usage or config error.
   `src/lanorme/__init__.py`, the shared parse layer in `src/lanorme/sources.py`,
   the shared file walk in `src/lanorme/discovery.py`, the shared test-file
   predicates in `src/lanorme/paths.py` (use `is_test_file`; never write
-  another `test_` prefix check).
+  another `test_` prefix check), the shared import graph in
+  `src/lanorme/module_graph.py`, and SIZE-001's line measure in
+  `src/lanorme/line_counts.py`.
 
 ## How we build features
 
@@ -76,7 +78,9 @@ one-line fix, a doc edit. Anything larger gets the phases above.
   views rather than re-walking: `module.comments` (the one tokeniser, in
   `lanorme/comment_code.py`), `module.docstrings` / `find_docstring(node)`,
   `module.imports`, `module.lines`. Read decorator names, attribute chains and
-  string literals through `lanorme.astnames`. Other files go through
+  string literals through `lanorme.astnames`. Resolve imports to in-tree
+  modules through `lanorme.module_graph` (`build_module_graph`); never write
+  another import resolver. Other files go through
   `lanorme.discovery.iter_files` / `iter_dirs`, never `Path.rglob` or
   `os.walk`, so directory pruning and the user's `exclude` globs are honoured.
 - Run context is a `lanorme.scan.Scan` (root, scope, excludes, the run's parse
@@ -117,6 +121,24 @@ one-line fix, a doc edit. Anything larger gets the phases above.
 
 See `CONTRIBUTING.md` for the full set (corpus discipline for heuristics, how to
 choose a default by measurement, the docs rules).
+
+## Vocabulary and citations
+
+- Spell names out: no abbreviations or shorthand in identifiers, rule names,
+  config keys or messages (`dependency`, not `dep`), unless the short form is
+  itself the standard term (`ast`, `url`).
+- Use the canonical term from software engineering, AI/ML, technical AI safety
+  or AI control literature; never coin a new one when an established term
+  exists ("shallow module", "Middle Man", "trusted monitoring", not a home-made
+  label).
+- Ground a change to a rule, a default or an agent-facing protocol in that
+  literature or in a solid evaluation or benchmark (our own `evals/` count),
+  and say which.
+- Cite it. Every work goes in `docs/references.bib` as a BibTeX entry, and the
+  place that applies it cites the key in Pandoc citation syntax, such as
+  `[@ousterhout2018philosophy, ch. 4]`, in a docstring, comment or Markdown
+  page. `tests/unit/test_citations.py` fails on any cited key with no entry, so
+  citations stay mechanically checkable.
 
 ## Documentation
 

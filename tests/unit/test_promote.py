@@ -16,7 +16,12 @@ from pathlib import Path
 
 import pytest
 
+from lanorme import CheckResult, Violation
+from lanorme.checks.file_limits import FileLimitsCheck
+from lanorme.checks.shallow_modules import ShallowModulesCheck
 from lanorme.cli import main
+from lanorme.filters import apply_promotions
+from lanorme.selectors import collect_advisory_codes
 
 # One PARAM-001 warning (5 params) on line 3.
 _WARNING_ONLY = "\n\ndef f(a, b, c, d, e):\n    return a\n"
@@ -175,6 +180,62 @@ def test_skip_notice_is_not_promoted_even_by_all(tmp_path: Path, capsys):
     assert {r["code"][-4:] for r in records} == {"-000"}
     assert {(r["severity"], r["promoted"]) for r in records} == {("warning", False)}
     assert code == 0
+
+
+def _build_advisory_result() -> CheckResult:
+    """One check's result holding a SHALLOW-001 and a PARAM-001 warning."""
+    return CheckResult.from_findings(
+        check="mixed",
+        warnings=[
+            Violation(file="pkg/__init__.py", line=1, rule="SHALLOW-001", message="m", fix="f"),
+            Violation(file="m.py", line=3, rule="PARAM-001", message="m", fix="f"),
+        ],
+    )
+
+
+@pytest.mark.parametrize(
+    ("promote", "escalated"),
+    [
+        (["ALL"], {"PARAM-001"}),
+        (["all", "PARAM"], {"PARAM-001"}),
+        (["ALL", "SHALLOW-001"], {"PARAM-001", "SHALLOW-001"}),
+        (["shallow"], {"SHALLOW-001"}),
+        (["SHALLOW-001"], {"SHALLOW-001"}),
+    ],
+)
+def test_an_advisory_code_is_promoted_only_when_named(promote: list[str], escalated: set[str]):
+    # Arrange
+    result = _build_advisory_result()
+    advisory = collect_advisory_codes(checks=[ShallowModulesCheck()])
+
+    # Act
+    (promoted,) = apply_promotions(results=[result], promote=promote, advisory_codes=advisory)
+
+    # Assert
+    assert {v.code for v in promoted.violations} == escalated
+    assert {w.code for w in promoted.warnings} == {"SHALLOW-001", "PARAM-001"} - escalated
+
+
+def test_with_no_advisory_codes_all_promotes_every_finding():
+    # Arrange: a caller whose checks declare no advisory codes.
+    result = _build_advisory_result()
+
+    # Act
+    (promoted,) = apply_promotions(results=[result], promote=["ALL"], advisory_codes=frozenset())
+
+    # Assert
+    assert {v.code for v in promoted.violations} == {"SHALLOW-001", "PARAM-001"}
+
+
+def test_collect_advisory_codes_reads_the_checks_declarations():
+    # Arrange
+    checks = [ShallowModulesCheck(), FileLimitsCheck()]
+
+    # Act
+    found = collect_advisory_codes(checks=checks)
+
+    # Assert
+    assert found == frozenset({"SHALLOW-001"})
 
 
 def test_default_warning_does_not_fail_the_build(tmp_path: Path, capsys):

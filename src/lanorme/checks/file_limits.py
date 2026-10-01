@@ -30,6 +30,7 @@ from typing import ClassVar
 
 from lanorme import CheckResult, Violation, register
 from lanorme.checkconfig import read_int
+from lanorme.line_counts import count_effective_lines, is_effective_line
 from lanorme.paths import is_test_file
 from lanorme.scan import Scan
 from lanorme.sources import Module, UnparseableFile, build_unparseable_notice, iter_modules, locate
@@ -93,17 +94,6 @@ def _should_exclude(*, relative: Path) -> bool:
     return any(part in EXCLUDED_DIR_PARTS for part in relative.parts)
 
 
-def _count_effective_lines(*, source: str) -> int:
-    """Count non-blank, non-comment-only lines in source code."""
-    return sum(1 for line in source.splitlines() if _is_effective_line(line=line))
-
-
-def _is_effective_line(*, line: str) -> bool:
-    """True for a line that is neither blank nor a comment."""
-    stripped = line.strip()
-    return bool(stripped) and not stripped.startswith("#")
-
-
 def _find_docstring_span(*, node: ast.FunctionDef | ast.AsyncFunctionDef) -> tuple[int, int] | None:
     """The 1-based first and last line of the function's docstring, if it has one."""
     if not node.body:
@@ -131,7 +121,7 @@ def _count_function_lines(*, node: ast.FunctionDef | ast.AsyncFunctionDef, lines
     for lineno in range(node.lineno, end + 1):
         if docstring and docstring[0] <= lineno <= docstring[1] and lineno != node.lineno:
             continue
-        if _is_effective_line(line=lines[lineno - 1]):
+        if is_effective_line(line=lines[lineno - 1]):
             count += 1
     return count
 
@@ -145,7 +135,7 @@ def _check_file_size(
     """SIZE-001: Warn and error on a file's effective line count."""
     violations: list[Violation] = []
     warnings: list[Violation] = []
-    effective = _count_effective_lines(source=source)
+    effective = count_effective_lines(source=source)
 
     if effective >= bounds.error:
         violations.append(

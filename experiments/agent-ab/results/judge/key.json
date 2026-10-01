@@ -1,0 +1,38 @@
+{
+  "stage1-run1": {
+    "A": "lanorme",
+    "B": "control"
+  },
+  "stage2-run1": {
+    "A": "control",
+    "B": "lanorme"
+  },
+  "stage3-run1": {
+    "A": "control",
+    "B": "lanorme"
+  },
+  "stage1-run2": {
+    "A": "control",
+    "B": "lanorme"
+  },
+  "stage2-run2": {
+    "A": "lanorme",
+    "B": "control"
+  },
+  "stage3-run2": {
+    "A": "lanorme",
+    "B": "control"
+  },
+  "stage1-run3": {
+    "A": "lanorme",
+    "B": "control"
+  },
+  "stage2-run3": {
+    "A": "lanorme",
+    "B": "control"
+  },
+  "stage3-run3": {
+    "A": "lanorme",
+    "B": "control"
+  }
+}

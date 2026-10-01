@@ -229,6 +229,10 @@ class Check(Protocol):
     compares or aggregates across files. Under cascading per-directory config a
     file-scoped check runs once per region; a tree-scoped check runs once at the
     scan root, because partitioning it would hide findings split across regions.
+
+    A check may also declare ``advisory_codes``, a frozenset of the rule codes
+    that are advisory by nature: ``promote = ["ALL"]`` leaves those warnings,
+    and only a ``promote`` entry naming the code or its category escalates them.
     """
 
     name: str

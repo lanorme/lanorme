@@ -30,14 +30,27 @@ evals/
   holdout_revisions.json   accepted holdout edits (absent until one is needed)
   corpora/<name>/
     labels.json            every label, with its provenance
-    dev/                   tuning allowed: positives/, negatives/
-    holdout/               sealed: positives/, negatives/, generated/
+    dev/                   tuning allowed: positives/, negatives/ (or cases/)
+    holdout/               sealed: positives/, negatives/, generated/ (or cases/)
   results/v<x>.json        one committed audit per release (the trail)
 ```
 
 Each scorer pairs with one corpus. The corpus is the dataset; the scorer is the
 code that grades the rule against it. `duplication_similar` grades two rules,
 SIMILAR-001 and DRY-001.
+
+A rule that judges a file against the rest of its project (SHALLOW-001 reads
+who imports each module and which sibling packages repeat a layout) needs whole
+projects, not lone files. Its corpus keeps one small project per directory
+under `cases/` (`dev/cases/<case>/...` and `holdout/cases/<case>/...`), and
+its scorer runs the check once per case, so two cases
+that share package names never see each other. The directory is `cases/`, not
+`positives/` or `negatives/`, because a case holds both. Every file of a case
+records the same `split` by hand, so a case is never scattered across the two
+splits by the per-file proposal. Cases taken from third-party projects are
+structural replicas: file names, import statements, line counts and docstring
+spans are kept and bodies replaced with neutral code, and each file's `note`
+names the `repo@sha:path` it replicates.
 
 ## The dev and holdout split
 
@@ -64,8 +77,16 @@ is sealed: a change to a rule's thresholds or source must not touch that rule's
 holdout files (see [`CONTRIBUTING.md`](../CONTRIBUTING.md)). The files in the
 corpora before the split were all visible while their rules were tuned, so for
 them the holdout is a random slice, not unseen data: it guards future changes
-and, today, mostly reproduces dev. The generated cases are the only holdout no
-rule has been tuned against yet.
+and, today, mostly reproduces dev. The generated cases, and the
+`shallow_modules` holdout, are the holdout no rule has been tuned against: that
+holdout was built and labelled by a separate session before SHALLOW-001 ran on
+it. There the gap shows:
+
+| SHALLOW-001 | Precision | Recall | F1 |
+|---|---|---|---|
+| dev | 0.783 | 0.783 | 0.783 |
+| holdout | 0.571 | 0.400 | 0.471 |
+| gap | 0.211 | 0.383 | 0.312 |
 
 ## Labels and provenance
 
