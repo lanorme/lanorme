@@ -11,6 +11,9 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
 
 ### Added
 
+- The LaNorme mark, in `brand/`: a sealed charter cut from an ink disc, painted
+  by code (a pointed pen on laid paper, and a wax seal), with the GitHub
+  avatar, favicons and an SVG. The docs site uses it as its logo and favicon.
 - The `shallow_modules` check (`SHALLOW-001`), off by default: it asks whether
   a small leaf package split into many tiny modules is really several things,
   with each module's size, the total and the module to merge into. The merge

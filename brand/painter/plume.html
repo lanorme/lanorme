@@ -1,0 +1,491 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>LaNorme, plume</title>
+<style>
+  html, body { margin: 0; background: #fff; }
+  canvas { width: 1024px; height: 1024px; display: block; }
+</style>
+</head>
+<body>
+<canvas id="sheet" width="4096" height="4096"></canvas>
+<script>
+// A sealed charter, written with a pointed pen on laid paper.
+//
+// A pointed nib is two tines. Pressing spreads them and the ink runs between them, so a
+// pressed stroke (a shade) is wide and a light one (a hairline) is the width of the tines
+// alone. Ink is carried along the stroke by threads between the tines; the edge threads
+// stay wet longest, so a shade that runs short of ink opens down its middle first. That is
+// railroading, the pointed pen's own trace, as kasure is the brush's.
+
+const SCALE = 4;
+const SIZE = 1024 * SCALE;
+const INK = "#000";
+const params = new URLSearchParams(location.search);
+const WAX = params.get("wax");
+const CLEAR = params.get("clear") === "1";
+// Didot cut every size of a face separately; the small optical size carries heavier
+// hairlines so the letter survives at favicon size.
+const SMALL = params.get("optical") === "small";
+
+const WAXES = {
+  // Sealing wax red: the family's accent, kin to the vermilion of the omamori seal.
+  red: { body: "#a3241c", shadow: "#64110d", light: "#d9614f" },
+  // The French royal chancery sealed acts meant to last in green wax on silk laces.
+  green: { body: "#2f6a45", shadow: "#173b25", light: "#6fa883" },
+};
+
+// ---------- randomness that repeats ----------
+function makeRandom(seed) {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function makeWaver(seed) {
+  const random = makeRandom(seed);
+  const values = Array.from({ length: 1024 }, () => random() * 2 - 1);
+  return (x) => {
+    const i = Math.floor(x), f = x - i;
+    const a = values[((i % 1024) + 1024) % 1024], b = values[(((i + 1) % 1024) + 1024) % 1024];
+    return a + (b - a) * f * f * (3 - 2 * f);
+  };
+}
+
+function makeField(seed) {
+  const random = makeRandom(seed);
+  const n = 509, table = Float32Array.from({ length: n * n }, () => random() * 2 - 1);
+  const at = (i, j) => table[(((j % n) + n) % n) * n + (((i % n) + n) % n)];
+  return (x, y) => {
+    const i = Math.floor(x), j = Math.floor(y), fx = x - i, fy = y - j;
+    const u = fx * fx * (3 - 2 * fx), v = fy * fy * (3 - 2 * fy);
+    const top = at(i, j) + (at(i + 1, j) - at(i, j)) * u;
+    const bottom = at(i, j + 1) + (at(i + 1, j + 1) - at(i, j + 1)) * u;
+    return top + (bottom - top) * v;
+  };
+}
+
+// A closed outline that wanders around a circle: a sum of a few slow ripples.
+function makeRim(seed, ripples) {
+  const random = makeRandom(seed);
+  const terms = Array.from({ length: ripples }, (_, k) => ({
+    k: k + 2, amount: (random() * 0.6 + 0.4) / (k + 2), phase: random() * Math.PI * 2,
+  }));
+  return (theta) => terms.reduce((sum, { k, amount, phase }) => sum + amount * Math.sin(k * theta + phase), 0);
+}
+
+// ---------- the path of a stroke ----------
+// Nodes are [x, y, width] in design pixels; a centripetal Catmull-Rom spline runs through them.
+function traceNodes(nodes) {
+  const points = [];
+  const at = (i) => {
+    if (i < 0) { const [a, b] = [nodes[0], nodes[1]]; return [2 * a[0] - b[0], 2 * a[1] - b[1], a[2]]; }
+    if (i >= nodes.length) { const [a, b] = [nodes[nodes.length - 1], nodes[nodes.length - 2]]; return [2 * a[0] - b[0], 2 * a[1] - b[1], a[2]]; }
+    return nodes[i];
+  };
+  const knot = (t, a, b) => t + Math.max(1e-6, Math.sqrt(Math.hypot(b[0] - a[0], b[1] - a[1])));
+  for (let i = 0; i < nodes.length - 1; i++) {
+    const [p0, p1, p2, p3] = [at(i - 1), at(i), at(i + 1), at(i + 2)];
+    const t0 = 0, t1 = knot(t0, p0, p1), t2 = knot(t1, p1, p2), t3 = knot(t2, p2, p3);
+    const mix = (a, b, ta, tb, t) => [0, 1].map((k) => ((tb - t) * a[k] + (t - ta) * b[k]) / (tb - ta));
+    for (let k = 0; k < 80; k++) {
+      const t = t1 + (t2 - t1) * (k / 80);
+      const a1 = mix(p0, p1, t0, t1, t), a2 = mix(p1, p2, t1, t2, t), a3 = mix(p2, p3, t2, t3, t);
+      const c = mix(mix(a1, a2, t0, t2, t), mix(a2, a3, t1, t3, t), t1, t2, t);
+      const f = k / 80;
+      points.push([c[0], c[1], p1[2] + (p2[2] - p1[2]) * f * f * (3 - 2 * f)]);
+    }
+  }
+  points.push(nodes[nodes.length - 1]);
+  return points;
+}
+
+function walk(points, step) {
+  const out = [];
+  let travelled = 0, carry = 0;
+  for (let i = 0; i < points.length - 1; i++) {
+    const [x0, y0, w0] = points[i], [x1, y1, w1] = points[i + 1];
+    const length = Math.hypot(x1 - x0, y1 - y0);
+    if (length === 0) continue;
+    let d = carry;
+    while (d < length) {
+      const f = d / length;
+      out.push({ x: x0 + (x1 - x0) * f, y: y0 + (y1 - y0) * f, w: w0 + (w1 - w0) * f,
+                 s: travelled + d, tx: (x1 - x0) / length, ty: (y1 - y0) / length });
+      d += step;
+    }
+    carry = d - length;
+    travelled += length;
+  }
+  return out;
+}
+
+// ---------- the pen ----------
+function paintPen(context, points, options = {}) {
+  const { seed = 1, threads = 28, flow = 1, railFrom = 2, rail = 0, pool = 0, tremor = 0.18,
+          clip = null } = options;
+  const random = makeRandom(seed);
+  const strands = Array.from({ length: threads }, (_, i) => {
+    const v = -1 + (2 * (i + 0.5)) / threads + (random() - 0.5) * (1.2 / threads);
+    return { v, load: 1, thirst: 0.7 + 0.6 * random(), x: null, y: null };
+  });
+  const waverWidth = makeWaver(seed + 11), waverX = makeWaver(seed + 23), waverY = makeWaver(seed + 37);
+  const path = walk(points, 0.3);
+  const total = path.length ? path[path.length - 1].s : 1;
+  context.save();
+  if (clip) {
+    context.beginPath();
+    context.rect(clip[0] * SCALE, clip[1] * SCALE, (clip[2] - clip[0]) * SCALE, (clip[3] - clip[1]) * SCALE);
+    context.clip();
+  }
+  context.strokeStyle = context.fillStyle = INK;
+  context.lineCap = "round";
+  let previous = 0;
+  for (const p of path) {
+    const travelled = p.s - previous;
+    previous = p.s;
+    const width = p.w * (1 + 0.025 * waverWidth(p.s / 40));
+    const cx = p.x + tremor * waverX(p.s / 18), cy = p.y + tremor * waverY(p.s / 18);
+    const fraction = p.s / total;
+    const late = fraction > railFrom ? (fraction - railFrom) / (1 - railFrom) : 0;
+    for (const strand of strands) {
+      // The edges ride the tines and stay wet; the middle of a shade runs dry first.
+      const middle = Math.pow(1 - Math.abs(strand.v), 1.5);
+      const drain = (0.0005 / flow) * (1 + rail * 18 * late * late * middle);
+      strand.load = Math.max(0, strand.load - travelled * drain * strand.thirst);
+      const x = cx - p.ty * strand.v * width / 2, y = cy + p.tx * strand.v * width / 2;
+      if (strand.x !== null && strand.load > 0.03) {
+        context.globalAlpha = Math.min(1, Math.pow(strand.load * 1.15, 1.3));
+        context.lineWidth = Math.max(0.3, (1.7 * width) / threads) * SCALE;
+        context.beginPath();
+        context.moveTo(strand.x * SCALE, strand.y * SCALE);
+        context.lineTo(x * SCALE, y * SCALE);
+        context.stroke();
+      }
+      strand.x = x;
+      strand.y = y;
+    }
+  }
+  // Where the nib lifts, the ink left between the tines pools into a small bead.
+  if (pool > 0 && path.length) {
+    const end = path[path.length - 1];
+    context.globalAlpha = 1;
+    context.beginPath();
+    context.ellipse(end.x * SCALE, end.y * SCALE, end.w * 0.5 * pool * SCALE, end.w * 0.5 * pool * SCALE, 0, 0, Math.PI * 2);
+    context.fill();
+  }
+  context.restore();
+}
+
+// ---------- the sheet ----------
+const ink = document.createElement("canvas");
+ink.width = ink.height = SIZE;
+const writing = ink.getContext("2d");
+
+const PAGE = { left: 322, right: 702, top: 128, bottom: 660, fold: 602 };
+const HOLES = [[488, 631], [536, 631]];
+
+function fillDisc() {
+  writing.fillStyle = INK;
+  writing.beginPath();
+  writing.arc(512 * SCALE, 512 * SCALE, 466 * SCALE, 0, Math.PI * 2);
+  writing.fill();
+}
+
+// Laid paper is made in a mould, and the edge of the mould (the deckle) leaves the sheet's
+// edge soft and a little uneven: a slow wander and a fine fibrous fray.
+function cutSheet() {
+  const slow = makeWaver(71), fine = makeWaver(73);
+  const { left, right, top, bottom } = PAGE;
+  const corners = [[left, top], [right, top], [right, bottom], [left, bottom]];
+  writing.save();
+  writing.globalCompositeOperation = "destination-out";
+  writing.beginPath();
+  let travelled = 0;
+  corners.forEach(([x0, y0], side) => {
+    const [x1, y1] = corners[(side + 1) % 4];
+    const length = Math.hypot(x1 - x0, y1 - y0);
+    const [nx, ny] = [(y1 - y0) / length, -(x1 - x0) / length];
+    for (let d = 0; d < length; d += 0.6) {
+      const f = d / length;
+      const corner = Math.min(d, length - d);
+      const round = corner < 3 ? -(3 - corner) * (3 - corner) / 6 : 0;
+      const offset = 0.9 * slow((travelled + d) / 26) + 0.45 * fine((travelled + d) / 1.1) + round;
+      const [x, y] = [x0 + (x1 - x0) * f + nx * offset, y0 + (y1 - y0) * f + ny * offset];
+      d === 0 && side === 0 ? writing.moveTo(x * SCALE, y * SCALE) : writing.lineTo(x * SCALE, y * SCALE);
+    }
+    travelled += length;
+  });
+  writing.closePath();
+  writing.fill();
+  writing.restore();
+}
+
+// The fold (le repli): the foot of the sheet turned up, where the laces of a hanging seal
+// pass through. Its edge is a single hairline; the slits are cut through both leaves.
+function paintFold({ slits }) {
+  const { left, right, fold } = PAGE;
+  paintPen(writing, traceNodes([[left - 2, fold + 0.4, 2.6], [512, fold, 2.4], [right + 2, fold - 0.4, 2.6]]),
+           { seed: 81, threads: 4, tremor: 0.1 });
+  if (!slits) return;
+  writing.save();
+  writing.fillStyle = INK;
+  for (const [x, y] of HOLES) {
+    writing.beginPath();
+    writing.ellipse(x * SCALE, y * SCALE, 4.2 * SCALE, 2.6 * SCALE, 0, 0, Math.PI * 2);
+    writing.fill();
+  }
+  writing.restore();
+}
+
+// N, as Didot cut it: two hairline stems, one heavy shade on the diagonal, flat hairline
+// serifs without brackets. Written stroke by stroke, the pen pressed only on the diagonal.
+function writeNorme() {
+  const [cap, base] = [218, 516];
+  const [hair, shade] = SMALL ? [15, 52] : [5.6, 44];
+  const serif = SMALL ? 13 : 4.4;
+  const height = [0, cap - 0.6, 1024, base + 0.6];
+  const [left, right] = [384, 640];
+  // 1. The left stem, a light downstroke.
+  paintPen(writing, traceNodes([[left, cap - 4, hair], [left - 0.4, 360, hair], [left, base + 4, hair]]),
+           { seed: 41, threads: 6, clip: height });
+  // 2. The shade: pressed from the cap line to the foot of the right stem, its parallel
+  // edges cut square by the cap line and the baseline, the ink running short at its foot.
+  // Its outer edges meet the stems' outer edges: the left at the cap line, the right at the foot.
+  let across = shade;
+  for (let k = 0; k < 3; k++) {
+    const run = (right + hair / 2 - across / 2) - (left - hair / 2 + across / 2);
+    across = shade * Math.hypot(run, base - cap) / (base - cap);
+  }
+  // The right edge runs a little past the stem and is cut at its outer edge: a sharp vertex.
+  const topX = left - hair / 2 + across / 2, footX = right + hair / 2 + 1.5 - across / 2;
+  const slope = (footX - topX) / (base - cap);
+  paintPen(writing, traceNodes([[topX - 8 * slope, cap - 8, shade], [(topX + footX) / 2, (cap + base) / 2, shade],
+                                [footX + 8 * slope, base + 8, shade]]),
+           { seed: 43, threads: 40, flow: 0.9, railFrom: 0.6, rail: 0.9, clip: [0, cap - 0.6, right + hair / 2, base + 0.6] });
+  // 3. The right stem, a light downstroke into the foot of the shade.
+  paintPen(writing, traceNodes([[right, cap - 4, hair], [right + 0.4, 380, hair], [right, base, hair]]),
+           { seed: 47, threads: 6, clip: [0, cap - 0.6, 1024, base] });
+  // 4. The serifs: flat hairlines, each lifted with a small bead of ink at its end.
+  const serifs = [
+    [[left - 34, cap], [left + 22, cap]],
+    [[left - 34, base], [left + 34, base]],
+    [[right - 34, cap], [right + 34, cap]],
+  ];
+  serifs.forEach(([[x0, y], [x1]], i) => {
+    const lift = y === cap ? serif / 2 - 0.6 : -serif / 2 + 0.6;
+    paintPen(writing, traceNodes([[x0, y + lift, serif], [(x0 + x1) / 2, y + lift - 0.2, serif], [x1, y + lift, serif]]),
+             { seed: 53 + i, threads: 5, pool: 1.15, tremor: 0.08 });
+  });
+}
+
+fillDisc();
+cutSheet();
+paintFold({ slits: Boolean(WAX) });
+writeNorme();
+
+// ---------- the paper ----------
+// Laid paper keeps the marks of its mould: close laid lines from the wires, and wider chain
+// lines from the rods that held them. Thin ink only catches where the paper stands high.
+const bled = document.createElement("canvas");
+bled.width = bled.height = SIZE;
+const bleeding = bled.getContext("2d");
+bleeding.filter = `blur(${0.45 * SCALE}px)`;
+bleeding.drawImage(ink, 0, 0);
+const sharp = writing.getImageData(0, 0, SIZE, SIZE).data;
+const soft = bleeding.getImageData(0, 0, SIZE, SIZE).data;
+
+const fibre = makeField(3), grain = makeField(11), cloud = makeField(17);
+function paperHeight(x, y) {
+  const laid = Math.sin((y / SCALE) * Math.PI * 2 / 2.3);
+  const chainOffset = (((x / SCALE - 330) % 26) + 26) % 26 - 13;
+  const chain = Math.exp(-(chainOffset * chainOffset) / 1.6);
+  return 0.5 + 0.1 * laid - 0.08 * chain + 0.14 * fibre(x / 30, y / 7) + 0.1 * grain(x / 2.4, y / 2.4) + 0.05 * cloud(x / 90, y / 90);
+}
+
+const sheet = document.getElementById("sheet").getContext("2d");
+const output = sheet.createImageData(SIZE, SIZE);
+const pixels = output.data;
+for (let y = 0; y < SIZE; y++) {
+  for (let x = 0; x < SIZE; x++) {
+    const i = (y * SIZE + x) * 4 + 3;
+    const density = 0.85 * (sharp[i] / 255) + 0.15 * (soft[i] / 255);
+    let t;
+    if (density >= 0.985) t = 1;
+    else if (density <= 0.01) t = 0;
+    else {
+      const h = paperHeight(x, y);
+      t = Math.min(1, Math.max(0, (density - h + 0.045) / 0.09));
+      t = t * t * (3 - 2 * t);
+    }
+    const value = 255 - Math.round(255 * t);
+    const o = i - 3;
+    pixels[o] = pixels[o + 1] = pixels[o + 2] = value;
+    pixels[o + 3] = CLEAR && Math.hypot(x / SCALE - 512, y / SCALE - 512) > 467 ? 255 - value : 255;
+  }
+}
+sheet.putImageData(output, 0, 0);
+
+// ---------- the seal ----------
+// A pendant seal: silk laces through the fold, their ends sunk in a cake of wax pressed
+// with a matrix. The matrix bears a beaded border and a norma, the carpenter's square that
+// gave Latin, and then French, the word for a rule. Lit from the upper left, flat in three
+// tones: the wax, its shadow, its light.
+function paintSeal(wax) {
+  const seal = document.createElement("canvas");
+  seal.width = seal.height = SIZE;
+  const c = seal.getContext("2d");
+  const s = SCALE;
+  const random = makeRandom(131);
+  const [cx, cy] = [512, 770];
+
+  // The laces, twisted silk: a body with the shadow of each turn laid across it.
+  const lace = (nodes, seed) => {
+    const path = walk(traceNodes(nodes), 0.25);
+    c.lineCap = "round";
+    c.strokeStyle = wax.body;
+    c.lineWidth = 6.4 * s;
+    c.beginPath();
+    path.forEach((p, i) => (i ? c.lineTo(p.x * s, p.y * s) : c.moveTo(p.x * s, p.y * s)));
+    c.stroke();
+    c.strokeStyle = wax.shadow;
+    c.lineWidth = 1.1 * s;
+    const twist = makeRandom(seed);
+    for (let k = 0; k < path.length; k += 18) {
+      const p = path[k], nx = -p.ty, ny = p.tx, lean = 1.6 + 0.4 * twist();
+      c.beginPath();
+      c.moveTo((p.x - nx * 2.9 - p.tx * lean) * s, (p.y - ny * 2.9 - p.ty * lean) * s);
+      c.lineTo((p.x + nx * 2.9 + p.tx * lean) * s, (p.y + ny * 2.9 + p.ty * lean) * s);
+      c.stroke();
+    }
+    return path[path.length - 1];
+  };
+  // A lace's free end unravels into a few strands of floss.
+  const fray = (end, seed) => {
+    const twist = makeRandom(seed);
+    c.strokeStyle = wax.body;
+    c.lineCap = "round";
+    for (let k = 0; k < 5; k++) {
+      const spread = (k - 2) * 0.32 + (twist() - 0.5) * 0.2;
+      const length = 9 + twist() * 7;
+      const angle = Math.atan2(end.ty, end.tx) + spread;
+      c.lineWidth = (1 + twist() * 0.6) * s;
+      c.beginPath();
+      c.moveTo((end.x - end.tx * 1.5) * s, (end.y - end.ty * 1.5) * s);
+      c.quadraticCurveTo((end.x + Math.cos(angle) * length * 0.5) * s, (end.y + Math.sin(angle) * length * 0.5 + 1) * s,
+                         (end.x + Math.cos(angle) * length) * s, (end.y + Math.sin(angle) * length) * s);
+      c.stroke();
+    }
+  };
+  lace([[HOLES[0][0], HOLES[0][1]], [489, 652], [494, 676], [500, 702]].map((p) => [...p, 0]), 1);
+  lace([[HOLES[1][0], HOLES[1][1]], [535, 652], [530, 676], [524, 702]].map((p) => [...p, 0]), 2);
+  fray(lace([[503, 830], [499, 852], [493, 874]].map((p) => [...p, 0]), 3), 4);
+  fray(lace([[521, 830], [526, 852], [534, 872]].map((p) => [...p, 0]), 5), 6);
+
+  // The cake of wax: a round that spread a little where it was poured.
+  const rim = makeRim(137, 8);
+  const cake = (dx, dy, grow = 0) => {
+    c.beginPath();
+    for (let k = 0; k <= 360; k++) {
+      const theta = (k / 360) * Math.PI * 2;
+      const spill = 7 * Math.exp(-Math.pow((theta - 2.3) / 0.38, 2)) + 4 * Math.exp(-Math.pow((theta - 5.6) / 0.3, 2));
+      const r = 74 + 11 * rim(theta) + spill + grow;
+      const [x, y] = [cx + dx + r * Math.cos(theta), cy + dy + r * Math.sin(theta)];
+      k ? c.lineTo(x * s, y * s) : c.moveTo(x * s, y * s);
+    }
+    c.closePath();
+  };
+  c.fillStyle = wax.shadow;
+  cake(0, 0);
+  c.fill();
+  c.save();
+  cake(0, 0);
+  c.clip();
+  c.fillStyle = wax.light;
+  cake(-2.4, -2.4);
+  c.fill();
+  c.fillStyle = wax.body;
+  cake(-0.8, -0.8, -2.6);
+  c.fill();
+  c.restore();
+
+  // The impression: a round hollow, its wall in shadow towards the light, lit away from it.
+  const disc = (x, y, r) => { c.beginPath(); c.arc(x * s, y * s, r * s, 0, Math.PI * 2); };
+  const R = 55;
+  c.save();
+  disc(cx, cy, R);
+  c.clip();
+  c.fillStyle = wax.light;
+  disc(cx, cy, R);
+  c.fill();
+  c.fillStyle = wax.shadow;
+  disc(cx - 1.4, cy - 1.4, R);
+  c.fill();
+  c.fillStyle = wax.body;
+  disc(cx + 1.6, cy + 1.6, R - 1.2);
+  c.fill();
+  c.restore();
+
+  // What the matrix leaves standing: light on its upper left, shadow on its lower right.
+  const relief = (draw) => {
+    for (const [dx, dy, colour] of [[0.9, 0.9, wax.shadow], [-0.7, -0.7, wax.light], [0, 0, wax.body]]) {
+      c.save();
+      c.translate(dx * s, dy * s);
+      c.fillStyle = colour;
+      draw();
+      c.restore();
+    }
+  };
+  // The beaded border (grènetis).
+  relief(() => {
+    for (let k = 0; k < 44; k++) {
+      const theta = (k / 44) * Math.PI * 2;
+      disc(cx + 47.5 * Math.cos(theta), cy + 47.5 * Math.sin(theta), 1.75);
+      c.fill();
+    }
+  });
+  // The norma: a long blade and a shorter tongue at a true right angle, graduated.
+  const [x0, y0, blade, tongue, arm] = [491, 734, 68, 46, 9.5];
+  relief(() => {
+    c.beginPath();
+    c.moveTo(x0 * s, y0 * s);
+    c.lineTo((x0 + arm) * s, y0 * s);
+    c.lineTo((x0 + arm) * s, (y0 + blade - arm) * s);
+    c.lineTo((x0 + tongue) * s, (y0 + blade - arm) * s);
+    c.lineTo((x0 + tongue) * s, (y0 + blade) * s);
+    c.lineTo(x0 * s, (y0 + blade) * s);
+    c.closePath();
+    c.fill();
+  });
+  c.fillStyle = wax.shadow;
+  for (let k = 1; k < 9; k++) {
+    const y = y0 + k * 6.4, long = k % 2 === 0;
+    c.fillRect((x0 + arm - (long ? 4.6 : 2.8)) * s, (y - 0.5) * s, (long ? 4.6 : 2.8) * s, 1 * s);
+  }
+  for (let k = 1; k < 6; k++) {
+    const x = x0 + arm + k * 6.4, long = k % 2 === 0;
+    c.fillRect((x - 0.5) * s, (y0 + blade - arm) * s, 1 * s, (long ? 4.6 : 2.8) * s);
+  }
+
+  // Small bubbles caught in the wax.
+  c.fillStyle = wax.light;
+  for (let k = 0; k < 26; k++) {
+    const theta = random() * Math.PI * 2, r = 57 + random() * 14;
+    disc(cx + r * Math.cos(theta), cy + r * Math.sin(theta), 0.3 + random() * 0.6);
+    c.fill();
+  }
+  sheet.drawImage(seal, 0, 0);
+}
+
+if (WAXES[WAX]) paintSeal(WAXES[WAX]);
+if (CLEAR) { document.documentElement.style.background = "transparent"; document.body.style.background = "transparent"; }
+document.title = "painted";
+</script>
+</body>
+</html>

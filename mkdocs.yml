@@ -15,6 +15,9 @@ exclude_docs: |
 theme:
   name: material
   custom_dir: overrides
+  # The mark's small optical size; brand/build.py writes both files.
+  logo: assets/logo.png
+  favicon: assets/favicon.png
   features:
     - navigation.indexes
     - navigation.top

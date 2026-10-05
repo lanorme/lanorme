@@ -1,5 +1,7 @@
 # LaNorme
 
+<img src="https://raw.githubusercontent.com/lanorme/lanorme/main/brand/assets/lanorme.png" alt="The LaNorme mark: a sheet cut from a black disc bearing a Didone N, with a red wax seal hanging from its fold." width="160" align="right">
+
 [![PyPI](https://img.shields.io/pypi/v/lanorme.svg)](https://pypi.org/project/lanorme/)
 [![Python](https://img.shields.io/pypi/pyversions/lanorme.svg)](https://pypi.org/project/lanorme/)
 [![CI](https://github.com/lanorme/lanorme/actions/workflows/ci.yml/badge.svg)](https://github.com/lanorme/lanorme/actions/workflows/ci.yml)
