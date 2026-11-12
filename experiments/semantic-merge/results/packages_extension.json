@@ -378,7 +378,7 @@
    "prose_cohesion": 0.17647392247556767,
    "prose_lift": 0.11152935575254062,
    "prose_overlap": 0.10684430512016718,
-   "commit_count": 4,
+   "commit_count": 5,
    "changed_together": 0.0,
    "cochange_similarity": 0.0
   },
@@ -820,11 +820,11 @@
   "signals": {
    "internal_density": 0.6666666666666666,
    "connected_share": 1.0,
-   "importer_count": 1,
-   "importer_similarity": 0.0,
-   "private_share": 0.6666666666666667,
-   "used_together": 0.0,
-   "mean_share_used": 0.3333333333333333,
+   "importer_count": 0,
+   "importer_similarity": null,
+   "private_share": 1.0,
+   "used_together": null,
+   "mean_share_used": null,
    "fan_out_similarity": 0.4166666666666667,
    "role_similarity": 0.5,
    "identifier_cohesion": 0.09287658728453847,
@@ -837,7 +837,7 @@
    "changed_together": null,
    "cochange_similarity": null
   },
-  "reuse_sentence": "Only 'src/lfx/src/lfx/components/__init__.py' imports them (1 of 3), and some import one another."
+  "reuse_sentence": "No production module outside the package imports them, and some import one another."
  },
  {
   "identifier": "mem0:mem0/configs/rerankers",
@@ -1206,10 +1206,10 @@
    "internal_density": 0.5,
    "connected_share": 0.75,
    "importer_count": 5,
-   "importer_similarity": 0.2333333333333333,
-   "private_share": 0.25,
-   "used_together": 1.0,
-   "mean_share_used": 0.55,
+   "importer_similarity": 0.04,
+   "private_share": 0.5,
+   "used_together": 0.2,
+   "mean_share_used": 0.3,
    "fan_out_similarity": 0.5,
    "role_similarity": 0.08333333333333333,
    "identifier_cohesion": 0.13972438970349108,
@@ -1222,7 +1222,7 @@
    "changed_together": 0.14285714285714285,
    "cochange_similarity": 0.02857142857142857
   },
-  "reuse_sentence": "5 modules import them, 5 of those importing two or more, and some import one another."
+  "reuse_sentence": "5 modules import them, 1 of those importing two or more, and some import one another."
  },
  {
   "identifier": "python-fastapi-hex-todo:todolist/api/routers/account",
@@ -1240,11 +1240,11 @@
   "signals": {
    "internal_density": 0.6666666666666666,
    "connected_share": 1.0,
-   "importer_count": 2,
-   "importer_similarity": 0.16666666666666666,
-   "private_share": 0.33333333333333337,
-   "used_together": 0.5,
-   "mean_share_used": 0.5,
+   "importer_count": 1,
+   "importer_similarity": 0.0,
+   "private_share": 0.6666666666666667,
+   "used_together": 0.0,
+   "mean_share_used": 0.3333333333333333,
    "fan_out_similarity": 0.17865497076023393,
    "role_similarity": 0.2896825396825397,
    "identifier_cohesion": 0.1900639469757598,
@@ -1253,11 +1253,11 @@
    "prose_cohesion": 0.19890922947845258,
    "prose_lift": 0.15268651559300966,
    "prose_overlap": 0.15139445929887108,
-   "commit_count": 0,
+   "commit_count": 1,
    "changed_together": null,
    "cochange_similarity": null
   },
-  "reuse_sentence": "2 modules import them, 1 of those importing two or more, and some import one another."
+  "reuse_sentence": "Only 'todolist/api/routers/todo/todo_item.py' imports them (1 of 3), and some import one another."
  },
  {
   "identifier": "python-fastapi-hex-todo:todolist/api/routers/todo",
@@ -1275,11 +1275,11 @@
   "signals": {
    "internal_density": 1.0,
    "connected_share": 1.0,
-   "importer_count": 1,
-   "importer_similarity": 0.0,
-   "private_share": 0.5,
-   "used_together": 0.0,
-   "mean_share_used": 0.5,
+   "importer_count": 0,
+   "importer_similarity": null,
+   "private_share": 1.0,
+   "used_together": null,
+   "mean_share_used": null,
    "fan_out_similarity": 0.07142857142857142,
    "role_similarity": 0.14285714285714285,
    "identifier_cohesion": 0.17426773440910595,
@@ -1292,7 +1292,7 @@
    "changed_together": null,
    "cochange_similarity": null
   },
-  "reuse_sentence": "Only 'todolist/api/routers/__init__.py' imports them (1 of 2), and some import one another."
+  "reuse_sentence": "No production module outside the package imports them, and some import one another."
  },
  {
   "identifier": "python-fastapi-hex-todo:todolist/core/accounts/services",
@@ -1428,9 +1428,9 @@
    "prose_cohesion": 0.3321634245559913,
    "prose_lift": 0.27168571551371185,
    "prose_overlap": 0.1987012987012987,
-   "commit_count": 1,
-   "changed_together": null,
-   "cochange_similarity": null
+   "commit_count": 3,
+   "changed_together": 0.0,
+   "cochange_similarity": 0.0
   },
   "reuse_sentence": "Only 'src/shared_kernel/infra/fastapi/main.py' imports them (1 of 3), and some import one another."
  },
@@ -1603,9 +1603,9 @@
    "prose_cohesion": 0.0944591472236647,
    "prose_lift": 0.06258026489976073,
    "prose_overlap": 0.04421052631578948,
-   "commit_count": 6,
+   "commit_count": 12,
    "changed_together": 0.16666666666666666,
-   "cochange_similarity": 0.05555555555555555
+   "cochange_similarity": 0.06944444444444443
   },
   "reuse_sentence": "15 modules import them, 3 of those importing two or more, and some import one another."
  },
@@ -1660,11 +1660,11 @@
   "signals": {
    "internal_density": 1.0,
    "connected_share": 1.0,
-   "importer_count": 2,
-   "importer_similarity": 0.5,
-   "private_share": 0.0,
-   "used_together": 0.5,
-   "mean_share_used": 0.75,
+   "importer_count": 1,
+   "importer_similarity": 0.0,
+   "private_share": 0.5,
+   "used_together": 0.0,
+   "mean_share_used": 0.5,
    "fan_out_similarity": 0.038461538461538464,
    "role_similarity": 0.0,
    "identifier_cohesion": 0.35451606703175004,
@@ -1677,7 +1677,7 @@
    "changed_together": null,
    "cochange_similarity": null
   },
-  "reuse_sentence": "2 modules import them, 1 of those importing two or more, and some import one another."
+  "reuse_sentence": "Only 'superset/commands/importers/v1/assets.py' imports them (1 of 2), and some import one another."
  },
  {
   "identifier": "superset:superset/mcp_service/rls/tool",
@@ -1848,9 +1848,9 @@
    "prose_cohesion": 0.08892812684201744,
    "prose_lift": 0.057116639663956276,
    "prose_overlap": 0.375,
-   "commit_count": 46,
-   "changed_together": 0.021739130434782608,
-   "cochange_similarity": 0.021739130434782608
+   "commit_count": 47,
+   "changed_together": 0.02127659574468085,
+   "cochange_similarity": 0.02127659574468085
   },
   "reuse_sentence": "2 modules import them, 0 of those importing two or more, and none of them import one another."
  },

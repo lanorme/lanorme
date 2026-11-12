@@ -16,13 +16,14 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
   co-change can tell which small packages should merge. Measured on the
   original trees of the rule's corpus and on 54 more packages from 14
   projects, with holdout hypotheses fixed in advance, independent blind
-  ratings and an agent decision experiment. No signal keeps its direction
-  across the dev split, the holdout and the blind ratings; a Bunch-style
-  clustering of the import graph is unstable and unrelated to the authors'
-  packages; a Common Reuse sentence in the message does not change what an
-  agent decides. Lines per member, which the rule already reads, is what
-  separates. The rule is unchanged. The results, and two follow-ups on the
-  rule's own corpus, are in `experiments/semantic-merge/README.md`.
+  ratings and an agent decision experiment. No signal separates the packages
+  to merge on both the dev split and the holdout; co-change is the one lead,
+  on the 17 rated packages that have history; a Bunch-style clustering of
+  the import graph is weakly related to the authors' packages; a Common
+  Reuse sentence in the message shows no effect on what an agent decides.
+  Lines per member, which the rule already reads, separates the packages to
+  keep. The rule is unchanged. The results and three follow-ups are in
+  `experiments/semantic-merge/README.md`.
 - `docs/references.bib` gains the 22 works the spike relies on, each checked
   against a bibliographic record (Crossref for the 21 with a DOI).
 

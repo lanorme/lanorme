@@ -8,7 +8,10 @@ rule, a signal or a corpus label. This reports:
 - **Reliability.** Cohen's kappa [@cohen1960coefficient] between the corpus
   label and the blind rating (per split), and between the two raters of the
   extension set. A label two careful raters do not agree on bounds what any
-  signal can do.
+  signal can do. The corpus label is binary and the rating has three levels,
+  so the agreement is reported at both cuts: ``merge`` against the rest (the
+  corpus's own definition, a contested convention being false) and ``keep``
+  against the rest.
 - **Signals against the ratings.** A package's rating is ``merge`` when any
   rater says so, ``keep`` when every rater says so, else ``contested``. Each
   signal's AUC is reported for merge against keep, merge against contested
@@ -92,10 +95,19 @@ def measure_reliability(
             if records[identifier]["split"] == split
         ]
         report[f"corpus_{split}_against_blind"] = compute_kappa(pairs)
+        kept = [
+            (not records[identifier]["is_shallow"], labels["a"] == KEEP)
+            for identifier, labels in ratings.items()
+            if records[identifier]["split"] == split
+        ]
+        report[f"corpus_{split}_against_blind_keep_or_not"] = compute_kappa(kept)
     both = [labels for labels in ratings.values() if len(labels) > 1]
     report["raters_three_levels"] = compute_kappa([(found["a"], found["b"]) for found in both])
     report["raters_merge_or_not"] = compute_kappa(
         [(found["a"] == MERGE, found["b"] == MERGE) for found in both],
+    )
+    report["raters_keep_or_not"] = compute_kappa(
+        [(found["a"] == KEEP, found["b"] == KEEP) for found in both],
     )
     return report
 

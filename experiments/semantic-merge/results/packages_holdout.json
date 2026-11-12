@@ -98,9 +98,9 @@
    "prose_cohesion": 0.09389303674205939,
    "prose_lift": 0.0626545677618377,
    "prose_overlap": 0.06242965905329361,
-   "commit_count": 0,
-   "changed_together": null,
-   "cochange_similarity": null
+   "commit_count": 8,
+   "changed_together": 0.0,
+   "cochange_similarity": 0.0
   },
   "reuse_sentence": "26 modules import them, 6 of those importing two or more, and some import one another."
  },
@@ -203,7 +203,7 @@
    "prose_cohesion": 0.255525681125582,
    "prose_lift": 0.23612829915850786,
    "prose_overlap": 0.1547137073452863,
-   "commit_count": 0,
+   "commit_count": 1,
    "changed_together": null,
    "cochange_similarity": null
   },
@@ -413,7 +413,7 @@
    "prose_cohesion": 0.0,
    "prose_lift": -0.010149071004159245,
    "prose_overlap": 0.0,
-   "commit_count": 0,
+   "commit_count": 2,
    "changed_together": null,
    "cochange_similarity": null
   },
@@ -623,9 +623,9 @@
    "prose_cohesion": 0.1690875816601862,
    "prose_lift": 0.14161097707191364,
    "prose_overlap": 0.11290322580645161,
-   "commit_count": 135,
-   "changed_together": 0.044444444444444446,
-   "cochange_similarity": 0.044444444444444446
+   "commit_count": 139,
+   "changed_together": 0.04316546762589928,
+   "cochange_similarity": 0.04316546762589928
   },
   "reuse_sentence": "5 modules import them, 0 of those importing two or more, and none of them import one another."
  },
@@ -658,7 +658,7 @@
    "prose_cohesion": 0.1286418316210263,
    "prose_lift": 0.09896667563855818,
    "prose_overlap": 0.11956521739130435,
-   "commit_count": 74,
+   "commit_count": 76,
    "changed_together": 0.0,
    "cochange_similarity": 0.0
   },
@@ -973,9 +973,9 @@
    "prose_cohesion": 0.22545942866190036,
    "prose_lift": 0.17215648615749532,
    "prose_overlap": 0.19221682937868884,
-   "commit_count": 13,
-   "changed_together": 0.38461538461538464,
-   "cochange_similarity": 0.07539682539682539
+   "commit_count": 14,
+   "changed_together": 0.42857142857142855,
+   "cochange_similarity": 0.07906565656565656
   },
   "reuse_sentence": "8 modules import them, 5 of those importing two or more, and some import one another."
  },
@@ -996,10 +996,10 @@
    "internal_density": 0.3333333333333333,
    "connected_share": 0.75,
    "importer_count": 5,
-   "importer_similarity": 0.3,
+   "importer_similarity": 0.10000000000000002,
    "private_share": 0.0,
-   "used_together": 1.0,
-   "mean_share_used": 0.6,
+   "used_together": 0.6,
+   "mean_share_used": 0.4,
    "fan_out_similarity": 0.34920634920634924,
    "role_similarity": 0.16666666666666666,
    "identifier_cohesion": 0.21228404906959944,
@@ -1012,7 +1012,7 @@
    "changed_together": null,
    "cochange_similarity": null
   },
-  "reuse_sentence": "5 modules import them, 5 of those importing two or more, and some import one another."
+  "reuse_sentence": "5 modules import them, 3 of those importing two or more, and some import one another."
  },
  {
   "identifier": "python-ddd:src/seedwork/domain",
@@ -1113,9 +1113,9 @@
    "prose_cohesion": 0.3074345027855916,
    "prose_lift": 0.2909462846314922,
    "prose_overlap": 0.1226339864185585,
-   "commit_count": 36,
-   "changed_together": 0.08333333333333333,
-   "cochange_similarity": 0.02857142857142857
+   "commit_count": 37,
+   "changed_together": 0.21621621621621623,
+   "cochange_similarity": 0.07407407407407407
   },
   "reuse_sentence": "3 modules import them, 1 of those importing two or more, and some import one another."
  },

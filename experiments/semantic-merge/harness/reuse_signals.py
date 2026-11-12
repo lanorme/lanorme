@@ -17,8 +17,10 @@ graph the rule already builds:
 
 An import of the package itself (``from pkg import Name``) reaches a member
 through the package's ``__init__.py``. It is attributed to the member that
-``__init__.py`` re-exports the name from; an import that names nothing the
-package re-exports is attributed to no member.
+``__init__.py`` re-exports the name from, or to ``__init__.py`` when that file
+holds code and defines the name itself. The import graph also records every
+``__init__.py`` Python runs on the way to a submodule; that is not a use of
+the package file, and is not counted as one.
 """
 
 from __future__ import annotations
@@ -65,19 +67,38 @@ def _collect_reexports(*, view: PackageView) -> dict[str, str]:
     return exported
 
 
-def _collect_facade_uses(*, view: PackageView, importer: Module) -> set[str]:
-    """The members *importer* reaches by naming the package rather than a member."""
-    exported = _collect_reexports(view=view)
+def _list_package_names(*, view: PackageView, importer: Module) -> list[str]:
+    """Every name *importer* imports from the package itself (``from pkg import Name``)."""
     name = view.package.rsplit("/", 1)[-1]
-    used: set[str] = set()
-    for imported in importer.imports:
-        if not imported.is_from:
-            continue
-        names_package = imported.module.rsplit(".", 1)[-1] == name or (
-            imported.level > 0 and not imported.module
+    return [
+        alias.name
+        for imported in importer.imports
+        if imported.is_from
+        and (
+            imported.module.rsplit(".", 1)[-1] == name
+            or (imported.level > 0 and not imported.module)
         )
-        if names_package:
-            used |= {exported[alias.name] for alias in imported.aliases if alias.name in exported}
+        for alias in imported.aliases
+    ]
+
+
+def _collect_facade_uses(*, view: PackageView, importer: Module) -> set[str]:
+    """The members *importer* reaches by naming the package rather than a member.
+
+    A re-exported name is attributed to the member it comes from. Any other
+    name that is not a submodule is defined in ``__init__.py`` itself, and
+    counts as a use of it when ``__init__.py`` holds code.
+    """
+    exported = _collect_reexports(view=view)
+    stems = _list_member_stems(view=view)
+    package_file = f"{view.package}/{PACKAGE_FILE}"
+    holds_code = package_file in stems.values()
+    used: set[str] = set()
+    for name in _list_package_names(view=view, importer=importer):
+        if name in exported:
+            used.add(exported[name])
+        elif holds_code and name not in stems:
+            used.add(package_file)
     return used
 
 
@@ -89,11 +110,14 @@ def _is_outside_production(*, importer: str, view: PackageView) -> bool:
 def collect_uses(*, view: PackageView) -> dict[str, set[str]]:
     """For each production module outside the package, the members it imports."""
     uses: dict[str, set[str]] = {}
+    package_file = f"{view.package}/{PACKAGE_FILE}"
     for member in view.members:
+        if member.relative == package_file:
+            continue
         for importer in view.graph.find_importers(member.relative):
             if _is_outside_production(importer=importer, view=view):
                 uses.setdefault(importer, set()).add(member.relative)
-    for importer in view.graph.find_importers(f"{view.package}/{PACKAGE_FILE}"):
+    for importer in view.graph.find_importers(package_file):
         if importer not in view.modules or not _is_outside_production(importer=importer, view=view):
             continue
         found = _collect_facade_uses(view=view, importer=view.modules[importer])

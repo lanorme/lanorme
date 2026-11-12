@@ -112,6 +112,28 @@ exploratory:
   (`prompts/decide.md`), twice with the message as it is and twice with one
   sentence of Common Reuse evidence appended; no agent sees both arms.
 
+## Corrected after review
+
+An independent adversarial review of the first full run reproduced every
+reported number and found four measurement faults, corrected before the
+results in `README.md`:
+
+- **Reuse.** The import graph records every `__init__.py` Python runs on the
+  way to a submodule, so a package file holding code was counted as used by
+  every importer of any member. It now counts only for an import that names
+  something the file defines. The dev values of the hypotheses' signals are
+  unchanged to two decimals.
+- **Co-change.** History now follows a file through exact renames; without
+  that, a package moved as a whole lost its history.
+- **Congruence.** Migration directories are left out and each directory
+  contributes at most 30 pairs; before, one flat migration directory
+  supplied most of a tree's pairs and inflated the similarity signals. A
+  direct import's rate is reported beside its AUC, which cannot leave 0.5
+  for a rare yes or no.
+- **Clustering.** Modules with no import edge are left out; the climb never
+  moves them, so they reported the noise of the random starts as
+  instability. Snapshots and repositories are summarised apart.
+
 ## Further experiments
 
 - **Congruence at scale.** For every original tree, how well each pairwise

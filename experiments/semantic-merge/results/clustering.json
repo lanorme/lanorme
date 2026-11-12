@@ -1,12 +1,22 @@
 {
  "summary": {
-  "trees": 36,
-  "median_agreement_with_authors": 0.051495346064826614,
-  "median_stability": 0.4440573006280488,
-  "trees_where_search_beats_authors": 33,
-  "mean_grouped_share_over_split": 0.1958095238095238,
-  "mean_grouped_share_rest": 0.24793028322440086,
-  "packages_over_split": 25,
+  "snapshots": {
+   "trees": 18,
+   "trees_with_several_directories": 8,
+   "median_agreement_with_authors": 0.06626764735693247,
+   "median_stability": 0.4124881833805777,
+   "trees_where_search_beats_authors": 15
+  },
+  "repositories": {
+   "trees": 20,
+   "trees_with_several_directories": 20,
+   "median_agreement_with_authors": 0.14840658720453642,
+   "median_stability": 0.5693984850737223,
+   "trees_where_search_beats_authors": 20
+  },
+  "mean_grouped_share_over_split": 0.2792207792207792,
+  "mean_grouped_share_rest": 0.31067538126361655,
+  "packages_over_split": 22,
   "packages_rest": 51
  },
  "trees": [
@@ -17,7 +27,7 @@
    "clusters": 1,
    "authors_quality": 1.0,
    "best_quality": 1.0,
-   "agreement_with_authors": 1.0,
+   "agreement_with_authors": null,
    "stability": 0.2245614035087719,
    "packages": {}
   },
@@ -28,7 +38,7 @@
    "clusters": 2,
    "authors_quality": 1.0,
    "best_quality": 1.1,
-   "agreement_with_authors": 0.0,
+   "agreement_with_authors": null,
    "stability": 0.3455364455364456,
    "packages": {}
   },
@@ -39,7 +49,7 @@
    "clusters": 2,
    "authors_quality": 1.0,
    "best_quality": 1.0909090909090908,
-   "agreement_with_authors": 0.0,
+   "agreement_with_authors": null,
    "stability": 0.3330288957688338,
    "packages": {}
   },
@@ -50,7 +60,7 @@
    "clusters": 1,
    "authors_quality": 1.0,
    "best_quality": 1.0,
-   "agreement_with_authors": 1.0,
+   "agreement_with_authors": null,
    "stability": 0.2245614035087719,
    "packages": {}
   },
@@ -61,7 +71,7 @@
    "clusters": 2,
    "authors_quality": 1.0,
    "best_quality": 1.1,
-   "agreement_with_authors": 0.0,
+   "agreement_with_authors": null,
    "stability": 0.3455364455364456,
    "packages": {}
   },
@@ -72,7 +82,7 @@
    "clusters": 2,
    "authors_quality": 1.0,
    "best_quality": 1.0909090909090908,
-   "agreement_with_authors": 0.0,
+   "agreement_with_authors": null,
    "stability": 0.3677244582043343,
    "packages": {}
   },
@@ -83,7 +93,7 @@
    "clusters": 1,
    "authors_quality": 1.0,
    "best_quality": 1.0,
-   "agreement_with_authors": 1.0,
+   "agreement_with_authors": null,
    "stability": 0.2245614035087719,
    "packages": {}
   },
@@ -94,7 +104,7 @@
    "clusters": 2,
    "authors_quality": 1.0,
    "best_quality": 1.2380952380952381,
-   "agreement_with_authors": 0.0,
+   "agreement_with_authors": null,
    "stability": 0.7086124401913875,
    "packages": {}
   },
@@ -105,7 +115,7 @@
    "clusters": 3,
    "authors_quality": 1.0,
    "best_quality": 1.3047619047619048,
-   "agreement_with_authors": 0.0,
+   "agreement_with_authors": null,
    "stability": 0.38828122898097417,
    "packages": {}
   },
@@ -118,12 +128,7 @@
    "best_quality": 2.1666666666666665,
    "agreement_with_authors": -0.06688963210702342,
    "stability": 0.5186476969244057,
-   "packages": {
-    "app/guardrails": {
-     "is_shallow": true,
-     "grouped_share": 0.16666666666666666
-    }
-   }
+   "packages": {}
   },
   {
    "tree": "ab-lanorme-1-stage2",
@@ -134,12 +139,7 @@
    "best_quality": 2.1904761904761902,
    "agreement_with_authors": 0.04680187207488301,
    "stability": 0.6801985145357632,
-   "packages": {
-    "app/guardrails": {
-     "is_shallow": true,
-     "grouped_share": 0.5
-    }
-   }
+   "packages": {}
   },
   {
    "tree": "ab-lanorme-1-stage3",
@@ -166,16 +166,7 @@
    "best_quality": 1.9,
    "agreement_with_authors": 0.18085106382978725,
    "stability": 0.5368115230967825,
-   "packages": {
-    "app/api": {
-     "is_shallow": false,
-     "grouped_share": 1.0
-    },
-    "app/domain": {
-     "is_shallow": true,
-     "grouped_share": 0.16666666666666666
-    }
-   }
+   "packages": {}
   },
   {
    "tree": "ab-lanorme-2-stage2",
@@ -190,18 +181,6 @@
     "app/api": {
      "is_shallow": false,
      "grouped_share": 0.3333333333333333
-    },
-    "app/application/ports": {
-     "is_shallow": false,
-     "grouped_share": 0.0
-    },
-    "app/application/services": {
-     "is_shallow": false,
-     "grouped_share": 0.0
-    },
-    "app/domain": {
-     "is_shallow": true,
-     "grouped_share": 0.2
     }
    }
   },
@@ -240,7 +219,7 @@
    "clusters": 2,
    "authors_quality": 1.0,
    "best_quality": 1.1428571428571428,
-   "agreement_with_authors": 0.0,
+   "agreement_with_authors": null,
    "stability": 0.3456140350877193,
    "packages": {}
   },
@@ -253,12 +232,7 @@
    "best_quality": 1.4285714285714286,
    "agreement_with_authors": 0.1379310344827586,
    "stability": 0.43669513778018126,
-   "packages": {
-    "app/api": {
-     "is_shallow": false,
-     "grouped_share": 0.3333333333333333
-    }
-   }
+   "packages": {}
   },
   {
    "tree": "ab-lanorme-3-stage3",
@@ -278,17 +252,17 @@
   },
   {
    "tree": "clean-architecture",
-   "modules": 81,
-   "directories": 45,
-   "clusters": 29,
+   "modules": 62,
+   "directories": 28,
+   "clusters": 23,
    "authors_quality": 6.436072446072446,
-   "best_quality": 10.874895366071836,
-   "agreement_with_authors": 0.3084475643883698,
-   "stability": 0.4723410550157327,
+   "best_quality": 10.847784233310549,
+   "agreement_with_authors": 0.41091672498250525,
+   "stability": 0.6679525327055045,
    "packages": {
     "auctioning_platform/auctions/auctions/application/use_cases": {
      "is_shallow": false,
-     "grouped_share": 0.16666666666666666
+     "grouped_share": 0.3333333333333333
     },
     "auctioning_platform/payments/payments": {
      "is_shallow": false,
@@ -302,13 +276,13 @@
   },
   {
    "tree": "cosmicpython",
-   "modules": 16,
-   "directories": 6,
+   "modules": 15,
+   "directories": 5,
    "clusters": 6,
    "authors_quality": 0.6876750700280112,
-   "best_quality": 2.089105339105339,
-   "agreement_with_authors": 0.0,
-   "stability": 0.38027937255435923,
+   "best_quality": 2.081168831168831,
+   "agreement_with_authors": 0.0015214910612400098,
+   "stability": 0.3743036109105449,
    "packages": {
     "src/allocation": {
      "is_shallow": false,
@@ -322,29 +296,29 @@
   },
   {
    "tree": "cryptography",
-   "modules": 114,
-   "directories": 26,
-   "clusters": 43,
+   "modules": 75,
+   "directories": 23,
+   "clusters": 27,
    "authors_quality": 4.376059674481998,
-   "best_quality": 8.947235534233902,
-   "agreement_with_authors": 0.03784828977409614,
-   "stability": 0.26370530588319313,
+   "best_quality": 9.001416826427626,
+   "agreement_with_authors": 0.11302873174170046,
+   "stability": 0.5052623794495413,
    "packages": {
     "cryptography/hazmat/primitives/twofactor": {
      "is_shallow": false,
-     "grouped_share": null
+     "grouped_share": 1.0
     }
    }
   },
   {
    "tree": "dispatch",
-   "modules": 572,
-   "directories": 105,
-   "clusters": 208,
+   "modules": 384,
+   "directories": 102,
+   "clusters": 125,
    "authors_quality": 19.238976641870284,
-   "best_quality": 28.06039759081435,
-   "agreement_with_authors": 0.056188820054770224,
-   "stability": 0.5836776830152614,
+   "best_quality": 27.930925209859485,
+   "agreement_with_authors": 0.4815260097722149,
+   "stability": 0.8225190893797136,
    "packages": {
     "src/dispatch/feedback/service/reminder": {
      "is_shallow": false,
@@ -362,13 +336,13 @@
   },
   {
    "tree": "django",
-   "modules": 736,
-   "directories": 197,
-   "clusters": 253,
-   "authors_quality": 21.197557439437325,
-   "best_quality": 52.792977371607314,
-   "agreement_with_authors": 0.13769860178354076,
-   "stability": 0.5962271154245405,
+   "modules": 606,
+   "directories": 103,
+   "clusters": 199,
+   "authors_quality": 20.565214506458187,
+   "best_quality": 50.14677444866497,
+   "agreement_with_authors": 0.14973361940223864,
+   "stability": 0.6299622374561339,
    "packages": {
     "django": {
      "is_shallow": false,
@@ -378,13 +352,13 @@
   },
   {
    "tree": "fastapi-clean-example",
-   "modules": 104,
-   "directories": 30,
-   "clusters": 40,
-   "authors_quality": 3.2913950345069782,
-   "best_quality": 9.730478698101528,
-   "agreement_with_authors": 0.08956720667291267,
-   "stability": 0.3993770967328211,
+   "modules": 101,
+   "directories": 28,
+   "clusters": 41,
+   "authors_quality": 3.3604109858758706,
+   "best_quality": 9.790750443683613,
+   "agreement_with_authors": 0.09458745272563941,
+   "stability": 0.45591716429175494,
    "packages": {
     "src/app/core/commands/ports": {
      "is_shallow": true,
@@ -416,11 +390,11 @@
     },
     "src/app/inbound/http/account": {
      "is_shallow": false,
-     "grouped_share": 0.2
+     "grouped_share": 0.1
     },
     "src/app/inbound/http/errors": {
      "is_shallow": true,
-     "grouped_share": 0.1
+     "grouped_share": 0.0
     },
     "src/app/inbound/http/health": {
      "is_shallow": true,
@@ -442,13 +416,13 @@
   },
   {
    "tree": "fastapi-realworld-example-app",
-   "modules": 56,
-   "directories": 17,
-   "clusters": 20,
+   "modules": 54,
+   "directories": 15,
+   "clusters": 18,
    "authors_quality": 1.9637320809810859,
-   "best_quality": 5.598564390441666,
-   "agreement_with_authors": 0.14931814258587953,
-   "stability": 0.5088145893427235,
+   "best_quality": 5.492907681982126,
+   "agreement_with_authors": 0.1557522123893805,
+   "stability": 0.5697208149798376,
    "packages": {
     "app/core": {
      "is_shallow": false,
@@ -474,13 +448,13 @@
   },
   {
    "tree": "full-stack-fastapi-template",
-   "modules": 23,
-   "directories": 8,
-   "clusters": 7,
-   "authors_quality": 0.31746031746031744,
-   "best_quality": 1.8358585858585859,
-   "agreement_with_authors": -0.0411522633744856,
-   "stability": 0.1556378814782134,
+   "modules": 14,
+   "directories": 4,
+   "clusters": 5,
+   "authors_quality": 0.33529411764705885,
+   "best_quality": 1.757603181132593,
+   "agreement_with_authors": -0.1553398058252427,
+   "stability": 0.3481643854040864,
    "packages": {
     "backend/app/core": {
      "is_shallow": false,
@@ -490,24 +464,24 @@
   },
   {
    "tree": "healthchecks",
-   "modules": 368,
-   "directories": 48,
-   "clusters": 146,
-   "authors_quality": 10.585215897930686,
-   "best_quality": 20.595259902428687,
-   "agreement_with_authors": 0.014663817986935139,
-   "stability": 0.4034727551603087,
+   "modules": 165,
+   "directories": 42,
+   "clusters": 55,
+   "authors_quality": 10.5909836595808,
+   "best_quality": 19.67427296359185,
+   "agreement_with_authors": 0.32947620583854426,
+   "stability": 0.8221352022751494,
    "packages": {}
   },
   {
    "tree": "litestar-fullstack",
-   "modules": 108,
-   "directories": 32,
-   "clusters": 31,
+   "modules": 93,
+   "directories": 26,
+   "clusters": 24,
    "authors_quality": 3.388090547223674,
-   "best_quality": 11.516195080556136,
-   "agreement_with_authors": 0.22330544750003756,
-   "stability": 0.6843067821962896,
+   "best_quality": 11.435991592953267,
+   "agreement_with_authors": 0.2850715746421268,
+   "stability": 0.7640454651633124,
    "packages": {
     "src/py/app": {
      "is_shallow": false,
@@ -525,13 +499,13 @@
   },
   {
    "tree": "mealie",
-   "modules": 402,
-   "directories": 93,
-   "clusters": 139,
-   "authors_quality": 14.163753092207976,
-   "best_quality": 33.45379730402755,
-   "agreement_with_authors": 0.14810404659775467,
-   "stability": 0.611264020999528,
+   "modules": 319,
+   "directories": 84,
+   "clusters": 112,
+   "authors_quality": 13.87842021496047,
+   "best_quality": 30.163389290108384,
+   "agreement_with_authors": 0.1890890662054111,
+   "stability": 0.562746599099014,
    "packages": {
     "mealie": {
      "is_shallow": false,
@@ -555,19 +529,19 @@
     },
     "mealie/schema/group": {
      "is_shallow": true,
-     "grouped_share": 0.0
+     "grouped_share": 0.047619047619047616
     }
    }
   },
   {
    "tree": "netbox",
-   "modules": 970,
-   "directories": 127,
-   "clusters": 334,
-   "authors_quality": 20.06457211924424,
-   "best_quality": 64.63709642848934,
-   "agreement_with_authors": 0.045658741324851725,
-   "stability": 0.516754055198515,
+   "modules": 650,
+   "directories": 113,
+   "clusters": 211,
+   "authors_quality": 20.135500611513176,
+   "best_quality": 58.674921883591935,
+   "agreement_with_authors": 0.116210195012167,
+   "stability": 0.6357644812948763,
    "packages": {
     "netbox/core/graphql": {
      "is_shallow": false,
@@ -579,7 +553,7 @@
     },
     "netbox/users/graphql": {
      "is_shallow": false,
-     "grouped_share": 0.16666666666666666
+     "grouped_share": 0.5
     },
     "netbox/wireless/graphql": {
      "is_shallow": false,
@@ -589,13 +563,13 @@
   },
   {
    "tree": "polar",
-   "modules": 1312,
-   "directories": 185,
-   "clusters": 431,
+   "modules": 1151,
+   "directories": 173,
+   "clusters": 350,
    "authors_quality": 30.731692745925997,
-   "best_quality": 74.21896492007961,
-   "agreement_with_authors": 0.08519750869975228,
-   "stability": 0.5473495580591832,
+   "best_quality": 73.79510796407324,
+   "agreement_with_authors": 0.14707955500683417,
+   "stability": 0.6211893365994302,
    "packages": {
     "server/polar/benefit/strategies/custom": {
      "is_shallow": false,
@@ -603,11 +577,11 @@
     },
     "server/polar/benefit/strategies/feature_flag": {
      "is_shallow": false,
-     "grouped_share": 0.0
+     "grouped_share": 0.3333333333333333
     },
     "server/polar/benefit/strategies/license_keys": {
      "is_shallow": false,
-     "grouped_share": 0.0
+     "grouped_share": 0.3333333333333333
     },
     "server/polar/customer_portal/sorting": {
      "is_shallow": false,
@@ -623,19 +597,19 @@
     },
     "server/polar/notifications/tasks": {
      "is_shallow": true,
-     "grouped_share": 0.0
+     "grouped_share": 1.0
     }
    }
   },
   {
    "tree": "py-clean-arch",
-   "modules": 57,
+   "modules": 53,
    "directories": 21,
-   "clusters": 22,
+   "clusters": 21,
    "authors_quality": 4.266666666666667,
    "best_quality": 5.756185713244537,
-   "agreement_with_authors": 0.35958528993916,
-   "stability": 0.4514194634759163,
+   "agreement_with_authors": 0.42084897320328685,
+   "stability": 0.5486901349890474,
    "packages": {
     "src/common": {
      "is_shallow": true,
@@ -645,13 +619,13 @@
   },
   {
    "tree": "python-ddd",
-   "modules": 88,
-   "directories": 29,
-   "clusters": 34,
+   "modules": 77,
+   "directories": 25,
+   "clusters": 27,
    "authors_quality": 2.0329875191466646,
-   "best_quality": 7.580829163274717,
-   "agreement_with_authors": 0.0809205378103436,
-   "stability": 0.4041846568628307,
+   "best_quality": 7.554085529739734,
+   "agreement_with_authors": 0.18362731795567616,
+   "stability": 0.5318656749214251,
    "packages": {
     "src/api": {
      "is_shallow": false,
@@ -679,15 +653,15 @@
     },
     "src/modules/catalog/application/query": {
      "is_shallow": false,
-     "grouped_share": 0.16666666666666666
+     "grouped_share": 0.5
     },
     "src/modules/catalog/domain": {
      "is_shallow": false,
-     "grouped_share": 0.26666666666666666
+     "grouped_share": 0.4
     },
     "src/modules/iam/application": {
      "is_shallow": true,
-     "grouped_share": 0.16666666666666666
+     "grouped_share": 0.5
     },
     "src/seedwork/domain": {
      "is_shallow": false,
@@ -696,36 +670,52 @@
    }
   },
   {
+   "tree": "saleor",
+   "modules": 1006,
+   "directories": 155,
+   "clusters": 329,
+   "authors_quality": 14.876571883914128,
+   "best_quality": 46.41138534752191,
+   "agreement_with_authors": 0.12394323695796892,
+   "stability": 0.5375762985121266,
+   "packages": {
+    "saleor/webhook/response_schemas/utils": {
+     "is_shallow": false,
+     "grouped_share": 0.0
+    }
+   }
+  },
+  {
    "tree": "searxng",
-   "modules": 370,
+   "modules": 331,
    "directories": 18,
-   "clusters": 79,
+   "clusters": 56,
    "authors_quality": 3.566656901373191,
-   "best_quality": 13.853084149921267,
-   "agreement_with_authors": 0.06264674265933033,
-   "stability": 0.8539502092852583,
+   "best_quality": 13.766194809995033,
+   "agreement_with_authors": 0.09285830684506113,
+   "stability": 0.8897230066207757,
    "packages": {}
   },
   {
    "tree": "wagtail",
-   "modules": 789,
-   "directories": 121,
-   "clusters": 286,
-   "authors_quality": 20.784443369982537,
-   "best_quality": 58.903771177715505,
-   "agreement_with_authors": 0.03874309209106071,
-   "stability": 0.35946304681084335,
+   "modules": 520,
+   "directories": 101,
+   "clusters": 184,
+   "authors_quality": 19.807070108143094,
+   "best_quality": 55.14129629922283,
+   "agreement_with_authors": 0.11819278961583862,
+   "stability": 0.5690761551676069,
    "packages": {}
   },
   {
    "tree": "warehouse",
-   "modules": 550,
-   "directories": 54,
-   "clusters": 212,
-   "authors_quality": 9.021311972858854,
-   "best_quality": 21.71964656317664,
-   "agreement_with_authors": 0.004306273546002121,
-   "stability": 0.30644814807838217,
+   "modules": 229,
+   "directories": 47,
+   "clusters": 72,
+   "authors_quality": 9.022486370979816,
+   "best_quality": 21.05792700841653,
+   "agreement_with_authors": 0.22079653501630014,
+   "stability": 0.7145117286702815,
    "packages": {
     "warehouse/banners": {
      "is_shallow": false,
@@ -734,6 +724,30 @@
     "warehouse/sitemap": {
      "is_shallow": false,
      "grouped_share": 0.0
+    }
+   }
+  },
+  {
+   "tree": "zulip",
+   "modules": 653,
+   "directories": 132,
+   "clusters": 192,
+   "authors_quality": 7.503185652119849,
+   "best_quality": 42.18842104153109,
+   "agreement_with_authors": 0.01456836536211037,
+   "stability": 0.5566131119117584,
+   "packages": {
+    "corporate/management/commands": {
+     "is_shallow": false,
+     "grouped_share": 1.0
+    },
+    "zerver/lib/url_preview": {
+     "is_shallow": false,
+     "grouped_share": 1.0
+    },
+    "zerver/lib/url_preview/parsers": {
+     "is_shallow": true,
+     "grouped_share": 1.0
     }
    }
   }

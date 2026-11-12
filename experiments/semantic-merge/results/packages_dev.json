@@ -553,9 +553,9 @@
    "prose_cohesion": 0.4065099202368045,
    "prose_lift": 0.3580047971205433,
    "prose_overlap": 0.38862249942617016,
-   "commit_count": 2,
-   "changed_together": null,
-   "cochange_similarity": null
+   "commit_count": 22,
+   "changed_together": 0.2727272727272727,
+   "cochange_similarity": 0.12103386809269162
   },
   "reuse_sentence": "Only 'auctioning_platform/auctions/auctions/__init__.py' imports them (4 of 4), and none of them import one another."
  },
@@ -576,10 +576,10 @@
    "internal_density": 0.4666666666666667,
    "connected_share": 1.0,
    "importer_count": 5,
-   "importer_similarity": 0.09523809523809525,
+   "importer_similarity": 0.023809523809523808,
    "private_share": 0.33333333333333337,
-   "used_together": 0.8,
-   "mean_share_used": 0.3333333333333333,
+   "used_together": 0.2,
+   "mean_share_used": 0.2,
    "fan_out_similarity": 0.17695767195767195,
    "role_similarity": 0.19111111111111112,
    "identifier_cohesion": 0.19698643865971063,
@@ -588,11 +588,11 @@
    "prose_cohesion": 0.1963233343874883,
    "prose_lift": 0.16360587558765413,
    "prose_overlap": 0.12034515429077028,
-   "commit_count": 0,
-   "changed_together": null,
-   "cochange_similarity": null
+   "commit_count": 19,
+   "changed_together": 0.3157894736842105,
+   "cochange_similarity": 0.04574074074074074
   },
-  "reuse_sentence": "5 modules import them, 4 of those importing two or more, and some import one another."
+  "reuse_sentence": "5 modules import them, 1 of those importing two or more, and some import one another."
  },
  {
   "identifier": "clean-architecture:auctioning_platform/payments/payments/api",
@@ -623,9 +623,9 @@
    "prose_cohesion": 0.19169034094961024,
    "prose_lift": 0.16987424073941235,
    "prose_overlap": 0.1341654154154154,
-   "commit_count": 0,
-   "changed_together": null,
-   "cochange_similarity": null
+   "commit_count": 3,
+   "changed_together": 0.3333333333333333,
+   "cochange_similarity": 0.2222222222222222
   },
   "reuse_sentence": "Only 'auctioning_platform/payments/payments/facade.py' imports them (2 of 4), and some import one another."
  },
@@ -693,9 +693,9 @@
    "prose_cohesion": 0.21011380114693898,
    "prose_lift": 0.12005521469620235,
    "prose_overlap": 0.21284669372568912,
-   "commit_count": 29,
-   "changed_together": 0.1724137931034483,
-   "cochange_similarity": 0.06666666666666667
+   "commit_count": 34,
+   "changed_together": 0.20588235294117646,
+   "cochange_similarity": 0.08106884057971014
   },
   "reuse_sentence": "3 modules import them, 1 of those importing two or more, and some import one another."
  },
@@ -728,9 +728,9 @@
    "prose_cohesion": 0.2659685905951695,
    "prose_lift": 0.24198701286506216,
    "prose_overlap": 0.4081919827202846,
-   "commit_count": 17,
-   "changed_together": 0.6470588235294118,
-   "cochange_similarity": 0.26429738562091504
+   "commit_count": 34,
+   "changed_together": 0.47058823529411764,
+   "cochange_similarity": 0.184640522875817
   },
   "reuse_sentence": "No production module outside the package imports them, and some import one another."
  },
@@ -855,7 +855,7 @@
   "signals": {
    "internal_density": 0.0,
    "connected_share": 0.5,
-   "importer_count": 3,
+   "importer_count": 1,
    "importer_similarity": 0.0,
    "private_share": 0.5,
    "used_together": 0.0,
@@ -868,11 +868,11 @@
    "prose_cohesion": 0.0015938403139724023,
    "prose_lift": -0.03268561837744781,
    "prose_overlap": 0.007575757575757576,
-   "commit_count": 105,
+   "commit_count": 134,
    "changed_together": 0.0,
    "cochange_similarity": 0.0
   },
-  "reuse_sentence": "3 modules import them, 0 of those importing two or more, and none of them import one another."
+  "reuse_sentence": "Only 'docs/conf.py' imports them (1 of 2), and none of them import one another."
  },
  {
   "identifier": "fastapi-realworld-example-app:app/core",
@@ -1078,9 +1078,9 @@
    "prose_cohesion": 0.07072137945871391,
    "prose_lift": 0.016834923371699277,
    "prose_overlap": 0.058944219750589825,
-   "commit_count": 31,
-   "changed_together": 0.0967741935483871,
-   "cochange_similarity": 0.03659611992945326
+   "commit_count": 38,
+   "changed_together": 0.07894736842105263,
+   "cochange_similarity": 0.029131652661064423
   },
   "reuse_sentence": "9 modules import them, 3 of those importing two or more, and some import one another."
  },
@@ -1100,11 +1100,11 @@
   "signals": {
    "internal_density": 1.0,
    "connected_share": 1.0,
-   "importer_count": 1,
-   "importer_similarity": 0.0,
-   "private_share": 0.5,
-   "used_together": 0.0,
-   "mean_share_used": 0.5,
+   "importer_count": 0,
+   "importer_similarity": null,
+   "private_share": 1.0,
+   "used_together": null,
+   "mean_share_used": null,
    "fan_out_similarity": 0.0,
    "role_similarity": 0.3333333333333333,
    "identifier_cohesion": 0.0,
@@ -1117,7 +1117,7 @@
    "changed_together": null,
    "cochange_similarity": null
   },
-  "reuse_sentence": "Only 'manage.py' imports them (1 of 2), and some import one another."
+  "reuse_sentence": "No production module outside the package imports them, and some import one another."
  },
  {
   "identifier": "litestar-fullstack:src/py/app/domain/teams",
@@ -1240,11 +1240,11 @@
   "signals": {
    "internal_density": 0.0,
    "connected_share": 0.3333333333333333,
-   "importer_count": 2,
-   "importer_similarity": 0.6666666666666666,
+   "importer_count": 1,
+   "importer_similarity": 1.0,
    "private_share": 0.0,
-   "used_together": 0.5,
-   "mean_share_used": 0.6666666666666666,
+   "used_together": 1.0,
+   "mean_share_used": 1.0,
    "fan_out_similarity": 0.2222222222222222,
    "role_similarity": 0.4444444444444444,
    "identifier_cohesion": 0.12047708247836346,
@@ -1257,7 +1257,7 @@
    "changed_together": 0.0,
    "cochange_similarity": 0.0
   },
-  "reuse_sentence": "2 modules import them, 1 of those importing two or more, and none of them import one another."
+  "reuse_sentence": "Only 'mealie/app.py' imports them (3 of 3), and none of them import one another."
  },
  {
   "identifier": "mealie:mealie/routes/media",
@@ -1288,9 +1288,9 @@
    "prose_cohesion": 0.38570221095553486,
    "prose_lift": 0.345009640038116,
    "prose_overlap": 0.2871794871794872,
-   "commit_count": 10,
-   "changed_together": 0.2,
-   "cochange_similarity": 0.08333333333333333
+   "commit_count": 11,
+   "changed_together": 0.18181818181818182,
+   "cochange_similarity": 0.07407407407407407
   },
   "reuse_sentence": "Only 'mealie/app.py' imports them (1 of 3), and some import one another."
  },
@@ -1358,9 +1358,9 @@
    "prose_cohesion": 0.07108011033422683,
    "prose_lift": 0.047138398600558476,
    "prose_overlap": 0.09821463812101057,
-   "commit_count": 24,
-   "changed_together": 0.0,
-   "cochange_similarity": 0.0
+   "commit_count": 25,
+   "changed_together": 0.04,
+   "cochange_similarity": 0.011111111111111112
   },
   "reuse_sentence": "6 modules import them, 0 of those importing two or more, and some import one another."
  },
@@ -1568,8 +1568,8 @@
    "prose_cohesion": 0.011200045705401972,
    "prose_lift": -0.012411230066841451,
    "prose_overlap": 0.0196078431372549,
-   "commit_count": 5,
-   "changed_together": 0.4,
+   "commit_count": 6,
+   "changed_together": 0.3333333333333333,
    "cochange_similarity": 0.16666666666666666
   },
   "reuse_sentence": "34 modules import them, 8 of those importing two or more, and none of them import one another."
@@ -1626,10 +1626,10 @@
    "internal_density": 0.3333333333333333,
    "connected_share": 0.6666666666666666,
    "importer_count": 1,
-   "importer_similarity": 0.3333333333333333,
-   "private_share": 0.33333333333333337,
-   "used_together": 1.0,
-   "mean_share_used": 0.6666666666666666,
+   "importer_similarity": 0.0,
+   "private_share": 0.6666666666666667,
+   "used_together": 0.0,
+   "mean_share_used": 0.3333333333333333,
    "fan_out_similarity": 0.037037037037037035,
    "role_similarity": 0.0,
    "identifier_cohesion": 0.11813178820605608,
@@ -1642,7 +1642,7 @@
    "changed_together": 0.0,
    "cochange_similarity": 0.0
   },
-  "reuse_sentence": "Only 'warehouse/admin/views/banners.py' imports them (2 of 3), and some import one another."
+  "reuse_sentence": "Only 'warehouse/admin/views/banners.py' imports them (1 of 3), and some import one another."
  },
  {
   "identifier": "warehouse:warehouse/sitemap",

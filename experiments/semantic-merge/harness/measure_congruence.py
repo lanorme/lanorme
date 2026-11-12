@@ -13,6 +13,12 @@ cannot recover the packages the authors made has no claim to say which modules
 belong in one module. The converse does not hold, which is the point of the
 labelled comparison.
 
+A direct import is a yes or no, and a rare one: its AUC cannot move far from
+0.5 however strongly it tracks packages, so the rate of same-package and of
+sibling-package pairs joined by an import is recorded beside it. Migration
+directories are left out, as the rule leaves them out: their files import
+the same framework and repeat the same words by construction.
+
 Run:
     uv run python experiments/semantic-merge/harness/measure_congruence.py \
         --trees /path/to/checkouts --cache /path/to/cache \
@@ -36,12 +42,14 @@ from separation import compute_auc
 from sibling_signals import list_fan_out
 from vocabulary_signals import Vocabulary, build_vocabulary
 
+from lanorme.checks.file_limits import EXCLUDED_DIR_PARTS
 from lanorme.module_graph import PACKAGE_FILE, ModuleGraph
 from lanorme.paths import is_test_file
 from lanorme.sources import Module
 
 logger = logging.getLogger(__name__)
 MAX_PAIRS = 3000
+MAX_PAIRS_PER_PACKAGE = 30
 _SEED = 20261112
 SIGNALS = ("direct_import", "shared_importers", "fan_out", "vocabulary", "co_change")
 
@@ -90,33 +98,55 @@ class TreeSignals:
 
 
 def _group_by_package(modules: dict[str, Module]) -> dict[str, list[str]]:
-    """The production modules of each directory, ``__init__.py`` and tests left out."""
+    """The production modules of each directory; ``__init__.py``, tests and migrations left out."""
     grouped: dict[str, list[str]] = {}
     for relative in sorted(modules):
         directory, _slash, name = relative.rpartition("/")
-        if name != PACKAGE_FILE and not is_test_file(relative) and directory:
+        is_generated = any(part in EXCLUDED_DIR_PARTS for part in directory.split("/"))
+        if name != PACKAGE_FILE and not is_test_file(relative) and directory and not is_generated:
             grouped.setdefault(directory, []).append(relative)
     return grouped
 
 
+def _draw(*, pairs: list[tuple[str, str]], limit: int, generator: random.Random) -> list[tuple]:
+    return generator.sample(pairs, min(limit, len(pairs)))
+
+
 def sample_pairs(modules: dict[str, Module]) -> tuple[list[tuple], list[tuple]]:
-    """Seeded samples of same-package pairs and of pairs across sibling packages."""
+    """Seeded samples of same-package pairs and of pairs across sibling packages.
+
+    Pairs grow with the square of a directory's size, so one flat directory of
+    a hundred modules would supply most of a tree's sample. Each directory,
+    and each pair of sibling directories, therefore contributes at most
+    ``MAX_PAIRS_PER_PACKAGE`` pairs.
+    """
     grouped = _group_by_package(modules)
-    same = [pair for members in grouped.values() for pair in combinations(members, 2)]
+    generator = random.Random(_SEED)
+    same = [
+        pair
+        for members in grouped.values()
+        for pair in _draw(
+            pairs=list(combinations(members, 2)),
+            limit=MAX_PAIRS_PER_PACKAGE,
+            generator=generator,
+        )
+    ]
     by_parent: dict[str, list[str]] = {}
     for directory in grouped:
         by_parent.setdefault(directory.rpartition("/")[0], []).append(directory)
     across = [
-        (first, second)
+        pair
         for siblings in by_parent.values()
         for left, right in combinations(siblings, 2)
-        for first in grouped[left]
-        for second in grouped[right]
+        for pair in _draw(
+            pairs=[(first, second) for first in grouped[left] for second in grouped[right]],
+            limit=MAX_PAIRS_PER_PACKAGE,
+            generator=generator,
+        )
     ]
-    generator = random.Random(_SEED)
     return (
-        generator.sample(same, min(MAX_PAIRS, len(same))),
-        generator.sample(across, min(MAX_PAIRS, len(across))),
+        _draw(pairs=same, limit=MAX_PAIRS, generator=generator),
+        _draw(pairs=across, limit=MAX_PAIRS, generator=generator),
     )
 
 
@@ -146,6 +176,10 @@ def measure_tree(root: Path, *, cache: Path | None) -> dict[str, object] | None:
         )
         record[name] = compute_auc(first=first, second=second)
         record[f"{name}_coverage"] = (len(first) + len(second)) / (len(same) + len(across))
+    for group, found in zip(("same", "across"), measured, strict=True):
+        record[f"direct_import_rate_{group}"] = statistics.mean(
+            pair["direct_import"] for pair in found
+        )
     return record
 
 
@@ -171,6 +205,9 @@ def main() -> None:
             "median_coverage": statistics.median(record[f"{name}_coverage"] for record in records),
         }
         logger.info("%-17s %s", name, summary[name])
+    for group in ("same", "across"):
+        key = f"direct_import_rate_{group}"
+        summary[key] = statistics.median(record[key] for record in records)
     arguments.out.write_text(
         json.dumps({"summary": summary, "trees": records}, indent=1) + "\n",
         encoding="utf-8",

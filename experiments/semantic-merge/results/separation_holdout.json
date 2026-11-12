@@ -25,38 +25,38 @@
    "lineages": 4
   },
   "importer_similarity": {
-   "auc": 0.7470238095238095,
+   "auc": 0.7172619047619048,
    "interval": [
-    0.6420454545454546,
+    0.5384615384615384,
     1.0
    ],
    "first_count": 8,
    "second_count": 21,
-   "first_median": 0.3,
+   "first_median": 0.2777777777777778,
    "second_median": 0.07692307692307693,
    "lineages": 4
   },
   "used_together": {
-   "auc": 0.7738095238095238,
+   "auc": 0.7648809523809523,
    "interval": [
-    0.7346938775510204,
+    0.7175925925925926,
     1.0
    ],
    "first_count": 8,
    "second_count": 21,
-   "first_median": 0.7692307692307692,
+   "first_median": 0.6461538461538461,
    "second_median": 0.23076923076923078,
    "lineages": 4
   },
   "mean_share_used": {
-   "auc": 0.7916666666666666,
+   "auc": 0.7172619047619048,
    "interval": [
-    0.760989010989011,
+    0.23076923076923078,
     1.0
    ],
    "first_count": 8,
    "second_count": 21,
-   "first_median": 0.5692307692307692,
+   "first_median": 0.5192307692307692,
    "second_median": 0.4444444444444444,
    "lineages": 4
   },
@@ -157,28 +157,28 @@
    "lineages": 4
   },
   "changed_together": {
-   "auc": 0.5769230769230769,
+   "auc": 0.5714285714285714,
    "interval": [
-    0.2857142857142857,
+    0.25,
     1.0
    ],
    "first_count": 2,
-   "second_count": 13,
+   "second_count": 14,
    "first_median": 0.12482065997130559,
-   "second_median": 0.058823529411764705,
-   "lineages": 3
+   "second_median": 0.05099449851883199,
+   "lineages": 4
   },
   "cochange_similarity": {
-   "auc": 0.7307692307692307,
+   "auc": 0.7142857142857143,
    "interval": [
-    0.5294117647058824,
+    0.55,
     1.0
    ],
    "first_count": 2,
-   "second_count": 13,
+   "second_count": 14,
    "first_median": 0.10783356210185477,
-   "second_median": 0.03333333333333333,
-   "lineages": 3
+   "second_median": 0.03824940047961631,
+   "lineages": 4
   }
  },
  "structural": {
@@ -339,28 +339,28 @@
    "lineages": 4
   },
   "changed_together": {
-   "auc": 0.0,
+   "auc": 0.25,
    "interval": [
     0.0,
-    0.0
+    1.0
    ],
    "first_count": 2,
-   "second_count": 3,
+   "second_count": 4,
    "first_median": 0.12482065997130559,
-   "second_median": 0.4444444444444444,
-   "lineages": 3
+   "second_median": 0.38888888888888884,
+   "lineages": 4
   },
   "cochange_similarity": {
-   "auc": 0.0,
+   "auc": 0.25,
    "interval": [
     0.0,
-    0.0
+    1.0
    ],
    "first_count": 2,
-   "second_count": 3,
+   "second_count": 4,
    "first_median": 0.10783356210185477,
-   "second_median": 0.2517857142857143,
-   "lineages": 3
+   "second_median": 0.23700396825396824,
+   "lineages": 4
   }
  },
  "reported": {
@@ -522,21 +522,27 @@
   },
   "changed_together": {
    "auc": null,
-   "interval": null,
+   "interval": [
+    0.5,
+    0.5
+   ],
    "first_count": 0,
-   "second_count": 1,
+   "second_count": 2,
    "first_median": null,
-   "second_median": 0.3333333333333333,
-   "lineages": 1
+   "second_median": 0.16666666666666666,
+   "lineages": 2
   },
   "cochange_similarity": {
    "auc": null,
-   "interval": null,
+   "interval": [
+    0.5,
+    0.5
+   ],
    "first_count": 0,
-   "second_count": 1,
+   "second_count": 2,
    "first_median": null,
-   "second_median": 0.2222222222222222,
-   "lineages": 1
+   "second_median": 0.1111111111111111,
+   "lineages": 2
   }
  },
  "latest": {
@@ -565,38 +571,38 @@
    "lineages": 4
   },
   "importer_similarity": {
-   "auc": 0.7470238095238095,
+   "auc": 0.7172619047619048,
    "interval": [
-    0.6420454545454546,
+    0.5384615384615384,
     1.0
    ],
    "first_count": 8,
    "second_count": 21,
-   "first_median": 0.3,
+   "first_median": 0.2777777777777778,
    "second_median": 0.07692307692307693,
    "lineages": 4
   },
   "used_together": {
-   "auc": 0.7738095238095238,
+   "auc": 0.7648809523809523,
    "interval": [
-    0.7346938775510204,
+    0.7175925925925926,
     1.0
    ],
    "first_count": 8,
    "second_count": 21,
-   "first_median": 0.7692307692307692,
+   "first_median": 0.6461538461538461,
    "second_median": 0.23076923076923078,
    "lineages": 4
   },
   "mean_share_used": {
-   "auc": 0.7916666666666666,
+   "auc": 0.7172619047619048,
    "interval": [
-    0.760989010989011,
+    0.23076923076923078,
     1.0
    ],
    "first_count": 8,
    "second_count": 21,
-   "first_median": 0.5692307692307692,
+   "first_median": 0.5192307692307692,
    "second_median": 0.4444444444444444,
    "lineages": 4
   },
@@ -697,28 +703,28 @@
    "lineages": 4
   },
   "changed_together": {
-   "auc": 0.5769230769230769,
+   "auc": 0.5714285714285714,
    "interval": [
-    0.2857142857142857,
+    0.25,
     1.0
    ],
    "first_count": 2,
-   "second_count": 13,
+   "second_count": 14,
    "first_median": 0.12482065997130559,
-   "second_median": 0.058823529411764705,
-   "lineages": 3
+   "second_median": 0.05099449851883199,
+   "lineages": 4
   },
   "cochange_similarity": {
-   "auc": 0.7307692307692307,
+   "auc": 0.7142857142857143,
    "interval": [
-    0.5294117647058824,
+    0.55,
     1.0
    ],
    "first_count": 2,
-   "second_count": 13,
+   "second_count": 14,
    "first_median": 0.10783356210185477,
-   "second_median": 0.03333333333333333,
-   "lineages": 3
+   "second_median": 0.03824940047961631,
+   "lineages": 4
   }
  }
 }

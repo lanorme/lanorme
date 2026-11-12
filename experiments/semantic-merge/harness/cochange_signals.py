@@ -12,6 +12,10 @@ and measures, for the members of a package:
 - **Pairwise co-change.** The mean Jaccard similarity of the members' commit
   sets.
 
+A file's history follows it through exact renames (a move that changes no
+line), so a package moved as a whole keeps its history; a move that also
+edits the file is not followed, since detecting it needs the file contents.
+
 Three kinds of commit carry no information about coupling and are left out:
 merge commits, commits touching more than ``MAX_COMMIT_FILES`` files (a
 reformat, a licence header, a mass rename; omitting large transactions is
@@ -34,6 +38,7 @@ from pathlib import Path
 MAX_COMMIT_FILES = 30
 MIN_COMMITS = 3
 _ADDED = "A"
+_RENAMED = "R"
 _SEPARATOR = "\x00"
 
 
@@ -49,16 +54,23 @@ class History:
 
 
 def _parse_log(text: str) -> dict[str, list[str]]:
-    """Each file's changing commits from ``git log --name-status`` output, additions dropped."""
+    """Each file's changing commits from ``git log --name-status`` output, newest first.
+
+    Additions and renames are not changes. A rename maps the old path to the
+    file's present one, so the older commits are counted under the present
+    path; the mapping is kept even from a commit too large to count.
+    """
     changes: dict[str, list[str]] = {}
+    present: dict[str, str] = {}
     for block in text.split(_SEPARATOR)[1:]:
         commit, *entries = [line for line in block.splitlines() if line.strip()]
-        if len(entries) > MAX_COMMIT_FILES:
-            continue
+        is_counted = len(entries) <= MAX_COMMIT_FILES
         for entry in entries:
-            status, _tab, path = entry.partition("\t")
-            if status != _ADDED:
-                changes.setdefault(path, []).append(commit)
+            status, *paths = entry.split("\t")
+            if status.startswith(_RENAMED):
+                present[paths[0]] = present.get(paths[1], paths[1])
+            elif status != _ADDED and is_counted:
+                changes.setdefault(present.get(paths[0], paths[0]), []).append(commit)
     return changes
 
 
@@ -70,11 +82,11 @@ def read_history(root: Path, *, cache: Path | None = None) -> History | None:
     """
     if not (root / ".git").exists():
         return None
-    stored = cache / f"{root.name}.history.json" if cache else None
+    stored = cache / f"{root.name}.history-renames.json" if cache else None
     if stored is not None and stored.exists():
         loaded = json.loads(stored.read_text(encoding="utf-8"))
         return History(changes={path: frozenset(found) for path, found in loaded.items()})
-    command = ["git", "-C", str(root), "log", "--no-merges", "--no-renames", "--name-status"]
+    command = ["git", "-C", str(root), "log", "--no-merges", "-M100%", "--name-status"]
     command.append("--format=%x00%H")
     finished = subprocess.run(command, capture_output=True, text=True, check=True)
     changes = _parse_log(finished.stdout)

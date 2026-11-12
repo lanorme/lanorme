@@ -5,7 +5,8 @@
   "rater": "a",
   "label": "contested",
   "confidence": "medium",
-  "reason": "One module per guardrail (blocklist, streaming PII redactor, LangChain tool-budget middleware) is a defensible per-mechanism split, but all four are consumed together only by app/chat.py and the total sits near the one-module size."
+  "reason": "One module per guardrail (blocklist, streaming PII redactor, LangChain tool-budget middleware) is a defensible per-mechanism split, but all four are consumed together only by app/chat.py and the total sits near the one-module size.",
+  "model": "opus"
  },
  {
   "identifier": "ab-lanorme-2-stage2:app/api",
@@ -13,7 +14,8 @@
   "rater": "a",
   "label": "contested",
   "confidence": "medium",
-  "reason": "One FastAPI router per resource (chat routes, tenant admin routes) plus a shared schemas module is a common but debatable convention, and only app/main.py imports the routers."
+  "reason": "One FastAPI router per resource (chat routes, tenant admin routes) plus a shared schemas module is a common but debatable convention, and only app/main.py imports the routers.",
+  "model": "opus"
  },
  {
   "identifier": "ab-lanorme-2-stage3:app/application/ports",
@@ -21,7 +23,8 @@
   "rater": "a",
   "label": "contested",
   "confidence": "medium",
-  "reason": "Three tiny Protocol ports in one-port-per-module hexagonal style, mirrored by one-adapter-per-module repositories; defensible convention but the ports would fit easily in one ports module."
+  "reason": "Three tiny Protocol ports in one-port-per-module hexagonal style, mirrored by one-adapter-per-module repositories; defensible convention but the ports would fit easily in one ports module.",
+  "model": "opus"
  },
  {
   "identifier": "ab-lanorme-2-stage3:app/application/services",
@@ -29,7 +32,8 @@
   "rater": "a",
   "label": "contested",
   "confidence": "medium",
-  "reason": "One application service per module: chat.py is a substantial 166-line turn pipeline while conversations.py and policies.py are thin wrappers, so the split is the one-service-per-module convention rather than a clear need."
+  "reason": "One application service per module: chat.py is a substantial 166-line turn pipeline while conversations.py and policies.py are thin wrappers, so the split is the one-service-per-module convention rather than a clear need.",
+  "model": "opus"
  },
  {
   "identifier": "ab-lanorme-2-stage3:app/domain",
@@ -37,7 +41,8 @@
   "rater": "a",
   "label": "contested",
   "confidence": "medium",
-  "reason": "One domain concept per module (conversation, errors, guardrail actions, PII redaction, policy, topics) is a DDD convention; pii.py is a real algorithm of its own, but the rest are tiny value objects imported piecemeal across layers."
+  "reason": "One domain concept per module (conversation, errors, guardrail actions, PII redaction, policy, topics) is a DDD convention; pii.py is a real algorithm of its own, but the rest are tiny value objects imported piecemeal across layers.",
+  "model": "opus"
  },
  {
   "identifier": "ab-lanorme-2-stage3:app/infrastructure/repositories",
@@ -45,7 +50,8 @@
   "rater": "a",
   "label": "contested",
   "confidence": "medium",
-  "reason": "Two in-memory repository adapters, one per module, deliberately mirroring the one-port-per-module layout of app/application/ports; they would merge trivially but the parallel layout is a recognisable convention."
+  "reason": "Two in-memory repository adapters, one per module, deliberately mirroring the one-port-per-module layout of app/application/ports; they would merge trivially but the parallel layout is a recognisable convention.",
+  "model": "opus"
  },
  {
   "identifier": "ab-lanorme-3-stage3:app/api",
@@ -53,7 +59,8 @@
   "rater": "a",
   "label": "contested",
   "confidence": "medium",
-  "reason": "Router-factory-per-resource layout (chat, sessions, tenants) with small shared dependency modules (tenancy, admin_auth), all wired only by app/main.py, is a standard but debatable FastAPI split."
+  "reason": "Router-factory-per-resource layout (chat, sessions, tenants) with small shared dependency modules (tenancy, admin_auth), all wired only by app/main.py, is a standard but debatable FastAPI split.",
+  "model": "opus"
  },
  {
   "identifier": "clean-architecture:auctioning_platform/auctions/auctions/application/use_cases",
@@ -61,7 +68,8 @@
   "rater": "a",
   "label": "contested",
   "confidence": "high",
-  "reason": "One use case per module is the deliberate Clean Architecture convention of this book project, repeated by shipping/application/use_cases and re-exported through the package __init__."
+  "reason": "One use case per module is the deliberate Clean Architecture convention of this book project, repeated by shipping/application/use_cases and re-exported through the package __init__.",
+  "model": "opus"
  },
  {
   "identifier": "clean-architecture:auctioning_platform/payments/payments",
@@ -69,7 +77,8 @@
   "rater": "a",
   "label": "keep",
   "confidence": "medium",
-  "reason": "This is the payments component root whose config/facade/models module layout is repeated by sibling component customer_relationship, and it holds the api subpackage and tests, so it cannot collapse into one module."
+  "reason": "This is the payments component root whose config/facade/models module layout is repeated by sibling component customer_relationship, and it holds the api subpackage and tests, so it cannot collapse into one module.",
+  "model": "opus"
  },
  {
   "identifier": "clean-architecture:auctioning_platform/payments/payments/api",
@@ -77,7 +86,8 @@
   "rater": "a",
   "label": "merge",
   "confidence": "high",
-  "reason": "A 92-line internal Stripe client split into consumer, a two-line exceptions module, requests and responses, used outside only through payments.api (ApiConsumer, PaymentFailedError) and by its own tests, so it fits in one payments/api.py with the public path intact."
+  "reason": "A 92-line internal Stripe client split into consumer, a two-line exceptions module, requests and responses, used outside only through payments.api (ApiConsumer, PaymentFailedError) and by its own tests, so it fits in one payments/api.py with the public path intact.",
+  "model": "opus"
  },
  {
   "identifier": "cosmicpython:src/allocation",
@@ -85,7 +95,8 @@
   "rater": "a",
   "label": "keep",
   "confidence": "high",
-  "reason": "bootstrap (composition root), config (environment settings imported by adapters and tests) and views (CQRS read model) are unrelated, imported by their own names from entrypoints and tests, and merging would create an import cycle between config and the adapters bootstrap imports."
+  "reason": "bootstrap (composition root), config (environment settings imported by adapters and tests) and views (CQRS read model) are unrelated, imported by their own names from entrypoints and tests, and merging would create an import cycle between config and the adapters bootstrap imports.",
+  "model": "opus"
  },
  {
   "identifier": "cosmicpython:src/allocation/service_layer",
@@ -93,7 +104,8 @@
   "rater": "a",
   "label": "keep",
   "confidence": "high",
-  "reason": "handlers, messagebus and unit_of_work are distinct canonical patterns of the book's service layer, each imported separately by bootstrap, views, adapters and tests."
+  "reason": "handlers, messagebus and unit_of_work are distinct canonical patterns of the book's service layer, each imported separately by bootstrap, views, adapters and tests.",
+  "model": "opus"
  },
  {
   "identifier": "cryptography:cryptography/hazmat/primitives/twofactor",
@@ -101,7 +113,8 @@
   "rater": "a",
   "label": "keep",
   "confidence": "high",
-  "reason": "cryptography.hazmat.primitives.twofactor.hotp and .totp are documented public import paths relied on by outside users."
+  "reason": "cryptography.hazmat.primitives.twofactor.hotp and .totp are documented public import paths relied on by outside users.",
+  "model": "opus"
  },
  {
   "identifier": "dispatch:src/dispatch/feedback/service/reminder",
@@ -109,7 +122,8 @@
   "rater": "a",
   "label": "keep",
   "confidence": "high",
-  "reason": "The models.py/service.py pair is Dispatch's per-feature layout repeated by every sibling package, and dispatch/__init__.py imports reminder.models by path to register the SQLAlchemy model."
+  "reason": "The models.py/service.py pair is Dispatch's per-feature layout repeated by every sibling package, and dispatch/__init__.py imports reminder.models by path to register the SQLAlchemy model.",
+  "model": "opus"
  },
  {
   "identifier": "dispatch:src/dispatch/route",
@@ -117,7 +131,8 @@
   "rater": "a",
   "label": "keep",
   "confidence": "high",
-  "reason": "Dispatch repeats a per-feature models.py/service.py layout across dozens of sibling packages, and dispatch.route.models and dispatch.route.service are imported by path from the package root, the core plugin and the tests."
+  "reason": "Dispatch repeats a per-feature models.py/service.py layout across dozens of sibling packages, and dispatch.route.models and dispatch.route.service are imported by path from the package root, the core plugin and the tests.",
+  "model": "opus"
  },
  {
   "identifier": "dispatch:src/dispatch/storage",
@@ -125,7 +140,8 @@
   "rater": "a",
   "label": "keep",
   "confidence": "high",
-  "reason": "storage follows the project-wide per-feature models/service/flows/enums layout its siblings repeat, and other features import each of its modules by path (storage.flows, storage.enums, storage.models)."
+  "reason": "storage follows the project-wide per-feature models/service/flows/enums layout its siblings repeat, and other features import each of its modules by path (storage.flows, storage.enums, storage.models).",
+  "model": "opus"
  },
  {
   "identifier": "django:django",
@@ -133,7 +149,8 @@
   "rater": "a",
   "label": "keep",
   "confidence": "high",
-  "reason": "django/__init__.py, __main__.py (run by python -m django) and django.shortcuts are public paths and a module loaded by name, so they cannot be merged."
+  "reason": "django/__init__.py, __main__.py (run by python -m django) and django.shortcuts are public paths and a module loaded by name, so they cannot be merged.",
+  "model": "opus"
  },
  {
   "identifier": "fastapi-clean-example:src/app/core/commands/ports",
@@ -141,7 +158,8 @@
   "rater": "a",
   "label": "contested",
   "confidence": "medium",
-  "reason": "One port protocol per module is a deliberate clean-architecture convention the sibling ports packages repeat, but each file is a single 10-20 line Protocol and they would sit together comfortably in one module."
+  "reason": "One port protocol per module is a deliberate clean-architecture convention the sibling ports packages repeat, but each file is a single 10-20 line Protocol and they would sit together comfortably in one module.",
+  "model": "opus"
  },
  {
   "identifier": "fastapi-clean-example:src/app/core/common/authorization",
@@ -149,7 +167,8 @@
   "rater": "a",
   "label": "merge",
   "confidence": "medium",
-  "reason": "Nine modules of 7-42 lines (base, composite, authorize, permissions, role_hierarchy, exceptions, ports) make up one small permission system imported only inside the app, so one authorization module of about 130 lines would lose nothing."
+  "reason": "Nine modules of 7-42 lines (base, composite, authorize, permissions, role_hierarchy, exceptions, ports) make up one small permission system imported only inside the app, so one authorization module of about 130 lines would lose nothing.",
+  "model": "opus"
  },
  {
   "identifier": "fastapi-clean-example:src/app/core/common/entities",
@@ -157,7 +176,8 @@
   "rater": "a",
   "label": "contested",
   "confidence": "medium",
-  "reason": "An entity base, its id/role types and a single User entity split one entity per module is a recognised domain-modelling convention, though at 91 lines in total one module would do."
+  "reason": "An entity base, its id/role types and a single User entity split one entity per module is a recognised domain-modelling convention, though at 91 lines in total one module would do.",
+  "model": "opus"
  },
  {
   "identifier": "fastapi-clean-example:src/app/core/common/ports",
@@ -165,7 +185,8 @@
   "rater": "a",
   "label": "contested",
   "confidence": "medium",
-  "reason": "Three single-method port Protocols of 9-13 lines each follow the project's one-port-per-module convention, which is defensible but plainly not necessary."
+  "reason": "Three single-method port Protocols of 9-13 lines each follow the project's one-port-per-module convention, which is defensible but plainly not necessary.",
+  "model": "opus"
  },
  {
   "identifier": "fastapi-clean-example:src/app/core/common/value_objects",
@@ -173,7 +194,8 @@
   "rater": "a",
   "label": "contested",
   "confidence": "high",
-  "reason": "This is the textbook one-value-object-per-module split (a ValueObject base plus RawPassword, Username, UtcDatetime), which is defensible but not required."
+  "reason": "This is the textbook one-value-object-per-module split (a ValueObject base plus RawPassword, Username, UtcDatetime), which is defensible but not required.",
+  "model": "opus"
  },
  {
   "identifier": "fastapi-clean-example:src/app/core/queries/query_support",
@@ -181,7 +203,8 @@
   "rater": "a",
   "label": "merge",
   "confidence": "medium",
-  "reason": "The pagination params, sorting params and their two exceptions total about 50 lines on one topic (query parameters) and are imported only inside the app, so one module would be no worse."
+  "reason": "The pagination params, sorting params and their two exceptions total about 50 lines on one topic (query parameters) and are imported only inside the app, so one module would be no worse.",
+  "model": "opus"
  },
  {
   "identifier": "fastapi-clean-example:src/app/inbound/http",
@@ -189,7 +212,8 @@
   "rater": "a",
   "label": "contested",
   "confidence": "low",
-  "reason": "The root and v1 router factories are tiny compositions that could share a module, but the auth cookie middleware is a separate concern, so the split is arguable."
+  "reason": "The root and v1 router factories are tiny compositions that could share a module, but the auth cookie middleware is a separate concern, so the split is arguable.",
+  "model": "opus"
  },
  {
   "identifier": "fastapi-clean-example:src/app/inbound/http/account",
@@ -197,7 +221,8 @@
   "rater": "a",
   "label": "contested",
   "confidence": "medium",
-  "reason": "One endpoint router per use case plus an aggregating router.py is a convention the sibling users package repeats, which is defensible but not necessary for four short endpoints."
+  "reason": "One endpoint router per use case plus an aggregating router.py is a convention the sibling users package repeats, which is defensible but not necessary for four short endpoints.",
+  "model": "opus"
  },
  {
   "identifier": "fastapi-clean-example:src/app/inbound/http/errors",
@@ -205,7 +230,8 @@
   "rater": "a",
   "label": "merge",
   "confidence": "medium",
-  "reason": "Five 7-19 line helpers (a logging callback, a 500 translator, an OpenAPI responses constant, a router factory and a 503 rule) are all fastapi_error_map glue imported only inside the app, and would fit in one module of about 55 lines."
+  "reason": "Five 7-19 line helpers (a logging callback, a 500 translator, an OpenAPI responses constant, a router factory and a 503 rule) are all fastapi_error_map glue imported only inside the app, and would fit in one module of about 55 lines.",
+  "model": "opus"
  },
  {
   "identifier": "fastapi-clean-example:src/app/inbound/http/health",
@@ -213,7 +239,8 @@
   "rater": "a",
   "label": "merge",
   "confidence": "medium",
-  "reason": "checks.py holds one 13-line db probe used only by the health router next to it, so the 56 lines belong in one health module."
+  "reason": "checks.py holds one 13-line db probe used only by the health router next to it, so the 56 lines belong in one health module.",
+  "model": "opus"
  },
  {
   "identifier": "fastapi-clean-example:src/app/outbound/auth_ctx/handlers",
@@ -221,7 +248,8 @@
   "rater": "a",
   "label": "contested",
   "confidence": "high",
-  "reason": "One use-case handler per module (ChangePassword, LogIn, LogOut, SignUp) is the recognised one-use-case-per-module convention, and the inbound account routers import each one by path."
+  "reason": "One use-case handler per module (ChangePassword, LogIn, LogOut, SignUp) is the recognised one-use-case-per-module convention, and the inbound account routers import each one by path.",
+  "model": "opus"
  },
  {
   "identifier": "fastapi-clean-example:src/app/outbound/persistence_sqla",
@@ -229,7 +257,8 @@
   "rater": "a",
   "label": "merge",
   "confidence": "medium",
-  "reason": "registry.py (metadata with its naming convention) and the one-constant constraint_names.py are both tiny SQLAlchemy schema-naming concerns with only a handful of in-project importers that a single module would serve equally well."
+  "reason": "registry.py (metadata with its naming convention) and the one-constant constraint_names.py are both tiny SQLAlchemy schema-naming concerns with only a handful of in-project importers that a single module would serve equally well.",
+  "model": "opus"
  },
  {
   "identifier": "fastapi-clean-example:src/app/outbound/persistence_sqla/mappings",
@@ -237,7 +266,8 @@
   "rater": "a",
   "label": "contested",
   "confidence": "medium",
-  "reason": "The split is the one-imperative-mapping-per-table convention (user.py, auth_session.py) plus an all.py aggregator, which is defensible but the three files total 120 lines and could be one mappings module."
+  "reason": "The split is the one-imperative-mapping-per-table convention (user.py, auth_session.py) plus an all.py aggregator, which is defensible but the three files total 120 lines and could be one mappings module.",
+  "model": "opus"
  },
  {
   "identifier": "fastapi-realworld-example-app:app/core",
@@ -245,7 +275,8 @@
   "rater": "a",
   "label": "keep",
   "confidence": "medium",
-  "reason": "config.py (environment-based settings selection), events.py (startup/shutdown handlers) and logging.py (loguru intercept handler) are unrelated concerns imported separately across the app, so merging would create a grab-bag core module."
+  "reason": "config.py (environment-based settings selection), events.py (startup/shutdown handlers) and logging.py (loguru intercept handler) are unrelated concerns imported separately across the app, so merging would create a grab-bag core module.",
+  "model": "opus"
  },
  {
   "identifier": "fastapi-realworld-example-app:app/core/settings",
@@ -253,7 +284,8 @@
   "rater": "a",
   "label": "contested",
   "confidence": "high",
-  "reason": "It is the one-settings-class-per-environment convention (development, production, test over a shared base and app), which is defensible but all five classes would fit easily in one module."
+  "reason": "It is the one-settings-class-per-environment convention (development, production, test over a shared base and app), which is defensible but all five classes would fit easily in one module.",
+  "model": "opus"
  },
  {
   "identifier": "fastapi-realworld-example-app:app/models/domain",
@@ -261,7 +293,8 @@
   "rater": "a",
   "label": "keep",
   "confidence": "medium",
-  "reason": "The per-resource split (articles, comments, profiles, users) deliberately mirrors the same resource layout repeated in models/schemas, db/repositories, api/routes and services."
+  "reason": "The per-resource split (articles, comments, profiles, users) deliberately mirrors the same resource layout repeated in models/schemas, db/repositories, api/routes and services.",
+  "model": "opus"
  },
  {
   "identifier": "fastapi-realworld-example-app:app/models/schemas",
@@ -269,7 +302,8 @@
   "rater": "a",
   "label": "keep",
   "confidence": "medium",
-  "reason": "The schemas are split per resource to mirror the parallel layout of models/domain, db/repositories and api/routes, a layout the sibling packages repeat on purpose."
+  "reason": "The schemas are split per resource to mirror the parallel layout of models/domain, db/repositories and api/routes, a layout the sibling packages repeat on purpose.",
+  "model": "opus"
  },
  {
   "identifier": "fastapi-realworld-example-app:app/services",
@@ -277,7 +311,8 @@
   "rater": "a",
   "label": "keep",
   "confidence": "medium",
-  "reason": "jwt.py (token encoding), security.py (password hashing) and the per-resource check helpers are distinct concerns, with security used by the domain models and jwt by the API layer, so they are not one thing."
+  "reason": "jwt.py (token encoding), security.py (password hashing) and the per-resource check helpers are distinct concerns, with security used by the domain models and jwt by the API layer, so they are not one thing.",
+  "model": "opus"
  },
  {
   "identifier": "full-stack-fastapi-template:backend/app/core",
@@ -285,7 +320,8 @@
   "rater": "a",
   "label": "keep",
   "confidence": "medium",
-  "reason": "config.py (settings, 91 lines), db.py (engine and init_db) and security.py (hashing and JWT) are distinct concerns whose paths are imported throughout the app and patched by tests (app.core.config.settings)."
+  "reason": "config.py (settings, 91 lines), db.py (engine and init_db) and security.py (hashing and JWT) are distinct concerns whose paths are imported throughout the app and patched by tests (app.core.config.settings).",
+  "model": "opus"
  },
  {
   "identifier": "litestar-fullstack:src/py/app",
@@ -293,7 +329,8 @@
   "rater": "a",
   "label": "keep",
   "confidence": "high",
-  "reason": "This is the application package root where __main__.py is loaded by name for python -m, __metadata__.py holds the version, and config.py is imported as app.config by the server and CLI."
+  "reason": "This is the application package root where __main__.py is loaded by name for python -m, __metadata__.py holds the version, and config.py is imported as app.config by the server and CLI.",
+  "model": "opus"
  },
  {
   "identifier": "litestar-fullstack:src/py/app/domain/teams",
@@ -301,7 +338,8 @@
   "rater": "a",
   "label": "keep",
   "confidence": "high",
-  "reason": "deps.py, guards.py and listeners.py form the per-domain layout that sibling domains such as accounts repeat on purpose, and each is imported separately by controllers, tests and other domains."
+  "reason": "deps.py, guards.py and listeners.py form the per-domain layout that sibling domains such as accounts repeat on purpose, and each is imported separately by controllers, tests and other domains.",
+  "model": "opus"
  },
  {
   "identifier": "litestar-fullstack:src/py/app/domain/teams/schemas",
@@ -309,7 +347,8 @@
   "rater": "a",
   "label": "merge",
   "confidence": "medium",
-  "reason": "The private _invitation, _member and _team modules are only re-exported through the package __init__ and every consumer imports from app.domain.teams.schemas, so merging them into one 110-line module breaks no path."
+  "reason": "The private _invitation, _member and _team modules are only re-exported through the package __init__ and every consumer imports from app.domain.teams.schemas, so merging them into one 110-line module breaks no path.",
+  "model": "opus"
  },
  {
   "identifier": "mealie:mealie",
@@ -317,7 +356,8 @@
   "rater": "a",
   "label": "keep",
   "confidence": "high",
-  "reason": "mealie.main:main is the console-script entry point in pyproject.toml and mealie.app:app is loaded by name by uvicorn and imported by tests, so both module paths are load-bearing."
+  "reason": "mealie.main:main is the console-script entry point in pyproject.toml and mealie.app:app is loaded by name by uvicorn and imported by tests, so both module paths are load-bearing.",
+  "model": "opus"
  },
  {
   "identifier": "mealie:mealie/routes",
@@ -325,7 +365,8 @@
   "rater": "a",
   "label": "keep",
   "confidence": "medium",
-  "reason": "This is the root of a routes tree of per-feature subpackages, and handlers.py (exception handler registration) and utility_routes.py (a download router imported by app.py and tests) are distinct things that would turn __init__ into a grab bag."
+  "reason": "This is the root of a routes tree of per-feature subpackages, and handlers.py (exception handler registration) and utility_routes.py (a download router imported by app.py and tests) are distinct things that would turn __init__ into a grab bag.",
+  "model": "opus"
  },
  {
   "identifier": "mealie:mealie/routes/media",
@@ -333,7 +374,8 @@
   "rater": "a",
   "label": "contested",
   "confidence": "medium",
-  "reason": "media_recipe.py and media_user.py follow the one-router-per-resource convention under a media router, which is defensible but the whole package is about 115 lines and could be one module."
+  "reason": "media_recipe.py and media_user.py follow the one-router-per-resource convention under a media router, which is defensible but the whole package is about 115 lines and could be one module.",
+  "model": "opus"
  },
  {
   "identifier": "mealie:mealie/schema",
@@ -341,7 +383,8 @@
   "rater": "a",
   "label": "keep",
   "confidence": "medium",
-  "reason": "make_dependable (a FastAPI validation-error dependency wrapper) and mapper (pydantic field copying) are unrelated helpers sitting at the root of a schema package of subpackages, each imported by its own path in dozens of routes."
+  "reason": "make_dependable (a FastAPI validation-error dependency wrapper) and mapper (pydantic field copying) are unrelated helpers sitting at the root of a schema package of subpackages, each imported by its own path in dozens of routes.",
+  "model": "opus"
  },
  {
   "identifier": "mealie:mealie/schema/admin",
@@ -349,7 +392,8 @@
   "rater": "a",
   "label": "contested",
   "confidence": "medium",
-  "reason": "One schema module per admin topic (about, backup, email, debug, maintenance) mirrors the admin route files and the generated per-module __init__ layout every mealie schema package repeats, but the modules are tiny and consumers could import from the package."
+  "reason": "One schema module per admin topic (about, backup, email, debug, maintenance) mirrors the admin route files and the generated per-module __init__ layout every mealie schema package repeats, but the modules are tiny and consumers could import from the package.",
+  "model": "opus"
  },
  {
   "identifier": "mealie:mealie/schema/group",
@@ -357,7 +401,8 @@
   "rater": "a",
   "label": "contested",
   "confidence": "medium",
-  "reason": "Follows mealie's one-schema-module-per-resource convention with a gen_schema_exports.py-generated __init__, and ai_providers.py alone is 146 lines, so the split is defensible but the other group_* modules are trivial."
+  "reason": "Follows mealie's one-schema-module-per-resource convention with a gen_schema_exports.py-generated __init__, and ai_providers.py alone is 146 lines, so the split is defensible but the other group_* modules are trivial.",
+  "model": "opus"
  },
  {
   "identifier": "netbox:netbox/core/graphql",
@@ -365,7 +410,8 @@
   "rater": "a",
   "label": "keep",
   "confidence": "high",
-  "reason": "The enums/filters/types/schema/mixins layout is repeated by every NetBox app's graphql package, and strawberry.lazy resolves types by dotted module path such as 'core.graphql.types' and 'core.graphql.filters'."
+  "reason": "The enums/filters/types/schema/mixins layout is repeated by every NetBox app's graphql package, and strawberry.lazy resolves types by dotted module path such as 'core.graphql.types' and 'core.graphql.filters'.",
+  "model": "opus"
  },
  {
   "identifier": "netbox:netbox/extras/templatetags",
@@ -373,7 +419,8 @@
   "rater": "a",
   "label": "keep",
   "confidence": "high",
-  "reason": "Django template tag libraries are loaded by module name ({% load custom_links %}, {% load dashboard %}, {% load log_levels %}), so merging would break the templates."
+  "reason": "Django template tag libraries are loaded by module name ({% load custom_links %}, {% load dashboard %}, {% load log_levels %}), so merging would break the templates.",
+  "model": "opus"
  },
  {
   "identifier": "netbox:netbox/users/graphql",
@@ -381,7 +428,8 @@
   "rater": "a",
   "label": "keep",
   "confidence": "high",
-  "reason": "Repeats the per-app graphql layout every NetBox app uses, and other apps reference 'users.graphql.filters' and the types module by dotted path through strawberry.lazy."
+  "reason": "Repeats the per-app graphql layout every NetBox app uses, and other apps reference 'users.graphql.filters' and the types module by dotted path through strawberry.lazy.",
+  "model": "opus"
  },
  {
   "identifier": "netbox:netbox/wireless/graphql",
@@ -389,7 +437,8 @@
   "rater": "a",
   "label": "keep",
   "confidence": "high",
-  "reason": "Repeats the per-app graphql layout (enums, filter_mixins, filters, schema, types) that all NetBox apps share, and strawberry.lazy resolves these modules by dotted path."
+  "reason": "Repeats the per-app graphql layout (enums, filter_mixins, filters, schema, types) that all NetBox apps share, and strawberry.lazy resolves these modules by dotted path.",
+  "model": "opus"
  },
  {
   "identifier": "polar:server/polar/benefit/strategies/custom",
@@ -397,7 +446,8 @@
   "rater": "a",
   "label": "keep",
   "confidence": "high",
-  "reason": "Every benefit strategy directory repeats the properties/schemas/service layout on purpose, and strategies/__init__ imports custom.properties by that path."
+  "reason": "Every benefit strategy directory repeats the properties/schemas/service layout on purpose, and strategies/__init__ imports custom.properties by that path.",
+  "model": "opus"
  },
  {
   "identifier": "polar:server/polar/benefit/strategies/feature_flag",
@@ -405,7 +455,8 @@
   "rater": "a",
   "label": "keep",
   "confidence": "high",
-  "reason": "Every benefit strategy directory repeats the properties/schemas/service layout on purpose, and strategies/__init__ imports feature_flag.properties by that path."
+  "reason": "Every benefit strategy directory repeats the properties/schemas/service layout on purpose, and strategies/__init__ imports feature_flag.properties by that path.",
+  "model": "opus"
  },
  {
   "identifier": "polar:server/polar/benefit/strategies/license_keys",
@@ -413,7 +464,8 @@
   "rater": "a",
   "label": "keep",
   "confidence": "high",
-  "reason": "Every benefit strategy directory repeats the properties/schemas/service layout on purpose, and strategies/__init__ imports license_keys.properties by that path."
+  "reason": "Every benefit strategy directory repeats the properties/schemas/service layout on purpose, and strategies/__init__ imports license_keys.properties by that path.",
+  "model": "opus"
  },
  {
   "identifier": "polar:server/polar/customer_portal/sorting",
@@ -421,7 +473,8 @@
   "rater": "a",
   "label": "contested",
   "confidence": "medium",
-  "reason": "Two tiny sort-property modules mirror the per-resource file naming of the sibling endpoints/repository/service packages, but only two resources have one and the rest of the package defines sorting elsewhere."
+  "reason": "Two tiny sort-property modules mirror the per-resource file naming of the sibling endpoints/repository/service packages, but only two resources have one and the rest of the package defines sorting elsewhere.",
+  "model": "opus"
  },
  {
   "identifier": "polar:server/polar/integrations/github",
@@ -429,7 +482,8 @@
   "rater": "a",
   "label": "keep",
   "confidence": "high",
-  "reason": "The GitHub API client and the FastAPI router are distinct things, the client/endpoints split is repeated by sibling integrations, and client is imported by path from benefit strategies, backoffice and api.py."
+  "reason": "The GitHub API client and the FastAPI router are distinct things, the client/endpoints split is repeated by sibling integrations, and client is imported by path from benefit strategies, backoffice and api.py.",
+  "model": "opus"
  },
  {
   "identifier": "polar:server/polar/integrations/github/service",
@@ -437,7 +491,8 @@
   "rater": "a",
   "label": "keep",
   "confidence": "medium",
-  "reason": "Secret-scanning alert handling (177 lines, token revocation and signature checks) and the GitHub user primary-email lookup are unrelated services used by different callers."
+  "reason": "Secret-scanning alert handling (177 lines, token revocation and signature checks) and the GitHub user primary-email lookup are unrelated services used by different callers.",
+  "model": "opus"
  },
  {
   "identifier": "polar:server/polar/notifications/tasks",
@@ -445,7 +500,8 @@
   "rater": "a",
   "label": "merge",
   "confidence": "medium",
-  "reason": "The two actors are registered by explicit actor_name and reached only through `from polar.notifications import tasks`, so a single tasks.py of about 140 lines, like most sibling packages have, would break nothing."
+  "reason": "The two actors are registered by explicit actor_name and reached only through `from polar.notifications import tasks`, so a single tasks.py of about 140 lines, like most sibling packages have, would break nothing.",
+  "model": "opus"
  },
  {
   "identifier": "py-clean-arch:src/common",
@@ -453,7 +509,8 @@
   "rater": "a",
   "label": "merge",
   "confidence": "medium",
-  "reason": "A 65-line grab-bag of two string types, a docstring constant and two helpers, imported only inside this application, would sit comfortably in one common module."
+  "reason": "A 65-line grab-bag of two string types, a docstring constant and two helpers, imported only inside this application, would sit comfortably in one common module.",
+  "model": "opus"
  },
  {
   "identifier": "python-ddd:src/api",
@@ -461,7 +518,8 @@
   "rater": "a",
   "label": "keep",
   "confidence": "high",
-  "reason": "__main__.py is loaded by `python -m api`, main.py is the `api.main:app` target uvicorn loads by name, and __init__.py does the sys.path setup, so each module's location is load-bearing."
+  "reason": "__main__.py is loaded by `python -m api`, main.py is the `api.main:app` target uvicorn loads by name, and __init__.py does the sys.path setup, so each module's location is load-bearing.",
+  "model": "opus"
  },
  {
   "identifier": "python-ddd:src/api/models",
@@ -469,7 +527,8 @@
   "rater": "a",
   "label": "contested",
   "confidence": "medium",
-  "reason": "The request/response schemas are split one module per resource to mirror the bidding and catalog routers, a recognised but optional convention."
+  "reason": "The request/response schemas are split one module per resource to mirror the bidding and catalog routers, a recognised but optional convention.",
+  "model": "opus"
  },
  {
   "identifier": "python-ddd:src/modules/bidding/application/command",
@@ -477,7 +536,8 @@
   "rater": "a",
   "label": "contested",
   "confidence": "medium",
-  "reason": "One command handler per module is the CQRS convention repeated across every module's application layer; the package itself is imported by name, but its two members could merge without breaking that path."
+  "reason": "One command handler per module is the CQRS convention repeated across every module's application layer; the package itself is imported by name, but its two members could merge without breaking that path.",
+  "model": "opus"
  },
  {
   "identifier": "python-ddd:src/modules/bidding/application/event",
@@ -485,7 +545,8 @@
   "rater": "a",
   "label": "contested",
   "confidence": "medium",
-  "reason": "One event handler per module follows the CQRS layout of its sibling command and query packages, defensible but not required for two tiny handlers."
+  "reason": "One event handler per module follows the CQRS layout of its sibling command and query packages, defensible but not required for two tiny handlers.",
+  "model": "opus"
  },
  {
   "identifier": "python-ddd:src/modules/bidding/application/query",
@@ -493,7 +554,8 @@
   "rater": "a",
   "label": "contested",
   "confidence": "medium",
-  "reason": "One query handler per module plus a shared mappers module is the CQRS layout repeated in catalog, a convention rather than a necessity."
+  "reason": "One query handler per module plus a shared mappers module is the CQRS layout repeated in catalog, a convention rather than a necessity.",
+  "model": "opus"
  },
  {
   "identifier": "python-ddd:src/modules/catalog/application/command",
@@ -501,7 +563,8 @@
   "rater": "a",
   "label": "contested",
   "confidence": "medium",
-  "reason": "Four command handlers split one per use case, with tests importing each by module path, is the one-use-case-per-module convention."
+  "reason": "Four command handlers split one per use case, with tests importing each by module path, is the one-use-case-per-module convention.",
+  "model": "opus"
  },
  {
   "identifier": "python-ddd:src/modules/catalog/application/query",
@@ -509,7 +572,8 @@
   "rater": "a",
   "label": "contested",
   "confidence": "medium",
-  "reason": "Three query handlers split one per use case with a shared mapper follow the same CQRS convention as the bidding query package."
+  "reason": "Three query handlers split one per use case with a shared mapper follow the same CQRS convention as the bidding query package.",
+  "model": "opus"
  },
  {
   "identifier": "python-ddd:src/modules/catalog/domain",
@@ -517,7 +581,8 @@
   "rater": "a",
   "label": "keep",
   "confidence": "medium",
-  "reason": "The entities/events/repositories/rules/services/value_objects layout is the DDD building-block layout that bidding/domain and seedwork/domain repeat on purpose."
+  "reason": "The entities/events/repositories/rules/services/value_objects layout is the DDD building-block layout that bidding/domain and seedwork/domain repeat on purpose.",
+  "model": "opus"
  },
  {
   "identifier": "python-ddd:src/modules/iam/application",
@@ -525,7 +590,8 @@
   "rater": "a",
   "label": "merge",
   "confidence": "medium",
-  "reason": "78 lines of one service, its two exceptions and a repository interface (which even imports User via services), with a layout no sibling repeats and only in-project importers."
+  "reason": "78 lines of one service, its two exceptions and a repository interface (which even imports User via services), with a layout no sibling repeats and only in-project importers.",
+  "model": "opus"
  },
  {
   "identifier": "python-ddd:src/seedwork/domain",
@@ -533,7 +599,8 @@
   "rater": "a",
   "label": "contested",
   "confidence": "medium",
-  "reason": "The seedwork splits DDD building blocks one per module (several only 4-7 lines) to mirror the per-module domain layout, a recognised but debatable convention."
+  "reason": "The seedwork splits DDD building blocks one per module (several only 4-7 lines) to mirror the per-module domain layout, a recognised but debatable convention.",
+  "model": "opus"
  },
  {
   "identifier": "saleor:saleor/webhook/response_schemas/utils",
@@ -541,7 +608,8 @@
   "rater": "a",
   "label": "merge",
   "confidence": "medium",
-  "reason": "Two tiny pydantic helpers (an 11-line validator and a 21-line error formatter) beside the annotations module form one ~205-line utils module with only internal importers."
+  "reason": "Two tiny pydantic helpers (an 11-line validator and a 21-line error formatter) beside the annotations module form one ~205-line utils module with only internal importers.",
+  "model": "opus"
  },
  {
   "identifier": "warehouse:warehouse/banners",
@@ -549,7 +617,8 @@
   "rater": "a",
   "label": "keep",
   "confidence": "high",
-  "reason": "The package is a Pyramid include (`config.include('.banners')`) with the models.py/views.py per-feature layout repeated across warehouse's sibling packages."
+  "reason": "The package is a Pyramid include (`config.include('.banners')`) with the models.py/views.py per-feature layout repeated across warehouse's sibling packages.",
+  "model": "opus"
  },
  {
   "identifier": "warehouse:warehouse/sitemap",
@@ -557,7 +626,8 @@
   "rater": "a",
   "label": "keep",
   "confidence": "high",
-  "reason": "It follows warehouse's per-feature models.py/views.py layout, and the SitemapMixin in models.py is imported by the accounts and packaging models."
+  "reason": "It follows warehouse's per-feature models.py/views.py layout, and the SitemapMixin in models.py is imported by the accounts and packaging models.",
+  "model": "opus"
  },
  {
   "identifier": "zulip:corporate/management/commands",
@@ -565,7 +635,8 @@
   "rater": "a",
   "label": "keep",
   "confidence": "high",
-  "reason": "These are Django management commands, which Django discovers and loads by module name from the management/commands directory, so each file must stay its own module."
+  "reason": "These are Django management commands, which Django discovers and loads by module name from the management/commands directory, so each file must stay its own module.",
+  "model": "opus"
  },
  {
   "identifier": "zulip:zerver/lib/url_preview",
@@ -573,7 +644,8 @@
   "rater": "a",
   "label": "contested",
   "confidence": "medium",
-  "reason": "types.py is a lightweight dataclass module imported by markdown, message_send and the embed worker without pulling in preview.py's requests/magic/settings dependencies, and tests patch zerver.lib.url_preview.preview paths, so the split has a defensible import-cost rationale even though oembed.py could fold into preview.py."
+  "reason": "types.py is a lightweight dataclass module imported by markdown, message_send and the embed worker without pulling in preview.py's requests/magic/settings dependencies, and tests patch zerver.lib.url_preview.preview paths, so the split has a defensible import-cost rationale even though oembed.py could fold into preview.py.",
+  "model": "opus"
  },
  {
   "identifier": "zulip:zerver/lib/url_preview/parsers",
@@ -581,7 +653,8 @@
   "rater": "a",
   "label": "merge",
   "confidence": "medium",
-  "reason": "Two tiny parsers and a 19-line base class (about 120 lines total) are only consumed through the package's __init__ re-export, so a single parsers.py would keep the import path zerver.lib.url_preview.parsers working and break nothing."
+  "reason": "Two tiny parsers and a 19-line base class (about 120 lines total) are only consumed through the package's __init__ re-export, so a single parsers.py would keep the import path zerver.lib.url_preview.parsers working and break nothing.",
+  "model": "opus"
  },
  {
   "identifier": "FastAPI-boilerplate:backend/src/infrastructure/email",
@@ -589,7 +662,8 @@
   "rater": "a",
   "label": "merge",
   "confidence": "medium",
-  "reason": "A 30-line factory and the senders it builds form one email-delivery concern, used only by in-repo wiring, tests and the removal drill, so one module would serve just as well."
+  "reason": "A 30-line factory and the senders it builds form one email-delivery concern, used only by in-repo wiring, tests and the removal drill, so one module would serve just as well.",
+  "model": "opus"
  },
  {
   "identifier": "FastAPI-boilerplate:backend/src/infrastructure/email",
@@ -597,7 +671,8 @@
   "rater": "b",
   "label": "keep",
   "confidence": "medium",
-  "reason": "senders.py is deliberately free of settings imports while factory.py reads settings, and tests and tools/removal_drill.py import both paths by name."
+  "reason": "senders.py is deliberately free of settings imports while factory.py reads settings, and tests and tools/removal_drill.py import both paths by name.",
+  "model": "sonnet"
  },
  {
   "identifier": "FastAPI-boilerplate:cli/src/cli/commands",
@@ -605,7 +680,8 @@
   "rater": "a",
   "label": "keep",
   "confidence": "high",
-  "reason": "Each module is a separate Typer sub-app (`bp deploy`, `bp env`) that app.py mounts from a commands directory meant to grow by adding siblings."
+  "reason": "Each module is a separate Typer sub-app (`bp deploy`, `bp env`) that app.py mounts from a commands directory meant to grow by adding siblings.",
+  "model": "opus"
  },
  {
   "identifier": "FastAPI-boilerplate:cli/src/cli/commands",
@@ -613,7 +689,8 @@
   "rater": "b",
   "label": "keep",
   "confidence": "high",
-  "reason": "Each module is a separate Typer sub-command group (bp deploy, bp env) mounted by name in cli/app.py, so the directory is a command layout."
+  "reason": "Each module is a separate Typer sub-command group (bp deploy, bp env) mounted by name in cli/app.py, so the directory is a command layout.",
+  "model": "sonnet"
  },
  {
   "identifier": "FastAPI-boilerplate:cli/src/cli/lib",
@@ -621,7 +698,8 @@
   "rater": "a",
   "label": "keep",
   "confidence": "medium",
-  "reason": "docs/cli/plugins.md tells plugin authors to import `cli.lib.project.ProjectContext`, so that path is public, and project discovery, console prompts and Jinja rendering are separate helpers."
+  "reason": "docs/cli/plugins.md tells plugin authors to import `cli.lib.project.ProjectContext`, so that path is public, and project discovery, console prompts and Jinja rendering are separate helpers.",
+  "model": "opus"
  },
  {
   "identifier": "FastAPI-boilerplate:cli/src/cli/lib",
@@ -629,7 +707,8 @@
   "rater": "b",
   "label": "keep",
   "confidence": "high",
-  "reason": "project discovery, prompt output and Jinja rendering are three unrelated helpers, and docs/cli/plugins.md tells plugin authors to import cli.lib.project."
+  "reason": "project discovery, prompt output and Jinja rendering are three unrelated helpers, and docs/cli/plugins.md tells plugin authors to import cli.lib.project.",
+  "model": "sonnet"
  },
  {
   "identifier": "InvenTree:src/backend/InvenTree/plugin/base/mail",
@@ -637,7 +716,8 @@
   "rater": "a",
   "label": "keep",
   "confidence": "high",
-  "reason": "Every sibling under plugin/base repeats the mixins.py-plus-helper layout on purpose, and common/models.py and backends.py import plugin.base.mail.mail lazily by that path."
+  "reason": "Every sibling under plugin/base repeats the mixins.py-plus-helper layout on purpose, and common/models.py and backends.py import plugin.base.mail.mail lazily by that path.",
+  "model": "opus"
  },
  {
   "identifier": "InvenTree:src/backend/InvenTree/plugin/base/mail",
@@ -645,7 +725,8 @@
   "rater": "b",
   "label": "keep",
   "confidence": "medium",
-  "reason": "mixins.py holds the plugin MailMixin re-exported by plugin.mixins, mail.py holds the processing functions used by common.models and backends, and sibling plugin/base packages repeat this layout."
+  "reason": "mixins.py holds the plugin MailMixin re-exported by plugin.mixins, mail.py holds the processing functions used by common.models and backends, and sibling plugin/base packages repeat this layout.",
+  "model": "sonnet"
  },
  {
   "identifier": "dddpy:dddpy/domain/todo/exceptions",
@@ -653,7 +734,8 @@
   "rater": "a",
   "label": "contested",
   "confidence": "medium",
-  "reason": "These are four near-identical 7-line exception classes split one class per module, the DDD-example convention the README shows, and the package __init__ already re-exports them."
+  "reason": "These are four near-identical 7-line exception classes split one class per module, the DDD-example convention the README shows, and the package __init__ already re-exports them.",
+  "model": "opus"
  },
  {
   "identifier": "dddpy:dddpy/domain/todo/exceptions",
@@ -661,7 +743,8 @@
   "rater": "b",
   "label": "contested",
   "confidence": "medium",
-  "reason": "One exception class per module re-exported through __init__ is a repeated one-class-per-file convention in this DDD template, and the classes are 7-10 lines each."
+  "reason": "One exception class per module re-exported through __init__ is a repeated one-class-per-file convention in this DDD template, and the classes are 7-10 lines each.",
+  "model": "sonnet"
  },
  {
   "identifier": "dddpy:dddpy/domain/todo/value_objects",
@@ -669,7 +752,8 @@
   "rater": "a",
   "label": "contested",
   "confidence": "high",
-  "reason": "This is the classic one-value-object-per-module convention, shown in the README tree, and tests import submodule paths such as value_objects.todo_title for its constants."
+  "reason": "This is the classic one-value-object-per-module convention, shown in the README tree, and tests import submodule paths such as value_objects.todo_title for its constants.",
+  "model": "opus"
  },
  {
   "identifier": "dddpy:dddpy/domain/todo/value_objects",
@@ -677,7 +761,8 @@
   "rater": "b",
   "label": "contested",
   "confidence": "medium",
-  "reason": "One value object per module re-exported from __init__ follows the project-wide one-class-per-file DDD convention, though all four total about 66 lines."
+  "reason": "One value object per module re-exported from __init__ follows the project-wide one-class-per-file DDD convention, though all four total about 66 lines.",
+  "model": "sonnet"
  },
  {
   "identifier": "dddpy:dddpy/infrastructure/sqlite/todo",
@@ -685,7 +770,8 @@
   "rater": "a",
   "label": "contested",
   "confidence": "medium",
-  "reason": "The ORM DTO and the repository implementation are two distinct roles split by a common persistence convention, but the di module imports todo_repository.new_todo_repository by its submodule path and the two are small and tightly coupled."
+  "reason": "The ORM DTO and the repository implementation are two distinct roles split by a common persistence convention, but the di module imports todo_repository.new_todo_repository by its submodule path and the two are small and tightly coupled.",
+  "model": "opus"
  },
  {
   "identifier": "dddpy:dddpy/infrastructure/sqlite/todo",
@@ -693,7 +779,8 @@
   "rater": "b",
   "label": "contested",
   "confidence": "medium",
-  "reason": "The ORM DTO and the repository implementation are separate layers of the one-class-per-file layout, but they are tightly coupled and the package re-exports both from __init__."
+  "reason": "The ORM DTO and the repository implementation are separate layers of the one-class-per-file layout, but they are tightly coupled and the package re-exports both from __init__.",
+  "model": "sonnet"
  },
  {
   "identifier": "dddpy:dddpy/presentation/api/todo/error_messages",
@@ -701,7 +788,8 @@
   "rater": "a",
   "label": "contested",
   "confidence": "medium",
-  "reason": "Four 6-line pydantic response models are split one per module by the project's deliberate one-class-per-file DDD convention, re-exported through __init__."
+  "reason": "Four 6-line pydantic response models are split one per module by the project's deliberate one-class-per-file DDD convention, re-exported through __init__.",
+  "model": "opus"
  },
  {
   "identifier": "dddpy:dddpy/presentation/api/todo/error_messages",
@@ -709,7 +797,8 @@
   "rater": "b",
   "label": "contested",
   "confidence": "medium",
-  "reason": "Four six-line pydantic response models, one per domain error, follow the one-class-per-file convention and are imported only through the package __init__."
+  "reason": "Four six-line pydantic response models, one per domain error, follow the one-class-per-file convention and are imported only through the package __init__.",
+  "model": "sonnet"
  },
  {
   "identifier": "dddpy:dddpy/presentation/api/todo/schemas",
@@ -717,7 +806,8 @@
   "rater": "a",
   "label": "contested",
   "confidence": "medium",
-  "reason": "The create, update and read schemas follow the one-schema-per-module convention, and a test imports schemas.todo_schema directly."
+  "reason": "The create, update and read schemas follow the one-schema-per-module convention, and a test imports schemas.todo_schema directly.",
+  "model": "opus"
  },
  {
   "identifier": "dddpy:dddpy/presentation/api/todo/schemas",
@@ -725,7 +815,8 @@
   "rater": "b",
   "label": "contested",
   "confidence": "medium",
-  "reason": "Create, update and read schemas follow a one-schema-per-module convention re-exported by __init__, though create and update are identical 10-line classes."
+  "reason": "Create, update and read schemas follow a one-schema-per-module convention re-exported by __init__, though create and update are identical 10-line classes.",
+  "model": "sonnet"
  },
  {
   "identifier": "deseos17:src/deseos17/adapters/auth",
@@ -733,7 +824,8 @@
   "rater": "a",
   "label": "contested",
   "confidence": "low",
-  "reason": "The modules hold three alternative IdProvider strategies (raw, Telegram widget, JWT), each with its own third-party dependency: a one-implementation-per-module split that is defensible but not necessary at this size."
+  "reason": "The modules hold three alternative IdProvider strategies (raw, Telegram widget, JWT), each with its own third-party dependency: a one-implementation-per-module split that is defensible but not necessary at this size.",
+  "model": "opus"
  },
  {
   "identifier": "deseos17:src/deseos17/adapters/auth",
@@ -741,7 +833,8 @@
   "rater": "b",
   "label": "keep",
   "confidence": "medium",
-  "reason": "The three modules are independent IdProvider adapters with different third-party dependencies (none, aiogram, jose) imported separately by the web login router, bot middleware and ioc."
+  "reason": "The three modules are independent IdProvider adapters with different third-party dependencies (none, aiogram, jose) imported separately by the web login router, bot middleware and ioc.",
+  "model": "sonnet"
  },
  {
   "identifier": "deseos17:src/deseos17/adapters/database",
@@ -749,7 +842,8 @@
   "rater": "a",
   "label": "merge",
   "confidence": "medium",
-  "reason": "These are three throwaway fake gateways, two of them under 12 lines, that together are one in-memory stand-in for the database and are only wired in by main/ioc."
+  "reason": "These are three throwaway fake gateways, two of them under 12 lines, that together are one in-memory stand-in for the database and are only wired in by main/ioc.",
+  "model": "opus"
  },
  {
   "identifier": "deseos17:src/deseos17/adapters/database",
@@ -757,7 +851,8 @@
   "rater": "b",
   "label": "contested",
   "confidence": "medium",
-  "reason": "Fake transaction manager, user gateway and wish gateway each mirror one application-layer port module, a per-port adapter convention that is defensible but small enough to merge."
+  "reason": "Fake transaction manager, user gateway and wish gateway each mirror one application-layer port module, a per-port adapter convention that is defensible but small enough to merge.",
+  "model": "sonnet"
  },
  {
   "identifier": "deseos17:src/deseos17/domain/exceptions",
@@ -765,7 +860,8 @@
   "rater": "a",
   "label": "merge",
   "confidence": "high",
-  "reason": "Three empty exception classes across 7 lines, already re-exported from the package __init__, gain nothing from a separate base.py."
+  "reason": "Three empty exception classes across 7 lines, already re-exported from the package __init__, gain nothing from a separate base.py.",
+  "model": "opus"
  },
  {
   "identifier": "deseos17:src/deseos17/domain/exceptions",
@@ -773,7 +869,8 @@
   "rater": "b",
   "label": "merge",
   "confidence": "medium",
-  "reason": "Two modules of 5 and 2 lines holding three exception classes, already re-exported by the package __init__, with only a few internal importers to update."
+  "reason": "Two modules of 5 and 2 lines holding three exception classes, already re-exported by the package __init__, with only a few internal importers to update.",
+  "model": "sonnet"
  },
  {
   "identifier": "deseos17:src/deseos17/domain/models",
@@ -781,7 +878,8 @@
   "rater": "a",
   "label": "merge",
   "confidence": "medium",
-  "reason": "These are tiny, mutually importing dataclasses and NewTypes (a 2-line user_id.py, a 6-line user.py) for one small domain model, imported only inside this project."
+  "reason": "These are tiny, mutually importing dataclasses and NewTypes (a 2-line user_id.py, a 6-line user.py) for one small domain model, imported only inside this project.",
+  "model": "opus"
  },
  {
   "identifier": "deseos17:src/deseos17/domain/models",
@@ -789,7 +887,8 @@
   "rater": "b",
   "label": "contested",
   "confidence": "medium",
-  "reason": "One domain model or value object per module (user_id is a 2-line NewType) is a recognisable DDD convention, though the four total 35 lines and import each other."
+  "reason": "One domain model or value object per module (user_id is a 2-line NewType) is a recognisable DDD convention, though the four total 35 lines and import each other.",
+  "model": "sonnet"
  },
  {
   "identifier": "deseos17:src/deseos17/domain/services",
@@ -797,7 +896,8 @@
   "rater": "a",
   "label": "merge",
   "confidence": "low",
-  "reason": "Three small stateless domain services, 68 lines in total, are split per aggregate in a project with no sibling layout or external importer that depends on the split."
+  "reason": "Three small stateless domain services, 68 lines in total, are split per aggregate in a project with no sibling layout or external importer that depends on the split.",
+  "model": "opus"
  },
  {
   "identifier": "deseos17:src/deseos17/domain/services",
@@ -805,7 +905,8 @@
   "rater": "b",
   "label": "contested",
   "confidence": "medium",
-  "reason": "One domain service class per module, each injected separately in ioc.py, follows a one-service-per-file convention though the three total 68 lines."
+  "reason": "One domain service class per module, each injected separately in ioc.py, follows a one-service-per-file convention though the three total 68 lines.",
+  "model": "sonnet"
  },
  {
   "identifier": "fastapi-boilerplate:core/fastapi/middlewares",
@@ -813,7 +914,8 @@
   "rater": "a",
   "label": "contested",
   "confidence": "medium",
-  "reason": "One middleware per module is a common convention and the tests mirror it by importing and patching the authentication and sqlalchemy submodules, though app code only imports through the package __init__."
+  "reason": "One middleware per module is a common convention and the tests mirror it by importing and patching the authentication and sqlalchemy submodules, though app code only imports through the package __init__.",
+  "model": "opus"
  },
  {
   "identifier": "fastapi-boilerplate:core/fastapi/middlewares",
@@ -821,7 +923,8 @@
   "rater": "b",
   "label": "contested",
   "confidence": "medium",
-  "reason": "One middleware per module is a common convention, the package __init__ re-exports them, and tests import the submodules directly, but the three are small and unrelated."
+  "reason": "One middleware per module is a common convention, the package __init__ re-exports them, and tests import the submodules directly, but the three are small and unrelated.",
+  "model": "sonnet"
  },
  {
   "identifier": "fastapi-boilerplate:core/helpers/cache/base",
@@ -829,7 +932,8 @@
   "rater": "a",
   "label": "merge",
   "confidence": "high",
-  "reason": "Two tiny abstract base classes (12 and 6 lines) that every importer reaches only through the core.helpers.cache.base package re-export."
+  "reason": "Two tiny abstract base classes (12 and 6 lines) that every importer reaches only through the core.helpers.cache.base package re-export.",
+  "model": "opus"
  },
  {
   "identifier": "fastapi-boilerplate:core/helpers/cache/base",
@@ -837,7 +941,8 @@
   "rater": "b",
   "label": "merge",
   "confidence": "medium",
-  "reason": "Two tiny abstract base classes (6 and 12 lines) are only consumed through the package __init__ re-export, so one module loses nothing."
+  "reason": "Two tiny abstract base classes (6 and 12 lines) are only consumed through the package __init__ re-export, so one module loses nothing.",
+  "model": "sonnet"
  },
  {
   "identifier": "langflow:src/bundles/lfx-bundles/src/lfx_bundles/deepseek",
@@ -845,7 +950,8 @@
   "rater": "a",
   "label": "keep",
   "confidence": "high",
-  "reason": "One of ~70 per-provider bundle directories with an identical lazy-import __init__ and its own pyproject extra, so it is a per-feature layout its siblings repeat."
+  "reason": "One of ~70 per-provider bundle directories with an identical lazy-import __init__ and its own pyproject extra, so it is a per-feature layout its siblings repeat.",
+  "model": "opus"
  },
  {
   "identifier": "langflow:src/bundles/lfx-bundles/src/lfx_bundles/deepseek",
@@ -853,7 +959,8 @@
   "rater": "b",
   "label": "keep",
   "confidence": "high",
-  "reason": "It is one of 73 sibling lfx_bundles packages with the same lazy-loading __init__ plus component module layout, and tests import lfx_bundles.<bundle>.<module> paths."
+  "reason": "It is one of 73 sibling lfx_bundles packages with the same lazy-loading __init__ plus component module layout, and tests import lfx_bundles.<bundle>.<module> paths.",
+  "model": "sonnet"
  },
  {
   "identifier": "langflow:src/bundles/lfx-bundles/src/lfx_bundles/pinecone",
@@ -861,7 +968,8 @@
   "rater": "a",
   "label": "keep",
   "confidence": "high",
-  "reason": "One of ~70 per-provider bundle directories with an identical lazy-import __init__ and its own pyproject extra, so it is a per-feature layout its siblings repeat."
+  "reason": "One of ~70 per-provider bundle directories with an identical lazy-import __init__ and its own pyproject extra, so it is a per-feature layout its siblings repeat.",
+  "model": "opus"
  },
  {
   "identifier": "langflow:src/bundles/lfx-bundles/src/lfx_bundles/pinecone",
@@ -869,7 +977,8 @@
   "rater": "b",
   "label": "keep",
   "confidence": "high",
-  "reason": "It is one of 73 sibling lfx_bundles packages repeating the same lazy __init__ plus component module layout, which is loaded by name."
+  "reason": "It is one of 73 sibling lfx_bundles packages repeating the same lazy __init__ plus component module layout, which is loaded by name.",
+  "model": "sonnet"
  },
  {
   "identifier": "langflow:src/bundles/lfx-bundles/src/lfx_bundles/sambanova",
@@ -877,7 +986,8 @@
   "rater": "a",
   "label": "keep",
   "confidence": "high",
-  "reason": "One of ~70 per-provider bundle directories with an identical lazy-import __init__ and its own pyproject extra, so it is a per-feature layout its siblings repeat."
+  "reason": "One of ~70 per-provider bundle directories with an identical lazy-import __init__ and its own pyproject extra, so it is a per-feature layout its siblings repeat.",
+  "model": "opus"
  },
  {
   "identifier": "langflow:src/bundles/lfx-bundles/src/lfx_bundles/sambanova",
@@ -885,7 +995,8 @@
   "rater": "b",
   "label": "keep",
   "confidence": "high",
-  "reason": "It is one of 73 sibling lfx_bundles packages repeating the same lazy __init__ plus component module layout, which is loaded by name."
+  "reason": "It is one of 73 sibling lfx_bundles packages repeating the same lazy __init__ plus component module layout, which is loaded by name.",
+  "model": "sonnet"
  },
  {
   "identifier": "langflow:src/bundles/lfx-bundles/src/lfx_bundles/scrapegraph",
@@ -893,7 +1004,8 @@
   "rater": "a",
   "label": "keep",
   "confidence": "high",
-  "reason": "A per-provider bundle whose __init__ lazily loads each component by its module name, one component per module like every sibling bundle."
+  "reason": "A per-provider bundle whose __init__ lazily loads each component by its module name, one component per module like every sibling bundle.",
+  "model": "opus"
  },
  {
   "identifier": "langflow:src/bundles/lfx-bundles/src/lfx_bundles/scrapegraph",
@@ -901,7 +1013,8 @@
   "rater": "b",
   "label": "keep",
   "confidence": "high",
-  "reason": "Each module is a separate Langflow component in a bundle whose lazy __init__ maps component names to module names, in a layout repeated across sibling bundles."
+  "reason": "Each module is a separate Langflow component in a bundle whose lazy __init__ maps component names to module names, in a layout repeated across sibling bundles.",
+  "model": "sonnet"
  },
  {
   "identifier": "langflow:src/bundles/lfx-bundles/src/lfx_bundles/upstash",
@@ -909,7 +1022,8 @@
   "rater": "a",
   "label": "keep",
   "confidence": "high",
-  "reason": "One of ~70 per-provider bundle directories with an identical lazy-import __init__ and its own pyproject extra, so it is a per-feature layout its siblings repeat."
+  "reason": "One of ~70 per-provider bundle directories with an identical lazy-import __init__ and its own pyproject extra, so it is a per-feature layout its siblings repeat.",
+  "model": "opus"
  },
  {
   "identifier": "langflow:src/bundles/lfx-bundles/src/lfx_bundles/upstash",
@@ -917,7 +1031,8 @@
   "rater": "b",
   "label": "keep",
   "confidence": "high",
-  "reason": "It is one of 73 sibling lfx_bundles packages repeating the same lazy __init__ plus component module layout, which is loaded by name."
+  "reason": "It is one of 73 sibling lfx_bundles packages repeating the same lazy __init__ plus component module layout, which is loaded by name.",
+  "model": "sonnet"
  },
  {
   "identifier": "langflow:src/lfx/src/lfx/base/langchain_utilities",
@@ -925,7 +1040,8 @@
   "rater": "a",
   "label": "keep",
   "confidence": "high",
-  "reason": "lfx.base.langchain_utilities.model is a public import path used by dozens of components across separately versioned bundle packages (datastax, lfx-bundles), and the three modules are unrelated."
+  "reason": "lfx.base.langchain_utilities.model is a public import path used by dozens of components across separately versioned bundle packages (datastax, lfx-bundles), and the three modules are unrelated.",
+  "model": "opus"
  },
  {
   "identifier": "langflow:src/lfx/src/lfx/base/langchain_utilities",
@@ -933,7 +1049,8 @@
   "rater": "b",
   "label": "keep",
   "confidence": "medium",
-  "reason": "model.py (LCToolComponent), requests.py (SSRF wrapper) and spider_constants are unrelated and imported by many components and tests under their own lfx.base.langchain_utilities paths."
+  "reason": "model.py (LCToolComponent), requests.py (SSRF wrapper) and spider_constants are unrelated and imported by many components and tests under their own lfx.base.langchain_utilities paths.",
+  "model": "sonnet"
  },
  {
   "identifier": "langflow:src/lfx/src/lfx/components/agentics/inputs",
@@ -941,7 +1058,8 @@
   "rater": "a",
   "label": "merge",
   "confidence": "medium",
-  "reason": "Two internal helper modules used only by the three sibling agentics components, which could import one shared module without breaking any outside path."
+  "reason": "Two internal helper modules used only by the three sibling agentics components, which could import one shared module without breaking any outside path.",
+  "model": "opus"
  },
  {
   "identifier": "langflow:src/lfx/src/lfx/components/agentics/inputs",
@@ -949,7 +1067,8 @@
   "rater": "b",
   "label": "keep",
   "confidence": "medium",
-  "reason": "base_component.py is a Component base class imported by each agentics component by its own path, while common_inputs.py holds unrelated input definitions."
+  "reason": "base_component.py is a Component base class imported by each agentics component by its own path, while common_inputs.py holds unrelated input definitions.",
+  "model": "sonnet"
  },
  {
   "identifier": "langflow:src/lfx/src/lfx/components/triggers",
@@ -957,7 +1076,8 @@
   "rater": "a",
   "label": "keep",
   "confidence": "high",
-  "reason": "A Langflow component directory where the __init__ lazily loads each trigger component by module name, one component per module like every other component category."
+  "reason": "A Langflow component directory where the __init__ lazily loads each trigger component by module name, one component per module like every other component category.",
+  "model": "opus"
  },
  {
   "identifier": "langflow:src/lfx/src/lfx/components/triggers",
@@ -965,7 +1085,8 @@
   "rater": "b",
   "label": "keep",
   "confidence": "high",
-  "reason": "Each module is a distinct Langflow component in a components category package whose lazy __init__ maps names to module names and is discovered by location."
+  "reason": "Each module is a distinct Langflow component in a components category package whose lazy __init__ maps names to module names and is discovered by location.",
+  "model": "sonnet"
  },
  {
   "identifier": "mem0:mem0/configs/rerankers",
@@ -973,7 +1094,8 @@
   "rater": "a",
   "label": "keep",
   "confidence": "medium",
-  "reason": "Per-provider config modules mirror the sibling configs/llms and configs/vector_stores layouts (the latter loaded by provider name) and are public import paths of a published library imported by the factory and tests."
+  "reason": "Per-provider config modules mirror the sibling configs/llms and configs/vector_stores layouts (the latter loaded by provider name) and are public import paths of a published library imported by the factory and tests.",
+  "model": "opus"
  },
  {
   "identifier": "mem0:mem0/configs/rerankers",
@@ -981,7 +1103,8 @@
   "rater": "b",
   "label": "keep",
   "confidence": "medium",
-  "reason": "One config class per provider mirrors the sibling configs/llms and configs/vector_stores layout, and factory, reranker modules and tests import each module path."
+  "reason": "One config class per provider mirrors the sibling configs/llms and configs/vector_stores layout, and factory, reranker modules and tests import each module path.",
+  "model": "sonnet"
  },
  {
   "identifier": "paperless-ngx:src/paperless_ai/prompts",
@@ -989,7 +1112,8 @@
   "rater": "a",
   "label": "merge",
   "confidence": "high",
-  "reason": "context.py only defines dataclasses that subclass render.py's PromptContext, both are internal to paperless_ai, and the directory must stay a package only for its Jinja templates."
+  "reason": "context.py only defines dataclasses that subclass render.py's PromptContext, both are internal to paperless_ai, and the directory must stay a package only for its Jinja templates.",
+  "model": "opus"
  },
  {
   "identifier": "paperless-ngx:src/paperless_ai/prompts",
@@ -997,7 +1121,8 @@
   "rater": "b",
   "label": "contested",
   "confidence": "low",
-  "reason": "render.py is the generic template engine and context.py the concrete prompt contexts, so they could be one small module, but the split is a defensible engine-versus-definitions separation imported by chat.py and tests."
+  "reason": "render.py is the generic template engine and context.py the concrete prompt contexts, so they could be one small module, but the split is a defensible engine-versus-definitions separation imported by chat.py and tests.",
+  "model": "sonnet"
  },
  {
   "identifier": "pretix:src/pretix/plugins/banktransfer/templatetags",
@@ -1005,7 +1130,8 @@
   "rater": "a",
   "label": "keep",
   "confidence": "high",
-  "reason": "Django templatetags modules are loaded by file name via {% load commadecimal %}, {% load dotdecimal %} and {% load ibanformat %} in the plugin's templates."
+  "reason": "Django templatetags modules are loaded by file name via {% load commadecimal %}, {% load dotdecimal %} and {% load ibanformat %} in the plugin's templates.",
+  "model": "opus"
  },
  {
   "identifier": "pretix:src/pretix/plugins/banktransfer/templatetags",
@@ -1013,7 +1139,8 @@
   "rater": "b",
   "label": "keep",
   "confidence": "high",
-  "reason": "Django loads template tag libraries by module name via {% load commadecimal %}, so each filter file's name is its public interface."
+  "reason": "Django loads template tag libraries by module name via {% load commadecimal %}, so each filter file's name is its public interface.",
+  "model": "sonnet"
  },
  {
   "identifier": "pretix:src/pretix/plugins/paypal2/client/core",
@@ -1021,7 +1148,8 @@
   "rater": "a",
   "label": "contested",
   "confidence": "medium",
-  "reason": "The modules deliberately mirror the vendor paypalcheckoutsdk.core environment and paypal_http_client layout (as client/customer mirrors the SDK too), but only payment.py imports them so merging would break nothing."
+  "reason": "The modules deliberately mirror the vendor paypalcheckoutsdk.core environment and paypal_http_client layout (as client/customer mirrors the SDK too), but only payment.py imports them so merging would break nothing.",
+  "model": "opus"
  },
  {
   "identifier": "pretix:src/pretix/plugins/paypal2/client/core",
@@ -1029,7 +1157,8 @@
   "rater": "b",
   "label": "contested",
   "confidence": "medium",
-  "reason": "The package mirrors the vendor paypalcheckoutsdk.core layout, with environment and HTTP client as separate classes imported by payment.py, so merging is possible but the split is defensible."
+  "reason": "The package mirrors the vendor paypalcheckoutsdk.core layout, with environment and HTTP client as separate classes imported by payment.py, so merging is possible but the split is defensible.",
+  "model": "sonnet"
  },
  {
   "identifier": "pretix:src/pretix/plugins/paypal2/client/customer",
@@ -1037,7 +1166,8 @@
   "rater": "a",
   "label": "contested",
   "confidence": "medium",
-  "reason": "Vendored PayPal SDK code keeps the upstream one-request-class-per-module layout, which payment.py and views.py import by full module path; defensible for upstream parity but the two tiny classes could share a module."
+  "reason": "Vendored PayPal SDK code keeps the upstream one-request-class-per-module layout, which payment.py and views.py import by full module path; defensible for upstream parity but the two tiny classes could share a module.",
+  "model": "opus"
  },
  {
   "identifier": "pretix:src/pretix/plugins/paypal2/client/customer",
@@ -1045,7 +1175,8 @@
   "rater": "b",
   "label": "keep",
   "confidence": "medium",
-  "reason": "One-request-per-file layout mirrors the PayPal SDK and siblings, and payment.py and views.py import each module by full path."
+  "reason": "One-request-per-file layout mirrors the PayPal SDK and siblings, and payment.py and views.py import each module by full path.",
+  "model": "sonnet"
  },
  {
   "identifier": "python-clean-architecture-example:src/app/cli_memory/controllers",
@@ -1053,7 +1184,8 @@
   "rater": "a",
   "label": "contested",
   "confidence": "medium",
-  "reason": "One controller per module mirrors the sibling flask_memory and flask_postgresql controller packages in this clean-architecture example, and tests patch names by module path; a defensible convention, not a necessity."
+  "reason": "One controller per module mirrors the sibling flask_memory and flask_postgresql controller packages in this clean-architecture example, and tests patch names by module path; a defensible convention, not a necessity.",
+  "model": "opus"
  },
  {
   "identifier": "python-clean-architecture-example:src/app/cli_memory/controllers",
@@ -1061,7 +1193,8 @@
   "rater": "b",
   "label": "keep",
   "confidence": "medium",
-  "reason": "One controller per use case, repeated in the sibling flask_memory and flask_postgresql apps and patched by module path in tests."
+  "reason": "One controller per use case, repeated in the sibling flask_memory and flask_postgresql apps and patched by module path in tests.",
+  "model": "sonnet"
  },
  {
   "identifier": "python-clean-architecture-example:src/infra/db_models",
@@ -1069,7 +1202,8 @@
   "rater": "a",
   "label": "contested",
   "confidence": "medium",
-  "reason": "A declarative base module plus one ORM model per table is a common convention; with a single model the split is defensible but not needed."
+  "reason": "A declarative base module plus one ORM model per table is a common convention; with a single model the split is defensible but not needed.",
+  "model": "opus"
  },
  {
   "identifier": "python-clean-architecture-example:src/infra/db_models",
@@ -1077,7 +1211,8 @@
   "rater": "b",
   "label": "contested",
   "confidence": "medium",
-  "reason": "Shared declarative Base plus one model module per table is a common convention, but with a single model it could be one file."
+  "reason": "Shared declarative Base plus one model module per table is a common convention, but with a single model it could be one file.",
+  "model": "sonnet"
  },
  {
   "identifier": "python-clean-architecture-example:src/infra/repositories",
@@ -1085,7 +1220,8 @@
   "rater": "a",
   "label": "keep",
   "confidence": "medium",
-  "reason": "The in-memory and PostgreSQL repositories are separate adapters, and merging would make the in-memory CLI app import db_base, which builds a SQLAlchemy engine from config at import time."
+  "reason": "The in-memory and PostgreSQL repositories are separate adapters, and merging would make the in-memory CLI app import db_base, which builds a SQLAlchemy engine from config at import time.",
+  "model": "opus"
  },
  {
   "identifier": "python-clean-architecture-example:src/infra/repositories",
@@ -1093,7 +1229,8 @@
   "rater": "b",
   "label": "keep",
   "confidence": "medium",
-  "reason": "Two interchangeable repository implementations with different dependencies (in-memory versus SQLAlchemy), each with its own tests and imported by path."
+  "reason": "Two interchangeable repository implementations with different dependencies (in-memory versus SQLAlchemy), each with its own tests and imported by path.",
+  "model": "sonnet"
  },
  {
   "identifier": "python-clean-architecture-example:src/interactor/validations",
@@ -1101,7 +1238,8 @@
   "rater": "a",
   "label": "contested",
   "confidence": "medium",
-  "reason": "A base validator plus one validator per use case is a recognisable clean-architecture convention, defensible but not necessary at this size."
+  "reason": "A base validator plus one validator per use case is a recognisable clean-architecture convention, defensible but not necessary at this size.",
+  "model": "opus"
  },
  {
   "identifier": "python-clean-architecture-example:src/interactor/validations",
@@ -1109,7 +1247,8 @@
   "rater": "b",
   "label": "contested",
   "confidence": "medium",
-  "reason": "Base validator plus one validator per use case is a convention, with only one concrete validator so far."
+  "reason": "Base validator plus one validator per use case is a convention, with only one concrete validator so far.",
+  "model": "sonnet"
  },
  {
   "identifier": "python-clean-architecture:devops/commands",
@@ -1117,7 +1256,8 @@
   "rater": "a",
   "label": "contested",
   "confidence": "medium",
-  "reason": "One setuptools command per module, gathered explicitly into the ALL dict in __init__, is a common convention, but nothing loads the modules by name so merging would break nothing."
+  "reason": "One setuptools command per module, gathered explicitly into the ALL dict in __init__, is a common convention, but nothing loads the modules by name so merging would break nothing.",
+  "model": "opus"
  },
  {
   "identifier": "python-clean-architecture:devops/commands",
@@ -1125,7 +1265,8 @@
   "rater": "b",
   "label": "keep",
   "confidence": "high",
-  "reason": "Each module is a setuptools command registered by name in the ALL map, with unrelated dependencies and a 99-line bump_version."
+  "reason": "Each module is a setuptools command registered by name in the ALL map, with unrelated dependencies and a 99-line bump_version.",
+  "model": "sonnet"
  },
  {
   "identifier": "python-clean-architecture:pca/interfaces",
@@ -1133,7 +1274,8 @@
   "rater": "a",
   "label": "keep",
   "confidence": "medium",
-  "reason": "pca is a published library whose pca.interfaces.dao and pca.interfaces.repository paths are imported across the codebase, and the DAO and repository interfaces are distinct abstractions."
+  "reason": "pca is a published library whose pca.interfaces.dao and pca.interfaces.repository paths are imported across the codebase, and the DAO and repository interfaces are distinct abstractions.",
+  "model": "opus"
  },
  {
   "identifier": "python-clean-architecture:pca/interfaces",
@@ -1141,7 +1283,8 @@
   "rater": "b",
   "label": "keep",
   "confidence": "high",
-  "reason": "Public library interface paths (pca.interfaces.dao/repository) are imported across the package, and the package loads its members via import_all_names."
+  "reason": "Public library interface paths (pca.interfaces.dao/repository) are imported across the package, and the package loads its members via import_all_names.",
+  "model": "sonnet"
  },
  {
   "identifier": "python-fastapi-hex-todo:todolist/api/routers/account",
@@ -1149,7 +1292,8 @@
   "rater": "a",
   "label": "contested",
   "confidence": "medium",
-  "reason": "One FastAPI router per resource (auth, user), each exposing a module-level router that __init__ mounts under its own prefix, is a convention reasonable maintainers disagree about."
+  "reason": "One FastAPI router per resource (auth, user), each exposing a module-level router that __init__ mounts under its own prefix, is a convention reasonable maintainers disagree about.",
+  "model": "opus"
  },
  {
   "identifier": "python-fastapi-hex-todo:todolist/api/routers/account",
@@ -1157,7 +1301,8 @@
   "rater": "b",
   "label": "contested",
   "confidence": "medium",
-  "reason": "One router module per resource (auth, user) composed in __init__ is a common FastAPI convention that maintainers could merge."
+  "reason": "One router module per resource (auth, user) composed in __init__ is a common FastAPI convention that maintainers could merge.",
+  "model": "sonnet"
  },
  {
   "identifier": "python-fastapi-hex-todo:todolist/api/routers/todo",
@@ -1165,7 +1310,8 @@
   "rater": "a",
   "label": "keep",
   "confidence": "medium",
-  "reason": "The todo router package deliberately repeats the per-feature layout of its sibling routers/account package (a resource router module mounted by the package __init__)."
+  "reason": "The todo router package deliberately repeats the per-feature layout of its sibling routers/account package (a resource router module mounted by the package __init__).",
+  "model": "opus"
  },
  {
   "identifier": "python-fastapi-hex-todo:todolist/api/routers/todo",
@@ -1173,7 +1319,8 @@
   "rater": "b",
   "label": "contested",
   "confidence": "low",
-  "reason": "A single router module plus a thin __init__ that mirrors the account package layout; mergeable but follows the per-resource convention."
+  "reason": "A single router module plus a thin __init__ that mirrors the account package layout; mergeable but follows the per-resource convention.",
+  "model": "sonnet"
  },
  {
   "identifier": "python-fastapi-hex-todo:todolist/core/accounts/services",
@@ -1181,7 +1328,8 @@
   "rater": "a",
   "label": "contested",
   "confidence": "medium",
-  "reason": "hash_service and user_service are used as module namespaces (hash_service.hash_, user_service.register) alongside a shared exceptions module, a one-service-per-module convention that could reasonably be merged."
+  "reason": "hash_service and user_service are used as module namespaces (hash_service.hash_, user_service.register) alongside a shared exceptions module, a one-service-per-module convention that could reasonably be merged.",
+  "model": "opus"
  },
  {
   "identifier": "python-fastapi-hex-todo:todolist/core/accounts/services",
@@ -1189,7 +1337,8 @@
   "rater": "b",
   "label": "keep",
   "confidence": "medium",
-  "reason": "Exceptions, a password hashing helper (also used by seeds) and the user service are distinct concerns imported by path in several places."
+  "reason": "Exceptions, a password hashing helper (also used by seeds) and the user service are distinct concerns imported by path in several places.",
+  "model": "sonnet"
  },
  {
   "identifier": "python-fastapi-hex-todo:todolist/infra/database/models",
@@ -1197,7 +1346,8 @@
   "rater": "a",
   "label": "contested",
   "confidence": "medium",
-  "reason": "One SQLAlchemy table per module, re-exported from models/__init__ (which alembic and sqlalchemy.py import as a whole), is a defensible convention but merging would break nothing external."
+  "reason": "One SQLAlchemy table per module, re-exported from models/__init__ (which alembic and sqlalchemy.py import as a whole), is a defensible convention but merging would break nothing external.",
+  "model": "opus"
  },
  {
   "identifier": "python-fastapi-hex-todo:todolist/infra/database/models",
@@ -1205,7 +1355,8 @@
   "rater": "b",
   "label": "contested",
   "confidence": "medium",
-  "reason": "One table definition per module, imported by path in repositories and seeds, and by the package for alembic; per-model files are a debated convention."
+  "reason": "One table definition per module, imported by path in repositories and seeds, and by the package for alembic; per-model files are a debated convention.",
+  "model": "sonnet"
  },
  {
   "identifier": "python-fastapi-hex-todo:todolist/infra/database/repositories",
@@ -1213,7 +1364,8 @@
   "rater": "a",
   "label": "keep",
   "confidence": "high",
-  "reason": "Each repository module is itself the repository object, cast to a protocol in container.py, and both define fetch and persist, so merging would collide names and break the design."
+  "reason": "Each repository module is itself the repository object, cast to a protocol in container.py, and both define fetch and persist, so merging would collide names and break the design.",
+  "model": "opus"
  },
  {
   "identifier": "python-fastapi-hex-todo:todolist/infra/database/repositories",
@@ -1221,7 +1373,8 @@
   "rater": "b",
   "label": "contested",
   "confidence": "medium",
-  "reason": "One repository module per entity, imported by name in the container; per-entity layout is a convention though the todo one is the bulk."
+  "reason": "One repository module per entity, imported by name in the container; per-entity layout is a convention though the todo one is the bulk.",
+  "model": "sonnet"
  },
  {
   "identifier": "qu3vipon-python-ddd:src/display/presentation/rest",
@@ -1229,7 +1382,8 @@
   "rater": "a",
   "label": "keep",
   "confidence": "medium",
-  "reason": "The api/request/response split is a per-bounded-context layout that the sibling reception/presentation/rest package repeats on purpose."
+  "reason": "The api/request/response split is a per-bounded-context layout that the sibling reception/presentation/rest package repeats on purpose.",
+  "model": "opus"
  },
  {
   "identifier": "qu3vipon-python-ddd:src/display/presentation/rest",
@@ -1237,7 +1391,8 @@
   "rater": "b",
   "label": "keep",
   "confidence": "medium",
-  "reason": "api/request/response split repeated identically in the reception sibling package and imported by path from several layers."
+  "reason": "api/request/response split repeated identically in the reception sibling package and imported by path from several layers.",
+  "model": "sonnet"
  },
  {
   "identifier": "qu3vipon-python-ddd:src/reception/application/use_case",
@@ -1245,7 +1400,8 @@
   "rater": "a",
   "label": "keep",
   "confidence": "low",
-  "reason": "The command/query CQRS split is a deliberate layout whose query.py the sibling display/application/use_case package repeats, though one could argue it is merely a convention."
+  "reason": "The command/query CQRS split is a deliberate layout whose query.py the sibling display/application/use_case package repeats, though one could argue it is merely a convention.",
+  "model": "opus"
  },
  {
   "identifier": "qu3vipon-python-ddd:src/reception/application/use_case",
@@ -1253,7 +1409,8 @@
   "rater": "b",
   "label": "keep",
   "confidence": "medium",
-  "reason": "Command and query use cases (CQRS) are separate classes with different dependencies, and the layout is repeated in the display sibling."
+  "reason": "Command and query use cases (CQRS) are separate classes with different dependencies, and the layout is repeated in the display sibling.",
+  "model": "sonnet"
  },
  {
   "identifier": "qu3vipon-python-ddd:src/reception/domain/entity",
@@ -1261,7 +1418,8 @@
   "rater": "a",
   "label": "contested",
   "confidence": "medium",
-  "reason": "One entity per module is a DDD convention that the display context's domain/entity package repeats, defensible but not necessary for two small classes."
+  "reason": "One entity per module is a DDD convention that the display context's domain/entity package repeats, defensible but not necessary for two small classes.",
+  "model": "opus"
  },
  {
   "identifier": "qu3vipon-python-ddd:src/reception/domain/entity",
@@ -1269,7 +1427,8 @@
   "rater": "b",
   "label": "contested",
   "confidence": "medium",
-  "reason": "One entity per module under a layered DDD layout that the sibling display context repeats, imported by full path across layers."
+  "reason": "One entity per module under a layered DDD layout that the sibling display context repeats, imported by full path across layers.",
+  "model": "sonnet"
  },
  {
   "identifier": "qu3vipon-python-ddd:src/reception/domain/exception",
@@ -1277,7 +1436,8 @@
   "rater": "a",
   "label": "merge",
   "confidence": "medium",
-  "reason": "Three five-line modules each holding two message exception classes, imported only internally and with no sibling exception package repeating the layout, would read just as well as one exception module."
+  "reason": "Three five-line modules each holding two message exception classes, imported only internally and with no sibling exception package repeating the layout, would read just as well as one exception module.",
+  "model": "opus"
  },
  {
   "identifier": "qu3vipon-python-ddd:src/reception/domain/exception",
@@ -1285,7 +1445,8 @@
   "rater": "b",
   "label": "contested",
   "confidence": "medium",
-  "reason": "Three tiny exception modules split per aggregate (check_in, reservation, room), a recognisable DDD convention, though each is only 5 lines and could sit in one module."
+  "reason": "Three tiny exception modules split per aggregate (check_in, reservation, room), a recognisable DDD convention, though each is only 5 lines and could sit in one module.",
+  "model": "sonnet"
  },
  {
   "identifier": "qu3vipon-python-ddd:src/reception/domain/value_object",
@@ -1293,7 +1454,8 @@
   "rater": "a",
   "label": "contested",
   "confidence": "medium",
-  "reason": "One value object per module is a recognisable DDD convention; the two small value objects are imported only inside the project and could equally live in one value_object module."
+  "reason": "One value object per module is a recognisable DDD convention; the two small value objects are imported only inside the project and could equally live in one value_object module.",
+  "model": "opus"
  },
  {
   "identifier": "qu3vipon-python-ddd:src/reception/domain/value_object",
@@ -1301,7 +1463,8 @@
   "rater": "b",
   "label": "contested",
   "confidence": "medium",
-  "reason": "One value object per module (Guest, ReservationNumber), a common DDD convention, imported by full path from several layers."
+  "reason": "One value object per module (Guest, ReservationNumber), a common DDD convention, imported by full path from several layers.",
+  "model": "sonnet"
  },
  {
   "identifier": "qu3vipon-python-ddd:src/shared_kernel/domain",
@@ -1309,7 +1472,8 @@
   "rater": "a",
   "label": "contested",
   "confidence": "medium",
-  "reason": "The shared kernel splits base Entity, ValueObject and exception building blocks into the DDD-standard entity/value_object/exception modules that the bounded contexts mirror, a defensible but optional split."
+  "reason": "The shared kernel splits base Entity, ValueObject and exception building blocks into the DDD-standard entity/value_object/exception modules that the bounded contexts mirror, a defensible but optional split.",
+  "model": "opus"
  },
  {
   "identifier": "qu3vipon-python-ddd:src/shared_kernel/domain",
@@ -1317,7 +1481,8 @@
   "rater": "b",
   "label": "contested",
   "confidence": "medium",
-  "reason": "Shared-kernel entity, exception and value_object modules are distinct DDD building blocks imported by path everywhere, but together only about 60 lines."
+  "reason": "Shared-kernel entity, exception and value_object modules are distinct DDD building blocks imported by path everywhere, but together only about 60 lines.",
+  "model": "sonnet"
  },
  {
   "identifier": "superset:superset/commands/chart/data",
@@ -1325,7 +1490,8 @@
   "rater": "a",
   "label": "keep",
   "confidence": "high",
-  "reason": "Superset's commands follow one command per module and get_data_command.ChartDataCommand is imported by its path from a dozen places across the codebase and tests."
+  "reason": "Superset's commands follow one command per module and get_data_command.ChartDataCommand is imported by its path from a dozen places across the codebase and tests.",
+  "model": "opus"
  },
  {
   "identifier": "superset:superset/commands/chart/data",
@@ -1333,7 +1499,8 @@
   "rater": "b",
   "label": "keep",
   "confidence": "medium",
-  "reason": "Two distinct commands in Superset's one-command-per-module layout, with get_data_command imported by full path from about ten places."
+  "reason": "Two distinct commands in Superset's one-command-per-module layout, with get_data_command imported by full path from about ten places.",
+  "model": "sonnet"
  },
  {
   "identifier": "superset:superset/commands/query/importers/v1",
@@ -1341,7 +1508,8 @@
   "rater": "a",
   "label": "keep",
   "confidence": "high",
-  "reason": "Every commands/<entity>/importers/v1 package repeats the same __init__ plus utils layout on purpose, and importers/v1/assets.py imports query.importers.v1.utils directly."
+  "reason": "Every commands/<entity>/importers/v1 package repeats the same __init__ plus utils layout on purpose, and importers/v1/assets.py imports query.importers.v1.utils directly.",
+  "model": "opus"
  },
  {
   "identifier": "superset:superset/commands/query/importers/v1",
@@ -1349,7 +1517,8 @@
   "rater": "b",
   "label": "keep",
   "confidence": "high",
-  "reason": "The __init__ command and utils.import_saved_query follow the importers/v1 layout every sibling repeats, and utils is imported by path from assets.py and tests."
+  "reason": "The __init__ command and utils.import_saved_query follow the importers/v1 layout every sibling repeats, and utils is imported by path from assets.py and tests.",
+  "model": "sonnet"
  },
  {
   "identifier": "superset:superset/mcp_service/rls/tool",
@@ -1357,7 +1526,8 @@
   "rater": "a",
   "label": "keep",
   "confidence": "high",
-  "reason": "Each mcp_service/<resource>/tool package holds one FastMCP tool per module, a per-feature layout all its siblings repeat."
+  "reason": "Each mcp_service/<resource>/tool package holds one FastMCP tool per module, a per-feature layout all its siblings repeat.",
+  "model": "opus"
  },
  {
   "identifier": "superset:superset/mcp_service/rls/tool",
@@ -1365,7 +1535,8 @@
   "rater": "b",
   "label": "keep",
   "confidence": "medium",
-  "reason": "One MCP tool per module in a tool package mirrored by every resource, imported by path in app.py and tests."
+  "reason": "One MCP tool per module in a tool package mirrored by every resource, imported by path in app.py and tests.",
+  "model": "sonnet"
  },
  {
   "identifier": "superset:superset/mcp_service/task/tool",
@@ -1373,7 +1544,8 @@
   "rater": "a",
   "label": "keep",
   "confidence": "high",
-  "reason": "Each mcp_service/<resource>/tool package holds one FastMCP tool per module, a per-feature layout all its siblings repeat."
+  "reason": "Each mcp_service/<resource>/tool package holds one FastMCP tool per module, a per-feature layout all its siblings repeat.",
+  "model": "opus"
  },
  {
   "identifier": "superset:superset/mcp_service/task/tool",
@@ -1381,7 +1553,8 @@
   "rater": "b",
   "label": "keep",
   "confidence": "medium",
-  "reason": "One MCP tool per module in a tool package mirrored by every resource, imported by path in app.py and tests."
+  "reason": "One MCP tool per module in a tool package mirrored by every resource, imported by path in app.py and tests.",
+  "model": "sonnet"
  },
  {
   "identifier": "superset:superset/mcp_service/user/tool",
@@ -1389,7 +1562,8 @@
   "rater": "a",
   "label": "keep",
   "confidence": "high",
-  "reason": "Each mcp_service/<resource>/tool package holds one FastMCP tool per module, a per-feature layout all its siblings repeat."
+  "reason": "Each mcp_service/<resource>/tool package holds one FastMCP tool per module, a per-feature layout all its siblings repeat.",
+  "model": "opus"
  },
  {
   "identifier": "superset:superset/mcp_service/user/tool",
@@ -1397,7 +1571,8 @@
   "rater": "b",
   "label": "keep",
   "confidence": "medium",
-  "reason": "One MCP tool per module in a tool package mirrored by every resource, and tests import both modules by dotted path."
+  "reason": "One MCP tool per module in a tool package mirrored by every resource, and tests import both modules by dotted path.",
+  "model": "sonnet"
  },
  {
   "identifier": "superset:superset/views/dashboard",
@@ -1405,7 +1580,8 @@
   "rater": "a",
   "label": "contested",
   "confidence": "medium",
-  "reason": "The DashboardMixin config block is used only by views.py, so merging is harmless, but splitting views.py from helper modules is a pattern sibling views packages loosely follow."
+  "reason": "The DashboardMixin config block is used only by views.py, so merging is harmless, but splitting views.py from helper modules is a pattern sibling views packages loosely follow.",
+  "model": "opus"
  },
  {
   "identifier": "superset:superset/views/dashboard",
@@ -1413,7 +1589,8 @@
   "rater": "b",
   "label": "contested",
   "confidence": "low",
-  "reason": "The mixin holds FAB view attributes only used by views.py, but the mixin/views split is a Flask-AppBuilder convention and views.py is imported by path."
+  "reason": "The mixin holds FAB view attributes only used by views.py, but the mixin/views split is a Flask-AppBuilder convention and views.py is imported by path.",
+  "model": "sonnet"
  },
  {
   "identifier": "superset:superset/views/database",
@@ -1421,7 +1598,8 @@
   "rater": "a",
   "label": "keep",
   "confidence": "medium",
-  "reason": "validators.py is imported by the commands layer (database uploaders) without pulling in the Flask-AppBuilder view, so merging it into views.py would couple commands to the view module."
+  "reason": "validators.py is imported by the commands layer (database uploaders) without pulling in the Flask-AppBuilder view, so merging it into views.py would couple commands to the view module.",
+  "model": "opus"
  },
  {
   "identifier": "superset:superset/views/database",
@@ -1429,7 +1607,8 @@
   "rater": "b",
   "label": "keep",
   "confidence": "medium",
-  "reason": "validators.schema_allows_file_upload is imported by path from commands/uploaders and tests and is a distinct concern from the FAB view."
+  "reason": "validators.schema_allows_file_upload is imported by path from commands/uploaders and tests and is a distinct concern from the FAB view.",
+  "model": "sonnet"
  },
  {
   "identifier": "superset:superset/websocket",
@@ -1437,7 +1616,8 @@
   "rater": "a",
   "label": "keep",
   "confidence": "medium",
-  "reason": "permissions.py is a dependency-light constants and gate module imported by security/manager.py and views/base.py, kept apart from channel.py, which imports jwt, Flask and security_manager at load time and would risk import cycles."
+  "reason": "permissions.py is a dependency-light constants and gate module imported by security/manager.py and views/base.py, kept apart from channel.py, which imports jwt, Flask and security_manager at load time and would risk import cycles.",
+  "model": "opus"
  },
  {
   "identifier": "superset:superset/websocket",
@@ -1445,6 +1625,7 @@
   "rater": "b",
   "label": "keep",
   "confidence": "medium",
-  "reason": "permissions.py is imported by path from views/base.py and a tool as a lightweight RBAC gate, separate from the larger channel identity module."
+  "reason": "permissions.py is imported by path from views/base.py and a tool as a lightweight RBAC gate, separate from the larger channel identity module.",
+  "model": "sonnet"
  }
 ]

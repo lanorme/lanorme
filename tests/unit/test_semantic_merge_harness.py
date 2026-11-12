@@ -23,6 +23,8 @@ sys.path.insert(0, str(_HARNESS))
 
 import cochange_signals  # noqa: E402 -- the harness directory is not a package
 import labelled_packages  # noqa: E402
+import measure_clustering  # noqa: E402
+import measure_congruence  # noqa: E402
 import modularization_quality  # noqa: E402
 import report_ratings  # noqa: E402
 import reuse_signals  # noqa: E402
@@ -228,6 +230,24 @@ def test_history_drops_additions_and_large_commits():
     assert changes == {"pkg/a.py": ["c3", "c2"], "pkg/b.py": ["c3"]}
 
 
+def test_history_follows_a_file_through_exact_renames_even_in_a_large_commit():
+    # Arrange
+    moved = "".join(f"R100\told/file{index}.py\tnew/file{index}.py\n" for index in range(31))
+    log = (
+        "\x00c4\nM\tpkg/a.py\n"
+        "\x00c3\nR100\tlegacy/a.py\tpkg/a.py\n"
+        "\x00c2\nM\tlegacy/a.py\n"
+        f"\x00c1\nR100\tfirst/a.py\tlegacy/a.py\n{moved}"
+        "\x00c0\nM\tfirst/a.py\nM\told/file0.py\n"
+    )
+
+    # Act
+    changes = cochange_signals._parse_log(log)
+
+    # Assert
+    assert changes == {"pkg/a.py": ["c4", "c2", "c0"], "new/file0.py": ["c0"]}
+
+
 def test_cochange_is_undefined_below_three_commits_and_measured_at_three():
     # Arrange
     members = ["pkg/a.py", "pkg/b.py"]
@@ -370,3 +390,73 @@ def test_a_package_nothing_outside_imports_has_no_reuse_evidence(tmp_path: Path)
     assert signals["importer_similarity"] is None
     assert signals["private_share"] == 1.0
     assert reuse_signals.describe_reuse(view=view).startswith("No production module outside")
+
+
+def test_running_a_package_file_on_the_way_to_a_submodule_is_not_a_use_of_it(tmp_path: Path):
+    # Arrange
+    write_tree(
+        tmp_path,
+        {
+            "app/__init__.py": "",
+            "app/rules/__init__.py": "DEFAULT = 1\n\ndef read_default():\n    return DEFAULT\n",
+            "app/rules/limits.py": "LIMIT = 3\n",
+            "app/rules/names.py": "NAME = 'n'\n",
+            "app/service.py": "from app.rules.limits import LIMIT\n",
+            "app/report.py": "from app.rules import read_default\n",
+            "app/loader.py": "from app.rules import names\n",
+        },
+    )
+
+    # Act
+    uses = reuse_signals.collect_uses(view=build_view(tmp_path, package="app/rules"))
+
+    # Assert
+    assert uses == {
+        "app/service.py": {"app/rules/limits.py"},
+        "app/report.py": {"app/rules/__init__.py"},
+        "app/loader.py": {"app/rules/names.py"},
+    }
+
+
+def test_clustering_graph_drops_isolated_modules_and_migrations(tmp_path: Path):
+    # Arrange
+    write_tree(
+        tmp_path,
+        {
+            "app/__init__.py": "",
+            "app/service.py": "from app.store import save\n",
+            "app/store.py": "def save():\n    return 1\n",
+            "app/alone.py": "VALUE = 1\n",
+            "app/migrations/__init__.py": "",
+            "app/migrations/first.py": "from app.store import save\n",
+        },
+    )
+
+    # Act
+    graph = measure_clustering.build_graph(labelled_packages.read_original_tree(tmp_path))
+
+    # Assert
+    assert sorted(graph) == ["app/service.py", "app/store.py"]
+
+
+def test_congruence_pairs_are_capped_per_package_and_skip_migrations(tmp_path: Path):
+    # Arrange
+    files = {"app/__init__.py": "", "app/big/__init__.py": "", "app/small/__init__.py": ""}
+    files.update({f"app/big/module{index}.py": "VALUE = 1\n" for index in range(12)})
+    files.update({f"app/small/module{index}.py": "VALUE = 1\n" for index in range(2)})
+    files.update({f"app/migrations/step{index}.py": "VALUE = 1\n" for index in range(5)})
+    write_tree(tmp_path, files)
+    original = labelled_packages.read_original_tree(tmp_path)
+    modules = {
+        module.relative: module for found in original.tree.by_directory.values() for module in found
+    }
+
+    # Act
+    same, across = measure_congruence.sample_pairs(modules)
+
+    # Assert
+    in_big = [pair for pair in same if pair[0].startswith("app/big/")]
+    assert len(in_big) == measure_congruence.MAX_PAIRS_PER_PACKAGE
+    assert len(same) == measure_congruence.MAX_PAIRS_PER_PACKAGE + 1
+    assert len(across) == 24
+    assert not any("migrations" in name for pair in (*same, *across) for name in pair)
