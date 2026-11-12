@@ -7,10 +7,10 @@ opposite, the complementary pieces of one idea (its types, its errors, its one
 function). Two measures tell them apart without reading names:
 
 - **Fan-out similarity.** The mean pairwise Jaccard similarity of what the
-  members import from outside the package, the coupling concept Beck and Diehl
-  found most congruent with the package structure of Java projects after
-  direct dependencies [@beck2011congruence]. Parallel siblings import the same
-  framework and the same base classes.
+  members import from outside the package. Similar fan-out was among the
+  coupling concepts most congruent with the package structure of the 16 Java
+  projects Beck and Diehl studied [@beck2011congruence]. Parallel siblings
+  import the same framework and the same base classes.
 - **Role similarity.** The mean pairwise Jaccard similarity of the kinds of
   top-level definition each member holds: a class with given bases, a function
   with given decorators, a constant. It is this spike's own exploratory
@@ -27,9 +27,9 @@ from lanorme.module_graph import ModuleGraph
 from lanorme.sources import Module
 
 
-def _list_fan_out(*, module: Module, package: str, graph: ModuleGraph) -> frozenset[str]:
-    """What *module* imports from outside its package: in-tree files and third-party names."""
-    inside = f"{package}/"
+def list_fan_out(*, module: Module, package: str | None, graph: ModuleGraph) -> frozenset[str]:
+    """What *module* imports: in-tree files and third-party names, *package*'s own left out."""
+    inside = f"{package}/" if package is not None else "\x00"
     in_tree = {
         target for target in graph.imports.get(module.relative, ()) if not target.startswith(inside)
     }
@@ -79,7 +79,7 @@ def measure_siblings(
     graph: ModuleGraph,
 ) -> dict[str, float | None]:
     """The fan-out similarity and the role similarity of one package's members."""
-    fan_out = [_list_fan_out(module=member, package=package, graph=graph) for member in members]
+    fan_out = [list_fan_out(module=member, package=package, graph=graph) for member in members]
     return {
         "fan_out_similarity": _compute_mean_similarity(fan_out),
         "role_similarity": _compute_mean_similarity([_list_roles(member) for member in members]),

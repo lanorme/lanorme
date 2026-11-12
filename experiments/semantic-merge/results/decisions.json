@@ -1,0 +1,1010 @@
+[
+ {
+  "identifier": "FastAPI-boilerplate:cli/src/cli/lib",
+  "arm": "evidence",
+  "replicate": 1,
+  "decision": "keep",
+  "reason": "project.py, prompts.py and render.py are three unrelated concerns (repo discovery, terminal prompts, Jinja rendering) with their own dependencies, so they are genuinely separate modules."
+ },
+ {
+  "identifier": "FastAPI-boilerplate:cli/src/cli/lib",
+  "arm": "evidence",
+  "replicate": 2,
+  "decision": "keep",
+  "reason": "The three modules are unrelated concerns with their own docstrings and dependencies (filesystem project discovery, typer prompts, jinja2 rendering), so merging would mix them for no gain."
+ },
+ {
+  "identifier": "FastAPI-boilerplate:cli/src/cli/lib",
+  "arm": "plain",
+  "replicate": 1,
+  "decision": "keep",
+  "reason": "The three modules are documented, unrelated concerns (project discovery, terminal prompts, Jinja rendering) with different dependencies (typer, jinja2)."
+ },
+ {
+  "identifier": "FastAPI-boilerplate:cli/src/cli/lib",
+  "arm": "plain",
+  "replicate": 2,
+  "decision": "keep",
+  "reason": "project.py, prompts.py and render.py are three unrelated concerns (finding the project, terminal prompts, Jinja rendering), each with its own docstring."
+ },
+ {
+  "identifier": "ab-lanorme-1-stage3:app/guardrails",
+  "arm": "evidence",
+  "replicate": 1,
+  "decision": "keep",
+  "reason": "Each module is a distinct guardrail mechanism, and tool_budget pulls in langchain and is imported alone by agent.py, so merging would tie the pure blocklist and PII code to the agent framework."
+ },
+ {
+  "identifier": "ab-lanorme-1-stage3:app/guardrails",
+  "arm": "evidence",
+  "replicate": 2,
+  "decision": "keep",
+  "reason": "Each module is a separate guardrail with its own concern and dependencies (pii.py is an 87-line streaming redactor, tool_budget.py pulls in LangChain middleware), and none import one another."
+ },
+ {
+  "identifier": "ab-lanorme-1-stage3:app/guardrails",
+  "arm": "plain",
+  "replicate": 1,
+  "decision": "keep",
+  "reason": "Each module is a distinct guardrail with its own consumer, and tool_budget pulls in langchain/langgraph while the pure-regex pii and blocklist modules do not, so merging would couple unrelated mechanisms and dependencies."
+ },
+ {
+  "identifier": "ab-lanorme-1-stage3:app/guardrails",
+  "arm": "plain",
+  "replicate": 2,
+  "decision": "keep",
+  "reason": "Each module is a separate guardrail, and tool_budget alone depends on LangChain, so merging would couple pure regex code to the agent framework."
+ },
+ {
+  "identifier": "ab-lanorme-2-stage3:app/application/ports",
+  "arm": "evidence",
+  "replicate": 1,
+  "decision": "keep",
+  "reason": "Each module is an independent hexagonal port Protocol in the configured ports_dir, imported separately by its adapters, so one port per module is deliberate."
+ },
+ {
+  "identifier": "ab-lanorme-2-stage3:app/application/ports",
+  "arm": "evidence",
+  "replicate": 2,
+  "decision": "keep",
+  "reason": "Each port is a documented Protocol with its own separate infrastructure adapter, and only one consumer imports more than one, so one port per module is the deliberate hexagonal layout."
+ },
+ {
+  "identifier": "ab-lanorme-2-stage3:app/application/ports",
+  "arm": "plain",
+  "replicate": 1,
+  "decision": "keep",
+  "reason": "Each module is one documented port Protocol for a different adapter (agent, conversation store, policy store), in the directory the port_coverage check reads."
+ },
+ {
+  "identifier": "ab-lanorme-2-stage3:app/application/ports",
+  "arm": "plain",
+  "replicate": 2,
+  "decision": "keep",
+  "reason": "Each module holds one port Protocol, and the config names the directory as ports_dir, so one port per file is deliberate."
+ },
+ {
+  "identifier": "ab-lanorme-2-stage3:app/application/services",
+  "arm": "evidence",
+  "replicate": 1,
+  "decision": "keep",
+  "reason": "ConversationService and PolicyService are separate application services wired independently, and folding them into chat.py would turn a 130-line focused module into a grab-bag of unrelated services."
+ },
+ {
+  "identifier": "ab-lanorme-2-stage3:app/application/services",
+  "arm": "evidence",
+  "replicate": 2,
+  "decision": "keep",
+  "reason": "ChatService, ConversationService and PolicyService are separate application services injected independently, and folding them into chat.py would hide two services under the wrong name."
+ },
+ {
+  "identifier": "ab-lanorme-2-stage3:app/application/services",
+  "arm": "plain",
+  "replicate": 1,
+  "decision": "keep",
+  "reason": "ConversationService and PolicyService are separate application services with their own repositories and callers, and folding them into the chat-turn service module would mix three responsibilities."
+ },
+ {
+  "identifier": "ab-lanorme-2-stage3:app/application/services",
+  "arm": "plain",
+  "replicate": 2,
+  "decision": "keep",
+  "reason": "ChatService, ConversationService and PolicyService are separate application services, each with its own repository, so folding two into chat.py would mix their responsibilities."
+ },
+ {
+  "identifier": "ab-lanorme-2-stage3:app/domain",
+  "arm": "evidence",
+  "replicate": 1,
+  "decision": "keep",
+  "reason": "The domain package holds independent concepts (conversation, errors, guardrail actions, policy, topics, PII) imported by 13 modules, and folding them all into pii.py would bury unrelated types under a misleading module name."
+ },
+ {
+  "identifier": "ab-lanorme-2-stage3:app/domain",
+  "arm": "evidence",
+  "replicate": 2,
+  "decision": "keep",
+  "reason": "Conversation, errors, guardrail actions, policy and topic blocklist are separate domain concepts imported independently by 13 modules, and folding them into pii.py would misname them."
+ },
+ {
+  "identifier": "ab-lanorme-2-stage3:app/domain",
+  "arm": "plain",
+  "replicate": 1,
+  "decision": "keep",
+  "reason": "The six modules are distinct domain concepts (conversation, errors, guardrail actions, PII redaction, policy, topic blocklist), and folding them all into pii.py would bury unrelated concepts under a misleading name."
+ },
+ {
+  "identifier": "ab-lanorme-2-stage3:app/domain",
+  "arm": "plain",
+  "replicate": 2,
+  "decision": "keep",
+  "reason": "Conversation, errors, guardrail actions, policy and topics are distinct domain concepts, and folding them into pii.py would bury them under an unrelated name."
+ },
+ {
+  "identifier": "ab-lanorme-3-stage3:app/api",
+  "arm": "evidence",
+  "replicate": 1,
+  "decision": "keep",
+  "reason": "The modules are separate concerns (admin-key auth, tenant resolution, and three resource routers) that app/main.py wires individually, and folding them into chat.py would mix them."
+ },
+ {
+  "identifier": "ab-lanorme-3-stage3:app/api",
+  "arm": "evidence",
+  "replicate": 2,
+  "decision": "keep",
+  "reason": "The modules are distinct concerns (admin-key auth, tenant resolution, chat, session and tenant-policy routers), and folding them into chat.py would misname admin and session routes."
+ },
+ {
+  "identifier": "ab-lanorme-3-stage3:app/api",
+  "arm": "plain",
+  "replicate": 1,
+  "decision": "keep",
+  "reason": "Each module is a distinct concern (public chat router, session router, admin tenant router, constant-time admin-key auth, tenant resolution) shared across routers, so folding them into chat.py would mix security-sensitive auth with unrelated routes."
+ },
+ {
+  "identifier": "ab-lanorme-3-stage3:app/api",
+  "arm": "plain",
+  "replicate": 2,
+  "decision": "keep",
+  "reason": "Each module is a separate concern (chat, session and tenant routers with distinct prefixes, the admin-key dependency, tenant resolution), so folding them into chat.py would blur them."
+ },
+ {
+  "identifier": "clean-architecture:auctioning_platform/auctions/auctions/application/use_cases",
+  "arm": "evidence",
+  "replicate": 1,
+  "decision": "keep",
+  "reason": "One use case per module is the Clean Architecture convention of the project, and the four use cases are independent of one another."
+ },
+ {
+  "identifier": "clean-architecture:auctioning_platform/auctions/auctions/application/use_cases",
+  "arm": "evidence",
+  "replicate": 2,
+  "decision": "keep",
+  "reason": "Each module is one Clean Architecture use case with its own DTOs, re-exported through the package __init__, so one use case per module is the intended structure."
+ },
+ {
+  "identifier": "clean-architecture:auctioning_platform/auctions/auctions/application/use_cases",
+  "arm": "plain",
+  "replicate": 1,
+  "decision": "keep",
+  "reason": "One use case per module, each with its own input DTO and re-exported through __init__, is the deliberate Clean Architecture layout, and folding them into placing_bid.py would misname the rest."
+ },
+ {
+  "identifier": "clean-architecture:auctioning_platform/auctions/auctions/application/use_cases",
+  "arm": "plain",
+  "replicate": 2,
+  "decision": "keep",
+  "reason": "Clean Architecture puts one use case and its DTOs in each module, and folding them into placing_bid.py would misname the other three use cases."
+ },
+ {
+  "identifier": "clean-architecture:auctioning_platform/payments/payments/api",
+  "arm": "evidence",
+  "replicate": 1,
+  "decision": "merge",
+  "reason": "requests.py, responses.py and exceptions.py are private details of the single Stripe ApiConsumer, the only external importer goes through the package __init__, and the whole client fits in 64 lines."
+ },
+ {
+  "identifier": "clean-architecture:auctioning_platform/payments/payments/api",
+  "arm": "evidence",
+  "replicate": 2,
+  "decision": "merge",
+  "reason": "requests.py, responses.py and exceptions.py are used only by consumer.py and the package __init__ already re-exports the public names, so folding them into one 64-line Stripe client changes no caller."
+ },
+ {
+  "identifier": "clean-architecture:auctioning_platform/payments/payments/api",
+  "arm": "plain",
+  "replicate": 1,
+  "decision": "merge",
+  "reason": "The 2-line exception and the Stripe request/response DTOs exist only to serve ApiConsumer, and the package __init__ already exports the public surface, so one consumer module loses nothing."
+ },
+ {
+  "identifier": "clean-architecture:auctioning_platform/payments/payments/api",
+  "arm": "plain",
+  "replicate": 2,
+  "decision": "merge",
+  "reason": "Outside code reaches the package only through __init__'s re-exports, and the requests, responses and two-line exception exist only to serve consumer.py, so a single 64-line client module is clearer."
+ },
+ {
+  "identifier": "dddpy:dddpy/domain/todo/exceptions",
+  "arm": "evidence",
+  "replicate": 1,
+  "decision": "keep",
+  "reason": "One exception class per module is dddpy's project-wide convention and all 11 importers go through the exceptions package, so the split is deliberate and free."
+ },
+ {
+  "identifier": "dddpy:dddpy/domain/todo/exceptions",
+  "arm": "evidence",
+  "replicate": 2,
+  "decision": "keep",
+  "reason": "One exception class per file is dddpy's consistent layout across the domain layer, and the package __init__ already gives callers a single import surface."
+ },
+ {
+  "identifier": "dddpy:dddpy/domain/todo/exceptions",
+  "arm": "plain",
+  "replicate": 1,
+  "decision": "keep",
+  "reason": "One domain exception per file follows the project's consistent one-class-per-file convention, and the package __init__ re-exports them so callers are unaffected by the split."
+ },
+ {
+  "identifier": "dddpy:dddpy/domain/todo/exceptions",
+  "arm": "plain",
+  "replicate": 2,
+  "decision": "keep",
+  "reason": "One exception per file is dddpy's consistent domain convention (entities, value_objects, repositories), and callers import through the package __init__."
+ },
+ {
+  "identifier": "dddpy:dddpy/domain/todo/value_objects",
+  "arm": "evidence",
+  "replicate": 1,
+  "decision": "keep",
+  "reason": "The __init__ re-exports all four value objects as one surface, one value object per file is the DDD convention this project follows, and folding them into todo_title.py would misname the module."
+ },
+ {
+  "identifier": "dddpy:dddpy/domain/todo/value_objects",
+  "arm": "evidence",
+  "replicate": 2,
+  "decision": "keep",
+  "reason": "Each value object is its own DDD type re-exported from the package __init__, and folding them into todo_title.py would misname the module and break the one-value-object-per-file convention."
+ },
+ {
+  "identifier": "dddpy:dddpy/domain/todo/value_objects",
+  "arm": "plain",
+  "replicate": 1,
+  "decision": "keep",
+  "reason": "dddpy keeps one value object per file as a DDD showcase convention, the package __init__ re-exports all four, and tests import per-module constants such as TITLE_REQUIRED_ERROR_MESSAGE."
+ },
+ {
+  "identifier": "dddpy:dddpy/domain/todo/value_objects",
+  "arm": "plain",
+  "replicate": 2,
+  "decision": "keep",
+  "reason": "Each value object is its own DDD concept in a one-class-per-file layout, the __init__ re-exports them, and folding them into todo_title.py would give the wrong name."
+ },
+ {
+  "identifier": "dddpy:dddpy/presentation/api/todo/error_messages",
+  "arm": "evidence",
+  "replicate": 1,
+  "decision": "keep",
+  "reason": "dddpy deliberately keeps one class per module in every layer (exceptions, value_objects, schemas), and the handler already imports through the package facade, so the split costs nothing."
+ },
+ {
+  "identifier": "dddpy:dddpy/presentation/api/todo/error_messages",
+  "arm": "evidence",
+  "replicate": 2,
+  "decision": "keep",
+  "reason": "dddpy deliberately puts one class per file throughout its onion layers (exceptions, value_objects, schemas, usecases), and each message mirrors one domain exception module one to one."
+ },
+ {
+  "identifier": "dddpy:dddpy/presentation/api/todo/error_messages",
+  "arm": "plain",
+  "replicate": 1,
+  "decision": "keep",
+  "reason": "The project deliberately uses one class per file across every layer (schemas, value objects, use cases) and the __init__ re-exports all four, so the split is a codebase-wide convention."
+ },
+ {
+  "identifier": "dddpy:dddpy/presentation/api/todo/error_messages",
+  "arm": "plain",
+  "replicate": 2,
+  "decision": "keep",
+  "reason": "dddpy deliberately keeps one class per file throughout, each error-message schema mirrors one domain exception module, and callers import through the package __init__."
+ },
+ {
+  "identifier": "dddpy:dddpy/presentation/api/todo/schemas",
+  "arm": "evidence",
+  "replicate": 1,
+  "decision": "keep",
+  "reason": "The package's __init__ already re-exports all three schemas as one surface, and one schema per file matches dddpy's convention elsewhere (value_objects), so callers gain nothing from folding them into todo_schema.py."
+ },
+ {
+  "identifier": "dddpy:dddpy/presentation/api/todo/schemas",
+  "arm": "evidence",
+  "replicate": 2,
+  "decision": "keep",
+  "reason": "The package already re-exports all three schemas from __init__, and the project consistently uses one class per file, so folding create/update schemas into todo_schema.py gains nothing."
+ },
+ {
+  "identifier": "dddpy:dddpy/presentation/api/todo/schemas",
+  "arm": "plain",
+  "replicate": 1,
+  "decision": "keep",
+  "reason": "dddpy follows a strict one-class-per-file convention (exceptions, error_messages, value_objects all split the same way) and the package __init__ already re-exports the schemas, so the split costs callers nothing."
+ },
+ {
+  "identifier": "dddpy:dddpy/presentation/api/todo/schemas",
+  "arm": "plain",
+  "replicate": 2,
+  "decision": "merge",
+  "reason": "The create and update request schemas are identical ten-line Pydantic models for the same resource, and the package __init__ already re-exports them, so folding them into todo_schema.py changes no caller."
+ },
+ {
+  "identifier": "deseos17:src/deseos17/adapters/database",
+  "arm": "evidence",
+  "replicate": 1,
+  "decision": "keep",
+  "reason": "Each module is a placeholder fake for a separate gateway interface, kept apart so each can be replaced by its real adapter, matching the sibling adapters/auth/ layout."
+ },
+ {
+  "identifier": "deseos17:src/deseos17/adapters/database",
+  "arm": "evidence",
+  "replicate": 2,
+  "decision": "keep",
+  "reason": "Each module is a fake for a different gateway port (transactions, users, wishes) that a real database adapter will replace one by one, so the per-gateway split is the intended seam."
+ },
+ {
+  "identifier": "deseos17:src/deseos17/adapters/database",
+  "arm": "plain",
+  "replicate": 1,
+  "decision": "keep",
+  "reason": "Each fake adapter implements a different application gateway (transaction, user, wish) mirroring application/common's one-module-per-port layout."
+ },
+ {
+  "identifier": "deseos17:src/deseos17/adapters/database",
+  "arm": "plain",
+  "replicate": 2,
+  "decision": "merge",
+  "reason": "All three are in-memory fake gateways imported only by main/ioc.py, so one 102-line fake database module holds them coherently."
+ },
+ {
+  "identifier": "deseos17:src/deseos17/domain/models",
+  "arm": "evidence",
+  "replicate": 1,
+  "decision": "keep",
+  "reason": "One domain model per module matches the sibling domain/exceptions and domain/services packages, and folding users and sharing into wish.py would misname them for 24 importers."
+ },
+ {
+  "identifier": "deseos17:src/deseos17/domain/models",
+  "arm": "evidence",
+  "replicate": 2,
+  "decision": "merge",
+  "reason": "The four modules total 35 lines and are tangled by cross-imports (user_id.py is a single NewType, wish.py takes UserId via user.py, sharing.py imports both), so they are one domain model."
+ },
+ {
+  "identifier": "deseos17:src/deseos17/domain/models",
+  "arm": "plain",
+  "replicate": 1,
+  "decision": "keep",
+  "reason": "Each model module holds one domain concept (user, wish, sharing rule, with UserId apart to avoid an import cycle), and folding them into wish.py would misname User and ShareRule."
+ },
+ {
+  "identifier": "deseos17:src/deseos17/domain/models",
+  "arm": "plain",
+  "replicate": 2,
+  "decision": "keep",
+  "reason": "There is one domain model per module, and user_id.py exists so that wish, user and sharing can import UserId without a cycle, so folding everything into wish.py would misname the user and sharing models."
+ },
+ {
+  "identifier": "deseos17:src/deseos17/domain/services",
+  "arm": "evidence",
+  "replicate": 1,
+  "decision": "keep",
+  "reason": "AccessService, WishService and WishListService are distinct domain services injected separately in ioc.py, and folding them into access.py would misname them."
+ },
+ {
+  "identifier": "deseos17:src/deseos17/domain/services",
+  "arm": "evidence",
+  "replicate": 2,
+  "decision": "keep",
+  "reason": "access.py, wish.py and wishlist.py each hold a separate domain service class for a distinct aggregate concern, and folding them into access.py would misname the wish services."
+ },
+ {
+  "identifier": "deseos17:src/deseos17/domain/services",
+  "arm": "plain",
+  "replicate": 1,
+  "decision": "keep",
+  "reason": "Each module is the domain service for a separate concept (access control, wish, wishlist), a standard DDD split that will grow per aggregate."
+ },
+ {
+  "identifier": "deseos17:src/deseos17/domain/services",
+  "arm": "plain",
+  "replicate": 2,
+  "decision": "keep",
+  "reason": "Each domain service serves a different aggregate and is imported and injected separately by the interactors and ioc.py."
+ },
+ {
+  "identifier": "fastapi-clean-example:src/app/core/commands/ports",
+  "arm": "evidence",
+  "replicate": 1,
+  "decision": "keep",
+  "reason": "One port Protocol per module is the project-wide convention, matched by core/common/ports and core/queries/ports, and the modules are independent interfaces."
+ },
+ {
+  "identifier": "fastapi-clean-example:src/app/core/commands/ports",
+  "arm": "evidence",
+  "replicate": 2,
+  "decision": "keep",
+  "reason": "The project consistently puts one port Protocol per module (core/common/ports, core/queries/ports) with a matching one-per-file adapter in outbound/adapters, so the split is a deliberate convention."
+ },
+ {
+  "identifier": "fastapi-clean-example:src/app/core/commands/ports",
+  "arm": "plain",
+  "replicate": 1,
+  "decision": "keep",
+  "reason": "One port per module is the project-wide convention (common/ports and queries/ports follow it too), and each adapter imports exactly the one port it implements."
+ },
+ {
+  "identifier": "fastapi-clean-example:src/app/core/commands/ports",
+  "arm": "plain",
+  "replicate": 2,
+  "decision": "keep",
+  "reason": "The project puts one port Protocol in each module throughout its core, so the split follows a deliberate convention."
+ },
+ {
+  "identifier": "fastapi-clean-example:src/app/core/common/entities",
+  "arm": "evidence",
+  "replicate": 1,
+  "decision": "keep",
+  "reason": "The project's core consistently puts one domain concept per module (value_objects, ports, authorization), and 26 importers address entities.base, entities.types_ and entities.user by name, so merging would break the house convention for no gain."
+ },
+ {
+  "identifier": "fastapi-clean-example:src/app/core/common/entities",
+  "arm": "evidence",
+  "replicate": 2,
+  "decision": "keep",
+  "reason": "The base Entity contract, the shared User id/role types and the User entity are distinct clean-architecture concepts imported separately by 26 modules, matching the project's one-concept-per-module convention."
+ },
+ {
+  "identifier": "fastapi-clean-example:src/app/core/common/entities",
+  "arm": "plain",
+  "replicate": 1,
+  "decision": "keep",
+  "reason": "The project deliberately splits its clean-architecture core into one concept per module (base Entity, shared id/role types, the User entity), and types_ is imported on its own by ports and authorization, so the split matches a convention used throughout the codebase."
+ },
+ {
+  "identifier": "fastapi-clean-example:src/app/core/common/entities",
+  "arm": "plain",
+  "replicate": 2,
+  "decision": "keep",
+  "reason": "The project deliberately keeps one domain concept per module (Entity base, user identity types, User), the same as its value_objects package, and many layers import these paths."
+ },
+ {
+  "identifier": "fastapi-clean-example:src/app/core/common/ports",
+  "arm": "evidence",
+  "replicate": 1,
+  "decision": "keep",
+  "reason": "One port Protocol per module is the hexagonal convention this project follows everywhere (commands/ports, queries/ports), and each port is implemented by a different adapter."
+ },
+ {
+  "identifier": "fastapi-clean-example:src/app/core/common/ports",
+  "arm": "evidence",
+  "replicate": 2,
+  "decision": "keep",
+  "reason": "One Protocol per port is the deliberate hexagonal-architecture convention here, and the three unrelated ports are implemented and injected independently by 7 modules."
+ },
+ {
+  "identifier": "fastapi-clean-example:src/app/core/common/ports",
+  "arm": "plain",
+  "replicate": 1,
+  "decision": "keep",
+  "reason": "Each port Protocol pairs one-to-one with its own adapter module in outbound/adapters, matching the commands/ports and queries/ports packages, so one port per module is the project's deliberate hexagonal convention."
+ },
+ {
+  "identifier": "fastapi-clean-example:src/app/core/common/ports",
+  "arm": "plain",
+  "replicate": 2,
+  "decision": "keep",
+  "reason": "Each Protocol is a separate port with its own adapter in outbound/adapters, and keeping one port per file is the hexagonal convention this project follows."
+ },
+ {
+  "identifier": "fastapi-clean-example:src/app/core/queries/query_support",
+  "arm": "evidence",
+  "replicate": 1,
+  "decision": "keep",
+  "reason": "The split follows the project's one-concept-per-module convention throughout core (commands/ports, queries/ports), and pagination, sorting and their errors are separate query concerns imported separately by adapters and handlers."
+ },
+ {
+  "identifier": "fastapi-clean-example:src/app/core/queries/query_support",
+  "arm": "evidence",
+  "replicate": 2,
+  "decision": "merge",
+  "reason": "The three files total 36 lines of tightly coupled query helpers (pagination raises the shared errors) and all 4 importers use two or more of them, so one query_support module is simpler."
+ },
+ {
+  "identifier": "fastapi-clean-example:src/app/core/queries/query_support",
+  "arm": "plain",
+  "replicate": 1,
+  "decision": "merge",
+  "reason": "The three files total 36 lines, the two exceptions exist only to serve the pagination and sorting params, and every consumer imports from two or three of them together, so they are one query-parameters module."
+ },
+ {
+  "identifier": "fastapi-clean-example:src/app/core/queries/query_support",
+  "arm": "plain",
+  "replicate": 2,
+  "decision": "keep",
+  "reason": "Pagination, sorting and their errors are separate query concerns, laid out like the rest of this fine-grained clean-architecture project, and imported by path from 13 places."
+ },
+ {
+  "identifier": "fastapi-clean-example:src/app/inbound/http/errors",
+  "arm": "evidence",
+  "replicate": 1,
+  "decision": "merge",
+  "reason": "The five modules are tiny fragments of one concern, HTTP error mapping via fastapi_error_map, and 11 of the 13 importers pull two or more of them together."
+ },
+ {
+  "identifier": "fastapi-clean-example:src/app/inbound/http/errors",
+  "arm": "evidence",
+  "replicate": 2,
+  "decision": "merge",
+  "reason": "The five modules are tiny fastapi_error_map helpers and every router imports callbacks, router and rules together, so they form one error-handling module."
+ },
+ {
+  "identifier": "fastapi-clean-example:src/app/inbound/http/errors",
+  "arm": "plain",
+  "replicate": 1,
+  "decision": "merge",
+  "reason": "All five modules are thin glue around fastapi_error_map, and every router imports callbacks, router and rules together, so one 40-line errors module is the cohesive unit."
+ },
+ {
+  "identifier": "fastapi-clean-example:src/app/inbound/http/errors",
+  "arm": "plain",
+  "replicate": 2,
+  "decision": "merge",
+  "reason": "Every endpoint imports callbacks, router and rules together, so the five tiny fastapi_error_map glue modules make up one cohesive 40-line errors module."
+ },
+ {
+  "identifier": "fastapi-realworld-example-app:app/core/settings",
+  "arm": "evidence",
+  "replicate": 1,
+  "decision": "keep",
+  "reason": "The package is the deliberate per-environment settings pattern, with core/config.py mapping AppEnvTypes to DevAppSettings, ProdAppSettings and TestAppSettings from their own modules."
+ },
+ {
+  "identifier": "fastapi-realworld-example-app:app/core/settings",
+  "arm": "evidence",
+  "replicate": 2,
+  "decision": "keep",
+  "reason": "The per-environment settings modules (development, production, test) are a deliberate convention selected by app_env in core/config.py, and most importers need only app.AppSettings."
+ },
+ {
+  "identifier": "fastapi-realworld-example-app:app/core/settings",
+  "arm": "plain",
+  "replicate": 1,
+  "decision": "keep",
+  "reason": "Settings split per environment (base, app, development, production, test) is the established pattern here, with config.py mapping each AppEnvTypes value to its own module's class, so each module is its own environment."
+ },
+ {
+  "identifier": "fastapi-realworld-example-app:app/core/settings",
+  "arm": "plain",
+  "replicate": 2,
+  "decision": "merge",
+  "reason": "The five tiny settings classes form one inheritance chain imported together only by app/core/config.py, so one 76-line settings module is simpler."
+ },
+ {
+  "identifier": "litestar-fullstack:src/py/app/domain/teams/schemas",
+  "arm": "evidence",
+  "replicate": 1,
+  "decision": "keep",
+  "reason": "Private _-prefixed schema modules re-exported through __init__ are the convention across every domain's schemas package (accounts, admin, system, tags)."
+ },
+ {
+  "identifier": "litestar-fullstack:src/py/app/domain/teams/schemas",
+  "arm": "evidence",
+  "replicate": 2,
+  "decision": "keep",
+  "reason": "Every domain's schemas package uses the same private _module-per-resource layout behind an __init__ facade that all callers import from, so the split is a project-wide convention."
+ },
+ {
+  "identifier": "litestar-fullstack:src/py/app/domain/teams/schemas",
+  "arm": "plain",
+  "replicate": 1,
+  "decision": "keep",
+  "reason": "Private per-resource schema modules re-exported through __init__ is the convention every domain's schemas package follows (accounts, admin, tags, system)."
+ },
+ {
+  "identifier": "litestar-fullstack:src/py/app/domain/teams/schemas",
+  "arm": "plain",
+  "replicate": 2,
+  "decision": "keep",
+  "reason": "The private _invitation, _member and _team modules sit behind a re-exporting __init__, a deliberate layout, and folding them into _team.py would hide the invitation and member schemas under the team name."
+ },
+ {
+  "identifier": "mealie:mealie/routes/media",
+  "arm": "evidence",
+  "replicate": 1,
+  "decision": "keep",
+  "reason": "mealie/routes/ is consistently organised as per-area packages of sub-routers aggregated in __init__, and media follows that convention."
+ },
+ {
+  "identifier": "mealie:mealie/routes/media",
+  "arm": "evidence",
+  "replicate": 2,
+  "decision": "keep",
+  "reason": "mealie/routes organises each area as a package of sub-routers included by an __init__ router, and media follows that convention with separate recipe and user media routers."
+ },
+ {
+  "identifier": "mealie:mealie/routes/media",
+  "arm": "plain",
+  "replicate": 1,
+  "decision": "keep",
+  "reason": "media_recipe and media_user are separate sub-routers composed in __init__, the same per-resource router package layout used throughout mealie.routes."
+ },
+ {
+  "identifier": "mealie:mealie/routes/media",
+  "arm": "plain",
+  "replicate": 2,
+  "decision": "keep",
+  "reason": "mealie/routes is organised as one subpackage per area with a router per resource, and the media package composes its recipe and user routers."
+ },
+ {
+  "identifier": "mealie:mealie/schema/admin",
+  "arm": "evidence",
+  "replicate": 1,
+  "decision": "keep",
+  "reason": "mealie/schema/admin/ follows the same generated per-topic schema package layout as every other schema domain, with its __init__ produced by gen_py_schema_exports.py."
+ },
+ {
+  "identifier": "mealie:mealie/schema/admin",
+  "arm": "evidence",
+  "replicate": 2,
+  "decision": "keep",
+  "reason": "Like every mealie schema package, admin splits by topic (about, backup, restore, email, migration) behind an auto-generated __init__, and no importer uses more than one module."
+ },
+ {
+  "identifier": "mealie:mealie/schema/admin",
+  "arm": "plain",
+  "replicate": 1,
+  "decision": "keep",
+  "reason": "The admin schema package is auto-generated by gen_schema_exports.py with one module per admin topic, matching every other mealie.schema subpackage."
+ },
+ {
+  "identifier": "mealie:mealie/schema/admin",
+  "arm": "plain",
+  "replicate": 2,
+  "decision": "keep",
+  "reason": "The admin schema package follows mealie's uniform per-topic schema layout with a generated __init__, and about.py alone is 62 lines."
+ },
+ {
+  "identifier": "mealie:mealie/schema/group",
+  "arm": "evidence",
+  "replicate": 1,
+  "decision": "keep",
+  "reason": "Every mealie/schema/ domain is a package of per-topic modules whose __init__ is auto-generated by dev/code-generation/gen_py_schema_exports.py, so collapsing one breaks that uniform generated layout."
+ },
+ {
+  "identifier": "mealie:mealie/schema/group",
+  "arm": "evidence",
+  "replicate": 2,
+  "decision": "keep",
+  "reason": "Every mealie/schema subpackage uses one module per schema topic with an __init__ auto-generated by gen_schema_exports.py, and ai_providers.py alone is 103 lines, so merging breaks a project-wide convention and its tooling."
+ },
+ {
+  "identifier": "mealie:mealie/schema/group",
+  "arm": "plain",
+  "replicate": 1,
+  "decision": "keep",
+  "reason": "The schema subpackage layout and its __init__ are auto-generated by gen_schema_exports.py and follow the same per-topic split used across every mealie.schema package."
+ },
+ {
+  "identifier": "mealie:mealie/schema/group",
+  "arm": "plain",
+  "replicate": 2,
+  "decision": "keep",
+  "reason": "Every mealie/schema subpackage is split per topic with an __init__ auto-generated by gen_schema_exports.py, and ai_providers.py is a 103-line module of its own concern."
+ },
+ {
+  "identifier": "mem0:mem0/configs/rerankers",
+  "arm": "evidence",
+  "replicate": 1,
+  "decision": "keep",
+  "reason": "One config module per provider mirrors mem0's configs/llms and configs/vector_stores layout and its reranker/ implementations, which each import their provider's config module."
+ },
+ {
+  "identifier": "mem0:mem0/configs/rerankers",
+  "arm": "evidence",
+  "replicate": 2,
+  "decision": "keep",
+  "reason": "One config module per reranker provider mirrors the llms and embeddings config packages and lets each provider's reranker import only its own config, so new providers are added as files."
+ },
+ {
+  "identifier": "mem0:mem0/configs/rerankers",
+  "arm": "plain",
+  "replicate": 1,
+  "decision": "keep",
+  "reason": "This is a one-module-per-provider plugin layout mirrored by configs/llms, configs/embeddings, configs/vector_stores and mem0/reranker, and each provider config is imported individually by its reranker and the factory."
+ },
+ {
+  "identifier": "mem0:mem0/configs/rerankers",
+  "arm": "plain",
+  "replicate": 2,
+  "decision": "keep",
+  "reason": "This is a one-module-per-provider config layout matching mem0's other provider config packages, so adding a provider stays a new file."
+ },
+ {
+  "identifier": "pretix:src/pretix/plugins/banktransfer/templatetags",
+  "arm": "evidence",
+  "replicate": 1,
+  "decision": "keep",
+  "reason": "Django loads each templatetags module as its own library by file name, and templates use {% load commadecimal %}, {% load dotdecimal %} and {% load ibanformat %}, so merging would break those templates."
+ },
+ {
+  "identifier": "pretix:src/pretix/plugins/banktransfer/templatetags",
+  "arm": "evidence",
+  "replicate": 2,
+  "decision": "keep",
+  "reason": "Django loads each template tag library by module name from a templatetags package, so merging into templatetags.py would break the {% load %} tags."
+ },
+ {
+  "identifier": "pretix:src/pretix/plugins/banktransfer/templatetags",
+  "arm": "plain",
+  "replicate": 1,
+  "decision": "keep",
+  "reason": "Each module is a Django template tag library loaded by its module name ({% load commadecimal %}, {% load ibanformat %}) in the plugin's templates, so merging would break those loads."
+ },
+ {
+  "identifier": "pretix:src/pretix/plugins/banktransfer/templatetags",
+  "arm": "plain",
+  "replicate": 2,
+  "decision": "keep",
+  "reason": "Django names each template tag library after its module in templatetags/, so templates load commadecimal, dotdecimal and ibanformat by those names and merging would break them."
+ },
+ {
+  "identifier": "py-clean-arch:src/common",
+  "arm": "evidence",
+  "replicate": 1,
+  "decision": "keep",
+  "reason": "The three modules hold unrelated things (a documentation constant, validated string types, UUID and dict helpers), so no single module could be named for what it holds."
+ },
+ {
+  "identifier": "py-clean-arch:src/common",
+  "arm": "evidence",
+  "replicate": 2,
+  "decision": "keep",
+  "reason": "The three modules hold unrelated things (a documentation constant, validated string types, small helpers) with no shared name to merge under, and 34 importers would churn for no cohesion gain."
+ },
+ {
+  "identifier": "py-clean-arch:src/common",
+  "arm": "plain",
+  "replicate": 1,
+  "decision": "keep",
+  "reason": "The three modules hold unrelated things (a documentation string constant, validated string types, generic helpers), so merging them would only produce a bigger grab-bag with no single name."
+ },
+ {
+  "identifier": "py-clean-arch:src/common",
+  "arm": "plain",
+  "replicate": 2,
+  "decision": "keep",
+  "reason": "The three modules are unrelated (a shared docstring constant, validated string types, small helpers) imported across dozens of files, so merging would just make a grab-bag."
+ },
+ {
+  "identifier": "python-clean-architecture:devops/commands",
+  "arm": "evidence",
+  "replicate": 1,
+  "decision": "keep",
+  "reason": "Each module is a separate setuptools Command (bump_version, dist_build, publish, test) registered by name in the ALL table, the standard one-command-per-module layout."
+ },
+ {
+  "identifier": "python-clean-architecture:devops/commands",
+  "arm": "evidence",
+  "replicate": 2,
+  "decision": "keep",
+  "reason": "Each module is a separate setuptools Command (bump_version alone is 99 lines) registered in the ALL map, so one command per file is the natural split."
+ },
+ {
+  "identifier": "python-clean-architecture:devops/commands",
+  "arm": "plain",
+  "replicate": 1,
+  "decision": "keep",
+  "reason": "Each module is an independent setuptools Command registered by name in the package's ALL mapping, so one command per file is the natural plugin layout."
+ },
+ {
+  "identifier": "python-clean-architecture:devops/commands",
+  "arm": "plain",
+  "replicate": 2,
+  "decision": "keep",
+  "reason": "Each module is one independent setuptools command registered in the __init__ ALL table, with bump_version.py a substantial 99 lines on its own."
+ },
+ {
+  "identifier": "python-clean-architecture:pca/interfaces",
+  "arm": "evidence",
+  "replicate": 1,
+  "decision": "keep",
+  "reason": "pca is a published library whose dao, entity and repository interface modules mirror pca/data/dao and pca/domain/ and are imported by path (pca.interfaces.dao) across the codebase."
+ },
+ {
+  "identifier": "python-clean-architecture:pca/interfaces",
+  "arm": "evidence",
+  "replicate": 2,
+  "decision": "keep",
+  "reason": "dao.py (126 lines) and repository.py are separate substantive interfaces re-exported through import_all_names, so only the 4-line entity.py is shallow and a single interfaces.py would mix two abstractions."
+ },
+ {
+  "identifier": "python-clean-architecture:pca/interfaces",
+  "arm": "plain",
+  "replicate": 1,
+  "decision": "keep",
+  "reason": "This is a published library whose consumers import pca.interfaces.dao and pca.interfaces.repository directly, so merging into one module would break that public import surface."
+ },
+ {
+  "identifier": "python-clean-architecture:pca/interfaces",
+  "arm": "plain",
+  "replicate": 2,
+  "decision": "keep",
+  "reason": "dao.py (126 lines) and repository.py are distinct interface layers with repository building on dao, and seven call sites import the submodules directly."
+ },
+ {
+  "identifier": "python-ddd:src/modules/bidding/application/query",
+  "arm": "evidence",
+  "replicate": 1,
+  "decision": "keep",
+  "reason": "One query handler per module is the CQRS convention shared with catalog/application/query, and the package grows by adding queries."
+ },
+ {
+  "identifier": "python-ddd:src/modules/bidding/application/query",
+  "arm": "evidence",
+  "replicate": 2,
+  "decision": "keep",
+  "reason": "The application layer follows one query handler per module across bidding and catalog (mirroring command/ and event/), with model_mappers shared, so the split is deliberate."
+ },
+ {
+  "identifier": "python-ddd:src/modules/bidding/application/query",
+  "arm": "plain",
+  "replicate": 1,
+  "decision": "keep",
+  "reason": "One query and its handler per module is the CQRS convention the sibling command package also follows, and the package __init__ re-exports each query."
+ },
+ {
+  "identifier": "python-ddd:src/modules/bidding/application/query",
+  "arm": "plain",
+  "replicate": 2,
+  "decision": "keep",
+  "reason": "It follows the CQRS convention of one query and its handler per module, with model_mappers as the shared mapping both handlers use."
+ },
+ {
+  "identifier": "python-ddd:src/modules/catalog/application/query",
+  "arm": "evidence",
+  "replicate": 1,
+  "decision": "keep",
+  "reason": "One query plus its registered handler per module is the project's CQRS convention, mirrored in the sibling command/ package and in bidding/application/query/."
+ },
+ {
+  "identifier": "python-ddd:src/modules/catalog/application/query",
+  "arm": "evidence",
+  "replicate": 2,
+  "decision": "keep",
+  "reason": "Each module is one CQRS query plus its registered handler, mirroring the sibling command/ package's one-use-case-per-file layout, so the split is the project's deliberate convention."
+ },
+ {
+  "identifier": "python-ddd:src/modules/catalog/application/query",
+  "arm": "plain",
+  "replicate": 1,
+  "decision": "keep",
+  "reason": "Each file is one CQRS query plus its registered handler, mirroring the sibling command package's one-command-per-file convention, and the package __init__ already re-exports them."
+ },
+ {
+  "identifier": "python-ddd:src/modules/catalog/application/query",
+  "arm": "plain",
+  "replicate": 2,
+  "decision": "keep",
+  "reason": "One CQRS query plus its handler per module is the project-wide convention, mirrored in bidding/application/query and the command packages."
+ },
+ {
+  "identifier": "python-fastapi-hex-todo:todolist/core/accounts/services",
+  "arm": "evidence",
+  "replicate": 1,
+  "decision": "keep",
+  "reason": "hash_service and user_service are used as namespaced modules (hash_service.verify, user_service.register) by routers, seeds and per-module tests, mirroring todo/services, so merging would collide names like hash_ and break that structure."
+ },
+ {
+  "identifier": "python-fastapi-hex-todo:todolist/core/accounts/services",
+  "arm": "evidence",
+  "replicate": 2,
+  "decision": "keep",
+  "reason": "hash_service wraps the passlib dependency and is used as a module namespace (hash_service.verify), and the services/entities/protocols layout is mirrored across the hexagonal core."
+ },
+ {
+  "identifier": "python-fastapi-hex-todo:todolist/core/accounts/services",
+  "arm": "plain",
+  "replicate": 1,
+  "decision": "keep",
+  "reason": "hash_service is used as a namespace module (hash_service.hash_/verify) by the user service, seeds and tests, and the tests mirror one test file per module, so folding it in would break that structure for no gain."
+ },
+ {
+  "identifier": "python-fastapi-hex-todo:todolist/core/accounts/services",
+  "arm": "plain",
+  "replicate": 2,
+  "decision": "keep",
+  "reason": "hash_service is used as a module namespace (hash_service.verify, hash_service.hash_) and mirrors the todo/services layout and per-module tests, so merging would lose that namespace."
+ },
+ {
+  "identifier": "qu3vipon-python-ddd:src/display/presentation/rest",
+  "arm": "evidence",
+  "replicate": 1,
+  "decision": "keep",
+  "reason": "The api/request/response split is the presentation convention mirrored exactly in reception/presentation/rest."
+ },
+ {
+  "identifier": "qu3vipon-python-ddd:src/display/presentation/rest",
+  "arm": "evidence",
+  "replicate": 2,
+  "decision": "keep",
+  "reason": "The api/request/response split is the presentation convention shared across bounded contexts in this project, keeping the router separate from its pydantic request and response schemas."
+ },
+ {
+  "identifier": "qu3vipon-python-ddd:src/display/presentation/rest",
+  "arm": "plain",
+  "replicate": 1,
+  "decision": "keep",
+  "reason": "The api/request/response split matches the reception context's presentation/rest package exactly, so merging only this one would break the parallel structure between bounded contexts."
+ },
+ {
+  "identifier": "qu3vipon-python-ddd:src/display/presentation/rest",
+  "arm": "plain",
+  "replicate": 2,
+  "decision": "keep",
+  "reason": "The api/request/response split matches the same layout in reception/presentation/rest, so it is a deliberate convention across bounded contexts."
+ },
+ {
+  "identifier": "qu3vipon-python-ddd:src/reception/domain/exception",
+  "arm": "evidence",
+  "replicate": 1,
+  "decision": "keep",
+  "reason": "The per-aggregate exception modules mirror the sibling entity/, value_object/ and service/ packages of the reception domain, so the split is the project's deliberate DDD convention."
+ },
+ {
+  "identifier": "qu3vipon-python-ddd:src/reception/domain/exception",
+  "arm": "evidence",
+  "replicate": 2,
+  "decision": "merge",
+  "reason": "Each module holds only two one-line BaseMsgException subclasses and the REST api imports all three, so one reception exceptions module serves every caller with no loss of cohesion."
+ },
+ {
+  "identifier": "qu3vipon-python-ddd:src/reception/domain/exception",
+  "arm": "plain",
+  "replicate": 1,
+  "decision": "keep",
+  "reason": "The exception modules mirror the per-aggregate entity/ and service/ modules (room, reservation, check_in), and the domain service and entities each import only their own module, so folding them into room.py would misname them."
+ },
+ {
+  "identifier": "qu3vipon-python-ddd:src/reception/domain/exception",
+  "arm": "plain",
+  "replicate": 2,
+  "decision": "keep",
+  "reason": "The exceptions are split per aggregate (check-in, reservation, room), and folding them into room.py would file check-in and reservation errors under the wrong name."
+ },
+ {
+  "identifier": "qu3vipon-python-ddd:src/shared_kernel/domain",
+  "arm": "evidence",
+  "replicate": 1,
+  "decision": "keep",
+  "reason": "Entity, exception and value_object are the distinct DDD building blocks of the shared kernel, imported separately by 15 modules across bounded contexts."
+ },
+ {
+  "identifier": "qu3vipon-python-ddd:src/shared_kernel/domain",
+  "arm": "evidence",
+  "replicate": 2,
+  "decision": "keep",
+  "reason": "Entity, exception and value object are distinct DDD shared-kernel building blocks imported separately by 15 modules, and each bounded context mirrors that per-concept layout."
+ },
+ {
+  "identifier": "qu3vipon-python-ddd:src/shared_kernel/domain",
+  "arm": "plain",
+  "replicate": 1,
+  "decision": "keep",
+  "reason": "Entity, exception and value object are distinct DDD building blocks imported separately across bounded contexts, and folding them into value_object.py would misname them."
+ },
+ {
+  "identifier": "qu3vipon-python-ddd:src/shared_kernel/domain",
+  "arm": "plain",
+  "replicate": 2,
+  "decision": "keep",
+  "reason": "Entity, exception and value_object are separate DDD building blocks in the shared kernel, and folding them into value_object.py would put entities and exceptions under the wrong name."
+ }
+]

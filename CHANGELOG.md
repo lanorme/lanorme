@@ -9,6 +9,23 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
 
 ## [Unreleased]
 
+### Research
+
+- A spike on semantic evidence for `SHALLOW-001` (`experiments/semantic-merge/`):
+  whether Common Reuse, internal coupling, vocabulary, sibling similarity or
+  co-change can tell which small packages should merge. Measured on the
+  original trees of the rule's corpus and on 54 more packages from 14
+  projects, with holdout hypotheses fixed in advance, independent blind
+  ratings and an agent decision experiment. No signal keeps its direction
+  across the dev split, the holdout and the blind ratings; a Bunch-style
+  clustering of the import graph is unstable and unrelated to the authors'
+  packages; a Common Reuse sentence in the message does not change what an
+  agent decides. Lines per member, which the rule already reads, is what
+  separates. The rule is unchanged. The results, and two follow-ups on the
+  rule's own corpus, are in `experiments/semantic-merge/README.md`.
+- `docs/references.bib` gains the 22 works the spike relies on, each checked
+  against a bibliographic record (Crossref for the 21 with a DOI).
+
 ## [0.21.1]
 
 ### Added

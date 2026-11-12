@@ -41,25 +41,27 @@ class PackageView:
     graph: ModuleGraph
 
 
+def _list_member_stems(*, view: PackageView) -> dict[str, str]:
+    """Each member's path by its module name."""
+    return {
+        member.relative.rsplit("/", 1)[-1].removesuffix(".py"): member.relative
+        for member in view.members
+    }
+
+
 def _collect_reexports(*, view: PackageView) -> dict[str, str]:
     """Each name the package's ``__init__.py`` re-exports, mapped to the member it comes from."""
     package_file = view.modules.get(f"{view.package}/{PACKAGE_FILE}")
     if package_file is None:
         return {}
-    by_stem = {
-        member.relative.rsplit("/", 1)[-1].removesuffix(".py"): member.relative
-        for member in view.members
-    }
+    by_stem = _list_member_stems(view=view)
     exported: dict[str, str] = {}
-    for imported in package_file.imports:
-        if not imported.is_from:
-            continue
+    for imported in (found for found in package_file.imports if found.is_from):
         source = by_stem.get(imported.module.rsplit(".", 1)[-1])
         for alias in imported.aliases:
-            if source is not None:
-                exported[alias.asname or alias.name] = source
-            elif alias.name in by_stem and not imported.module:
-                exported[alias.asname or alias.name] = by_stem[alias.name]
+            member = source if source is not None or imported.module else by_stem.get(alias.name)
+            if member is not None:
+                exported[alias.asname or alias.name] = member
     return exported
 
 
@@ -79,18 +81,20 @@ def _collect_facade_uses(*, view: PackageView, importer: Module) -> set[str]:
     return used
 
 
+def _is_outside_production(*, importer: str, view: PackageView) -> bool:
+    """True for a production module of the tree that sits outside the package."""
+    return not importer.startswith(f"{view.package}/") and not is_test_file(importer)
+
+
 def collect_uses(*, view: PackageView) -> dict[str, set[str]]:
     """For each production module outside the package, the members it imports."""
-    inside = f"{view.package}/"
-    members = {member.relative for member in view.members}
-    package_file = f"{view.package}/{PACKAGE_FILE}"
     uses: dict[str, set[str]] = {}
-    for member in members:
-        for importer in view.graph.find_importers(member):
-            if not importer.startswith(inside) and not is_test_file(importer):
-                uses.setdefault(importer, set()).add(member)
-    for importer in view.graph.find_importers(package_file):
-        if importer.startswith(inside) or is_test_file(importer) or importer not in view.modules:
+    for member in view.members:
+        for importer in view.graph.find_importers(member.relative):
+            if _is_outside_production(importer=importer, view=view):
+                uses.setdefault(importer, set()).add(member.relative)
+    for importer in view.graph.find_importers(f"{view.package}/{PACKAGE_FILE}"):
+        if importer not in view.modules or not _is_outside_production(importer=importer, view=view):
             continue
         found = _collect_facade_uses(view=view, importer=view.modules[importer])
         if found:

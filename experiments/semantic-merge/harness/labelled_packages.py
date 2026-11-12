@@ -70,7 +70,13 @@ class LabelledPackage:
         return f"{self.origin}:{self.package}"
 
 
-def _locate_original(*, key: str, note: str, source: str, repositories: Path) -> tuple | None:
+def _locate_original(
+    *,
+    key: str,
+    note: str,
+    source: str,
+    repositories: Path,
+) -> tuple[str, Path, str] | None:
     """The (origin name, root, package) of a labelled ``__init__.py``, or ``None`` to leave it out."""
     split, _cases, case, *rest = key.split("/")
     found = _REPLICA.search(note)
@@ -112,6 +118,25 @@ def read_labelled_anchors(*, repositories: Path) -> list[LabelledPackage]:
         if earlier is None or (found.is_shallow and not earlier.is_shallow):
             seen[(origin, package)] = found
     return list(seen.values())
+
+
+def read_candidate_anchors(*, candidates: Path, trees: Path) -> list[LabelledPackage]:
+    """The unlabelled candidates ``select_candidates.py`` wrote, as packages of the extension set.
+
+    They carry no corpus label: ``is_shallow`` is false for all of them, and
+    the blind ratings in ``results/ratings.json`` are what they are compared by.
+    """
+    return [
+        LabelledPackage(
+            split="extension",
+            origin=found["origin"],
+            root=trees / found["origin"],
+            package=found["package"],
+            is_shallow=False,
+            note="",
+        )
+        for found in json.loads(candidates.read_text(encoding="utf-8"))
+    ]
 
 
 @dataclass

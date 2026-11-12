@@ -26,6 +26,7 @@ import json
 import re
 from pathlib import Path
 
+from package_records import PackageRecord
 from separation import Observation, summarise_separation
 
 SIGNALS = (
@@ -48,7 +49,7 @@ SIGNALS = (
 _STAGE = re.compile(r"-stage(\d+):")
 
 
-def _is_structural(record: dict) -> bool:
+def _is_structural(record: PackageRecord) -> bool:
     return (
         record["is_reachable"]
         and record["is_leaf"]

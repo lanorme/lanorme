@@ -9,6 +9,9 @@ Run (dev first; the holdout only once the signals are fixed):
     uv run python experiments/semantic-merge/harness/measure_packages.py \
         --repositories /path/to/checkouts --split dev \
         --out experiments/semantic-merge/results/packages_dev.json
+
+With ``--candidates`` it measures the unlabelled extension set instead, the
+packages ``select_candidates.py`` listed under ``--repositories``.
 """
 
 from __future__ import annotations
@@ -24,9 +27,11 @@ from labelled_packages import (
     OriginalTree,
     group_by_root,
     is_merge_candidate,
+    read_candidate_anchors,
     read_labelled_anchors,
     read_original_tree,
 )
+from package_records import PackageRecord
 from reuse_signals import PackageView, describe_reuse, measure_reuse
 from sibling_signals import measure_siblings
 from vocabulary_signals import Vocabulary, build_vocabulary, measure_vocabulary
@@ -71,7 +76,7 @@ class TreeEvidence:
         return {"signals": signals, "reuse_sentence": describe_reuse(view=view)}
 
 
-def _measure_package(*, labelled: LabelledPackage, evidence: TreeEvidence) -> dict | None:
+def _measure_package(*, labelled: LabelledPackage, evidence: TreeEvidence) -> PackageRecord | None:
     """The record of one labelled package, or ``None`` when it is not a merge candidate."""
     original = evidence.original
     package = original.find_package(labelled.package)
@@ -96,14 +101,9 @@ def _measure_package(*, labelled: LabelledPackage, evidence: TreeEvidence) -> di
     return record
 
 
-def measure_split(*, split: str, repositories: Path, cache: Path | None) -> list[dict]:
-    """The records of every merge candidate labelled in *split*."""
-    anchors = [
-        anchor
-        for anchor in read_labelled_anchors(repositories=repositories)
-        if anchor.split == split
-    ]
-    records: list[dict] = []
+def measure_anchors(*, anchors: list[LabelledPackage], cache: Path | None) -> list[PackageRecord]:
+    """The records of every merge candidate among *anchors*."""
+    records: list[PackageRecord] = []
     for root, labelled in group_by_root(anchors).items():
         if not root.is_dir():
             logger.warning("no checkout at %s; %d packages skipped", root, len(labelled))
@@ -118,16 +118,21 @@ def main() -> None:
     """Measure one split and write its records as JSON."""
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--repositories", type=Path, required=True)
-    parser.add_argument("--split", choices=("dev", "holdout"), required=True)
+    parser.add_argument("--split", choices=("dev", "holdout"), default=None)
+    parser.add_argument("--candidates", type=Path, default=None)
     parser.add_argument("--cache", type=Path, default=None)
     parser.add_argument("--out", type=Path, required=True)
     arguments = parser.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(message)s")
-    records = measure_split(
-        split=arguments.split,
-        repositories=arguments.repositories,
-        cache=arguments.cache,
-    )
+    if arguments.candidates is not None:
+        anchors = read_candidate_anchors(
+            candidates=arguments.candidates,
+            trees=arguments.repositories,
+        )
+    else:
+        labelled = read_labelled_anchors(repositories=arguments.repositories)
+        anchors = [anchor for anchor in labelled if anchor.split == arguments.split]
+    records = measure_anchors(anchors=anchors, cache=arguments.cache)
     arguments.out.parent.mkdir(parents=True, exist_ok=True)
     arguments.out.write_text(json.dumps(records, indent=1) + "\n", encoding="utf-8")
     logger.info("%d packages written to %s", len(records), arguments.out)

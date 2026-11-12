@@ -1,0 +1,724 @@
+{
+ "candidates": {
+  "internal_density": {
+   "auc": 0.47685185185185186,
+   "interval": [
+    0.3684210526315789,
+    0.7068965517241379
+   ],
+   "first_count": 9,
+   "second_count": 24,
+   "first_median": 0.25,
+   "second_median": 0.3333333333333333,
+   "lineages": 4
+  },
+  "connected_share": {
+   "auc": 0.44907407407407407,
+   "interval": [
+    0.3538011695906433,
+    0.71875
+   ],
+   "first_count": 9,
+   "second_count": 24,
+   "first_median": 0.6666666666666666,
+   "second_median": 0.6666666666666666,
+   "lineages": 4
+  },
+  "importer_similarity": {
+   "auc": 0.7470238095238095,
+   "interval": [
+    0.6420454545454546,
+    1.0
+   ],
+   "first_count": 8,
+   "second_count": 21,
+   "first_median": 0.3,
+   "second_median": 0.07692307692307693,
+   "lineages": 4
+  },
+  "used_together": {
+   "auc": 0.7738095238095238,
+   "interval": [
+    0.7346938775510204,
+    1.0
+   ],
+   "first_count": 8,
+   "second_count": 21,
+   "first_median": 0.7692307692307692,
+   "second_median": 0.23076923076923078,
+   "lineages": 4
+  },
+  "mean_share_used": {
+   "auc": 0.7916666666666666,
+   "interval": [
+    0.760989010989011,
+    1.0
+   ],
+   "first_count": 8,
+   "second_count": 21,
+   "first_median": 0.5692307692307692,
+   "second_median": 0.4444444444444444,
+   "lineages": 4
+  },
+  "private_share": {
+   "auc": 0.4652777777777778,
+   "interval": [
+    0.2630718954248366,
+    0.875
+   ],
+   "first_count": 9,
+   "second_count": 24,
+   "first_median": 0.0,
+   "second_median": 0.22499999999999998,
+   "lineages": 4
+  },
+  "fan_out_similarity": {
+   "auc": 0.6319444444444444,
+   "interval": [
+    0.5178571428571429,
+    0.9074074074074074
+   ],
+   "first_count": 9,
+   "second_count": 24,
+   "first_median": 0.37222222222222223,
+   "second_median": 0.19208982738394503,
+   "lineages": 4
+  },
+  "role_similarity": {
+   "auc": 0.5370370370370371,
+   "interval": [
+    0.3409090909090909,
+    0.75
+   ],
+   "first_count": 9,
+   "second_count": 24,
+   "first_median": 0.4,
+   "second_median": 0.41666666666666663,
+   "lineages": 4
+  },
+  "identifier_cohesion": {
+   "auc": 0.4861111111111111,
+   "interval": [
+    0.4444444444444444,
+    0.6481481481481481
+   ],
+   "first_count": 9,
+   "second_count": 24,
+   "first_median": 0.2514184576478345,
+   "second_median": 0.3250881095409637,
+   "lineages": 4
+  },
+  "identifier_lift": {
+   "auc": 0.49537037037037035,
+   "interval": [
+    0.4642857142857143,
+    0.7166666666666667
+   ],
+   "first_count": 9,
+   "second_count": 24,
+   "first_median": 0.2311674092197152,
+   "second_median": 0.287496083796545,
+   "lineages": 4
+  },
+  "identifier_overlap": {
+   "auc": 0.4398148148148148,
+   "interval": [
+    0.32679738562091504,
+    0.8125
+   ],
+   "first_count": 9,
+   "second_count": 24,
+   "first_median": 0.18181818181818182,
+   "second_median": 0.21998772938830483,
+   "lineages": 4
+  },
+  "prose_cohesion": {
+   "auc": 0.49537037037037035,
+   "interval": [
+    0.47058823529411764,
+    0.6481481481481481
+   ],
+   "first_count": 9,
+   "second_count": 24,
+   "first_median": 0.2482683542559475,
+   "second_median": 0.2797709376513928,
+   "lineages": 4
+  },
+  "prose_lift": {
+   "auc": 0.5,
+   "interval": [
+    0.47058823529411764,
+    0.6481481481481481
+   ],
+   "first_count": 9,
+   "second_count": 24,
+   "first_median": 0.21893872250667973,
+   "second_median": 0.24027227139756763,
+   "lineages": 4
+  },
+  "changed_together": {
+   "auc": 0.5769230769230769,
+   "interval": [
+    0.2857142857142857,
+    1.0
+   ],
+   "first_count": 2,
+   "second_count": 13,
+   "first_median": 0.12482065997130559,
+   "second_median": 0.058823529411764705,
+   "lineages": 3
+  },
+  "cochange_similarity": {
+   "auc": 0.7307692307692307,
+   "interval": [
+    0.5294117647058824,
+    1.0
+   ],
+   "first_count": 2,
+   "second_count": 13,
+   "first_median": 0.10783356210185477,
+   "second_median": 0.03333333333333333,
+   "lineages": 3
+  }
+ },
+ "structural": {
+  "internal_density": {
+   "auc": 0.4805194805194805,
+   "interval": [
+    0.26666666666666666,
+    1.0
+   ],
+   "first_count": 7,
+   "second_count": 11,
+   "first_median": 0.0,
+   "second_median": 0.3333333333333333,
+   "lineages": 4
+  },
+  "connected_share": {
+   "auc": 0.38961038961038963,
+   "interval": [
+    0.21666666666666667,
+    1.0
+   ],
+   "first_count": 7,
+   "second_count": 11,
+   "first_median": 0.5,
+   "second_median": 0.6666666666666666,
+   "lineages": 4
+  },
+  "importer_similarity": {
+   "auc": 0.7,
+   "interval": [
+    0.6533333333333333,
+    0.8
+   ],
+   "first_count": 6,
+   "second_count": 10,
+   "first_median": 0.31666666666666665,
+   "second_median": 0.08846153846153847,
+   "lineages": 3
+  },
+  "used_together": {
+   "auc": 0.75,
+   "interval": [
+    0.68,
+    0.9
+   ],
+   "first_count": 6,
+   "second_count": 10,
+   "first_median": 0.7692307692307692,
+   "second_median": 0.2153846153846154,
+   "lineages": 3
+  },
+  "mean_share_used": {
+   "auc": 0.85,
+   "interval": [
+    0.7866666666666666,
+    1.0
+   ],
+   "first_count": 6,
+   "second_count": 10,
+   "first_median": 0.5769230769230769,
+   "second_median": 0.3875,
+   "lineages": 3
+  },
+  "private_share": {
+   "auc": 0.42207792207792205,
+   "interval": [
+    0.2818181818181818,
+    0.9166666666666666
+   ],
+   "first_count": 7,
+   "second_count": 11,
+   "first_median": 0.0,
+   "second_median": 0.25,
+   "lineages": 4
+  },
+  "fan_out_similarity": {
+   "auc": 0.5064935064935064,
+   "interval": [
+    0.45,
+    0.6666666666666666
+   ],
+   "first_count": 7,
+   "second_count": 11,
+   "first_median": 0.4,
+   "second_median": 0.466370533547307,
+   "lineages": 4
+  },
+  "role_similarity": {
+   "auc": 0.4090909090909091,
+   "interval": [
+    0.08333333333333333,
+    0.55
+   ],
+   "first_count": 7,
+   "second_count": 11,
+   "first_median": 0.5,
+   "second_median": 0.8,
+   "lineages": 4
+  },
+  "identifier_cohesion": {
+   "auc": 0.4935064935064935,
+   "interval": [
+    0.4,
+    0.8333333333333334
+   ],
+   "first_count": 7,
+   "second_count": 11,
+   "first_median": 0.3800295633792277,
+   "second_median": 0.3841063593099105,
+   "lineages": 4
+  },
+  "identifier_lift": {
+   "auc": 0.5194805194805194,
+   "interval": [
+    0.4095238095238095,
+    0.8333333333333334
+   ],
+   "first_count": 7,
+   "second_count": 11,
+   "first_median": 0.3509663037925785,
+   "second_median": 0.3339696584975772,
+   "lineages": 4
+  },
+  "identifier_overlap": {
+   "auc": 0.33766233766233766,
+   "interval": [
+    0.21904761904761905,
+    0.6666666666666666
+   ],
+   "first_count": 7,
+   "second_count": 11,
+   "first_median": 0.20134680134680136,
+   "second_median": 0.23378360398591067,
+   "lineages": 4
+  },
+  "prose_cohesion": {
+   "auc": 0.5194805194805194,
+   "interval": [
+    0.4,
+    0.8333333333333334
+   ],
+   "first_count": 7,
+   "second_count": 11,
+   "first_median": 0.255525681125582,
+   "second_median": 0.30093832096228074,
+   "lineages": 4
+  },
+  "prose_lift": {
+   "auc": 0.5454545454545454,
+   "interval": [
+    0.43636363636363634,
+    0.8333333333333334
+   ],
+   "first_count": 7,
+   "second_count": 11,
+   "first_median": 0.23612829915850786,
+   "second_median": 0.24647510103063497,
+   "lineages": 4
+  },
+  "changed_together": {
+   "auc": 0.0,
+   "interval": [
+    0.0,
+    0.0
+   ],
+   "first_count": 2,
+   "second_count": 3,
+   "first_median": 0.12482065997130559,
+   "second_median": 0.4444444444444444,
+   "lineages": 3
+  },
+  "cochange_similarity": {
+   "auc": 0.0,
+   "interval": [
+    0.0,
+    0.0
+   ],
+   "first_count": 2,
+   "second_count": 3,
+   "first_median": 0.10783356210185477,
+   "second_median": 0.2517857142857143,
+   "lineages": 3
+  }
+ },
+ "reported": {
+  "internal_density": {
+   "auc": 0.08333333333333333,
+   "interval": [
+    0.0,
+    0.08333333333333333
+   ],
+   "first_count": 4,
+   "second_count": 3,
+   "first_median": 0.0,
+   "second_median": 0.3333333333333333,
+   "lineages": 2
+  },
+  "connected_share": {
+   "auc": 0.041666666666666664,
+   "interval": [
+    0.0,
+    0.041666666666666664
+   ],
+   "first_count": 4,
+   "second_count": 3,
+   "first_median": 0.29166666666666663,
+   "second_median": 0.75,
+   "lineages": 2
+  },
+  "importer_similarity": {
+   "auc": 1.0,
+   "interval": [
+    1.0,
+    1.0
+   ],
+   "first_count": 4,
+   "second_count": 3,
+   "first_median": 0.38636363636363635,
+   "second_median": 0.07692307692307693,
+   "lineages": 2
+  },
+  "used_together": {
+   "auc": 0.9166666666666666,
+   "interval": [
+    0.9166666666666666,
+    1.0
+   ],
+   "first_count": 4,
+   "second_count": 3,
+   "first_median": 0.7692307692307692,
+   "second_median": 0.23076923076923078,
+   "lineages": 2
+  },
+  "mean_share_used": {
+   "auc": 1.0,
+   "interval": [
+    1.0,
+    1.0
+   ],
+   "first_count": 4,
+   "second_count": 3,
+   "first_median": 0.5769230769230769,
+   "second_median": 0.375,
+   "lineages": 2
+  },
+  "private_share": {
+   "auc": 0.0,
+   "interval": [
+    0.0,
+    0.0
+   ],
+   "first_count": 4,
+   "second_count": 3,
+   "first_median": 0.0,
+   "second_median": 0.5,
+   "lineages": 2
+  },
+  "fan_out_similarity": {
+   "auc": 0.6666666666666666,
+   "interval": [
+    0.6666666666666666,
+    1.0
+   ],
+   "first_count": 4,
+   "second_count": 3,
+   "first_median": 0.43680555555555556,
+   "second_median": 0.31868131868131866,
+   "lineages": 2
+  },
+  "role_similarity": {
+   "auc": 0.6666666666666666,
+   "interval": [
+    0.6666666666666666,
+    0.75
+   ],
+   "first_count": 4,
+   "second_count": 3,
+   "first_median": 0.7,
+   "second_median": 0.3333333333333333,
+   "lineages": 2
+  },
+  "identifier_cohesion": {
+   "auc": 0.6666666666666666,
+   "interval": [
+    0.6666666666666666,
+    1.0
+   ],
+   "first_count": 4,
+   "second_count": 3,
+   "first_median": 0.24620483464463327,
+   "second_median": 0.19439300519820166,
+   "lineages": 2
+  },
+  "identifier_lift": {
+   "auc": 0.6666666666666666,
+   "interval": [
+    0.6666666666666666,
+    1.0
+   ],
+   "first_count": 4,
+   "second_count": 3,
+   "first_median": 0.2190735428428732,
+   "second_median": 0.14320236455962249,
+   "lineages": 2
+  },
+  "identifier_overlap": {
+   "auc": 0.5,
+   "interval": [
+    0.5,
+    1.0
+   ],
+   "first_count": 4,
+   "second_count": 3,
+   "first_median": 0.18052423611247143,
+   "second_median": 0.1923076923076923,
+   "lineages": 2
+  },
+  "prose_cohesion": {
+   "auc": 0.5,
+   "interval": [
+    0.5,
+    1.0
+   ],
+   "first_count": 4,
+   "second_count": 3,
+   "first_median": 0.20274955480929052,
+   "second_median": 0.17671692878235967,
+   "lineages": 2
+  },
+  "prose_lift": {
+   "auc": 0.5833333333333334,
+   "interval": [
+    0.5833333333333334,
+    1.0
+   ],
+   "first_count": 4,
+   "second_count": 3,
+   "first_median": 0.1746950058270925,
+   "second_median": 0.12822345719308337,
+   "lineages": 2
+  },
+  "changed_together": {
+   "auc": null,
+   "interval": null,
+   "first_count": 0,
+   "second_count": 1,
+   "first_median": null,
+   "second_median": 0.3333333333333333,
+   "lineages": 1
+  },
+  "cochange_similarity": {
+   "auc": null,
+   "interval": null,
+   "first_count": 0,
+   "second_count": 1,
+   "first_median": null,
+   "second_median": 0.2222222222222222,
+   "lineages": 1
+  }
+ },
+ "latest": {
+  "internal_density": {
+   "auc": 0.47685185185185186,
+   "interval": [
+    0.3684210526315789,
+    0.7068965517241379
+   ],
+   "first_count": 9,
+   "second_count": 24,
+   "first_median": 0.25,
+   "second_median": 0.3333333333333333,
+   "lineages": 4
+  },
+  "connected_share": {
+   "auc": 0.44907407407407407,
+   "interval": [
+    0.3538011695906433,
+    0.71875
+   ],
+   "first_count": 9,
+   "second_count": 24,
+   "first_median": 0.6666666666666666,
+   "second_median": 0.6666666666666666,
+   "lineages": 4
+  },
+  "importer_similarity": {
+   "auc": 0.7470238095238095,
+   "interval": [
+    0.6420454545454546,
+    1.0
+   ],
+   "first_count": 8,
+   "second_count": 21,
+   "first_median": 0.3,
+   "second_median": 0.07692307692307693,
+   "lineages": 4
+  },
+  "used_together": {
+   "auc": 0.7738095238095238,
+   "interval": [
+    0.7346938775510204,
+    1.0
+   ],
+   "first_count": 8,
+   "second_count": 21,
+   "first_median": 0.7692307692307692,
+   "second_median": 0.23076923076923078,
+   "lineages": 4
+  },
+  "mean_share_used": {
+   "auc": 0.7916666666666666,
+   "interval": [
+    0.760989010989011,
+    1.0
+   ],
+   "first_count": 8,
+   "second_count": 21,
+   "first_median": 0.5692307692307692,
+   "second_median": 0.4444444444444444,
+   "lineages": 4
+  },
+  "private_share": {
+   "auc": 0.4652777777777778,
+   "interval": [
+    0.2630718954248366,
+    0.875
+   ],
+   "first_count": 9,
+   "second_count": 24,
+   "first_median": 0.0,
+   "second_median": 0.22499999999999998,
+   "lineages": 4
+  },
+  "fan_out_similarity": {
+   "auc": 0.6319444444444444,
+   "interval": [
+    0.5178571428571429,
+    0.9074074074074074
+   ],
+   "first_count": 9,
+   "second_count": 24,
+   "first_median": 0.37222222222222223,
+   "second_median": 0.19208982738394503,
+   "lineages": 4
+  },
+  "role_similarity": {
+   "auc": 0.5370370370370371,
+   "interval": [
+    0.3409090909090909,
+    0.75
+   ],
+   "first_count": 9,
+   "second_count": 24,
+   "first_median": 0.4,
+   "second_median": 0.41666666666666663,
+   "lineages": 4
+  },
+  "identifier_cohesion": {
+   "auc": 0.4861111111111111,
+   "interval": [
+    0.4444444444444444,
+    0.6481481481481481
+   ],
+   "first_count": 9,
+   "second_count": 24,
+   "first_median": 0.2514184576478345,
+   "second_median": 0.3250881095409637,
+   "lineages": 4
+  },
+  "identifier_lift": {
+   "auc": 0.49537037037037035,
+   "interval": [
+    0.4642857142857143,
+    0.7166666666666667
+   ],
+   "first_count": 9,
+   "second_count": 24,
+   "first_median": 0.2311674092197152,
+   "second_median": 0.287496083796545,
+   "lineages": 4
+  },
+  "identifier_overlap": {
+   "auc": 0.4398148148148148,
+   "interval": [
+    0.32679738562091504,
+    0.8125
+   ],
+   "first_count": 9,
+   "second_count": 24,
+   "first_median": 0.18181818181818182,
+   "second_median": 0.21998772938830483,
+   "lineages": 4
+  },
+  "prose_cohesion": {
+   "auc": 0.49537037037037035,
+   "interval": [
+    0.47058823529411764,
+    0.6481481481481481
+   ],
+   "first_count": 9,
+   "second_count": 24,
+   "first_median": 0.2482683542559475,
+   "second_median": 0.2797709376513928,
+   "lineages": 4
+  },
+  "prose_lift": {
+   "auc": 0.5,
+   "interval": [
+    0.47058823529411764,
+    0.6481481481481481
+   ],
+   "first_count": 9,
+   "second_count": 24,
+   "first_median": 0.21893872250667973,
+   "second_median": 0.24027227139756763,
+   "lineages": 4
+  },
+  "changed_together": {
+   "auc": 0.5769230769230769,
+   "interval": [
+    0.2857142857142857,
+    1.0
+   ],
+   "first_count": 2,
+   "second_count": 13,
+   "first_median": 0.12482065997130559,
+   "second_median": 0.058823529411764705,
+   "lineages": 3
+  },
+  "cochange_similarity": {
+   "auc": 0.7307692307692307,
+   "interval": [
+    0.5294117647058824,
+    1.0
+   ],
+   "first_count": 2,
+   "second_count": 13,
+   "first_median": 0.10783356210185477,
+   "second_median": 0.03333333333333333,
+   "lineages": 3
+  }
+ }
+}

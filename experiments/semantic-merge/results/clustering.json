@@ -1,0 +1,741 @@
+{
+ "summary": {
+  "trees": 36,
+  "median_agreement_with_authors": 0.051495346064826614,
+  "median_stability": 0.4440573006280488,
+  "trees_where_search_beats_authors": 33,
+  "mean_grouped_share_over_split": 0.1958095238095238,
+  "mean_grouped_share_rest": 0.24793028322440086,
+  "packages_over_split": 25,
+  "packages_rest": 51
+ },
+ "trees": [
+  {
+   "tree": "ab-control-1-stage1",
+   "modules": 5,
+   "directories": 1,
+   "clusters": 1,
+   "authors_quality": 1.0,
+   "best_quality": 1.0,
+   "agreement_with_authors": 1.0,
+   "stability": 0.2245614035087719,
+   "packages": {}
+  },
+  {
+   "tree": "ab-control-1-stage2",
+   "modules": 6,
+   "directories": 1,
+   "clusters": 2,
+   "authors_quality": 1.0,
+   "best_quality": 1.1,
+   "agreement_with_authors": 0.0,
+   "stability": 0.3455364455364456,
+   "packages": {}
+  },
+  {
+   "tree": "ab-control-1-stage3",
+   "modules": 7,
+   "directories": 1,
+   "clusters": 2,
+   "authors_quality": 1.0,
+   "best_quality": 1.0909090909090908,
+   "agreement_with_authors": 0.0,
+   "stability": 0.3330288957688338,
+   "packages": {}
+  },
+  {
+   "tree": "ab-control-2-stage1",
+   "modules": 5,
+   "directories": 1,
+   "clusters": 1,
+   "authors_quality": 1.0,
+   "best_quality": 1.0,
+   "agreement_with_authors": 1.0,
+   "stability": 0.2245614035087719,
+   "packages": {}
+  },
+  {
+   "tree": "ab-control-2-stage2",
+   "modules": 6,
+   "directories": 1,
+   "clusters": 2,
+   "authors_quality": 1.0,
+   "best_quality": 1.1,
+   "agreement_with_authors": 0.0,
+   "stability": 0.3455364455364456,
+   "packages": {}
+  },
+  {
+   "tree": "ab-control-2-stage3",
+   "modules": 7,
+   "directories": 1,
+   "clusters": 2,
+   "authors_quality": 1.0,
+   "best_quality": 1.0909090909090908,
+   "agreement_with_authors": 0.0,
+   "stability": 0.3677244582043343,
+   "packages": {}
+  },
+  {
+   "tree": "ab-control-3-stage1",
+   "modules": 5,
+   "directories": 1,
+   "clusters": 1,
+   "authors_quality": 1.0,
+   "best_quality": 1.0,
+   "agreement_with_authors": 1.0,
+   "stability": 0.2245614035087719,
+   "packages": {}
+  },
+  {
+   "tree": "ab-control-3-stage2",
+   "modules": 6,
+   "directories": 1,
+   "clusters": 2,
+   "authors_quality": 1.0,
+   "best_quality": 1.2380952380952381,
+   "agreement_with_authors": 0.0,
+   "stability": 0.7086124401913875,
+   "packages": {}
+  },
+  {
+   "tree": "ab-control-3-stage3",
+   "modules": 7,
+   "directories": 1,
+   "clusters": 3,
+   "authors_quality": 1.0,
+   "best_quality": 1.3047619047619048,
+   "agreement_with_authors": 0.0,
+   "stability": 0.38828122898097417,
+   "packages": {}
+  },
+  {
+   "tree": "ab-lanorme-1-stage1",
+   "modules": 11,
+   "directories": 2,
+   "clusters": 4,
+   "authors_quality": 0.7,
+   "best_quality": 2.1666666666666665,
+   "agreement_with_authors": -0.06688963210702342,
+   "stability": 0.5186476969244057,
+   "packages": {
+    "app/guardrails": {
+     "is_shallow": true,
+     "grouped_share": 0.16666666666666666
+    }
+   }
+  },
+  {
+   "tree": "ab-lanorme-1-stage2",
+   "modules": 14,
+   "directories": 2,
+   "clusters": 5,
+   "authors_quality": 0.8717948717948718,
+   "best_quality": 2.1904761904761902,
+   "agreement_with_authors": 0.04680187207488301,
+   "stability": 0.6801985145357632,
+   "packages": {
+    "app/guardrails": {
+     "is_shallow": true,
+     "grouped_share": 0.5
+    }
+   }
+  },
+  {
+   "tree": "ab-lanorme-1-stage3",
+   "modules": 16,
+   "directories": 2,
+   "clusters": 6,
+   "authors_quality": 0.9090909090909091,
+   "best_quality": 2.1989121989121987,
+   "agreement_with_authors": 0.028985507246376812,
+   "stability": 0.6222713855003338,
+   "packages": {
+    "app/guardrails": {
+     "is_shallow": true,
+     "grouped_share": 0.5
+    }
+   }
+  },
+  {
+   "tree": "ab-lanorme-2-stage1",
+   "modules": 12,
+   "directories": 7,
+   "clusters": 4,
+   "authors_quality": 0.3333333333333333,
+   "best_quality": 1.9,
+   "agreement_with_authors": 0.18085106382978725,
+   "stability": 0.5368115230967825,
+   "packages": {
+    "app/api": {
+     "is_shallow": false,
+     "grouped_share": 1.0
+    },
+    "app/domain": {
+     "is_shallow": true,
+     "grouped_share": 0.16666666666666666
+    }
+   }
+  },
+  {
+   "tree": "ab-lanorme-2-stage2",
+   "modules": 17,
+   "directories": 8,
+   "clusters": 6,
+   "authors_quality": 0.47619047619047616,
+   "best_quality": 2.37979797979798,
+   "agreement_with_authors": 0.13793103448275862,
+   "stability": 0.5626479787428601,
+   "packages": {
+    "app/api": {
+     "is_shallow": false,
+     "grouped_share": 0.3333333333333333
+    },
+    "app/application/ports": {
+     "is_shallow": false,
+     "grouped_share": 0.0
+    },
+    "app/application/services": {
+     "is_shallow": false,
+     "grouped_share": 0.0
+    },
+    "app/domain": {
+     "is_shallow": true,
+     "grouped_share": 0.2
+    }
+   }
+  },
+  {
+   "tree": "ab-lanorme-2-stage3",
+   "modules": 22,
+   "directories": 8,
+   "clusters": 8,
+   "authors_quality": 0.44306418219461696,
+   "best_quality": 2.693600517129929,
+   "agreement_with_authors": 0.022246284083079052,
+   "stability": 0.61053190788049,
+   "packages": {
+    "app/application/ports": {
+     "is_shallow": true,
+     "grouped_share": 0.0
+    },
+    "app/application/services": {
+     "is_shallow": true,
+     "grouped_share": 0.0
+    },
+    "app/domain": {
+     "is_shallow": true,
+     "grouped_share": 0.06666666666666667
+    },
+    "app/infrastructure/repositories": {
+     "is_shallow": true,
+     "grouped_share": 0.0
+    }
+   }
+  },
+  {
+   "tree": "ab-lanorme-3-stage1",
+   "modules": 6,
+   "directories": 1,
+   "clusters": 2,
+   "authors_quality": 1.0,
+   "best_quality": 1.1428571428571428,
+   "agreement_with_authors": 0.0,
+   "stability": 0.3456140350877193,
+   "packages": {}
+  },
+  {
+   "tree": "ab-lanorme-3-stage2",
+   "modules": 10,
+   "directories": 2,
+   "clusters": 3,
+   "authors_quality": 0.8484848484848484,
+   "best_quality": 1.4285714285714286,
+   "agreement_with_authors": 0.1379310344827586,
+   "stability": 0.43669513778018126,
+   "packages": {
+    "app/api": {
+     "is_shallow": false,
+     "grouped_share": 0.3333333333333333
+    }
+   }
+  },
+  {
+   "tree": "ab-lanorme-3-stage3",
+   "modules": 13,
+   "directories": 2,
+   "clusters": 5,
+   "authors_quality": 0.95,
+   "best_quality": 1.778205128205128,
+   "agreement_with_authors": 0.08573342263898193,
+   "stability": 0.6559116361477769,
+   "packages": {
+    "app/api": {
+     "is_shallow": false,
+     "grouped_share": 0.2
+    }
+   }
+  },
+  {
+   "tree": "clean-architecture",
+   "modules": 81,
+   "directories": 45,
+   "clusters": 29,
+   "authors_quality": 6.436072446072446,
+   "best_quality": 10.874895366071836,
+   "agreement_with_authors": 0.3084475643883698,
+   "stability": 0.4723410550157327,
+   "packages": {
+    "auctioning_platform/auctions/auctions/application/use_cases": {
+     "is_shallow": false,
+     "grouped_share": 0.16666666666666666
+    },
+    "auctioning_platform/payments/payments": {
+     "is_shallow": false,
+     "grouped_share": 0.4666666666666667
+    },
+    "auctioning_platform/payments/payments/api": {
+     "is_shallow": true,
+     "grouped_share": 1.0
+    }
+   }
+  },
+  {
+   "tree": "cosmicpython",
+   "modules": 16,
+   "directories": 6,
+   "clusters": 6,
+   "authors_quality": 0.6876750700280112,
+   "best_quality": 2.089105339105339,
+   "agreement_with_authors": 0.0,
+   "stability": 0.38027937255435923,
+   "packages": {
+    "src/allocation": {
+     "is_shallow": false,
+     "grouped_share": 0.0
+    },
+    "src/allocation/service_layer": {
+     "is_shallow": false,
+     "grouped_share": 0.3333333333333333
+    }
+   }
+  },
+  {
+   "tree": "cryptography",
+   "modules": 114,
+   "directories": 26,
+   "clusters": 43,
+   "authors_quality": 4.376059674481998,
+   "best_quality": 8.947235534233902,
+   "agreement_with_authors": 0.03784828977409614,
+   "stability": 0.26370530588319313,
+   "packages": {
+    "cryptography/hazmat/primitives/twofactor": {
+     "is_shallow": false,
+     "grouped_share": null
+    }
+   }
+  },
+  {
+   "tree": "dispatch",
+   "modules": 572,
+   "directories": 105,
+   "clusters": 208,
+   "authors_quality": 19.238976641870284,
+   "best_quality": 28.06039759081435,
+   "agreement_with_authors": 0.056188820054770224,
+   "stability": 0.5836776830152614,
+   "packages": {
+    "src/dispatch/feedback/service/reminder": {
+     "is_shallow": false,
+     "grouped_share": 1.0
+    },
+    "src/dispatch/route": {
+     "is_shallow": false,
+     "grouped_share": 1.0
+    },
+    "src/dispatch/storage": {
+     "is_shallow": false,
+     "grouped_share": 1.0
+    }
+   }
+  },
+  {
+   "tree": "django",
+   "modules": 736,
+   "directories": 197,
+   "clusters": 253,
+   "authors_quality": 21.197557439437325,
+   "best_quality": 52.792977371607314,
+   "agreement_with_authors": 0.13769860178354076,
+   "stability": 0.5962271154245405,
+   "packages": {
+    "django": {
+     "is_shallow": false,
+     "grouped_share": 0.0
+    }
+   }
+  },
+  {
+   "tree": "fastapi-clean-example",
+   "modules": 104,
+   "directories": 30,
+   "clusters": 40,
+   "authors_quality": 3.2913950345069782,
+   "best_quality": 9.730478698101528,
+   "agreement_with_authors": 0.08956720667291267,
+   "stability": 0.3993770967328211,
+   "packages": {
+    "src/app/core/commands/ports": {
+     "is_shallow": true,
+     "grouped_share": 0.0
+    },
+    "src/app/core/common/authorization": {
+     "is_shallow": true,
+     "grouped_share": 0.07142857142857142
+    },
+    "src/app/core/common/entities": {
+     "is_shallow": false,
+     "grouped_share": 0.3333333333333333
+    },
+    "src/app/core/common/ports": {
+     "is_shallow": true,
+     "grouped_share": 0.0
+    },
+    "src/app/core/common/value_objects": {
+     "is_shallow": false,
+     "grouped_share": 0.16666666666666666
+    },
+    "src/app/core/queries/query_support": {
+     "is_shallow": true,
+     "grouped_share": 0.3333333333333333
+    },
+    "src/app/inbound/http": {
+     "is_shallow": false,
+     "grouped_share": 0.3333333333333333
+    },
+    "src/app/inbound/http/account": {
+     "is_shallow": false,
+     "grouped_share": 0.2
+    },
+    "src/app/inbound/http/errors": {
+     "is_shallow": true,
+     "grouped_share": 0.1
+    },
+    "src/app/inbound/http/health": {
+     "is_shallow": true,
+     "grouped_share": 1.0
+    },
+    "src/app/outbound/auth_ctx/handlers": {
+     "is_shallow": false,
+     "grouped_share": 0.0
+    },
+    "src/app/outbound/persistence_sqla": {
+     "is_shallow": false,
+     "grouped_share": 0.0
+    },
+    "src/app/outbound/persistence_sqla/mappings": {
+     "is_shallow": false,
+     "grouped_share": 0.3333333333333333
+    }
+   }
+  },
+  {
+   "tree": "fastapi-realworld-example-app",
+   "modules": 56,
+   "directories": 17,
+   "clusters": 20,
+   "authors_quality": 1.9637320809810859,
+   "best_quality": 5.598564390441666,
+   "agreement_with_authors": 0.14931814258587953,
+   "stability": 0.5088145893427235,
+   "packages": {
+    "app/core": {
+     "is_shallow": false,
+     "grouped_share": 0.0
+    },
+    "app/core/settings": {
+     "is_shallow": false,
+     "grouped_share": 0.4
+    },
+    "app/models/domain": {
+     "is_shallow": true,
+     "grouped_share": 0.1
+    },
+    "app/models/schemas": {
+     "is_shallow": true,
+     "grouped_share": 0.14285714285714285
+    },
+    "app/services": {
+     "is_shallow": true,
+     "grouped_share": 0.0
+    }
+   }
+  },
+  {
+   "tree": "full-stack-fastapi-template",
+   "modules": 23,
+   "directories": 8,
+   "clusters": 7,
+   "authors_quality": 0.31746031746031744,
+   "best_quality": 1.8358585858585859,
+   "agreement_with_authors": -0.0411522633744856,
+   "stability": 0.1556378814782134,
+   "packages": {
+    "backend/app/core": {
+     "is_shallow": false,
+     "grouped_share": 0.0
+    }
+   }
+  },
+  {
+   "tree": "healthchecks",
+   "modules": 368,
+   "directories": 48,
+   "clusters": 146,
+   "authors_quality": 10.585215897930686,
+   "best_quality": 20.595259902428687,
+   "agreement_with_authors": 0.014663817986935139,
+   "stability": 0.4034727551603087,
+   "packages": {}
+  },
+  {
+   "tree": "litestar-fullstack",
+   "modules": 108,
+   "directories": 32,
+   "clusters": 31,
+   "authors_quality": 3.388090547223674,
+   "best_quality": 11.516195080556136,
+   "agreement_with_authors": 0.22330544750003756,
+   "stability": 0.6843067821962896,
+   "packages": {
+    "src/py/app": {
+     "is_shallow": false,
+     "grouped_share": 0.16666666666666666
+    },
+    "src/py/app/domain/teams": {
+     "is_shallow": false,
+     "grouped_share": 0.3333333333333333
+    },
+    "src/py/app/domain/teams/schemas": {
+     "is_shallow": true,
+     "grouped_share": 0.3333333333333333
+    }
+   }
+  },
+  {
+   "tree": "mealie",
+   "modules": 402,
+   "directories": 93,
+   "clusters": 139,
+   "authors_quality": 14.163753092207976,
+   "best_quality": 33.45379730402755,
+   "agreement_with_authors": 0.14810404659775467,
+   "stability": 0.611264020999528,
+   "packages": {
+    "mealie": {
+     "is_shallow": false,
+     "grouped_share": 1.0
+    },
+    "mealie/routes": {
+     "is_shallow": false,
+     "grouped_share": 0.3333333333333333
+    },
+    "mealie/routes/media": {
+     "is_shallow": false,
+     "grouped_share": 1.0
+    },
+    "mealie/schema": {
+     "is_shallow": false,
+     "grouped_share": 0.0
+    },
+    "mealie/schema/admin": {
+     "is_shallow": true,
+     "grouped_share": 0.047619047619047616
+    },
+    "mealie/schema/group": {
+     "is_shallow": true,
+     "grouped_share": 0.0
+    }
+   }
+  },
+  {
+   "tree": "netbox",
+   "modules": 970,
+   "directories": 127,
+   "clusters": 334,
+   "authors_quality": 20.06457211924424,
+   "best_quality": 64.63709642848934,
+   "agreement_with_authors": 0.045658741324851725,
+   "stability": 0.516754055198515,
+   "packages": {
+    "netbox/core/graphql": {
+     "is_shallow": false,
+     "grouped_share": 0.13333333333333333
+    },
+    "netbox/extras/templatetags": {
+     "is_shallow": false,
+     "grouped_share": 0.0
+    },
+    "netbox/users/graphql": {
+     "is_shallow": false,
+     "grouped_share": 0.16666666666666666
+    },
+    "netbox/wireless/graphql": {
+     "is_shallow": false,
+     "grouped_share": 0.1
+    }
+   }
+  },
+  {
+   "tree": "polar",
+   "modules": 1312,
+   "directories": 185,
+   "clusters": 431,
+   "authors_quality": 30.731692745925997,
+   "best_quality": 74.21896492007961,
+   "agreement_with_authors": 0.08519750869975228,
+   "stability": 0.5473495580591832,
+   "packages": {
+    "server/polar/benefit/strategies/custom": {
+     "is_shallow": false,
+     "grouped_share": 0.3333333333333333
+    },
+    "server/polar/benefit/strategies/feature_flag": {
+     "is_shallow": false,
+     "grouped_share": 0.0
+    },
+    "server/polar/benefit/strategies/license_keys": {
+     "is_shallow": false,
+     "grouped_share": 0.0
+    },
+    "server/polar/customer_portal/sorting": {
+     "is_shallow": false,
+     "grouped_share": 0.0
+    },
+    "server/polar/integrations/github": {
+     "is_shallow": false,
+     "grouped_share": 0.0
+    },
+    "server/polar/integrations/github/service": {
+     "is_shallow": false,
+     "grouped_share": 0.0
+    },
+    "server/polar/notifications/tasks": {
+     "is_shallow": true,
+     "grouped_share": 0.0
+    }
+   }
+  },
+  {
+   "tree": "py-clean-arch",
+   "modules": 57,
+   "directories": 21,
+   "clusters": 22,
+   "authors_quality": 4.266666666666667,
+   "best_quality": 5.756185713244537,
+   "agreement_with_authors": 0.35958528993916,
+   "stability": 0.4514194634759163,
+   "packages": {
+    "src/common": {
+     "is_shallow": true,
+     "grouped_share": 0.0
+    }
+   }
+  },
+  {
+   "tree": "python-ddd",
+   "modules": 88,
+   "directories": 29,
+   "clusters": 34,
+   "authors_quality": 2.0329875191466646,
+   "best_quality": 7.580829163274717,
+   "agreement_with_authors": 0.0809205378103436,
+   "stability": 0.4041846568628307,
+   "packages": {
+    "src/api": {
+     "is_shallow": false,
+     "grouped_share": 0.16666666666666666
+    },
+    "src/api/models": {
+     "is_shallow": false,
+     "grouped_share": 0.0
+    },
+    "src/modules/bidding/application/command": {
+     "is_shallow": false,
+     "grouped_share": 0.0
+    },
+    "src/modules/bidding/application/event": {
+     "is_shallow": false,
+     "grouped_share": 0.0
+    },
+    "src/modules/bidding/application/query": {
+     "is_shallow": false,
+     "grouped_share": 0.3333333333333333
+    },
+    "src/modules/catalog/application/command": {
+     "is_shallow": false,
+     "grouped_share": 0.16666666666666666
+    },
+    "src/modules/catalog/application/query": {
+     "is_shallow": false,
+     "grouped_share": 0.16666666666666666
+    },
+    "src/modules/catalog/domain": {
+     "is_shallow": false,
+     "grouped_share": 0.26666666666666666
+    },
+    "src/modules/iam/application": {
+     "is_shallow": true,
+     "grouped_share": 0.16666666666666666
+    },
+    "src/seedwork/domain": {
+     "is_shallow": false,
+     "grouped_share": 0.044444444444444446
+    }
+   }
+  },
+  {
+   "tree": "searxng",
+   "modules": 370,
+   "directories": 18,
+   "clusters": 79,
+   "authors_quality": 3.566656901373191,
+   "best_quality": 13.853084149921267,
+   "agreement_with_authors": 0.06264674265933033,
+   "stability": 0.8539502092852583,
+   "packages": {}
+  },
+  {
+   "tree": "wagtail",
+   "modules": 789,
+   "directories": 121,
+   "clusters": 286,
+   "authors_quality": 20.784443369982537,
+   "best_quality": 58.903771177715505,
+   "agreement_with_authors": 0.03874309209106071,
+   "stability": 0.35946304681084335,
+   "packages": {}
+  },
+  {
+   "tree": "warehouse",
+   "modules": 550,
+   "directories": 54,
+   "clusters": 212,
+   "authors_quality": 9.021311972858854,
+   "best_quality": 21.71964656317664,
+   "agreement_with_authors": 0.004306273546002121,
+   "stability": 0.30644814807838217,
+   "packages": {
+    "warehouse/banners": {
+     "is_shallow": false,
+     "grouped_share": 0.3333333333333333
+    },
+    "warehouse/sitemap": {
+     "is_shallow": false,
+     "grouped_share": 0.0
+    }
+   }
+  }
+ ]
+}

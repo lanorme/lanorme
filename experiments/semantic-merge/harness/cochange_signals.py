@@ -14,8 +14,10 @@ and measures, for the members of a package:
 
 Three kinds of commit carry no information about coupling and are left out:
 merge commits, commits touching more than ``MAX_COMMIT_FILES`` files (a
-reformat, a licence header, a mass rename), and, for each file, the commit
-that added it (a package created in one commit is not thereby coupled). A
+reformat, a licence header, a mass rename; omitting large transactions is
+common practice, at 25 classes in [@beck2011congruence]), and, for each file,
+the commit that added it (a package created in one commit is not thereby
+coupled). A
 package with fewer than ``MIN_COMMITS`` remaining commits has no co-change
 signal: the evidence is optional by construction, absent for a tree that is not
 a git checkout and for a package younger than its first few changes.

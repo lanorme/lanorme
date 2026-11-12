@@ -1,0 +1,576 @@
+[
+ {
+  "origin": "FastAPI-boilerplate",
+  "revision": "2d0ca1a79a09f6b4ec2c23520d6d63496536489a",
+  "package": "backend/src/infrastructure/email",
+  "members": {
+   "factory.py": 30,
+   "senders.py": 74
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "FastAPI-boilerplate",
+  "revision": "2d0ca1a79a09f6b4ec2c23520d6d63496536489a",
+  "package": "cli/src/cli/commands",
+  "members": {
+   "deploy.py": 90,
+   "env.py": 103
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "FastAPI-boilerplate",
+  "revision": "2d0ca1a79a09f6b4ec2c23520d6d63496536489a",
+  "package": "cli/src/cli/lib",
+  "members": {
+   "project.py": 55,
+   "prompts.py": 19,
+   "render.py": 25
+  },
+  "is_reported": true
+ },
+ {
+  "origin": "InvenTree",
+  "revision": "cdfa7f19218e22567433b145b1ed73c1d87e2d3e",
+  "package": "src/backend/InvenTree/plugin/base/mail",
+  "members": {
+   "mail.py": 58,
+   "mixins.py": 24
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "dddpy",
+  "revision": "4333fae0f541810fcb35610ae8d10d28f2d4f979",
+  "package": "dddpy/domain/todo/exceptions",
+  "members": {
+   "todo_already_completed_error.py": 10,
+   "todo_already_started_error.py": 7,
+   "todo_not_found_error.py": 7,
+   "todo_not_started_error.py": 7
+  },
+  "is_reported": true
+ },
+ {
+  "origin": "dddpy",
+  "revision": "4333fae0f541810fcb35610ae8d10d28f2d4f979",
+  "package": "dddpy/domain/todo/value_objects",
+  "members": {
+   "todo_description.py": 18,
+   "todo_id.py": 17,
+   "todo_status.py": 10,
+   "todo_title.py": 21
+  },
+  "is_reported": true
+ },
+ {
+  "origin": "dddpy",
+  "revision": "4333fae0f541810fcb35610ae8d10d28f2d4f979",
+  "package": "dddpy/infrastructure/sqlite/todo",
+  "members": {
+   "todo_dto.py": 58,
+   "todo_repository.py": 76
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "dddpy",
+  "revision": "4333fae0f541810fcb35610ae8d10d28f2d4f979",
+  "package": "dddpy/presentation/api/todo/error_messages",
+  "members": {
+   "todo_already_completed_error_message.py": 6,
+   "todo_already_started_error_message.py": 6,
+   "todo_not_found_error_message.py": 6,
+   "todo_not_started_error_message.py": 6
+  },
+  "is_reported": true
+ },
+ {
+  "origin": "dddpy",
+  "revision": "4333fae0f541810fcb35610ae8d10d28f2d4f979",
+  "package": "dddpy/presentation/api/todo/schemas",
+  "members": {
+   "todo_create_schema.py": 10,
+   "todo_schema.py": 32,
+   "todo_update_schema.py": 10
+  },
+  "is_reported": true
+ },
+ {
+  "origin": "deseos17",
+  "revision": "86118f4a997fefc905d89ad87edcd88c42604222",
+  "package": "src/deseos17/adapters/auth",
+  "members": {
+   "raw.py": 10,
+   "telegram_auth.py": 31,
+   "token.py": 51
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "deseos17",
+  "revision": "86118f4a997fefc905d89ad87edcd88c42604222",
+  "package": "src/deseos17/adapters/database",
+  "members": {
+   "fake_transaction_manager.py": 8,
+   "fake_user_db.py": 11,
+   "fake_wish_db.py": 83
+  },
+  "is_reported": true
+ },
+ {
+  "origin": "deseos17",
+  "revision": "86118f4a997fefc905d89ad87edcd88c42604222",
+  "package": "src/deseos17/domain/exceptions",
+  "members": {
+   "access.py": 5,
+   "base.py": 2
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "deseos17",
+  "revision": "86118f4a997fefc905d89ad87edcd88c42604222",
+  "package": "src/deseos17/domain/models",
+  "members": {
+   "sharing.py": 9,
+   "user.py": 6,
+   "user_id.py": 2,
+   "wish.py": 18
+  },
+  "is_reported": true
+ },
+ {
+  "origin": "deseos17",
+  "revision": "86118f4a997fefc905d89ad87edcd88c42604222",
+  "package": "src/deseos17/domain/services",
+  "members": {
+   "access.py": 36,
+   "wish.py": 19,
+   "wishlist.py": 13
+  },
+  "is_reported": true
+ },
+ {
+  "origin": "fastapi-boilerplate",
+  "revision": "df4e6d4f817ec187eeaf2d1c5a877b27c06bb77b",
+  "package": "core/fastapi/middlewares",
+  "members": {
+   "authentication.py": 39,
+   "response_log.py": 24,
+   "sqlalchemy.py": 16
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "fastapi-boilerplate",
+  "revision": "df4e6d4f817ec187eeaf2d1c5a877b27c06bb77b",
+  "package": "core/helpers/cache/base",
+  "members": {
+   "backend.py": 12,
+   "key_maker.py": 6
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "langflow",
+  "revision": "2cf9ce808afa6ad3f41aa5f6b47bdcb1927cde84",
+  "package": "src/bundles/lfx-bundles/src/lfx_bundles/deepseek",
+  "members": {
+   "__init__.py": 25,
+   "deepseek.py": 134
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "langflow",
+  "revision": "2cf9ce808afa6ad3f41aa5f6b47bdcb1927cde84",
+  "package": "src/bundles/lfx-bundles/src/lfx_bundles/pinecone",
+  "members": {
+   "__init__.py": 25,
+   "pinecone.py": 109
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "langflow",
+  "revision": "2cf9ce808afa6ad3f41aa5f6b47bdcb1927cde84",
+  "package": "src/bundles/lfx-bundles/src/lfx_bundles/sambanova",
+  "members": {
+   "__init__.py": 23,
+   "sambanova.py": 99
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "langflow",
+  "revision": "2cf9ce808afa6ad3f41aa5f6b47bdcb1927cde84",
+  "package": "src/bundles/lfx-bundles/src/lfx_bundles/scrapegraph",
+  "members": {
+   "__init__.py": 31,
+   "scrapegraph_markdownify_api.py": 49,
+   "scrapegraph_search_api.py": 49,
+   "scrapegraph_smart_scraper_api.py": 56
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "langflow",
+  "revision": "2cf9ce808afa6ad3f41aa5f6b47bdcb1927cde84",
+  "package": "src/bundles/lfx-bundles/src/lfx_bundles/upstash",
+  "members": {
+   "__init__.py": 25,
+   "upstash.py": 114
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "langflow",
+  "revision": "2cf9ce808afa6ad3f41aa5f6b47bdcb1927cde84",
+  "package": "src/lfx/src/lfx/base/langchain_utilities",
+  "members": {
+   "model.py": 29,
+   "requests.py": 34,
+   "spider_constants.py": 1
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "langflow",
+  "revision": "2cf9ce808afa6ad3f41aa5f6b47bdcb1927cde84",
+  "package": "src/lfx/src/lfx/components/agentics/inputs",
+  "members": {
+   "base_component.py": 30,
+   "common_inputs.py": 125
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "langflow",
+  "revision": "2cf9ce808afa6ad3f41aa5f6b47bdcb1927cde84",
+  "package": "src/lfx/src/lfx/components/triggers",
+  "members": {
+   "__init__.py": 25,
+   "inbound_webhook_trigger.py": 68,
+   "schedule_trigger.py": 105
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "mem0",
+  "revision": "f1791daa86d469249c9b002f62644d58a1eb96a0",
+  "package": "mem0/configs/rerankers",
+  "members": {
+   "base.py": 13,
+   "cohere.py": 11,
+   "config.py": 7,
+   "huggingface.py": 13,
+   "llm.py": 48,
+   "sentence_transformer.py": 12,
+   "zero_entropy.py": 23
+  },
+  "is_reported": true
+ },
+ {
+  "origin": "paperless-ngx",
+  "revision": "bfd5628dcced06c2dd44441f8718ce369c7b6d9f",
+  "package": "src/paperless_ai/prompts",
+  "members": {
+   "context.py": 33,
+   "render.py": 27
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "pretix",
+  "revision": "137059dd4e7a7f4643199323b69a85824bffc28e",
+  "package": "src/pretix/plugins/banktransfer/templatetags",
+  "members": {
+   "commadecimal.py": 5,
+   "dotdecimal.py": 5,
+   "ibanformat.py": 7
+  },
+  "is_reported": true
+ },
+ {
+  "origin": "pretix",
+  "revision": "137059dd4e7a7f4643199323b69a85824bffc28e",
+  "package": "src/pretix/plugins/paypal2/client/core",
+  "members": {
+   "environment.py": 38,
+   "paypal_http_client.py": 87
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "pretix",
+  "revision": "137059dd4e7a7f4643199323b69a85824bffc28e",
+  "package": "src/pretix/plugins/paypal2/client/customer",
+  "members": {
+   "partner_referral_create_request.py": 15,
+   "partners_merchantintegrations_get_request.py": 19
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "python-clean-architecture",
+  "revision": "20630d0b3b4c00f6503a26cc98c45df12bc31b3b",
+  "package": "devops/commands",
+  "members": {
+   "__init__.py": 10,
+   "bump_version.py": 99,
+   "dist_build.py": 18,
+   "publish.py": 21,
+   "test.py": 7
+  },
+  "is_reported": true
+ },
+ {
+  "origin": "python-clean-architecture",
+  "revision": "20630d0b3b4c00f6503a26cc98c45df12bc31b3b",
+  "package": "pca/interfaces",
+  "members": {
+   "__init__.py": 2,
+   "dao.py": 126,
+   "entity.py": 4,
+   "repository.py": 46
+  },
+  "is_reported": true
+ },
+ {
+  "origin": "python-clean-architecture-example",
+  "revision": "2050a235efe2d62a282fb6a11e8400ce1b65629f",
+  "package": "src/app/cli_memory/controllers",
+  "members": {
+   "create_profession_controller.py": 29,
+   "exit_controller.py": 13
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "python-clean-architecture-example",
+  "revision": "2050a235efe2d62a282fb6a11e8400ce1b65629f",
+  "package": "src/infra/db_models",
+  "members": {
+   "db_base.py": 10,
+   "profession_db_model.py": 15
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "python-clean-architecture-example",
+  "revision": "2050a235efe2d62a282fb6a11e8400ce1b65629f",
+  "package": "src/infra/repositories",
+  "members": {
+   "profession_in_memory_repository.py": 31,
+   "profession_postgresql_repository.py": 83
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "python-clean-architecture-example",
+  "revision": "2050a235efe2d62a282fb6a11e8400ce1b65629f",
+  "package": "src/interactor/validations",
+  "members": {
+   "base_input_validator.py": 26,
+   "create_profession_validator.py": 34
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "python-fastapi-hex-todo",
+  "revision": "f54fbe0ecd6e158c1ed54a9a7a8ed6bd9d96d39d",
+  "package": "todolist/api/routers/account",
+  "members": {
+   "__init__.py": 8,
+   "auth.py": 75,
+   "user.py": 34
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "python-fastapi-hex-todo",
+  "revision": "f54fbe0ecd6e158c1ed54a9a7a8ed6bd9d96d39d",
+  "package": "todolist/api/routers/todo",
+  "members": {
+   "__init__.py": 7,
+   "todo_item.py": 107
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "python-fastapi-hex-todo",
+  "revision": "f54fbe0ecd6e158c1ed54a9a7a8ed6bd9d96d39d",
+  "package": "todolist/core/accounts/services",
+  "members": {
+   "exceptions.py": 14,
+   "hash_service.py": 6,
+   "user_service.py": 37
+  },
+  "is_reported": true
+ },
+ {
+  "origin": "python-fastapi-hex-todo",
+  "revision": "f54fbe0ecd6e158c1ed54a9a7a8ed6bd9d96d39d",
+  "package": "todolist/infra/database/models",
+  "members": {
+   "todo_item.py": 13,
+   "user.py": 10
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "python-fastapi-hex-todo",
+  "revision": "f54fbe0ecd6e158c1ed54a9a7a8ed6bd9d96d39d",
+  "package": "todolist/infra/database/repositories",
+  "members": {
+   "todo_item_repository.py": 67,
+   "user_repository.py": 17
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "qu3vipon-python-ddd",
+  "revision": "8920c4868f03061496c296abb1ffbd8c9db64b20",
+  "package": "src/display/presentation/rest",
+  "members": {
+   "api.py": 20,
+   "request.py": 4,
+   "response.py": 14
+  },
+  "is_reported": true
+ },
+ {
+  "origin": "qu3vipon-python-ddd",
+  "revision": "8920c4868f03061496c296abb1ffbd8c9db64b20",
+  "package": "src/reception/application/use_case",
+  "members": {
+   "command.py": 62,
+   "query.py": 35
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "qu3vipon-python-ddd",
+  "revision": "8920c4868f03061496c296abb1ffbd8c9db64b20",
+  "package": "src/reception/domain/entity",
+  "members": {
+   "reservation.py": 51,
+   "room.py": 12
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "qu3vipon-python-ddd",
+  "revision": "8920c4868f03061496c296abb1ffbd8c9db64b20",
+  "package": "src/reception/domain/exception",
+  "members": {
+   "check_in.py": 5,
+   "reservation.py": 5,
+   "room.py": 5
+  },
+  "is_reported": true
+ },
+ {
+  "origin": "qu3vipon-python-ddd",
+  "revision": "8920c4868f03061496c296abb1ffbd8c9db64b20",
+  "package": "src/reception/domain/value_object",
+  "members": {
+   "guest.py": 11,
+   "reservation.py": 19
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "qu3vipon-python-ddd",
+  "revision": "8920c4868f03061496c296abb1ffbd8c9db64b20",
+  "package": "src/shared_kernel/domain",
+  "members": {
+   "entity.py": 16,
+   "exception.py": 7,
+   "value_object.py": 36
+  },
+  "is_reported": true
+ },
+ {
+  "origin": "superset",
+  "revision": "50c11e9c171772fedf701893be3e0899634bb7ad",
+  "package": "superset/commands/chart/data",
+  "members": {
+   "get_data_command.py": 92,
+   "streaming_export_command.py": 50
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "superset",
+  "revision": "50c11e9c171772fedf701893be3e0899634bb7ad",
+  "package": "superset/commands/query/importers/v1",
+  "members": {
+   "__init__.py": 43,
+   "utils.py": 43
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "superset",
+  "revision": "50c11e9c171772fedf701893be3e0899634bb7ad",
+  "package": "superset/mcp_service/rls/tool",
+  "members": {
+   "get_rls_filter_info.py": 78,
+   "list_rls_filters.py": 102
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "superset",
+  "revision": "50c11e9c171772fedf701893be3e0899634bb7ad",
+  "package": "superset/mcp_service/task/tool",
+  "members": {
+   "get_task_info.py": 75,
+   "list_tasks.py": 104
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "superset",
+  "revision": "50c11e9c171772fedf701893be3e0899634bb7ad",
+  "package": "superset/mcp_service/user/tool",
+  "members": {
+   "get_user_info.py": 87,
+   "list_users.py": 113
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "superset",
+  "revision": "50c11e9c171772fedf701893be3e0899634bb7ad",
+  "package": "superset/views/dashboard",
+  "members": {
+   "mixin.py": 64,
+   "views.py": 102
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "superset",
+  "revision": "50c11e9c171772fedf701893be3e0899634bb7ad",
+  "package": "superset/views/database",
+  "members": {
+   "validators.py": 42,
+   "views.py": 24
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "superset",
+  "revision": "50c11e9c171772fedf701893be3e0899634bb7ad",
+  "package": "superset/websocket",
+  "members": {
+   "channel.py": 173,
+   "permissions.py": 13
+  },
+  "is_reported": false
+ }
+]

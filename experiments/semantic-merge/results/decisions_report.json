@@ -1,0 +1,24 @@
+{
+ "findings": 36,
+ "plain": {
+  "decisions": 72,
+  "merges": 8,
+  "replicates_agreeing": 32,
+  "merges_by_rating": {
+   "contested": "2 of 44",
+   "keep": "0 of 10",
+   "merge": "6 of 18"
+  }
+ },
+ "evidence": {
+  "decisions": 72,
+  "merges": 7,
+  "replicates_agreeing": 33,
+  "merges_by_rating": {
+   "contested": "0 of 44",
+   "keep": "0 of 10",
+   "merge": "7 of 18"
+  }
+ },
+ "findings_decided_differently": 5
+}

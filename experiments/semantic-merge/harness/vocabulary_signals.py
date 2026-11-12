@@ -23,7 +23,9 @@ members of a package, with the standard library only:
 
 Latent semantic indexing, which the cited works apply before the cosine, needs
 a singular value decomposition the standard library does not have; the plain
-weighted vector space is what a standard-library-only check could ship.
+weighted vector space is what a standard-library-only check could ship. It
+is no handicap: against the package structure of 16 Java projects the indexed
+variant fell consistently below the plain weighted one [@beck2011congruence].
 """
 
 from __future__ import annotations
@@ -112,7 +114,7 @@ class Vocabulary:
     terms: dict[str, frozenset[str]]
     norms: dict[str, float] = field(default_factory=dict)
 
-    def measure_cosine(self, first: str, second: str) -> float:
+    def measure_cosine(self, *, first: str, second: str) -> float:
         """The cosine similarity of two modules' weighted term vectors (0 when one is empty)."""
         left, right = self.vectors[first], self.vectors[second]
         if len(left) > len(right):
@@ -121,7 +123,7 @@ class Vocabulary:
         scale = self._read_norm(first) * self._read_norm(second)
         return product / scale if scale else 0.0
 
-    def measure_overlap(self, first: str, second: str) -> float:
+    def measure_overlap(self, *, first: str, second: str) -> float:
         """The Jaccard similarity of two modules' unweighted term sets."""
         union = self.terms[first] | self.terms[second]
         return len(self.terms[first] & self.terms[second]) / len(union) if union else 0.0
@@ -170,17 +172,25 @@ def measure_vocabulary(
     """The vocabulary cohesion of *members*, its lift over the tree, and the raw term overlap."""
     present = [member for member in members if member in vocabulary.vectors]
     pairs = list(combinations(present, 2))
-    cohesion = _compute_mean([vocabulary.measure_cosine(*pair) for pair in pairs])
+    cohesion = _compute_mean(
+        [vocabulary.measure_cosine(first=first, second=second) for first, second in pairs],
+    )
     outside = sorted(
         relative for relative in vocabulary.vectors if not relative.startswith(f"{package}/")
     )
     sample = random.Random(_SEED).sample(outside, min(BACKGROUND_SAMPLE, len(outside)))
     background = _compute_mean(
-        [vocabulary.measure_cosine(member, other) for member in present for other in sample],
+        [
+            vocabulary.measure_cosine(first=member, second=other)
+            for member in present
+            for other in sample
+        ],
     )
     lift = None if cohesion is None or background is None else cohesion - background
     return {
         "cohesion": cohesion,
         "lift": lift,
-        "overlap": _compute_mean([vocabulary.measure_overlap(*pair) for pair in pairs]),
+        "overlap": _compute_mean(
+            [vocabulary.measure_overlap(first=first, second=second) for first, second in pairs],
+        ),
     }

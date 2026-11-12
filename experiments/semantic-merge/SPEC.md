@@ -92,6 +92,26 @@ cohesive ones.
 5. **Co-change.** Fewer than half the holdout candidates have enough history
    for a co-change signal (dev: 22 of 48, 4 of the 17 over-split).
 
+## Added after the holdout
+
+The holdout did not confirm the dev pattern, so the evidence base was
+widened. These parts were designed after the holdout result and are
+exploratory:
+
+- **Extension set.** Every structurally passing merge candidate, at most
+  eight per project by a seeded draw, from 20 application repositories the
+  corpus does not cover (14 have any).
+- **Blind ratings.** Independent agents rate each corpus candidate once and
+  each extension candidate twice on three levels (`merge`, `contested`,
+  `keep`) with `prompts/label.md`, seeing no rule, signal or corpus label.
+  Agreement is Cohen's kappa [@cohen1960coefficient]; the signals, and the
+  two size measures the rule already reads, are compared against the
+  ratings.
+- **Agent decisions.** The findings `SHALLOW-001` reports on the rated
+  packages are decided by agents acting as each project's maintainer
+  (`prompts/decide.md`), twice with the message as it is and twice with one
+  sentence of Common Reuse evidence appended; no agent sees both arms.
+
 ## Further experiments
 
 - **Congruence at scale.** For every original tree, how well each pairwise
@@ -104,4 +124,4 @@ cohesive ones.
   authors' packages, and whether it groups the members of labelled over-split
   packages.
 - **Agent decisions.** Whether the evidence, added to the finding's message,
-  changes what an agent does with it.
+  changes what an agent does with it (designed above, after the holdout).
