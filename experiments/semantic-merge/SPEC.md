@@ -134,6 +134,75 @@ results in `README.md`:
   moves them, so they reported the noise of the random starts as
   instability. Snapshots and repositories are summarised apart.
 
+## Invented signals: boundary work
+
+The signals above ask whether the members of a package resemble each other,
+and resemblance is as true of a deliberate convention as of an over-split.
+After the first results a second family was designed that asks what each
+module boundary does. A module is a namespace and an information-hiding unit
+[@parnas1972criteria], so merging a package is simulated on the names its
+members define and the names their clients import:
+
+| Signal | Definition | Grounding |
+|---|---|---|
+| `idle_share` | share of members whose boundary does no work: no statement in any function body (nothing hidden), no client importing the member as a module object (no namespace in use), no name another member also defines (nothing kept apart) | [@parnas1972criteria; @ousterhout2018philosophy, ch. 4] |
+| `scope_co_use` | of the client functions that reference any member's names, the share referencing two or more members | Common Reuse at the granularity of a function [@martin2002agile, ch. 20] |
+| `merge_evidence` | `idle_share` plus `scope_co_use` (0 when no client function references the package) | this spike's own |
+| `has_qualified_use`, `has_collision` | some client imports a member as a module object; two members define a name in use | a merge precondition [@opdyke1992refactoring] |
+| `depth`, `facade_use_share`, `sibling_only_names`, `merge_saving`, `interface_shrink`, `hops`, `signature_coupling`, `name_echo` | exploratory variants, defined in `harness/member_surfaces.py`, `boundary_signals.py` and `idle_boundaries.py` | see those modules |
+
+These were designed with every package of the dev split, the holdout and the
+extension in view, so those 135 packages are development data for them. On
+the 88 rated packages the structural conditions pass (17 merge, 47
+contested, 24 keep):
+
+| Measure | Merge against keep | Merge against contested | Merge against the rest |
+|---|---|---|---|
+| `merge_evidence` | 0.80 [0.62, 0.91] | 0.67 [0.48, 0.82] | 0.71 [0.55, 0.84] |
+| `idle_share` | 0.74 [0.57, 0.84] | 0.66 [0.51, 0.78] | 0.69 [0.55, 0.79] |
+| `scope_co_use` | 0.79 [0.62, 0.92] | 0.68 [0.56, 0.82] | 0.71 [0.58, 0.84] |
+| lines per member | 0.18 [0.08, 0.38] | 0.41 [0.26, 0.61] | 0.33 [0.21, 0.52] |
+
+None of the 10 packages with a member used as a namespace is rated merge,
+against 17 of the other 78. `interface_shrink`, `signature_coupling` and
+`name_echo` do not separate and are kept only as recorded.
+
+## Confirmation set
+
+Fixed before any of its ratings exist; the analysis is
+`harness/report_confirmation.py`, committed with this section.
+
+- **Repositories.** 70 public repositories no earlier step of this spike
+  read; the 43 that hold a candidate are listed with their commits in
+  `results/confirmation_candidates.json`.
+- **Candidates.** Every merge candidate the structural conditions pass, at
+  most six per repository by the seeded draw of `select_candidates.py`:
+  122 packages.
+- **Ratings.** Two blind raters, two different models, with
+  `prompts/label_confirmation.md`: the first prompt without the members'
+  line counts and without the sentence framing the package as fitting one
+  module of about 200 lines. A package is merge if either rater says so and
+  keep if both do; as a check, merge only if both say so.
+
+Hypotheses:
+
+1. **Primary.** `merge_evidence` is higher in packages rated merge than in
+   the rest: AUC above 0.5 with the interval's lower end above 0.5.
+2. `idle_share` is higher in merge than in keep.
+3. `scope_co_use` is higher in merge than in keep.
+4. Packages with a member used as a namespace are rated merge less often
+   than the others.
+5. `cochange_similarity` is higher in merge than in keep, on the packages
+   that have it.
+6. The comparators behave as before: `identifier_cohesion` and
+   `used_together` do not separate merge from the rest (interval covering
+   0.5), and lines per member is lower in merge than in keep.
+
+If the primary hypothesis holds, the proposal for `SHALLOW-001`, to be made
+as its own change, is to state the evidence in the finding and to leave out a
+package whose merge precondition fails. If it does not, the boundary-work
+signals join the others as not confirmed.
+
 ## Further experiments
 
 - **Congruence at scale.** For every original tree, how well each pairwise

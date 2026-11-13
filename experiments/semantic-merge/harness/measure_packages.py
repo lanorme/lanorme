@@ -21,7 +21,9 @@ import json
 import logging
 from pathlib import Path
 
+from boundary_signals import measure_boundaries, read_boundaries
 from cochange_signals import History, measure_cochange, read_history
+from idle_boundaries import measure_idle_boundaries
 from labelled_packages import (
     LabelledPackage,
     OriginalTree,
@@ -31,6 +33,7 @@ from labelled_packages import (
     read_labelled_anchors,
     read_original_tree,
 )
+from member_surfaces import measure_depth, read_surface
 from package_records import PackageRecord
 from reuse_signals import PackageView, describe_reuse, measure_reuse
 from sibling_signals import measure_siblings
@@ -73,6 +76,16 @@ class TreeEvidence:
             found = measure_vocabulary(vocabulary=vocabulary, members=relatives, package=package)
             signals.update({f"{prefix}_{name}": value for name, value in found.items()})
         signals.update(measure_cochange(history=self.history, members=relatives))
+        surfaces = [read_surface(member) for member in members]
+        signals.update(measure_depth(surfaces))
+        boundaries = read_boundaries(view=view, surfaces=surfaces)
+        signals.update(measure_boundaries(boundaries))
+        signals.update(
+            measure_idle_boundaries(
+                boundaries=boundaries,
+                scope_co_use=signals["scope_co_use"],
+            ),
+        )
         return {"signals": signals, "reuse_sentence": describe_reuse(view=view)}
 
 

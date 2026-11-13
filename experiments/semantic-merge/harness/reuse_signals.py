@@ -51,7 +51,7 @@ def _list_member_stems(*, view: PackageView) -> dict[str, str]:
     }
 
 
-def _collect_reexports(*, view: PackageView) -> dict[str, str]:
+def collect_reexports(*, view: PackageView) -> dict[str, str]:
     """Each name the package's ``__init__.py`` re-exports, mapped to the member it comes from."""
     package_file = view.modules.get(f"{view.package}/{PACKAGE_FILE}")
     if package_file is None:
@@ -89,7 +89,7 @@ def _collect_facade_uses(*, view: PackageView, importer: Module) -> set[str]:
     name that is not a submodule is defined in ``__init__.py`` itself, and
     counts as a use of it when ``__init__.py`` holds code.
     """
-    exported = _collect_reexports(view=view)
+    exported = collect_reexports(view=view)
     stems = _list_member_stems(view=view)
     package_file = f"{view.package}/{PACKAGE_FILE}"
     holds_code = package_file in stems.values()

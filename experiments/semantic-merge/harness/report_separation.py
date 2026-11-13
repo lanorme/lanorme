@@ -45,6 +45,20 @@ SIGNALS = (
     "prose_lift",
     "changed_together",
     "cochange_similarity",
+    "depth",
+    "declaration_only_share",
+    "collision_share",
+    "qualified_use_share",
+    "facade_use_share",
+    "sibling_only_names",
+    "scope_co_use",
+    "merge_saving",
+    "idle_share",
+    "merge_evidence",
+    "interface_shrink",
+    "hops",
+    "signature_coupling",
+    "name_echo",
 )
 _STAGE = re.compile(r"-stage(\d+):")
 

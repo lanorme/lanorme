@@ -1,0 +1,1306 @@
+[
+ {
+  "origin": "Aeternalis-Ingenium_FastAPI-Backend-Template",
+  "revision": "d2e931b9639aa5fbca2a85c1711e47c8ee39b254",
+  "package": "backend/src/api/routes",
+  "members": {
+   "account.py": 110,
+   "authentication.py": 69
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "Aeternalis-Ingenium_FastAPI-Backend-Template",
+  "revision": "d2e931b9639aa5fbca2a85c1711e47c8ee39b254",
+  "package": "backend/src/config/settings",
+  "members": {
+   "base.py": 80,
+   "development.py": 6,
+   "environment.py": 5,
+   "production.py": 5,
+   "staging.py": 6
+  },
+  "is_reported": true
+ },
+ {
+  "origin": "Aeternalis-Ingenium_FastAPI-Backend-Template",
+  "revision": "d2e931b9639aa5fbca2a85c1711e47c8ee39b254",
+  "package": "backend/src/models/schemas",
+  "members": {
+   "account.py": 27,
+   "base.py": 12,
+   "jwt.py": 8
+  },
+  "is_reported": true
+ },
+ {
+  "origin": "Aeternalis-Ingenium_FastAPI-Backend-Template",
+  "revision": "d2e931b9639aa5fbca2a85c1711e47c8ee39b254",
+  "package": "backend/src/repository/crud",
+  "members": {
+   "account.py": 99,
+   "base.py": 4
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "Aeternalis-Ingenium_FastAPI-Backend-Template",
+  "revision": "d2e931b9639aa5fbca2a85c1711e47c8ee39b254",
+  "package": "backend/src/securities/hashing",
+  "members": {
+   "hash.py": 34,
+   "password.py": 12
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "BerriAI_litellm",
+  "revision": "c5843a812490a6de6834c2a39a429d77846175b1",
+  "package": "litellm/integrations/focus/serializers",
+  "members": {
+   "base.py": 11,
+   "csv.py": 17,
+   "parquet.py": 15
+  },
+  "is_reported": true
+ },
+ {
+  "origin": "BerriAI_litellm",
+  "revision": "c5843a812490a6de6834c2a39a429d77846175b1",
+  "package": "litellm/proxy/guardrails/guardrail_hooks/reco",
+  "members": {
+   "__init__.py": 53,
+   "reco.py": 70
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "BerriAI_litellm",
+  "revision": "c5843a812490a6de6834c2a39a429d77846175b1",
+  "package": "litellm/proxy/guardrails/guardrail_hooks/wingback",
+  "members": {
+   "__init__.py": 32,
+   "wingback.py": 58
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "BerriAI_litellm",
+  "revision": "c5843a812490a6de6834c2a39a429d77846175b1",
+  "package": "litellm/proxy/rust_forward/platform",
+  "members": {
+   "__init__.py": 46,
+   "posix.py": 52,
+   "windows.py": 46
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "BerriAI_litellm",
+  "revision": "c5843a812490a6de6834c2a39a429d77846175b1",
+  "package": "litellm/sandbox",
+  "members": {
+   "__init__.py": 24,
+   "main.py": 124,
+   "sandbox_tools.py": 44
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "BerriAI_litellm",
+  "revision": "c5843a812490a6de6834c2a39a429d77846175b1",
+  "package": "litellm/types/proxy/guardrails/guardrail_hooks/ibm",
+  "members": {
+   "base.py": 24,
+   "ibm_detector.py": 60
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "Bogdanp_dramatiq",
+  "revision": "f9fa7da726262619e7d9d4569c5275d555ef5912",
+  "package": "examples/use_actors_from_different_files/actors",
+  "members": {
+   "bar.py": 5,
+   "foo.py": 5
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "Buuntu_fastapi-react",
+  "revision": "af17f2d422d0ebc5f173e83f2c6931045ab055b0",
+  "package": "{{cookiecutter.project_slug}}/backend/app/db",
+  "members": {
+   "crud.py": 53,
+   "models.py": 11,
+   "schemas.py": 28,
+   "session.py": 15
+  },
+  "is_reported": true
+ },
+ {
+  "origin": "HackSoftware_Django-Styleguide-Example",
+  "revision": "a70ef43d7df03706c1211d4fcfd70b4b0120ba1e",
+  "package": "styleguide_example/testing_examples/services",
+  "members": {
+   "rosters.py": 25,
+   "school_courses.py": 31,
+   "students.py": 21
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "Netflix_metaflow",
+  "revision": "bda5e774de68e65ae6f829f6d9643e7c592412d7",
+  "package": "metaflow/system",
+  "members": {
+   "__init__.py": 4,
+   "system_logger.py": 71,
+   "system_monitor.py": 86,
+   "system_utils.py": 13
+  },
+  "is_reported": true
+ },
+ {
+  "origin": "authlib_authlib",
+  "revision": "f817ad8a08eb6d5b105195709198d1381cfc11ea",
+  "package": "authlib/jose/rfc8037",
+  "members": {
+   "jws_eddsa.py": 20,
+   "okp_key.py": 85
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "authlib_authlib",
+  "revision": "f817ad8a08eb6d5b105195709198d1381cfc11ea",
+  "package": "authlib/oauth2/multiple_response_types",
+  "members": {
+   "authorization_server.py": 137,
+   "grant.py": 36
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "authlib_authlib",
+  "revision": "f817ad8a08eb6d5b105195709198d1381cfc11ea",
+  "package": "authlib/oauth2/rfc7009",
+  "members": {
+   "parameters.py": 18,
+   "revocation.py": 86
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "authlib_authlib",
+  "revision": "f817ad8a08eb6d5b105195709198d1381cfc11ea",
+  "package": "authlib/oauth2/rfc7662",
+  "members": {
+   "introspection.py": 99,
+   "models.py": 31,
+   "token_validator.py": 25
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "authlib_authlib",
+  "revision": "f817ad8a08eb6d5b105195709198d1381cfc11ea",
+  "package": "authlib/oauth2/rfc9207",
+  "members": {
+   "discovery.py": 17,
+   "parameter.py": 30
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "authlib_authlib",
+  "revision": "f817ad8a08eb6d5b105195709198d1381cfc11ea",
+  "package": "authlib/oidc/prompt_create",
+  "members": {
+   "discovery.py": 32,
+   "prompt.py": 109
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "chainlit_chainlit",
+  "revision": "190ea74239d9e84b26e7c91bc2882dd038942564",
+  "package": "backend/chainlit/llama_index",
+  "members": {
+   "__init__.py": 5,
+   "callbacks.py": 177
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "crewAIInc_crewAI",
+  "revision": "bc36a4df62936d57addae345a942e503d2b4bd1d",
+  "package": "lib/crewai/src/crewai/agents/agent_builder/utilities",
+  "members": {
+   "base_output_converter.py": 42,
+   "base_token_process.py": 28
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "crewAIInc_crewAI",
+  "revision": "bc36a4df62936d57addae345a942e503d2b4bd1d",
+  "package": "lib/crewai/src/crewai/rag/embeddings/providers/cohere",
+  "members": {
+   "cohere_provider.py": 25,
+   "types.py": 11
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "crewAIInc_crewAI",
+  "revision": "bc36a4df62936d57addae345a942e503d2b4bd1d",
+  "package": "lib/crewai/src/crewai/rag/embeddings/providers/instructor",
+  "members": {
+   "instructor_provider.py": 36,
+   "types.py": 12
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "crewAIInc_crewAI",
+  "revision": "bc36a4df62936d57addae345a942e503d2b4bd1d",
+  "package": "lib/crewai/src/crewai/rag/embeddings/providers/ollama",
+  "members": {
+   "ollama_provider.py": 27,
+   "types.py": 11
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "crewAIInc_crewAI",
+  "revision": "bc36a4df62936d57addae345a942e503d2b4bd1d",
+  "package": "lib/crewai/src/crewai/rag/embeddings/providers/openclip",
+  "members": {
+   "openclip_provider.py": 34,
+   "types.py": 12
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "crewAIInc_crewAI",
+  "revision": "bc36a4df62936d57addae345a942e503d2b4bd1d",
+  "package": "lib/crewai/src/crewai/rag/embeddings/providers/sentence_transformer",
+  "members": {
+   "sentence_transformer_provider.py": 38,
+   "types.py": 12
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "element-hq_synapse",
+  "revision": "7f832ceeedc921a6f2727e1b039acc00f97398b7",
+  "package": "synapse/rest/synapse/client/oidc",
+  "members": {
+   "__init__.py": 16,
+   "backchannel_logout_resource.py": 14,
+   "callback_resource.py": 16
+  },
+  "is_reported": true
+ },
+ {
+  "origin": "element-hq_synapse",
+  "revision": "7f832ceeedc921a6f2727e1b039acc00f97398b7",
+  "package": "synapse/rest/synapse/client/saml2",
+  "members": {
+   "__init__.py": 14,
+   "metadata_resource.py": 18,
+   "response_resource.py": 19
+  },
+  "is_reported": true
+ },
+ {
+  "origin": "element-hq_synapse",
+  "revision": "7f832ceeedc921a6f2727e1b039acc00f97398b7",
+  "package": "synmark/suites",
+  "members": {
+   "__init__.py": 8,
+   "logging.py": 94,
+   "lrucache.py": 18,
+   "lrucache_evict.py": 19
+  },
+  "is_reported": true
+ },
+ {
+  "origin": "esphome_esphome",
+  "revision": "eee52fe41974327274edbd462885614550b5635a",
+  "package": "esphome/components/animation",
+  "members": {
+   "__init__.py": 18,
+   "image.py": 83
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "esphome_esphome",
+  "revision": "eee52fe41974327274edbd462885614550b5635a",
+  "package": "esphome/components/online_image",
+  "members": {
+   "__init__.py": 15,
+   "image.py": 131
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "esphome_esphome",
+  "revision": "eee52fe41974327274edbd462885614550b5635a",
+  "package": "esphome/components/rc522",
+  "members": {
+   "__init__.py": 33,
+   "binary_sensor.py": 40
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "esphome_esphome",
+  "revision": "eee52fe41974327274edbd462885614550b5635a",
+  "package": "esphome/components/rotary_encoder",
+  "members": {
+   "__init__.py": 1,
+   "sensor.py": 100
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "ets-labs_python-dependency-injector",
+  "revision": "b2c7e3e3c80b9cc6e9748795b07f4aee1bf3fb55",
+  "package": "examples/miniapps/commands-and-handlers/application",
+  "members": {
+   "commands.py": 7,
+   "containers.py": 16,
+   "handler.py": 9,
+   "messagebus.py": 8,
+   "repositories.py": 3
+  },
+  "is_reported": true
+ },
+ {
+  "origin": "fastapi-practices_fastapi_best_architecture",
+  "revision": "4bd7c9f688bb952e16862a9e5161e98f86078541",
+  "package": "backend/app/admin/api/v1/auth",
+  "members": {
+   "__init__.py": 6,
+   "auth.py": 44,
+   "captcha.py": 33
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "fastapi-practices_fastapi_best_architecture",
+  "revision": "4bd7c9f688bb952e16862a9e5161e98f86078541",
+  "package": "backend/app/task/crud",
+  "members": {
+   "crud_result.py": 36,
+   "crud_scheduler.py": 101
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "fastapi-practices_fastapi_best_architecture",
+  "revision": "4bd7c9f688bb952e16862a9e5161e98f86078541",
+  "package": "backend/common/observability/prometheus",
+  "members": {
+   "fastapi.py": 57,
+   "queue.py": 35,
+   "sqlalchemy.py": 31
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "fastapi-practices_fastapi_best_architecture",
+  "revision": "4bd7c9f688bb952e16862a9e5161e98f86078541",
+  "package": "backend/common/socketio",
+  "members": {
+   "actions.py": 8,
+   "server.py": 100
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "fastapi-practices_fastapi_best_architecture",
+  "revision": "4bd7c9f688bb952e16862a9e5161e98f86078541",
+  "package": "backend/plugin/dict/service",
+  "members": {
+   "dict_data_service.py": 119,
+   "dict_type_service.py": 81
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "fastapi-practices_fastapi_best_architecture",
+  "revision": "4bd7c9f688bb952e16862a9e5161e98f86078541",
+  "package": "backend/plugin/email/utils",
+  "members": {
+   "dynamic_config.py": 16,
+   "send.py": 61
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "freqtrade_freqtrade",
+  "revision": "5197bedab82559fac6be6c1539c64b94368fb91c",
+  "package": "freqtrade/enums",
+  "members": {
+   "backteststate.py": 12,
+   "candletype.py": 20,
+   "exitchecktuple.py": 17,
+   "exittype.py": 19,
+   "hyperoptstate.py": 9,
+   "marginmode.py": 10,
+   "marketstatetype.py": 11,
+   "ordertypevalue.py": 4,
+   "pricetype.py": 6,
+   "rpcmessagetype.py": 27,
+   "runmode.py": 18,
+   "signaltype.py": 18,
+   "state.py": 11,
+   "tradingmode.py": 9
+  },
+  "is_reported": true
+ },
+ {
+  "origin": "freqtrade_freqtrade",
+  "revision": "5197bedab82559fac6be6c1539c64b94368fb91c",
+  "package": "freqtrade/freqai/tensorboard",
+  "members": {
+   "TensorboardCallback.py": 44,
+   "__init__.py": 15,
+   "base_tensorboard.py": 19,
+   "lightgbm_callback.py": 17,
+   "tensorboard.py": 46
+  },
+  "is_reported": true
+ },
+ {
+  "origin": "freqtrade_freqtrade",
+  "revision": "5197bedab82559fac6be6c1539c64b94368fb91c",
+  "package": "freqtrade/ft_types",
+  "members": {
+   "backtest_result_type.py": 45,
+   "plot_annotation_type.py": 28,
+   "valid_exchanges_type.py": 15
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "freqtrade_freqtrade",
+  "revision": "5197bedab82559fac6be6c1539c64b94368fb91c",
+  "package": "freqtrade/optimize/space",
+  "members": {
+   "__init__.py": 12,
+   "decimalspace.py": 31,
+   "optunaspaces.py": 45
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "freqtrade_freqtrade",
+  "revision": "5197bedab82559fac6be6c1539c64b94368fb91c",
+  "package": "freqtrade/system",
+  "members": {
+   "asyncio_config.py": 5,
+   "gc_setup.py": 12,
+   "set_mp_start_method.py": 12,
+   "version_info.py": 11
+  },
+  "is_reported": true
+ },
+ {
+  "origin": "geekan_MetaGPT",
+  "revision": "11cdf466d042aece04fc6cfd13b28e1a70341b1f",
+  "package": "metagpt/ext/android_assistant/prompts",
+  "members": {
+   "assistant_prompt.py": 141,
+   "operation_prompt.py": 37
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "geekan_MetaGPT",
+  "revision": "11cdf466d042aece04fc6cfd13b28e1a70341b1f",
+  "package": "metagpt/ext/cr/utils",
+  "members": {
+   "cleaner.py": 53,
+   "schema.py": 16
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "geekan_MetaGPT",
+  "revision": "11cdf466d042aece04fc6cfd13b28e1a70341b1f",
+  "package": "metagpt/provider/postprocess",
+  "members": {
+   "base_postprocess_plugin.py": 50,
+   "llm_output_postprocess.py": 11
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "geekan_MetaGPT",
+  "revision": "11cdf466d042aece04fc6cfd13b28e1a70341b1f",
+  "package": "metagpt/provider/zhipuai",
+  "members": {
+   "async_sse_client.py": 22,
+   "zhipu_model_api.py": 38
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "geekan_MetaGPT",
+  "revision": "11cdf466d042aece04fc6cfd13b28e1a70341b1f",
+  "package": "metagpt/rag/retrievers",
+  "members": {
+   "base.py": 52,
+   "bm25_retriever.py": 57,
+   "chroma_retriever.py": 23,
+   "es_retriever.py": 11,
+   "faiss_retriever.py": 11,
+   "hybrid_retriever.py": 35
+  },
+  "is_reported": true
+ },
+ {
+  "origin": "getredash_redash",
+  "revision": "f561a53dc55eeb3f20615be951560dc78bb23f4c",
+  "package": "redash/metrics",
+  "members": {
+   "database.py": 47,
+   "request.py": 37
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "infiniflow_ragflow",
+  "revision": "1870c2f25edc9722a0ebbdabb7b4a74cc9f20037",
+  "package": "tools/chatgpt-on-wechat/plugins",
+  "members": {
+   "__init__.py": 7,
+   "ragflow_chat.py": 77
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "jupyterhub_jupyterhub",
+  "revision": "41fffb935326c9e732d999950fd56beb9bc9fbec",
+  "package": "examples/service-fastapi/app",
+  "members": {
+   "app.py": 13,
+   "client.py": 7,
+   "models.py": 32,
+   "security.py": 54,
+   "service.py": 48
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "langgenius_dify",
+  "revision": "682819150e13ddb4ee08985876f516c5c5e88e3b",
+  "package": "api/configs/packaging",
+  "members": {
+   "__init__.py": 10,
+   "pyproject.py": 12
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "langgenius_dify",
+  "revision": "682819150e13ddb4ee08985876f516c5c5e88e3b",
+  "package": "api/core/app/app_config/easy_ui_based_app/model_config",
+  "members": {
+   "converter.py": 70,
+   "manager.py": 86
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "langgenius_dify",
+  "revision": "682819150e13ddb4ee08985876f516c5c5e88e3b",
+  "package": "api/core/rag/data_post_processor",
+  "members": {
+   "data_post_processor.py": 115,
+   "reorder.py": 8
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "langgenius_dify",
+  "revision": "682819150e13ddb4ee08985876f516c5c5e88e3b",
+  "package": "api/domain/workflow",
+  "members": {
+   "agent_node.py": 23,
+   "retry_history.py": 17
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "langgenius_dify",
+  "revision": "682819150e13ddb4ee08985876f516c5c5e88e3b",
+  "package": "api/enums",
+  "members": {
+   "__init__.py": 61,
+   "account.py": 55
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "langgenius_dify",
+  "revision": "682819150e13ddb4ee08985876f516c5c5e88e3b",
+  "package": "api/services/document_indexing_proxy",
+  "members": {
+   "base.py": 81,
+   "batch_indexing_base.py": 64,
+   "document_indexing_task_proxy.py": 9,
+   "duplicate_document_indexing_task_proxy.py": 13
+  },
+  "is_reported": true
+ },
+ {
+  "origin": "litestar-org_litestar",
+  "revision": "6aa278b5b5e9229ceba742a46d69b1a0b5426336",
+  "package": "litestar/_openapi/schema_generation/plugins",
+  "members": {
+   "__init__.py": 9,
+   "dataclass.py": 34,
+   "struct.py": 43,
+   "typed_dict.py": 19
+  },
+  "is_reported": true
+ },
+ {
+  "origin": "litestar-org_litestar",
+  "revision": "6aa278b5b5e9229ceba742a46d69b1a0b5426336",
+  "package": "litestar/events",
+  "members": {
+   "emitter.py": 98,
+   "listener.py": 56
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "litestar-org_litestar",
+  "revision": "6aa278b5b5e9229ceba742a46d69b1a0b5426336",
+  "package": "litestar/template",
+  "members": {
+   "base.py": 109,
+   "config.py": 46
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "litestar-org_litestar",
+  "revision": "6aa278b5b5e9229ceba742a46d69b1a0b5426336",
+  "package": "litestar/utils/scope",
+  "members": {
+   "__init__.py": 23,
+   "state.py": 99
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "locustio_locust",
+  "revision": "3debc468b53f10d00cb7b449c8f6086f2e5c5be1",
+  "package": "locust/rpc",
+  "members": {
+   "protocol.py": 34,
+   "zmqrpc.py": 78
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "mage-ai_mage-ai",
+  "revision": "1826a3795ead8c62e56e81497edd824efb1d5472",
+  "package": "mage_ai/services/azure/container_instance",
+  "members": {
+   "config.py": 6,
+   "container_instance.py": 81
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "mage-ai_mage-ai",
+  "revision": "1826a3795ead8c62e56e81497edd824efb1d5472",
+  "package": "mage_ai/services/email",
+  "members": {
+   "config.py": 16,
+   "email.py": 26
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "mage-ai_mage-ai",
+  "revision": "1826a3795ead8c62e56e81497edd824efb1d5472",
+  "package": "mage_ai/services/telegram",
+  "members": {
+   "config.py": 8,
+   "telegram.py": 15
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "mage-ai_mage-ai",
+  "revision": "1826a3795ead8c62e56e81497edd824efb1d5472",
+  "package": "mage_integrations/mage_integrations/connections/trino",
+  "members": {
+   "__init__.py": 35,
+   "connection_wrapper.py": 22
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "mage-ai_mage-ai",
+  "revision": "1826a3795ead8c62e56e81497edd824efb1d5472",
+  "package": "mage_integrations/mage_integrations/destinations/delta_lake_s3",
+  "members": {
+   "__init__.py": 110,
+   "utils.py": 35
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "mage-ai_mage-ai",
+  "revision": "1826a3795ead8c62e56e81497edd824efb1d5472",
+  "package": "mage_integrations/mage_integrations/sources/amplitude",
+  "members": {
+   "__init__.py": 63,
+   "constants.py": 7
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "mathesar-foundation_mathesar",
+  "revision": "3833c3ae5714f164dd6870f4d28865e78d60a4cc",
+  "package": "db/deprecated/functions/operations",
+  "members": {
+   "apply.py": 56,
+   "deserialize.py": 67
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "mathesar-foundation_mathesar",
+  "revision": "3833c3ae5714f164dd6870f4d28865e78d60a4cc",
+  "package": "mathesar/views/installation",
+  "members": {
+   "complete_installation.py": 47,
+   "decorators.py": 18
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "mathesar-foundation_mathesar",
+  "revision": "3833c3ae5714f164dd6870f4d28865e78d60a4cc",
+  "package": "mathesar/views/users",
+  "members": {
+   "login.py": 26,
+   "password_reset.py": 29
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "microsoft_autogen",
+  "revision": "8390985108cb1e3881f5f7297765758d8ad2540c",
+  "package": "python/packages/autogen-core/src/autogen_core/tool_agent",
+  "members": {
+   "_caller_loop.py": 64,
+   "_tool_agent.py": 77
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "microsoft_autogen",
+  "revision": "8390985108cb1e3881f5f7297765758d8ad2540c",
+  "package": "python/packages/autogen-ext/src/autogen_ext/agents/magentic_one",
+  "members": {
+   "__init__.py": 9,
+   "_magentic_one_coder_agent.py": 33
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "microsoft_autogen",
+  "revision": "8390985108cb1e3881f5f7297765758d8ad2540c",
+  "package": "python/packages/autogen-ext/src/autogen_ext/models/openai/_transformation",
+  "members": {
+   "registry.py": 93,
+   "types.py": 15
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "miguelgrinberg_microblog",
+  "revision": "a975ef64864354867c88e0ed3a17ba7d17dca752",
+  "package": "app/api",
+  "members": {
+   "__init__.py": 3,
+   "auth.py": 21,
+   "errors.py": 13,
+   "tokens.py": 15,
+   "users.py": 69
+  },
+  "is_reported": true
+ },
+ {
+  "origin": "miguelgrinberg_microblog",
+  "revision": "a975ef64864354867c88e0ed3a17ba7d17dca752",
+  "package": "app/auth",
+  "members": {
+   "__init__.py": 3,
+   "email.py": 12,
+   "forms.py": 39,
+   "routes.py": 75
+  },
+  "is_reported": true
+ },
+ {
+  "origin": "miguelgrinberg_microblog",
+  "revision": "a975ef64864354867c88e0ed3a17ba7d17dca752",
+  "package": "app/errors",
+  "members": {
+   "__init__.py": 3,
+   "handlers.py": 18
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "mirumee_ariadne",
+  "revision": "08c97a86577f012d510241c457eedf16b3dffdcf",
+  "package": "ariadne/subscription_handlers",
+  "members": {
+   "events.py": 22,
+   "handlers.py": 134
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "mitmproxy_mitmproxy",
+  "revision": "af5d15709bd09d1eb80bf88064540787f6c3e27e",
+  "package": "mitmproxy/contentviews/_view_image",
+  "members": {
+   "image_parser.py": 106,
+   "view.py": 47
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "nautobot_nautobot",
+  "revision": "7dd9ae667ce569bf6bbf4443962b244abf1ecf3c",
+  "package": "nautobot/core/events",
+  "members": {
+   "__init__.py": 93,
+   "base.py": 21,
+   "exceptions.py": 6,
+   "redis_broker.py": 31,
+   "syslog_broker.py": 13
+  },
+  "is_reported": true
+ },
+ {
+  "origin": "octoprint_OctoPrint",
+  "revision": "2a48c412975995ed12d7c150a571d8edab8d0469",
+  "package": "src/octoprint/util/json",
+  "members": {
+   "encoding.py": 51,
+   "serializing.py": 111
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "pdm-project_pdm",
+  "revision": "9af22ebcd76e966f4cbdddd2d50f2ebcf8b727bd",
+  "package": "src/pdm/cli/commands/fix",
+  "members": {
+   "__init__.py": 77,
+   "fixers.py": 119
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "piccolo-orm_piccolo",
+  "revision": "fc1fc86d9f966d02b5f40b57edb76c7ab7e7b604",
+  "package": "piccolo/apps/app/commands",
+  "members": {
+   "new.py": 90,
+   "show_all.py": 9
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "piccolo-orm_piccolo",
+  "revision": "fc1fc86d9f966d02b5f40b57edb76c7ab7e7b604",
+  "package": "piccolo/apps/user/commands",
+  "members": {
+   "change_password.py": 21,
+   "change_permissions.py": 44,
+   "create.py": 68,
+   "list.py": 57
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "piccolo-orm_piccolo",
+  "revision": "fc1fc86d9f966d02b5f40b57edb76c7ab7e7b604",
+  "package": "piccolo/columns/operators",
+  "members": {
+   "base.py": 2,
+   "comparison.py": 35,
+   "math.py": 11,
+   "string.py": 5
+  },
+  "is_reported": true
+ },
+ {
+  "origin": "python-telegram-bot_python-telegram-bot",
+  "revision": "41e3633bd1b4e51693ee57059828a59a9773618a",
+  "package": "src/telegram/_games",
+  "members": {
+   "callbackgame.py": 9,
+   "game.py": 126,
+   "gamehighscore.py": 27
+  },
+  "is_reported": true
+ },
+ {
+  "origin": "rafsaf_minimal-fastapi-postgres-template",
+  "revision": "261109fb4e0b1cb0473d6487818d41b10acb3627",
+  "package": "app/core",
+  "members": {
+   "config.py": 80,
+   "database_session.py": 41,
+   "lifespan.py": 35,
+   "metrics.py": 17,
+   "models.py": 3
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "reflex-dev_reflex",
+  "revision": "cb9ee91c43ec599f1e77e2392c32aa9dd38df4f1",
+  "package": "examples/playground/playground/components",
+  "members": {
+   "marker.py": 9,
+   "widgets.py": 86
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "reflex-dev_reflex",
+  "revision": "cb9ee91c43ec599f1e77e2392c32aa9dd38df4f1",
+  "package": "packages/reflex-components-core/src/reflex_components_core/react_router",
+  "members": {
+   "__init__.py": 3,
+   "dom.py": 46
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "reflex-dev_reflex",
+  "revision": "cb9ee91c43ec599f1e77e2392c32aa9dd38df4f1",
+  "package": "packages/reflex-components-gridjs/src/reflex_components_gridjs",
+  "members": {
+   "__init__.py": 3,
+   "datatable.py": 91
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "reflex-dev_reflex",
+  "revision": "cb9ee91c43ec599f1e77e2392c32aa9dd38df4f1",
+  "package": "packages/reflex-components-internal/src/reflex_components_internal/utils",
+  "members": {
+   "__init__.py": 12,
+   "twmerge.py": 22
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "reflex-dev_reflex",
+  "revision": "cb9ee91c43ec599f1e77e2392c32aa9dd38df4f1",
+  "package": "packages/reflex-site-shared/src/reflex_site_shared/utils",
+  "members": {
+   "docpage.py": 98,
+   "md.py": 38,
+   "url.py": 29
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "reflex-dev_reflex",
+  "revision": "cb9ee91c43ec599f1e77e2392c32aa9dd38df4f1",
+  "package": "reflex/middleware",
+  "members": {
+   "hydrate_middleware.py": 32,
+   "middleware.py": 36
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "runemalm_ddd-for-python",
+  "revision": "502f3ce6ee4a6aec8ec131aabf992beda6774544",
+  "package": "ddd/domain/dummy",
+  "members": {
+   "dummy.py": 15,
+   "dummy_id.py": 7,
+   "dummy_repository.py": 12,
+   "dummy_translator.py": 34
+  },
+  "is_reported": true
+ },
+ {
+  "origin": "runemalm_ddd-for-python",
+  "revision": "502f3ce6ee4a6aec8ec131aabf992beda6774544",
+  "package": "ddd/repositories/memory",
+  "members": {
+   "memory_dummy_repository.py": 22,
+   "memory_event_repository.py": 15,
+   "memory_repository.py": 87
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "runemalm_ddd-for-python",
+  "revision": "502f3ce6ee4a6aec8ec131aabf992beda6774544",
+  "package": "examples/webshop/shipping/src/shipping/domain/customer",
+  "members": {
+   "customer.py": 23,
+   "customer_id.py": 7,
+   "customer_repository.py": 27,
+   "customer_translator.py": 41
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "runemalm_ddd-for-python",
+  "revision": "502f3ce6ee4a6aec8ec131aabf992beda6774544",
+  "package": "examples/webshop/shipping/src/shipping/domain/shipment",
+  "members": {
+   "shipment.py": 19,
+   "shipment_created.py": 12,
+   "shipment_id.py": 7,
+   "shipment_repository.py": 27,
+   "shipment_translator.py": 38
+  },
+  "is_reported": true
+ },
+ {
+  "origin": "runemalm_ddd-for-python",
+  "revision": "502f3ce6ee4a6aec8ec131aabf992beda6774544",
+  "package": "examples/webshop/shipping/src/shipping/repositories/memory",
+  "members": {
+   "memory_customer_repository.py": 44,
+   "memory_shipment_repository.py": 44
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "runemalm_ddd-for-python",
+  "revision": "502f3ce6ee4a6aec8ec131aabf992beda6774544",
+  "package": "examples/webshop/shipping/src/shipping/repositories/postgres",
+  "members": {
+   "postgres_customer_repository.py": 63,
+   "postgres_shipment_repository.py": 63
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "strawberry-graphql_strawberry",
+  "revision": "36977c1ceac820184c8a59fc34dc7e103a7cc42c",
+  "package": "strawberry/cli/commands/upgrade",
+  "members": {
+   "__init__.py": 76,
+   "_fake_progress.py": 14,
+   "_run_codemod.py": 56
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "strawberry-graphql_strawberry",
+  "revision": "36977c1ceac820184c8a59fc34dc7e103a7cc42c",
+  "package": "strawberry/file_uploads",
+  "members": {
+   "scalars.py": 10,
+   "utils.py": 26
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "strawberry-graphql_strawberry",
+  "revision": "36977c1ceac820184c8a59fc34dc7e103a7cc42c",
+  "package": "strawberry/schema/validation_rules",
+  "members": {
+   "maybe_null.py": 95,
+   "one_of.py": 64
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "strawberry-graphql_strawberry",
+  "revision": "36977c1ceac820184c8a59fc34dc7e103a7cc42c",
+  "package": "strawberry/tools",
+  "members": {
+   "create_type.py": 58,
+   "merge_types.py": 27
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "taigaio_taiga-back",
+  "revision": "8ab6a4e3b5f6fbbfcbf108a6449011f07b7308aa",
+  "package": "taiga/base/signals",
+  "members": {
+   "cleanup_files.py": 54,
+   "thumbnails.py": 9
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "taigaio_taiga-back",
+  "revision": "8ab6a4e3b5f6fbbfcbf108a6449011f07b7308aa",
+  "package": "taiga/projects/votes/mixins",
+  "members": {
+   "serializers.py": 9,
+   "viewsets.py": 54
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "testdrivenio_fastapi-tdd-docker",
+  "revision": "16433b6621e9afd801de8eba9738a6bfefb1f601",
+  "package": "project/app/api",
+  "members": {
+   "crud.py": 29,
+   "ping.py": 10,
+   "summaries.py": 43
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "testdrivenio_fastapi-tdd-docker",
+  "revision": "16433b6621e9afd801de8eba9738a6bfefb1f601",
+  "package": "project/app/models",
+  "members": {
+   "pydantic.py": 7,
+   "tortoise.py": 9
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "tox-dev_tox",
+  "revision": "62bd8cf9bfd5e8e5f3e8426b04645e6aa4ba5f0e",
+  "package": "src/tox/journal",
+  "members": {
+   "__init__.py": 21,
+   "env.py": 65,
+   "main.py": 51
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "vitalik_django-ninja",
+  "revision": "d235edcfb15287703c9889ed8fbfacadc0079387",
+  "package": "ninja/security",
+  "members": {
+   "__init__.py": 18,
+   "apikey.py": 42,
+   "base.py": 25,
+   "http.py": 67,
+   "session.py": 28
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "wemake-services_wemake-django-template",
+  "revision": "a2e9883dabfcc507bdda25ec0ac4d9a2635994ea",
+  "package": "{{cookiecutter.project_name}}/server/apps/main/infra",
+  "members": {
+   "mappers.py": 16,
+   "repository.py": 18
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "wemake-services_wemake-django-template",
+  "revision": "a2e9883dabfcc507bdda25ec0ac4d9a2635994ea",
+  "package": "{{cookiecutter.project_name}}/server/apps/main/logic/usecases",
+  "members": {
+   "blogpost_create.py": 25,
+   "blogpost_get.py": 19
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "wger-project_wger",
+  "revision": "be0b52c430d9dead7835a88f1bd4c04a73f1de98",
+  "package": "wger/mailer/models",
+  "members": {
+   "cron.py": 19,
+   "log.py": 45
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "zauberzeug_nicegui",
+  "revision": "a18bf20e14e4f549e5d38d3f06ec8d046e67bae9",
+  "package": "nicegui/elements/echart",
+  "members": {
+   "__init__.py": 6,
+   "echart.py": 128
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "zauberzeug_nicegui",
+  "revision": "a18bf20e14e4f549e5d38d3f06ec8d046e67bae9",
+  "package": "nicegui/elements/joystick",
+  "members": {
+   "__init__.py": 6,
+   "joystick.py": 60
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "zauberzeug_nicegui",
+  "revision": "a18bf20e14e4f549e5d38d3f06ec8d046e67bae9",
+  "package": "nicegui/elements/mermaid",
+  "members": {
+   "__init__.py": 6,
+   "mermaid.py": 47
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "zauberzeug_nicegui",
+  "revision": "a18bf20e14e4f549e5d38d3f06ec8d046e67bae9",
+  "package": "nicegui/elements/plotly",
+  "members": {
+   "__init__.py": 6,
+   "plotly.py": 52
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "zauberzeug_nicegui",
+  "revision": "a18bf20e14e4f549e5d38d3f06ec8d046e67bae9",
+  "package": "nicegui/elements/sortable",
+  "members": {
+   "__init__.py": 6,
+   "sortable.py": 83
+  },
+  "is_reported": false
+ },
+ {
+  "origin": "zauberzeug_nicegui",
+  "revision": "a18bf20e14e4f549e5d38d3f06ec8d046e67bae9",
+  "package": "website/documentation/content/doc",
+  "members": {
+   "api.py": 147,
+   "page.py": 15,
+   "part.py": 23
+  },
+  "is_reported": false
+ }
+]

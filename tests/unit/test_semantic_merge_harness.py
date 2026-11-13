@@ -21,10 +21,13 @@ import pytest
 _HARNESS = Path(__file__).resolve().parents[2] / "experiments" / "semantic-merge" / "harness"
 sys.path.insert(0, str(_HARNESS))
 
-import cochange_signals  # noqa: E402 -- the harness directory is not a package
+import boundary_signals  # noqa: E402 -- the harness directory is not a package
+import cochange_signals  # noqa: E402
+import idle_boundaries  # noqa: E402
 import labelled_packages  # noqa: E402
 import measure_clustering  # noqa: E402
 import measure_congruence  # noqa: E402
+import member_surfaces  # noqa: E402
 import modularization_quality  # noqa: E402
 import report_ratings  # noqa: E402
 import reuse_signals  # noqa: E402
@@ -460,3 +463,178 @@ def test_congruence_pairs_are_capped_per_package_and_skip_migrations(tmp_path: P
     assert len(same) == measure_congruence.MAX_PAIRS_PER_PACKAGE + 1
     assert len(across) == 24
     assert not any("migrations" in name for pair in (*same, *across) for name in pair)
+
+
+def read_package_boundaries(root: Path, *, package: str) -> boundary_signals.Boundaries:
+    """The boundaries of *package* in the tree at *root*."""
+    view = build_view(root, package=package)
+    surfaces = [member_surfaces.read_surface(member) for member in view.members]
+    return boundary_signals.read_boundaries(view=view, surfaces=surfaces)
+
+
+DECLARATIONS = (
+    "from typing import Protocol\n\n\n"
+    "LIMIT = 3\n\n\n"
+    "class NotFound(Exception):\n    pass\n\n\n"
+    "class Reader(Protocol):\n"
+    "    def read(self, key: str) -> str:\n        ...\n\n"
+    "    def close(self) -> None:\n        raise NotImplementedError\n"
+)
+BEHAVIOUR = (
+    "def total(values, start=0):\n"
+    "    result = start\n"
+    "    for value in values:\n"
+    "        if value:\n"
+    "            result += value\n"
+    "    return result\n"
+)
+
+
+def test_a_module_of_declarations_has_no_depth(tmp_path: Path):
+    # Arrange
+    write_tree(tmp_path, {"app/__init__.py": "", "app/types.py": DECLARATIONS})
+    module = labelled_packages.read_original_tree(tmp_path).tree.by_directory["app"][-1]
+
+    # Act
+    surface = member_surfaces.read_surface(module)
+
+    # Assert
+    assert surface.implementation_size == 0
+    assert surface.depth == 0.0
+    assert surface.public == {"LIMIT", "NotFound", "Reader"}
+    assert surface.interface_size == 8
+
+
+def test_depth_is_the_share_of_statements_behind_the_interface(tmp_path: Path):
+    # Arrange
+    write_tree(tmp_path, {"app/__init__.py": "", "app/sums.py": BEHAVIOUR})
+    module = labelled_packages.read_original_tree(tmp_path).tree.by_directory["app"][-1]
+
+    # Act
+    surface = member_surfaces.read_surface(module)
+
+    # Assert
+    assert surface.interface_size == 3
+    assert surface.implementation_size == 5
+    assert surface.depth == 5 / 8
+
+
+def test_a_declaration_file_every_client_imports_by_name_is_idle(tmp_path: Path):
+    # Arrange
+    write_tree(
+        tmp_path,
+        {
+            "app/__init__.py": "",
+            "app/domain/__init__.py": "",
+            "app/domain/errors.py": "class NotFound(Exception):\n    pass\n",
+            "app/domain/limits.py": "LIMIT = 3\n",
+            "app/domain/sums.py": BEHAVIOUR,
+            "app/service.py": (
+                "from app.domain.errors import NotFound\n"
+                "from app.domain.limits import LIMIT\n\n\n"
+                "def check(count):\n"
+                "    if count > LIMIT:\n"
+                "        raise NotFound\n\n\n"
+                "def describe():\n"
+                "    return LIMIT\n"
+            ),
+        },
+    )
+    boundaries = read_package_boundaries(tmp_path, package="app/domain")
+
+    # Act
+    idle = idle_boundaries.measure_idle_share(boundaries)
+    co_use = boundary_signals.measure_scope_co_use(boundaries)
+    hops = idle_boundaries.measure_hops(boundaries)
+
+    # Assert
+    assert idle == 2 / 3
+    assert co_use == 0.5
+    assert hops == 0.5
+
+
+def test_a_member_used_as_a_namespace_or_holding_a_colliding_name_is_not_idle(tmp_path: Path):
+    # Arrange
+    write_tree(
+        tmp_path,
+        {
+            "app/__init__.py": "",
+            "app/api/__init__.py": "",
+            "app/api/users.py": "ROUTES = ['users']\nPREFIX = '/users'\n",
+            "app/api/items.py": "ROUTES = ['items']\n",
+            "app/api/health.py": "STATUS = 'ok'\n",
+            "app/api/limits.py": "LIMIT = 3\n",
+            "app/main.py": (
+                "from app.api import health\n"
+                "from app.api.users import ROUTES\n"
+                "from app.api.limits import LIMIT\n\n\n"
+                "def read_status():\n"
+                "    return health.STATUS, ROUTES, LIMIT\n"
+            ),
+        },
+    )
+    boundaries = read_package_boundaries(tmp_path, package="app/api")
+
+    # Act
+    colliding = boundary_signals.list_colliding_members(boundaries)
+    qualified = idle_boundaries.list_qualified_members(boundaries)
+    idle = idle_boundaries.measure_idle_share(boundaries)
+    addressing = boundary_signals.measure_addressing(boundaries)
+
+    # Assert
+    assert colliding == {"app/api/users.py", "app/api/items.py"}
+    assert qualified == {"app/api/health.py"}
+    assert idle == 1 / 4
+    assert addressing == {"qualified_use_share": 1 / 3, "facade_use_share": 0.0}
+
+
+def test_a_repeated_assignment_nothing_imports_is_not_a_collision(tmp_path: Path):
+    # Arrange
+    write_tree(
+        tmp_path,
+        {
+            "app/__init__.py": "",
+            "app/jobs/__init__.py": "",
+            "app/jobs/send.py": "import logging\n\nlogger = logging.getLogger(__name__)\nSEND = 1\n",
+            "app/jobs/fetch.py": "import logging\n\nlogger = logging.getLogger(__name__)\nFETCH = 2\n",
+            "app/main.py": "from app.jobs.send import SEND\nfrom app.jobs.fetch import FETCH\n",
+        },
+    )
+    boundaries = read_package_boundaries(tmp_path, package="app/jobs")
+
+    # Act
+    colliding = boundary_signals.list_colliding_members(boundaries)
+    saving = boundary_signals.measure_merge_saving(boundaries)
+
+    # Assert
+    assert colliding == set()
+    assert saving == 0.5
+
+
+def test_facade_use_and_sibling_only_names_are_read_from_imports(tmp_path: Path):
+    # Arrange
+    write_tree(
+        tmp_path,
+        {
+            "app/__init__.py": "",
+            "app/health/__init__.py": "from .router import build_router\n",
+            "app/health/checks.py": "def check_database():\n    return True\n",
+            "app/health/router.py": (
+                "from .checks import check_database\n\n\n"
+                "def build_router():\n"
+                "    return check_database()\n"
+            ),
+            "app/main.py": "from app.health import build_router\n",
+        },
+    )
+    boundaries = read_package_boundaries(tmp_path, package="app/health")
+
+    # Act
+    addressing = boundary_signals.measure_addressing(boundaries)
+    sibling_only = boundary_signals.measure_sibling_only_names(boundaries)
+    shrink = idle_boundaries.measure_interface_shrink(boundaries)
+
+    # Assert
+    assert addressing == {"qualified_use_share": 0.0, "facade_use_share": 1.0}
+    assert sibling_only == 0.5
+    assert shrink == 0.5
