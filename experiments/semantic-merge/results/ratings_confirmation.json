@@ -1,0 +1,1954 @@
+[
+ {
+  "identifier": "Aeternalis-Ingenium_FastAPI-Backend-Template:backend/src/api/routes",
+  "rater": "a",
+  "model": "opus",
+  "label": "contested",
+  "confidence": "medium",
+  "reason": "Each module holds one APIRouter per resource (/accounts, /auth) wired in api/endpoints.py, the familiar one-router-per-resource convention."
+ },
+ {
+  "identifier": "Aeternalis-Ingenium_FastAPI-Backend-Template:backend/src/api/routes",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "contested",
+  "confidence": "medium",
+  "reason": "One router per resource (account, authentication), each imported by name in endpoints.py."
+ },
+ {
+  "identifier": "Aeternalis-Ingenium_FastAPI-Backend-Template:backend/src/config/settings",
+  "rater": "a",
+  "model": "opus",
+  "label": "contested",
+  "confidence": "high",
+  "reason": "It is the classic one-settings-module-per-environment layout (base plus dev/stage/prod subclasses of a few lines each, selected in config/manager.py)."
+ },
+ {
+  "identifier": "Aeternalis-Ingenium_FastAPI-Backend-Template:backend/src/config/settings",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "contested",
+  "confidence": "medium",
+  "reason": "One settings module per environment (dev, staging, production) that manager.py selects by name."
+ },
+ {
+  "identifier": "Aeternalis-Ingenium_FastAPI-Backend-Template:backend/src/models/schemas",
+  "rater": "a",
+  "model": "opus",
+  "label": "contested",
+  "confidence": "medium",
+  "reason": "Small Pydantic schema modules split per resource (account, jwt) over a shared base, mirroring models/db/account.py and repository/crud/account.py, a common but arguable per-resource layout."
+ },
+ {
+  "identifier": "Aeternalis-Ingenium_FastAPI-Backend-Template:backend/src/models/schemas",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "contested",
+  "confidence": "low",
+  "reason": "Schemas split per domain (account, base, jwt) with tiny base and jwt modules, all imported by full path."
+ },
+ {
+  "identifier": "Aeternalis-Ingenium_FastAPI-Backend-Template:backend/src/repository/crud",
+  "rater": "a",
+  "model": "opus",
+  "label": "contested",
+  "confidence": "medium",
+  "reason": "A four-line BaseCRUDRepository plus one AccountCRUDRepository follows the one-repository-per-entity convention that the template repeats for schemas and models."
+ },
+ {
+  "identifier": "Aeternalis-Ingenium_FastAPI-Backend-Template:backend/src/repository/crud",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "contested",
+  "confidence": "low",
+  "reason": "A 6-line abstract base repository beside a per-resource CRUD module, a recognisable repository convention."
+ },
+ {
+  "identifier": "Aeternalis-Ingenium_FastAPI-Backend-Template:backend/src/securities/hashing",
+  "rater": "a",
+  "model": "opus",
+  "label": "merge",
+  "confidence": "high",
+  "reason": "password.py's PasswordGenerator is a pure pass-through over hash.py's HashGenerator, and only repository/crud/account.py imports it, so the two layers make one concern."
+ },
+ {
+  "identifier": "Aeternalis-Ingenium_FastAPI-Backend-Template:backend/src/securities/hashing",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "merge",
+  "confidence": "medium",
+  "reason": "password.py is a thin wrapper delegating to hash_generator, and both are imported only inside this package and crud/account.py."
+ },
+ {
+  "identifier": "BerriAI_litellm:litellm/integrations/focus/serializers",
+  "rater": "a",
+  "model": "opus",
+  "label": "contested",
+  "confidence": "medium",
+  "reason": "Tiny one-serializer-per-format strategy modules over an abstract base, re-exported from the package __init__, are a defensible but not necessary one-class-per-module split."
+ },
+ {
+  "identifier": "BerriAI_litellm:litellm/integrations/focus/serializers",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "contested",
+  "confidence": "medium",
+  "reason": "Base class plus one serializer per output format, re-exported by the package __init__ so merging would keep the public path."
+ },
+ {
+  "identifier": "BerriAI_litellm:litellm/proxy/guardrails/guardrail_hooks/reco",
+  "rater": "a",
+  "model": "opus",
+  "label": "keep",
+  "confidence": "high",
+  "reason": "It is a guardrail plugin directory that guardrail_registry discovers by module attributes (guardrail_initializer_registry), and dozens of sibling guardrail_hooks packages repeat the same __init__ plus implementation layout."
+ },
+ {
+  "identifier": "BerriAI_litellm:litellm/proxy/guardrails/guardrail_hooks/reco",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "keep",
+  "confidence": "high",
+  "reason": "Per-provider guardrail hook directory with __init__ registry plus implementation, a layout dozens of sibling hooks repeat and litellm loads by name."
+ },
+ {
+  "identifier": "BerriAI_litellm:litellm/proxy/guardrails/guardrail_hooks/wingback",
+  "rater": "a",
+  "model": "opus",
+  "label": "keep",
+  "confidence": "high",
+  "reason": "It is a guardrail plugin directory loaded by guardrail_registry through its __init__ registries, repeating the per-integration layout of its many guardrail_hooks siblings."
+ },
+ {
+  "identifier": "BerriAI_litellm:litellm/proxy/guardrails/guardrail_hooks/wingback",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "keep",
+  "confidence": "high",
+  "reason": "Per-provider guardrail hook directory with __init__ registry plus implementation, repeated by sibling hooks and loaded by name."
+ },
+ {
+  "identifier": "BerriAI_litellm:litellm/proxy/rust_forward/platform",
+  "rater": "a",
+  "model": "opus",
+  "label": "keep",
+  "confidence": "high",
+  "reason": "The Platform protocol with separate POSIX and Windows implementations is a deliberate OS boundary, documented in the package AGENTS.md, and tests import platform.posix and platform.windows directly."
+ },
+ {
+  "identifier": "BerriAI_litellm:litellm/proxy/rust_forward/platform",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "keep",
+  "confidence": "high",
+  "reason": "posix and windows are distinct platform strategies selected at runtime behind a Platform protocol, with Windows-only code kept importable separately."
+ },
+ {
+  "identifier": "BerriAI_litellm:litellm/sandbox",
+  "rater": "a",
+  "model": "opus",
+  "label": "keep",
+  "confidence": "medium",
+  "reason": "main.py holds the public entrypoints that litellm/__init__.py star-imports (the project-wide X/main.py convention), while sandbox_tools.py is a separate proxy-config registry with module state imported by proxy_server and the interceptor."
+ },
+ {
+  "identifier": "BerriAI_litellm:litellm/sandbox",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "keep",
+  "confidence": "high",
+  "reason": "litellm.sandbox is a public path (from litellm import sandbox, sandbox.sandbox_tools imported elsewhere) with distinct provider API and tool registry."
+ },
+ {
+  "identifier": "BerriAI_litellm:litellm/types/proxy/guardrails/guardrail_hooks/ibm",
+  "rater": "a",
+  "model": "opus",
+  "label": "merge",
+  "confidence": "medium",
+  "reason": "base.py has one config base used only by the single ibm_detector model, all callers import through the package __init__, and nearly every sibling guardrail type is a single module."
+ },
+ {
+  "identifier": "BerriAI_litellm:litellm/types/proxy/guardrails/guardrail_hooks/ibm",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "contested",
+  "confidence": "medium",
+  "reason": "Shared base config model plus detector types split in a types package that mirrors sibling per-provider type dirs, re-exported via __init__."
+ },
+ {
+  "identifier": "Bogdanp_dramatiq:examples/use_actors_from_different_files/actors",
+  "rater": "a",
+  "model": "opus",
+  "label": "keep",
+  "confidence": "high",
+  "reason": "The example exists to show actors defined in different files and registered through the package __init__, so the split is the point of the example."
+ },
+ {
+  "identifier": "Bogdanp_dramatiq:examples/use_actors_from_different_files/actors",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "keep",
+  "confidence": "high",
+  "reason": "The example exists to show actors defined in separate files that the package __init__ imports to register them."
+ },
+ {
+  "identifier": "Buuntu_fastapi-react:{{cookiecutter.project_slug}}/backend/app/db",
+  "rater": "a",
+  "model": "opus",
+  "label": "keep",
+  "confidence": "medium",
+  "reason": "ORM models, Pydantic schemas, CRUD queries and the engine/session are distinct layers that are each imported separately (alembic env.py needs models, routers need session.get_db)."
+ },
+ {
+  "identifier": "Buuntu_fastapi-react:{{cookiecutter.project_slug}}/backend/app/db",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "keep",
+  "confidence": "high",
+  "reason": "models, schemas, crud and session are distinct layers each imported by path from alembic, routers and auth."
+ },
+ {
+  "identifier": "HackSoftware_Django-Styleguide-Example:styleguide_example/testing_examples/services",
+  "rater": "a",
+  "model": "opus",
+  "label": "contested",
+  "confidence": "medium",
+  "reason": "It is the styleguide's one-service-module-per-entity convention, re-exported through services/__init__, and tests patch the per-module paths, which makes it defensible but not required at this size."
+ },
+ {
+  "identifier": "HackSoftware_Django-Styleguide-Example:styleguide_example/testing_examples/services",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "contested",
+  "confidence": "medium",
+  "reason": "One service module per entity (rosters, school_courses, students) as in the Django styleguide, re-exported from __init__ and patched by module path in tests."
+ },
+ {
+  "identifier": "Netflix_metaflow:metaflow/system",
+  "rater": "a",
+  "model": "opus",
+  "label": "merge",
+  "confidence": "medium",
+  "reason": "All outside callers import only the two singletons from metaflow.system, and the two near-duplicate sidecar wrapper classes plus a 19-line helper total about 200 lines, so one module would break nothing."
+ },
+ {
+  "identifier": "Netflix_metaflow:metaflow/system",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "keep",
+  "confidence": "medium",
+  "reason": "Logger and monitor are distinct classes re-exported by the package and imported as metaflow.system, with a shared helper module."
+ },
+ {
+  "identifier": "authlib_authlib:authlib/jose/rfc8037",
+  "rater": "a",
+  "model": "opus",
+  "label": "keep",
+  "confidence": "medium",
+  "reason": "The public path is the per-spec package authlib.jose.rfc8037, and its jws_*/ *_key split deliberately mirrors the sibling rfc7518 layout (jws_algs.py, ec_key.py, rsa_key.py)."
+ },
+ {
+  "identifier": "authlib_authlib:authlib/jose/rfc8037",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "keep",
+  "confidence": "high",
+  "reason": "jose/rfcNNNN package layout is repeated by siblings and OKPKey is imported by public path authlib.jose.rfc8037."
+ },
+ {
+  "identifier": "authlib_authlib:authlib/oauth2/multiple_response_types",
+  "rater": "a",
+  "model": "opus",
+  "label": "keep",
+  "confidence": "medium",
+  "reason": "Authlib's per-spec packages repeat role-named modules on purpose (authorization_server.py also in rfc6749, rfc9101, rfc9470), and the grant and the server extension are distinct components."
+ },
+ {
+  "identifier": "authlib_authlib:authlib/oauth2/multiple_response_types",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "keep",
+  "confidence": "medium",
+  "reason": "Authorization server and grant are separate roles imported through the public package path from several places."
+ },
+ {
+  "identifier": "authlib_authlib:authlib/oauth2/rfc7009",
+  "rater": "a",
+  "model": "opus",
+  "label": "keep",
+  "confidence": "medium",
+  "reason": "The client-side request helper (parameters.py, a name repeated in rfc6749 and rfc6750) and the server-side RevocationEndpoint are separate roles in authlib's deliberate per-spec role layout."
+ },
+ {
+  "identifier": "authlib_authlib:authlib/oauth2/rfc7009",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "contested",
+  "confidence": "medium",
+  "reason": "Tiny parameters.py beside revocation.py, but it follows the repeated per-RFC package layout with a public package path."
+ },
+ {
+  "identifier": "authlib_authlib:authlib/oauth2/rfc7662",
+  "rater": "a",
+  "model": "opus",
+  "label": "keep",
+  "confidence": "medium",
+  "reason": "Endpoint, token model and resource-server validator are distinct roles whose module names (introspection.py, models.py, token_validator.py) are repeated by sibling rfc9068, and docs reference rfc7662.introspection.IntrospectionEndpoint."
+ },
+ {
+  "identifier": "authlib_authlib:authlib/oauth2/rfc7662",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "keep",
+  "confidence": "medium",
+  "reason": "Endpoint, token model and token validator are distinct roles in the per-RFC layout, imported via the package path."
+ },
+ {
+  "identifier": "authlib_authlib:authlib/oauth2/rfc9207",
+  "rater": "a",
+  "model": "opus",
+  "label": "keep",
+  "confidence": "medium",
+  "reason": "Although tiny, the discovery.py metadata class follows the convention repeated across sibling spec packages (rfc9101, rfc9728, prompt_create, rpinitiated, backchannel) and is separate from the server extension."
+ },
+ {
+  "identifier": "authlib_authlib:authlib/oauth2/rfc9207",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "keep",
+  "confidence": "medium",
+  "reason": "Discovery metadata and issuer-parameter extension are separate concerns mirroring the discovery.py layout of sibling RFC packages."
+ },
+ {
+  "identifier": "authlib_authlib:authlib/oidc/prompt_create",
+  "rater": "a",
+  "model": "opus",
+  "label": "keep",
+  "confidence": "medium",
+  "reason": "discovery.py is the metadata-validation module repeated across sibling OIDC and OAuth2 spec packages, separate from the PromptValues authorization-server extension."
+ },
+ {
+  "identifier": "authlib_authlib:authlib/oidc/prompt_create",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "keep",
+  "confidence": "medium",
+  "reason": "Provider metadata and prompt extension are separate concerns following the sibling discovery.py convention, imported via public package."
+ },
+ {
+  "identifier": "chainlit_chainlit:backend/chainlit/llama_index",
+  "rater": "a",
+  "model": "opus",
+  "label": "keep",
+  "confidence": "high",
+  "reason": "chainlit.llama_index.callbacks is a public import path named in chainlit's lazy-import table and mirrors the sibling langchain/callbacks.py integration layout, with __init__ only doing a version guard."
+ },
+ {
+  "identifier": "chainlit_chainlit:backend/chainlit/llama_index",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "keep",
+  "confidence": "high",
+  "reason": "chainlit.llama_index is a public import path whose __init__ guards the version and callbacks holds the handler."
+ },
+ {
+  "identifier": "crewAIInc_crewAI:lib/crewai/src/crewai/agents/agent_builder/utilities",
+  "rater": "a",
+  "model": "opus",
+  "label": "keep",
+  "confidence": "medium",
+  "reason": "OutputConverter and TokenProcess are unrelated classes, each imported by its full dotted path across the library and its tests (TokenProcess is part of BaseAgent's surface), so they are separate things with relied-on paths."
+ },
+ {
+  "identifier": "crewAIInc_crewAI:lib/crewai/src/crewai/agents/agent_builder/utilities",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "keep",
+  "confidence": "medium",
+  "reason": "Output converter and token process are unrelated and imported by full module path from many places."
+ },
+ {
+  "identifier": "crewAIInc_crewAI:lib/crewai/src/crewai/rag/embeddings/providers/cohere",
+  "rater": "a",
+  "model": "opus",
+  "label": "keep",
+  "confidence": "high",
+  "reason": "The embedding factory loads crewai.rag.embeddings.providers.cohere.cohere_provider.CohereProvider by dotted path and imports the spec from .types, a provider/types layout every sibling provider repeats."
+ },
+ {
+  "identifier": "crewAIInc_crewAI:lib/crewai/src/crewai/rag/embeddings/providers/cohere",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "contested",
+  "confidence": "medium",
+  "reason": "Provider plus types.py is the layout every sibling embeddings provider repeats, though types.py is tiny."
+ },
+ {
+  "identifier": "crewAIInc_crewAI:lib/crewai/src/crewai/rag/embeddings/providers/instructor",
+  "rater": "a",
+  "model": "opus",
+  "label": "keep",
+  "confidence": "high",
+  "reason": "The embedding factory loads the provider class by its dotted module path, and the <name>_provider.py plus types.py layout is repeated by every sibling provider package."
+ },
+ {
+  "identifier": "crewAIInc_crewAI:lib/crewai/src/crewai/rag/embeddings/providers/instructor",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "contested",
+  "confidence": "medium",
+  "reason": "Provider plus types.py is the layout every sibling embeddings provider repeats, though types.py is tiny."
+ },
+ {
+  "identifier": "crewAIInc_crewAI:lib/crewai/src/crewai/rag/embeddings/providers/ollama",
+  "rater": "a",
+  "model": "opus",
+  "label": "keep",
+  "confidence": "high",
+  "reason": "factory.py names crewai.rag.embeddings.providers.ollama.ollama_provider.OllamaProvider as a string path and imports ollama.types, following the layout all sibling providers share."
+ },
+ {
+  "identifier": "crewAIInc_crewAI:lib/crewai/src/crewai/rag/embeddings/providers/ollama",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "contested",
+  "confidence": "medium",
+  "reason": "Provider plus types.py is the layout every sibling embeddings provider repeats, though types.py is tiny."
+ },
+ {
+  "identifier": "crewAIInc_crewAI:lib/crewai/src/crewai/rag/embeddings/providers/openclip",
+  "rater": "a",
+  "model": "opus",
+  "label": "keep",
+  "confidence": "high",
+  "reason": "The embedding factory loads the provider class by its dotted module path, and the <name>_provider.py plus types.py layout is repeated by every sibling provider package."
+ },
+ {
+  "identifier": "crewAIInc_crewAI:lib/crewai/src/crewai/rag/embeddings/providers/openclip",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "contested",
+  "confidence": "medium",
+  "reason": "Provider plus types.py is the layout every sibling embeddings provider repeats, though types.py is tiny."
+ },
+ {
+  "identifier": "crewAIInc_crewAI:lib/crewai/src/crewai/rag/embeddings/providers/sentence_transformer",
+  "rater": "a",
+  "model": "opus",
+  "label": "keep",
+  "confidence": "high",
+  "reason": "The embedding factory loads the provider class by its dotted module path, and the <name>_provider.py plus types.py layout is repeated by every sibling provider package."
+ },
+ {
+  "identifier": "crewAIInc_crewAI:lib/crewai/src/crewai/rag/embeddings/providers/sentence_transformer",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "contested",
+  "confidence": "medium",
+  "reason": "Provider plus types.py is the layout every sibling embeddings provider repeats, though types.py is tiny."
+ },
+ {
+  "identifier": "element-hq_synapse:synapse/rest/synapse/client/oidc",
+  "rater": "a",
+  "model": "opus",
+  "label": "contested",
+  "confidence": "medium",
+  "reason": "Two tiny Twisted resources, one per module, imported only by the package __init__ that mounts them, so merging breaks nothing but undoes a one-resource-per-module convention."
+ },
+ {
+  "identifier": "element-hq_synapse:synapse/rest/synapse/client/oidc",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "contested",
+  "confidence": "medium",
+  "reason": "One resource class per module with a composing __init__, mirrored by the sibling saml2 package, a convention maintainers could dispute."
+ },
+ {
+  "identifier": "element-hq_synapse:synapse/rest/synapse/client/saml2",
+  "rater": "a",
+  "model": "opus",
+  "label": "contested",
+  "confidence": "medium",
+  "reason": "Two small SAML2 endpoint resources, one per module, used only by the package __init__, so the split is a defensible one-resource-per-module convention rather than a requirement."
+ },
+ {
+  "identifier": "element-hq_synapse:synapse/rest/synapse/client/saml2",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "contested",
+  "confidence": "medium",
+  "reason": "One resource per module, mirroring the sibling oidc package; each is imported by name only from its own __init__."
+ },
+ {
+  "identifier": "element-hq_synapse:synmark/suites",
+  "rater": "a",
+  "model": "opus",
+  "label": "keep",
+  "confidence": "high",
+  "reason": "synmark/__main__.py selects benchmark suites by module name (s.__name__.split('.')[-1]) and each module exposes its own main(), so the modules are loaded by name."
+ },
+ {
+  "identifier": "element-hq_synapse:synmark/suites",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "keep",
+  "confidence": "medium",
+  "reason": "Each module is a distinct benchmark suite (logging, lrucache, eviction) registered by name in SUITES."
+ },
+ {
+  "identifier": "esphome_esphome:esphome/components/animation",
+  "rater": "a",
+  "model": "opus",
+  "label": "keep",
+  "confidence": "high",
+  "reason": "ESPHome loads image.py by file name as the image platform of the animation component, so it cannot be merged into __init__.py."
+ },
+ {
+  "identifier": "esphome_esphome:esphome/components/animation",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "keep",
+  "confidence": "high",
+  "reason": "image.py is an ESPHome platform module loaded by name alongside the component __init__."
+ },
+ {
+  "identifier": "esphome_esphome:esphome/components/online_image",
+  "rater": "a",
+  "model": "opus",
+  "label": "keep",
+  "confidence": "high",
+  "reason": "ESPHome loads image.py by file name as the image platform of the online_image component, so the platform module must stay separate."
+ },
+ {
+  "identifier": "esphome_esphome:esphome/components/online_image",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "keep",
+  "confidence": "high",
+  "reason": "image.py is an ESPHome platform module loaded by name alongside the component __init__."
+ },
+ {
+  "identifier": "esphome_esphome:esphome/components/rc522",
+  "rater": "a",
+  "model": "opus",
+  "label": "keep",
+  "confidence": "high",
+  "reason": "ESPHome loads binary_sensor.py by name as the component's binary_sensor platform, and rc522_i2c imports the hub from the package __init__."
+ },
+ {
+  "identifier": "esphome_esphome:esphome/components/rc522",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "keep",
+  "confidence": "high",
+  "reason": "binary_sensor.py is an ESPHome platform module loaded by name and the component layout is repeated across components."
+ },
+ {
+  "identifier": "esphome_esphome:esphome/components/rotary_encoder",
+  "rater": "a",
+  "model": "opus",
+  "label": "keep",
+  "confidence": "high",
+  "reason": "ESPHome loads sensor.py by file name as the rotary_encoder sensor platform, so the layout is framework-required."
+ },
+ {
+  "identifier": "esphome_esphome:esphome/components/rotary_encoder",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "keep",
+  "confidence": "high",
+  "reason": "sensor.py is an ESPHome platform module loaded by name and the component layout is repeated across components."
+ },
+ {
+  "identifier": "ets-labs_python-dependency-injector:examples/miniapps/commands-and-handlers/application",
+  "rater": "a",
+  "model": "opus",
+  "label": "contested",
+  "confidence": "medium",
+  "reason": "About 60 lines of example code split into commands/handler/messagebus/repositories/containers, a deliberate layered layout that the library's miniapp examples repeat to teach container wiring, though one module would work."
+ },
+ {
+  "identifier": "ets-labs_python-dependency-injector:examples/miniapps/commands-and-handlers/application",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "contested",
+  "confidence": "medium",
+  "reason": "Tiny example files (5 to 14 lines each) that deliberately show one concept per module, which is defensible but could be one file."
+ },
+ {
+  "identifier": "fastapi-practices_fastapi_best_architecture:backend/app/admin/api/v1/auth",
+  "rater": "a",
+  "model": "opus",
+  "label": "contested",
+  "confidence": "medium",
+  "reason": "One APIRouter per resource (auth, captcha) aggregated in __init__, the same convention its sibling log/monitor/sys packages follow, which is defensible but not necessary for two small routers."
+ },
+ {
+  "identifier": "fastapi-practices_fastapi_best_architecture:backend/app/admin/api/v1/auth",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "contested",
+  "confidence": "medium",
+  "reason": "One router per resource (auth, captcha) composed in __init__, matching the project's per-resource api layout."
+ },
+ {
+  "identifier": "fastapi-practices_fastapi_best_architecture:backend/app/task/crud",
+  "rater": "a",
+  "model": "opus",
+  "label": "keep",
+  "confidence": "medium",
+  "reason": "One crud_<entity>.py DAO module per model is the project-wide layout repeated in app/admin/crud and every plugin's crud package, and services import each DAO by that path."
+ },
+ {
+  "identifier": "fastapi-practices_fastapi_best_architecture:backend/app/task/crud",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "contested",
+  "confidence": "medium",
+  "reason": "One crud module per model with the crud_ prefix, repeated in sibling app crud packages."
+ },
+ {
+  "identifier": "fastapi-practices_fastapi_best_architecture:backend/common/observability/prometheus",
+  "rater": "a",
+  "model": "opus",
+  "label": "merge",
+  "confidence": "medium",
+  "reason": "Three small internal modules that each just define prometheus metrics and helper functions with the same pattern, imported only within the backend, so one prometheus module would lose nothing."
+ },
+ {
+  "identifier": "fastapi-practices_fastapi_best_architecture:backend/common/observability/prometheus",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "keep",
+  "confidence": "medium",
+  "reason": "Three distinct instrumentation targets (fastapi, queue, sqlalchemy), each imported separately by different consumers."
+ },
+ {
+  "identifier": "fastapi-practices_fastapi_best_architecture:backend/common/socketio",
+  "rater": "a",
+  "model": "opus",
+  "label": "merge",
+  "confidence": "medium",
+  "reason": "actions.py is an 11-line wrapper that imports sio from server.py and emits one event, so it adds no isolation and fits naturally in server.py."
+ },
+ {
+  "identifier": "fastapi-practices_fastapi_best_architecture:backend/common/socketio",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "merge",
+  "confidence": "low",
+  "reason": "actions.py is an 11-line helper over the sio object in server.py, with only internal importers."
+ },
+ {
+  "identifier": "fastapi-practices_fastapi_best_architecture:backend/plugin/dict/service",
+  "rater": "a",
+  "model": "opus",
+  "label": "keep",
+  "confidence": "medium",
+  "reason": "One <entity>_service.py per model is the layout repeated across the app and every plugin's service package, and each API module imports its service by that path."
+ },
+ {
+  "identifier": "fastapi-practices_fastapi_best_architecture:backend/plugin/dict/service",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "contested",
+  "confidence": "medium",
+  "reason": "One service per model (dict_data, dict_type), matching sibling plugins' service layout."
+ },
+ {
+  "identifier": "fastapi-practices_fastapi_best_architecture:backend/plugin/email/utils",
+  "rater": "a",
+  "model": "opus",
+  "label": "merge",
+  "confidence": "medium",
+  "reason": "dynamic_config.py is a 20-line function used only by send.py in the same package, so the email utils would read better as one module."
+ },
+ {
+  "identifier": "fastapi-practices_fastapi_best_architecture:backend/plugin/email/utils",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "merge",
+  "confidence": "low",
+  "reason": "dynamic_config.py is a 20-line loader imported only by send.py in the same package."
+ },
+ {
+  "identifier": "freqtrade_freqtrade:freqtrade/enums",
+  "rater": "a",
+  "model": "opus",
+  "label": "contested",
+  "confidence": "medium",
+  "reason": "One enum per module (285 lines total) re-exported through __init__, a deliberate one-value-type-per-module convention, though a few callers import submodules directly."
+ },
+ {
+  "identifier": "freqtrade_freqtrade:freqtrade/enums",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "contested",
+  "confidence": "medium",
+  "reason": "One small enum per module re-exported through freqtrade.enums is a recognised one-value-object-per-file convention, defensible but not necessary."
+ },
+ {
+  "identifier": "freqtrade_freqtrade:freqtrade/freqai/tensorboard",
+  "rater": "a",
+  "model": "opus",
+  "label": "keep",
+  "confidence": "high",
+  "reason": "The split isolates optional torch and stable_baselines3 dependencies so __init__ can fall back to base_tensorboard on ModuleNotFoundError, and TensorboardCallback is imported by its own path."
+ },
+ {
+  "identifier": "freqtrade_freqtrade:freqtrade/freqai/tensorboard",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "keep",
+  "confidence": "high",
+  "reason": "The package deliberately isolates optional torch, xgboost and stable_baselines3 imports so a non-torch install still works via the __init__ fallback."
+ },
+ {
+  "identifier": "freqtrade_freqtrade:freqtrade/ft_types",
+  "rater": "a",
+  "model": "opus",
+  "label": "merge",
+  "confidence": "medium",
+  "reason": "Three small TypedDict modules (133 lines) that every caller reaches through the freqtrade.ft_types package re-exports, so one module would keep the public path."
+ },
+ {
+  "identifier": "freqtrade_freqtrade:freqtrade/ft_types",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "contested",
+  "confidence": "medium",
+  "reason": "Three type-definition modules (59, 42 and 21 lines) are consumed only via the freqtrade.ft_types facade, so a merge would be harmless but the one-type-per-module split is a convention."
+ },
+ {
+  "identifier": "freqtrade_freqtrade:freqtrade/optimize/space",
+  "rater": "a",
+  "model": "opus",
+  "label": "merge",
+  "confidence": "high",
+  "reason": "Two tiny optuna distribution subclass modules (about 95 lines) that are only ever imported through freqtrade.optimize.space, which a single module would keep."
+ },
+ {
+  "identifier": "freqtrade_freqtrade:freqtrade/optimize/space",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "merge",
+  "confidence": "medium",
+  "reason": "Two small optuna distribution-wrapper modules (35 and 59 lines) are only imported through the package facade, so one module would lose nothing."
+ },
+ {
+  "identifier": "freqtrade_freqtrade:freqtrade/system",
+  "rater": "a",
+  "model": "opus",
+  "label": "merge",
+  "confidence": "high",
+  "reason": "Four one-function modules of a few lines each, all re-exported by freqtrade.system and only imported through it."
+ },
+ {
+  "identifier": "freqtrade_freqtrade:freqtrade/system",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "contested",
+  "confidence": "medium",
+  "reason": "Four tiny unrelated one-function startup utilities are re-exported via the facade, so the split is a one-function-per-module convention while merging would create a grab-bag."
+ },
+ {
+  "identifier": "geekan_MetaGPT:metagpt/ext/android_assistant/prompts",
+  "rater": "a",
+  "model": "opus",
+  "label": "merge",
+  "confidence": "medium",
+  "reason": "Two modules of plain prompt-string constants for the same Android assistant, with no logic, could be one prompts module with no structural loss beyond internal import paths."
+ },
+ {
+  "identifier": "geekan_MetaGPT:metagpt/ext/android_assistant/prompts",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "contested",
+  "confidence": "low",
+  "reason": "Two prompt-template modules for distinct phases (assistant versus operation docs) are imported by direct path, a defensible prompts-by-purpose split."
+ },
+ {
+  "identifier": "geekan_MetaGPT:metagpt/ext/cr/utils",
+  "rater": "a",
+  "model": "opus",
+  "label": "keep",
+  "confidence": "medium",
+  "reason": "cleaner.py holds unidiff patch helpers and schema.py a pydantic Point model, two unrelated concerns imported separately by different callers, so merging would create a grab-bag utils module."
+ },
+ {
+  "identifier": "geekan_MetaGPT:metagpt/ext/cr/utils",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "keep",
+  "confidence": "medium",
+  "reason": "A pydantic Point schema and the cleaning helpers are distinct roles imported separately by cr actions and tools/libs/cr.py."
+ },
+ {
+  "identifier": "geekan_MetaGPT:metagpt/provider/postprocess",
+  "rater": "a",
+  "model": "opus",
+  "label": "contested",
+  "confidence": "medium",
+  "reason": "A base plugin plus a dispatcher whose TODO plans per-model plugin modules is a recognisable plugin-per-module layout, though today only one plugin exists in 90 lines."
+ },
+ {
+  "identifier": "geekan_MetaGPT:metagpt/provider/postprocess",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "merge",
+  "confidence": "medium",
+  "reason": "A 20-line entry function that always instantiates the single base plugin could sit beside it in one module, with only internal imports and mirrored tests to update."
+ },
+ {
+  "identifier": "geekan_MetaGPT:metagpt/provider/zhipuai",
+  "rater": "a",
+  "model": "opus",
+  "label": "merge",
+  "confidence": "medium",
+  "reason": "AsyncSSEClient is used only by ZhiPuModelAPI in the sibling module, so the 85 lines form one provider-client unit and only internal test paths would move."
+ },
+ {
+  "identifier": "geekan_MetaGPT:metagpt/provider/zhipuai",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "contested",
+  "confidence": "medium",
+  "reason": "The SSE stream parser and the ZhiPu model API client mirror the vendored SDK's layout and are separate concerns, but both are small and used together."
+ },
+ {
+  "identifier": "geekan_MetaGPT:metagpt/rag/retrievers",
+  "rater": "a",
+  "model": "opus",
+  "label": "keep",
+  "confidence": "medium",
+  "reason": "One retriever backend per module (BM25, Chroma, Elasticsearch, FAISS, hybrid) with backend-specific llama_index dependencies, imported individually by the retriever factory, mirroring the sibling rankers and factories layout."
+ },
+ {
+  "identifier": "geekan_MetaGPT:metagpt/rag/retrievers",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "contested",
+  "confidence": "medium",
+  "reason": "One retriever class per vector backend (bm25, chroma, es, faiss, hybrid) selected by a factory is a recognised per-implementation convention imported by direct path."
+ },
+ {
+  "identifier": "getredash_redash:redash/metrics",
+  "rater": "a",
+  "model": "opus",
+  "label": "contested",
+  "confidence": "low",
+  "reason": "database.py registers SQLAlchemy listeners as an import side effect from models while request.py exposes Flask init_app hooks, a defensible split by instrumentation target in a tiny package."
+ },
+ {
+  "identifier": "getredash_redash:redash/metrics",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "keep",
+  "confidence": "high",
+  "reason": "database registers SQLAlchemy engine listeners on import while request wires Flask request hooks via init_app, so they are distinct concerns imported separately."
+ },
+ {
+  "identifier": "infiniflow_ragflow:tools/chatgpt-on-wechat/plugins",
+  "rater": "a",
+  "model": "opus",
+  "label": "keep",
+  "confidence": "high",
+  "reason": "It is a chatgpt-on-wechat plugin directory the host framework loads as a package, with @register in ragflow_chat.py and config.json and requirements.txt beside it."
+ },
+ {
+  "identifier": "infiniflow_ragflow:tools/chatgpt-on-wechat/plugins",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "keep",
+  "confidence": "high",
+  "reason": "This is a chatgpt-on-wechat plugin directory that the host framework loads by name and location with its own config.json and README."
+ },
+ {
+  "identifier": "jupyterhub_jupyterhub:examples/service-fastapi/app",
+  "rater": "a",
+  "model": "opus",
+  "label": "contested",
+  "confidence": "medium",
+  "reason": "A 227-line teaching example that follows the conventional multi-file FastAPI layout (app, models, security, routes), launched as uvicorn app:app, which one module could also serve."
+ },
+ {
+  "identifier": "jupyterhub_jupyterhub:examples/service-fastapi/app",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "keep",
+  "confidence": "high",
+  "reason": "The example deliberately demonstrates a FastAPI app layout with distinct app, router, client, models and security roles, and is loaded as app.app by its Dockerfile."
+ },
+ {
+  "identifier": "langgenius_dify:api/configs/packaging",
+  "rater": "a",
+  "model": "opus",
+  "label": "merge",
+  "confidence": "medium",
+  "reason": "pyproject.py's PyProjectTomlConfig is used only by PackagingInfo in __init__, and sibling config packages such as deploy and enterprise are a single __init__, so merging keeps the configs.packaging path."
+ },
+ {
+  "identifier": "langgenius_dify:api/configs/packaging",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "contested",
+  "confidence": "medium",
+  "reason": "The __init__ PackagingInfo and the pyproject settings base follow the per-concern config subpackage layout of sibling configs packages, defensible but small enough to merge."
+ },
+ {
+  "identifier": "langgenius_dify:api/core/app/app_config/easy_ui_based_app/model_config",
+  "rater": "a",
+  "model": "opus",
+  "label": "keep",
+  "confidence": "medium",
+  "reason": "Every sibling under easy_ui_based_app repeats a manager.py layout, and converter.py is a separate concern (resolving the provider runtime and credentials) with its own consumer in services/message_more_like_this_generator.py."
+ },
+ {
+  "identifier": "langgenius_dify:api/core/app/app_config/easy_ui_based_app/model_config",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "contested",
+  "confidence": "medium",
+  "reason": "Sibling easy_ui_based_app packages each use a manager.py layout, and the converter is a separate runtime-conversion concern imported on its own, so the split is defensible but not necessary."
+ },
+ {
+  "identifier": "langgenius_dify:api/core/rag/data_post_processor",
+  "rater": "a",
+  "model": "opus",
+  "label": "merge",
+  "confidence": "high",
+  "reason": "reorder.py is a 17-line ReorderRunner imported only by data_post_processor.py, and every outside caller imports from data_post_processor.py alone."
+ },
+ {
+  "identifier": "langgenius_dify:api/core/rag/data_post_processor",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "merge",
+  "confidence": "medium",
+  "reason": "reorder.py is a 17-line helper imported only by data_post_processor.py, and outside code imports only data_post_processor.data_post_processor."
+ },
+ {
+  "identifier": "langgenius_dify:api/domain/workflow",
+  "rater": "a",
+  "model": "opus",
+  "label": "keep",
+  "confidence": "medium",
+  "reason": "agent_node.py (agent-node identification) and retry_history.py (a retry-attempt model) are unrelated domain contracts with separate consumer sets, so merging them would produce a grab-bag module."
+ },
+ {
+  "identifier": "langgenius_dify:api/domain/workflow",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "keep",
+  "confidence": "medium",
+  "reason": "agent_node and retry_history are unrelated contracts with different consumers, and merging them would force a grab-bag module."
+ },
+ {
+  "identifier": "langgenius_dify:api/enums",
+  "rater": "a",
+  "model": "opus",
+  "label": "merge",
+  "confidence": "medium",
+  "reason": "account.py holds one StrEnum with no dependencies, the same kind of thing as the six enums already in enums/__init__.py, so it could move in with a re-export and the 37 internal imports would need only a mechanical update."
+ },
+ {
+  "identifier": "langgenius_dify:api/enums",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "keep",
+  "confidence": "high",
+  "reason": "enums/__init__.py and enums.account are both imported by many modules across the project, so merging would break public import paths."
+ },
+ {
+  "identifier": "langgenius_dify:api/services/document_indexing_proxy",
+  "rater": "a",
+  "model": "opus",
+  "label": "merge",
+  "confidence": "medium",
+  "reason": "The four modules are one 228-line class hierarchy whose two leaf classes are 13 and 18 lines of class-variable configuration, and their only consumer is dataset_service.py, so one module would read better."
+ },
+ {
+  "identifier": "langgenius_dify:api/services/document_indexing_proxy",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "contested",
+  "confidence": "medium",
+  "reason": "Base class, batch base and two thin task proxies form a conventional one-class-per-module hierarchy re-exported from __init__, defensible but mergeable."
+ },
+ {
+  "identifier": "litestar-org_litestar:litestar/_openapi/schema_generation/plugins",
+  "rater": "a",
+  "model": "opus",
+  "label": "contested",
+  "confidence": "medium",
+  "reason": "This private package follows a one-plugin-per-module convention, but its three small plugins are instantiated explicitly in __init__.py rather than discovered by name."
+ },
+ {
+  "identifier": "litestar-org_litestar:litestar/_openapi/schema_generation/plugins",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "contested",
+  "confidence": "medium",
+  "reason": "One schema plugin per type (struct, dataclass, TypedDict) registered in __init__ follows a one-plugin-per-module convention."
+ },
+ {
+  "identifier": "litestar-org_litestar:litestar/events",
+  "rater": "a",
+  "model": "opus",
+  "label": "keep",
+  "confidence": "medium",
+  "reason": "In a public library, emitter (the backend) and listener (the decorator) are distinct concepts, and litestar.events.emitter is referenced as an import path in config and in the release notes."
+ },
+ {
+  "identifier": "litestar-org_litestar:litestar/events",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "keep",
+  "confidence": "medium",
+  "reason": "Emitter backends and listener decorators are distinct concepts re-exported from events and referenced by documented module paths."
+ },
+ {
+  "identifier": "litestar-org_litestar:litestar/template",
+  "rater": "a",
+  "model": "opus",
+  "label": "keep",
+  "confidence": "high",
+  "reason": "litestar.template.config and litestar.template.base are public import paths used throughout docs/examples and by plugins, so merging would break user-facing imports."
+ },
+ {
+  "identifier": "litestar-org_litestar:litestar/template",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "keep",
+  "confidence": "medium",
+  "reason": "Template engine protocol (base) and TemplateConfig are distinct, and plugins import litestar.template.base by path."
+ },
+ {
+  "identifier": "litestar-org_litestar:litestar/utils/scope",
+  "rater": "a",
+  "model": "opus",
+  "label": "merge",
+  "confidence": "low",
+  "reason": "ScopeState is marked internal API, and importing state.py already runs the package __init__, so folding the one helper function and the dataclass into a single litestar/utils/scope.py module costs nothing beyond updating internal imports."
+ },
+ {
+  "identifier": "litestar-org_litestar:litestar/utils/scope",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "keep",
+  "confidence": "medium",
+  "reason": "scope.__init__ serializer helper and scope.state ScopeState are imported by path across middleware, so the public paths matter."
+ },
+ {
+  "identifier": "locustio_locust:locust/rpc",
+  "rater": "a",
+  "model": "opus",
+  "label": "keep",
+  "confidence": "medium",
+  "reason": "protocol.py (msgpack message serialisation) and zmqrpc.py (ZeroMQ transport) are separate layers, and __init__ exposes the transport as a swappable `rpc` alias that the tests patch as locust.rpc.rpc."
+ },
+ {
+  "identifier": "locustio_locust:locust/rpc",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "keep",
+  "confidence": "high",
+  "reason": "protocol.py (message serialization) and zmqrpc.py (ZeroMQ transport) are separate layers, imported separately by tests and exposed through locust.rpc."
+ },
+ {
+  "identifier": "mage-ai_mage-ai:mage_ai/services/azure/container_instance",
+  "rater": "a",
+  "model": "opus",
+  "label": "keep",
+  "confidence": "high",
+  "reason": "The config.py plus <service>.py pair is the per-service layout repeated on purpose across mage_ai/services (aws/ecs, gcp/cloud_run, slack, teams, and others)."
+ },
+ {
+  "identifier": "mage-ai_mage-ai:mage_ai/services/azure/container_instance",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "contested",
+  "confidence": "medium",
+  "reason": "The config.py plus service module pair is the layout the sibling services packages repeat, and config is imported separately by callers."
+ },
+ {
+  "identifier": "mage-ai_mage-ai:mage_ai/services/email",
+  "rater": "a",
+  "model": "opus",
+  "label": "keep",
+  "confidence": "high",
+  "reason": "The config.py plus <service>.py pair is the per-service layout that siblings slack, teams, discord, opsgenie, google_chat and others repeat on purpose."
+ },
+ {
+  "identifier": "mage-ai_mage-ai:mage_ai/services/email",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "contested",
+  "confidence": "medium",
+  "reason": "The config.py plus sender module pair is repeated by sibling notification services and both are imported by path in the notification sender."
+ },
+ {
+  "identifier": "mage-ai_mage-ai:mage_ai/services/telegram",
+  "rater": "a",
+  "model": "opus",
+  "label": "keep",
+  "confidence": "high",
+  "reason": "The config.py plus <service>.py pair is the per-service layout that siblings slack, teams, discord, opsgenie, google_chat and others repeat on purpose."
+ },
+ {
+  "identifier": "mage-ai_mage-ai:mage_ai/services/telegram",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "contested",
+  "confidence": "medium",
+  "reason": "The config.py plus sender module pair is repeated by sibling notification services, though telegram is tiny at 32 lines total."
+ },
+ {
+  "identifier": "mage-ai_mage-ai:mage_integrations/mage_integrations/connections/trino",
+  "rater": "a",
+  "model": "opus",
+  "label": "merge",
+  "confidence": "high",
+  "reason": "connection_wrapper.py is a 28-line trino subclass used only by the package __init__, and nearly every sibling connection package is a single __init__.py, so merging keeps the mage_integrations.connections.trino path intact."
+ },
+ {
+  "identifier": "mage-ai_mage-ai:mage_integrations/mage_integrations/connections/trino",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "merge",
+  "confidence": "medium",
+  "reason": "connection_wrapper.py is a 28-line class imported only by the package's own __init__, so folding it in breaks no outside path."
+ },
+ {
+  "identifier": "mage-ai_mage-ai:mage_integrations/mage_integrations/destinations/delta_lake_s3",
+  "rater": "a",
+  "model": "opus",
+  "label": "contested",
+  "confidence": "medium",
+  "reason": "The connector package itself is loaded by location, but utils.py (S3 delta-log patching, imported only by __init__) follows the utils.py-per-connector layout that about half of the sibling destinations repeat, so folding it in is defensible either way."
+ },
+ {
+  "identifier": "mage-ai_mage-ai:mage_integrations/mage_integrations/destinations/delta_lake_s3",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "contested",
+  "confidence": "medium",
+  "reason": "utils.py holds S3 delta-log helpers used only by __init__, but a utils.py per destination is the repeated sibling layout."
+ },
+ {
+  "identifier": "mage-ai_mage-ai:mage_integrations/mage_integrations/sources/amplitude",
+  "rater": "a",
+  "model": "opus",
+  "label": "merge",
+  "confidence": "medium",
+  "reason": "constants.py is two tiny dicts imported only by the package __init__, and only 4 of 50 sibling sources carry a constants.py, so folding it into __init__ breaks nothing and drops no shared convention."
+ },
+ {
+  "identifier": "mage-ai_mage-ai:mage_integrations/mage_integrations/sources/amplitude",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "contested",
+  "confidence": "low",
+  "reason": "constants.py is 9 lines used only by __init__, but several sibling sources repeat a constants.py split."
+ },
+ {
+  "identifier": "mathesar-foundation_mathesar:db/deprecated/functions/operations",
+  "rater": "a",
+  "model": "opus",
+  "label": "keep",
+  "confidence": "medium",
+  "reason": "deserialize.py (parsing a JSON function spec into DBFunction objects) and apply.py (compiling DBFunctions into SQLAlchemy expressions) are distinct pipeline stages, each imported directly by name by transforms and by mirrored per-module tests."
+ },
+ {
+  "identifier": "mathesar-foundation_mathesar:db/deprecated/functions/operations",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "keep",
+  "confidence": "medium",
+  "reason": "apply and deserialize mirror the sibling transforms/operations package (apply, deserialize, serialize) and are imported by path across the codebase."
+ },
+ {
+  "identifier": "mathesar-foundation_mathesar:mathesar/views/installation",
+  "rater": "a",
+  "model": "opus",
+  "label": "contested",
+  "confidence": "medium",
+  "reason": "The installation form view and the installation_complete/incomplete decorators (which urls.py applies to other views) are related but separate, following a common Django views-plus-decorators split that is optional for an internal package."
+ },
+ {
+  "identifier": "mathesar-foundation_mathesar:mathesar/views/installation",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "contested",
+  "confidence": "medium",
+  "reason": "Decorators are reusable redirect guards separate from the installation view, though both are small and tightly related."
+ },
+ {
+  "identifier": "mathesar-foundation_mathesar:mathesar/views/users",
+  "rater": "a",
+  "model": "opus",
+  "label": "contested",
+  "confidence": "medium",
+  "reason": "login.py and password_reset.py each hold one small Django auth view imported only by urls.py and tests, a one-view-per-module convention that could equally be one users.py."
+ },
+ {
+  "identifier": "mathesar-foundation_mathesar:mathesar/views/users",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "contested",
+  "confidence": "medium",
+  "reason": "login.py and password_reset.py are one-view-per-module Django wrappers that tests import by path."
+ },
+ {
+  "identifier": "microsoft_autogen:python/packages/autogen-core/src/autogen_core/tool_agent",
+  "rater": "a",
+  "model": "opus",
+  "label": "merge",
+  "confidence": "medium",
+  "reason": "Both modules are private and re-exported through autogen_core.tool_agent, which is the only path outside code imports, and the caller loop depends tightly on the agent's exception type, so a single module breaks nothing."
+ },
+ {
+  "identifier": "microsoft_autogen:python/packages/autogen-core/src/autogen_core/tool_agent",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "contested",
+  "confidence": "low",
+  "reason": "Private modules re-exported through __init__ so a merge would not break users, but ToolAgent and the caller loop are distinct concepts."
+ },
+ {
+  "identifier": "microsoft_autogen:python/packages/autogen-ext/src/autogen_ext/agents/magentic_one",
+  "rater": "a",
+  "model": "opus",
+  "label": "keep",
+  "confidence": "medium",
+  "reason": "The __init__ wraps the import of the private module in a try/except ImportError that points users to the magentic-one extra, a guard that only works if the agent lives in its own module."
+ },
+ {
+  "identifier": "microsoft_autogen:python/packages/autogen-ext/src/autogen_ext/agents/magentic_one",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "keep",
+  "confidence": "high",
+  "reason": "__init__ wraps the import of the coder agent module in an ImportError guard for the optional extra, which needs the separate file."
+ },
+ {
+  "identifier": "microsoft_autogen:python/packages/autogen-ext/src/autogen_ext/models/openai/_transformation",
+  "rater": "a",
+  "model": "opus",
+  "label": "merge",
+  "confidence": "medium",
+  "reason": "registry.py and types.py are small private modules re-exported by the private _transformation package, where types.py is just a few type aliases used by registry, so merging only touches one test that imports a private helper."
+ },
+ {
+  "identifier": "microsoft_autogen:python/packages/autogen-ext/src/autogen_ext/models/openai/_transformation",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "contested",
+  "confidence": "medium",
+  "reason": "types.py is a small typing-only module split from registry.py, a common convention that tests import by path."
+ },
+ {
+  "identifier": "miguelgrinberg_microblog:app/api",
+  "rater": "a",
+  "model": "opus",
+  "label": "keep",
+  "confidence": "high",
+  "reason": "This is the Flask blueprint layout the tutorial teaches, with auth, error handling, tokens and user resources as separate concerns, and the routes modules are imported for their side effect of registering on bp."
+ },
+ {
+  "identifier": "miguelgrinberg_microblog:app/api",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "keep",
+  "confidence": "high",
+  "reason": "Standard Flask blueprint package with distinct auth, errors, tokens and users modules registered through __init__."
+ },
+ {
+  "identifier": "miguelgrinberg_microblog:app/auth",
+  "rater": "a",
+  "model": "opus",
+  "label": "keep",
+  "confidence": "high",
+  "reason": "The auth blueprint splits forms, email and routes into distinct concerns, the same per-blueprint layout that its sibling blueprints (main, api, errors) repeat on purpose."
+ },
+ {
+  "identifier": "miguelgrinberg_microblog:app/auth",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "keep",
+  "confidence": "high",
+  "reason": "Standard Flask blueprint package separating routes, forms and email, with __init__ defining the blueprint before importing routes."
+ },
+ {
+  "identifier": "miguelgrinberg_microblog:app/errors",
+  "rater": "a",
+  "model": "opus",
+  "label": "keep",
+  "confidence": "medium",
+  "reason": "The errors blueprint follows the project's deliberate per-blueprint layout (__init__ defines bp and imports handlers to register them), which the auth, main and api siblings repeat."
+ },
+ {
+  "identifier": "miguelgrinberg_microblog:app/errors",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "keep",
+  "confidence": "high",
+  "reason": "Standard Flask blueprint pattern where __init__ defines the blueprint before importing handlers to avoid a circular import."
+ },
+ {
+  "identifier": "mirumee_ariadne:ariadne/subscription_handlers",
+  "rater": "a",
+  "model": "opus",
+  "label": "keep",
+  "confidence": "medium",
+  "reason": "The project docs tell users to import from ariadne.subscription_handlers.events, and contrib/sse.py imports both submodules by path, so the submodule paths are public surface."
+ },
+ {
+  "identifier": "mirumee_ariadne:ariadne/subscription_handlers",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "contested",
+  "confidence": "medium",
+  "reason": "events.py holds the event data types and handlers.py the handler classes; both are public via ariadne and ariadne.contrib imports submodule paths."
+ },
+ {
+  "identifier": "mitmproxy_mitmproxy:mitmproxy/contentviews/_view_image",
+  "rater": "a",
+  "model": "opus",
+  "label": "merge",
+  "confidence": "medium",
+  "reason": "Every other contentview is a single private _view_*.py module and only `image` is re-exported, so folding the 119-line parser and the 57-line view into one _view_image.py matches the siblings and breaks only one test import path."
+ },
+ {
+  "identifier": "mitmproxy_mitmproxy:mitmproxy/contentviews/_view_image",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "keep",
+  "confidence": "medium",
+  "reason": "image_parser is a standalone binary-format parser with its own tests, separate from the contentview class."
+ },
+ {
+  "identifier": "nautobot_nautobot:nautobot/core/events",
+  "rater": "a",
+  "model": "opus",
+  "label": "contested",
+  "confidence": "medium",
+  "reason": "Everything public is re-exported from nautobot.core.events, which config CLASS strings and the docs use, so the base, exceptions and one-module-per-broker split (220 lines in all) is a recognisable plugin-implementation convention but not a necessity."
+ },
+ {
+  "identifier": "nautobot_nautobot:nautobot/core/events",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "keep",
+  "confidence": "high",
+  "reason": "Brokers are loaded by dotted class path from settings via import_string and the package has a base class plus pluggable implementations."
+ },
+ {
+  "identifier": "octoprint_OctoPrint:src/octoprint/util/json",
+  "rater": "a",
+  "model": "opus",
+  "label": "keep",
+  "confidence": "medium",
+  "reason": "Both modules define their own dumps/loads and callers (octoprint.util and tests) reach the serializing variant through the json.serializing namespace, so merging would collide names and break that path."
+ },
+ {
+  "identifier": "octoprint_OctoPrint:src/octoprint/util/json",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "contested",
+  "confidence": "medium",
+  "reason": "Base JsonEncoding and the serializing subclass are imported by dotted path across the server and likely by plugins, but the split is a defensible base-versus-extension one."
+ },
+ {
+  "identifier": "pdm-project_pdm:src/pdm/cli/commands/fix",
+  "rater": "a",
+  "model": "opus",
+  "label": "contested",
+  "confidence": "low",
+  "reason": "The fixer classes are imported only by the fix command, so a single fix module would break nothing, but the command-in-__init__ plus helper-module layout is repeated by the sibling publish and venv command packages."
+ },
+ {
+  "identifier": "pdm-project_pdm:src/pdm/cli/commands/fix",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "contested",
+  "confidence": "medium",
+  "reason": "The Command lives in the package __init__ that core loads by name while the fixer classes sit in fixers.py, which only __init__ imports, so merging is possible but the command/strategy split is a convention."
+ },
+ {
+  "identifier": "piccolo-orm_piccolo:piccolo/apps/app/commands",
+  "rater": "a",
+  "model": "opus",
+  "label": "keep",
+  "confidence": "high",
+  "reason": "This is a command directory with one CLI command per module, registered in piccolo_app.py, a layout every sibling piccolo app repeats."
+ },
+ {
+  "identifier": "piccolo-orm_piccolo:piccolo/apps/app/commands",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "keep",
+  "confidence": "high",
+  "reason": "Each module is one piccolo command wired by path in piccolo_app.py and mirrored by per-command tests, the layout every sibling app repeats."
+ },
+ {
+  "identifier": "piccolo-orm_piccolo:piccolo/apps/user/commands",
+  "rater": "a",
+  "model": "opus",
+  "label": "keep",
+  "confidence": "high",
+  "reason": "This is a command directory with one CLI command per module, registered in the user app's piccolo_app.py, matching the per-command layout of every sibling app."
+ },
+ {
+  "identifier": "piccolo-orm_piccolo:piccolo/apps/user/commands",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "keep",
+  "confidence": "high",
+  "reason": "Each module is a separate user command registered in piccolo_app.py, the per-command layout repeated across piccolo apps."
+ },
+ {
+  "identifier": "piccolo-orm_piccolo:piccolo/columns/operators",
+  "rater": "a",
+  "model": "opus",
+  "label": "merge",
+  "confidence": "medium",
+  "reason": "The four modules hold about 100 lines of one-line SQL template classes from a single two-line base, only imported internally by piccolo.columns, so one operators module would be no worse."
+ },
+ {
+  "identifier": "piccolo-orm_piccolo:piccolo/columns/operators",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "contested",
+  "confidence": "medium",
+  "reason": "Tiny operator families (base is 2 lines) imported by path from column code, a one-family-per-module convention that could be a single module."
+ },
+ {
+  "identifier": "python-telegram-bot_python-telegram-bot:src/telegram/_games",
+  "rater": "a",
+  "model": "opus",
+  "label": "keep",
+  "confidence": "medium",
+  "reason": "python-telegram-bot deliberately puts one Telegram type per private module across the whole package (with matching per-type test files), and the public path is the top-level telegram namespace, so this follows a repeated project-wide layout."
+ },
+ {
+  "identifier": "python-telegram-bot_python-telegram-bot:src/telegram/_games",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "keep",
+  "confidence": "medium",
+  "reason": "Each module holds one Telegram API type re-exported from telegram/__init__ and matching the one-class-per-module layout used across the library."
+ },
+ {
+  "identifier": "rafsaf_minimal-fastapi-postgres-template:app/core",
+  "rater": "a",
+  "model": "opus",
+  "label": "keep",
+  "confidence": "high",
+  "reason": "Config, database session, lifespan, Prometheus metrics and the declarative Base are distinct infrastructure concerns imported separately across the app and by alembic/env.py."
+ },
+ {
+  "identifier": "rafsaf_minimal-fastapi-postgres-template:app/core",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "keep",
+  "confidence": "high",
+  "reason": "Config, database session, lifespan, metrics and declarative base are distinct concerns each imported by name from many places including alembic."
+ },
+ {
+  "identifier": "reflex-dev_reflex:examples/playground/playground/components",
+  "rater": "a",
+  "model": "opus",
+  "label": "keep",
+  "confidence": "high",
+  "reason": "marker.py is the hot-reload benchmark target that reflex-bench rewrites by its file location (playground/components/marker.py), so it must stay a separate isolated leaf module."
+ },
+ {
+  "identifier": "reflex-dev_reflex:examples/playground/playground/components",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "keep",
+  "confidence": "high",
+  "reason": "marker.py is a deliberate separate leaf module that the README names as a hot-reload benchmark target imported only by the index page."
+ },
+ {
+  "identifier": "reflex-dev_reflex:packages/reflex-components-core/src/reflex_components_core/react_router",
+  "rater": "a",
+  "model": "opus",
+  "label": "keep",
+  "confidence": "medium",
+  "reason": "Other packages (reflex-components-radix, reflex-components-internal) import ReactRouterLink from the react_router.dom path, and the __init__ plus component-module shape is the repeated reflex component layout."
+ },
+ {
+  "identifier": "reflex-dev_reflex:packages/reflex-components-core/src/reflex_components_core/react_router",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "keep",
+  "confidence": "low",
+  "reason": "A sibling component package in the reflex component libraries whose __init__ exposes the link alias over dom.py, following a layout repeated across packages."
+ },
+ {
+  "identifier": "reflex-dev_reflex:packages/reflex-components-gridjs/src/reflex_components_gridjs",
+  "rater": "a",
+  "model": "opus",
+  "label": "keep",
+  "confidence": "medium",
+  "reason": "Every sibling reflex-components-* package repeats the __init__ plus component-module layout on purpose (with generated .pyi per module), and tests import reflex_components_gridjs.datatable directly."
+ },
+ {
+  "identifier": "reflex-dev_reflex:packages/reflex-components-gridjs/src/reflex_components_gridjs",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "contested",
+  "confidence": "low",
+  "reason": "A single-component distribution package whose __init__ merely aliases DataTable.create from datatable.py, a convention that could be one module but is the package's public path."
+ },
+ {
+  "identifier": "reflex-dev_reflex:packages/reflex-components-internal/src/reflex_components_internal/utils",
+  "rater": "a",
+  "model": "opus",
+  "label": "merge",
+  "confidence": "medium",
+  "reason": "The utils package holds one 30-line twmerge module behind a lazy-loader __init__, and all importers are inside the same internal package or its tests, so a single utils module would lose nothing."
+ },
+ {
+  "identifier": "reflex-dev_reflex:packages/reflex-components-internal/src/reflex_components_internal/utils",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "contested",
+  "confidence": "low",
+  "reason": "The utils package is a lazy-loaded namespace over a single 30-line twmerge submodule, which could collapse but follows the repo's lazy-loader convention."
+ },
+ {
+  "identifier": "reflex-dev_reflex:packages/reflex-site-shared/src/reflex_site_shared/utils",
+  "rater": "a",
+  "model": "opus",
+  "label": "keep",
+  "confidence": "medium",
+  "reason": "The three modules are unrelated helpers (a table-of-contents JS snippet, markdown frontmatter parsing, public URL building) with separate importers and a test that monkeypatches utils.url.get_config by path."
+ },
+ {
+  "identifier": "reflex-dev_reflex:packages/reflex-site-shared/src/reflex_site_shared/utils",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "keep",
+  "confidence": "high",
+  "reason": "docpage, md and url are unrelated utilities (page builder, markdown loading, URL helpers) imported by full path from other site modules."
+ },
+ {
+  "identifier": "reflex-dev_reflex:reflex/middleware",
+  "rater": "a",
+  "model": "opus",
+  "label": "merge",
+  "confidence": "medium",
+  "reason": "An abstract Middleware base and its single HydrateMiddleware subclass total about 100 lines and are both re-exported from reflex.middleware, so one module would be no worse apart from two test imports."
+ },
+ {
+  "identifier": "reflex-dev_reflex:reflex/middleware",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "contested",
+  "confidence": "medium",
+  "reason": "Abstract Middleware base and the HydrateMiddleware implementation are imported by full module path in tests and app code, a one-class-per-module convention."
+ },
+ {
+  "identifier": "runemalm_ddd-for-python:ddd/domain/dummy",
+  "rater": "a",
+  "model": "opus",
+  "label": "contested",
+  "confidence": "medium",
+  "reason": "The test-fixture aggregate is split one DDD building block per module (aggregate, id, repository, translator), mirroring the library's own one-class-per-module domain layout, which is defensible but not necessary for under 100 lines."
+ },
+ {
+  "identifier": "runemalm_ddd-for-python:ddd/domain/dummy",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "contested",
+  "confidence": "medium",
+  "reason": "Entity, id, repository and translator for the dummy aggregate follow the one-building-block-per-module DDD convention and are imported by path from repositories and tests."
+ },
+ {
+  "identifier": "runemalm_ddd-for-python:ddd/repositories/memory",
+  "rater": "a",
+  "model": "opus",
+  "label": "keep",
+  "confidence": "medium",
+  "reason": "ddd.repositories.memory.memory_repository is the library's public base class that the examples and project templates import by that path, and the package mirrors the sibling postgres backend package."
+ },
+ {
+  "identifier": "runemalm_ddd-for-python:ddd/repositories/memory",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "keep",
+  "confidence": "medium",
+  "reason": "Base repository, dummy repository and event store are distinct roles in a library whose import paths users rely on."
+ },
+ {
+  "identifier": "runemalm_ddd-for-python:examples/webshop/shipping/src/shipping/domain/customer",
+  "rater": "a",
+  "model": "opus",
+  "label": "contested",
+  "confidence": "medium",
+  "reason": "Splitting the Customer aggregate, its id value object, repository interface and translator one class per module is the DDD convention the example repeats for every aggregate, defensible but not necessary for such tiny classes."
+ },
+ {
+  "identifier": "runemalm_ddd-for-python:examples/webshop/shipping/src/shipping/domain/customer",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "contested",
+  "confidence": "medium",
+  "reason": "One class per module for aggregate, id, repository and translator is a deliberate DDD layout, repeated in the sibling shipment package."
+ },
+ {
+  "identifier": "runemalm_ddd-for-python:examples/webshop/shipping/src/shipping/domain/shipment",
+  "rater": "a",
+  "model": "opus",
+  "label": "contested",
+  "confidence": "medium",
+  "reason": "The shipment aggregate follows the same one-concept-per-module DDD layout as the customer sibling (aggregate, id, event, repository, translator), a recognisable but debatable convention."
+ },
+ {
+  "identifier": "runemalm_ddd-for-python:examples/webshop/shipping/src/shipping/domain/shipment",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "contested",
+  "confidence": "medium",
+  "reason": "One-concept-per-module DDD layout mirrors the customer package and imports use the per-module paths."
+ },
+ {
+  "identifier": "runemalm_ddd-for-python:examples/webshop/shipping/src/shipping/repositories/memory",
+  "rater": "a",
+  "model": "opus",
+  "label": "contested",
+  "confidence": "medium",
+  "reason": "One in-memory repository per aggregate is a common repository-per-aggregate convention mirrored by the postgres sibling, but the two near-identical classes could live together."
+ },
+ {
+  "identifier": "runemalm_ddd-for-python:examples/webshop/shipping/src/shipping/repositories/memory",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "contested",
+  "confidence": "medium",
+  "reason": "One in-memory repository per aggregate parallels the postgres package and the domain per-aggregate layout."
+ },
+ {
+  "identifier": "runemalm_ddd-for-python:examples/webshop/shipping/src/shipping/repositories/postgres",
+  "rater": "a",
+  "model": "opus",
+  "label": "contested",
+  "confidence": "medium",
+  "reason": "One postgres repository per aggregate mirrors the memory sibling and the template layout, a defensible convention rather than a clear need."
+ },
+ {
+  "identifier": "runemalm_ddd-for-python:examples/webshop/shipping/src/shipping/repositories/postgres",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "contested",
+  "confidence": "medium",
+  "reason": "One postgres repository per aggregate mirrors the memory package and domain layout."
+ },
+ {
+  "identifier": "strawberry-graphql_strawberry:strawberry/cli/commands/upgrade",
+  "rater": "a",
+  "model": "opus",
+  "label": "merge",
+  "confidence": "medium",
+  "reason": "The two underscore-private helpers are used only by the upgrade command in __init__.py, and every sibling CLI command is a single module, so folding them in breaks nothing."
+ },
+ {
+  "identifier": "strawberry-graphql_strawberry:strawberry/cli/commands/upgrade",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "contested",
+  "confidence": "low",
+  "reason": "Two small private helpers beside the command could fold into one module, but they separate a fake progress class from the codemod runner."
+ },
+ {
+  "identifier": "strawberry-graphql_strawberry:strawberry/file_uploads",
+  "rater": "a",
+  "model": "opus",
+  "label": "merge",
+  "confidence": "medium",
+  "reason": "The documented public path is strawberry.file_uploads, and the two tiny modules (a scalar definition and a 30-line helper used internally by the HTTP views) would sit fine in one module."
+ },
+ {
+  "identifier": "strawberry-graphql_strawberry:strawberry/file_uploads",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "keep",
+  "confidence": "medium",
+  "reason": "scalars exposes the public Upload scalar while utils holds unrelated multipart parsing logic."
+ },
+ {
+  "identifier": "strawberry-graphql_strawberry:strawberry/schema/validation_rules",
+  "rater": "a",
+  "model": "opus",
+  "label": "contested",
+  "confidence": "medium",
+  "reason": "One GraphQL validation rule class per module follows the graphql-core rules convention, defensible though the two rules are only imported together by schema.py."
+ },
+ {
+  "identifier": "strawberry-graphql_strawberry:strawberry/schema/validation_rules",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "contested",
+  "confidence": "medium",
+  "reason": "One validation rule per module is a conventional layout for a growing set of independent rules."
+ },
+ {
+  "identifier": "strawberry-graphql_strawberry:strawberry/tools",
+  "rater": "a",
+  "model": "opus",
+  "label": "merge",
+  "confidence": "medium",
+  "reason": "Users import create_type and merge_types from strawberry.tools as documented, so two short helper functions could share one tools module without breaking that path."
+ },
+ {
+  "identifier": "strawberry-graphql_strawberry:strawberry/tools",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "keep",
+  "confidence": "medium",
+  "reason": "strawberry.tools is a public API path exposing create_type and merge_types as separate documented helpers."
+ },
+ {
+  "identifier": "taigaio_taiga-back:taiga/base/signals",
+  "rater": "a",
+  "model": "opus",
+  "label": "merge",
+  "confidence": "medium",
+  "reason": "The two small signal-handler modules are imported only by taiga/base/apps.py and thumbnails.py depends on cleanup_files' signal, so one signals module would be no worse."
+ },
+ {
+  "identifier": "taigaio_taiga-back:taiga/base/signals",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "contested",
+  "confidence": "low",
+  "reason": "Thumbnail signals are an optional hook layered on the cleanup signals, defensible as separate modules but small."
+ },
+ {
+  "identifier": "taigaio_taiga-back:taiga/projects/votes/mixins",
+  "rater": "a",
+  "model": "opus",
+  "label": "contested",
+  "confidence": "medium",
+  "reason": "Splitting mixins by Django REST layer (serializers vs viewsets) mirrors the app layout and the likes/mixins sibling, but the two small files are internal and could be merged."
+ },
+ {
+  "identifier": "taigaio_taiga-back:taiga/projects/votes/mixins",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "keep",
+  "confidence": "medium",
+  "reason": "Serializer and viewset mixins are different layers of the framework and follow the mixins layout other apps repeat."
+ },
+ {
+  "identifier": "testdrivenio_fastapi-tdd-docker:project/app/api",
+  "rater": "a",
+  "model": "opus",
+  "label": "contested",
+  "confidence": "medium",
+  "reason": "One FastAPI router per resource plus a crud module is a common but debatable convention for a project with only ping and summaries routes."
+ },
+ {
+  "identifier": "testdrivenio_fastapi-tdd-docker:project/app/api",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "keep",
+  "confidence": "high",
+  "reason": "Each module is a distinct FastAPI router or data-access layer loaded by name in the app."
+ },
+ {
+  "identifier": "testdrivenio_fastapi-tdd-docker:project/app/models",
+  "rater": "a",
+  "model": "opus",
+  "label": "keep",
+  "confidence": "medium",
+  "reason": "Tortoise ORM and aerich load app.models.tortoise by its dotted module path in TORTOISE_ORM and register_tortoise, and the module separates ORM models from pydantic schemas."
+ },
+ {
+  "identifier": "testdrivenio_fastapi-tdd-docker:project/app/models",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "keep",
+  "confidence": "high",
+  "reason": "pydantic schemas and Tortoise ORM models are distinct layers with separate dependencies."
+ },
+ {
+  "identifier": "tox-dev_tox:src/tox/journal",
+  "rater": "a",
+  "model": "opus",
+  "label": "keep",
+  "confidence": "medium",
+  "reason": "tox.journal.env.EnvJournal is documented in the plugin API docs by that path and tests import tox.journal.main.Journal, so the submodules are public paths."
+ },
+ {
+  "identifier": "tox-dev_tox:src/tox/journal",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "contested",
+  "confidence": "low",
+  "reason": "EnvJournal and Journal are two classes in a small package whose __init__ re-exports them as the public path."
+ },
+ {
+  "identifier": "vitalik_django-ninja:ninja/security",
+  "rater": "a",
+  "model": "opus",
+  "label": "keep",
+  "confidence": "medium",
+  "reason": "Each module is a distinct authentication family (API key, HTTP, session) over a shared AuthBase that users subclass via the public path ninja.security.base, as the tests import it."
+ },
+ {
+  "identifier": "vitalik_django-ninja:ninja/security",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "keep",
+  "confidence": "high",
+  "reason": "Distinct auth families (apikey, http, session) over a shared base, with ninja.security.apikey/base/session paths imported directly elsewhere in the project and by users."
+ },
+ {
+  "identifier": "wemake-services_wemake-django-template:{{cookiecutter.project_name}}/server/apps/main/infra",
+  "rater": "a",
+  "model": "opus",
+  "label": "contested",
+  "confidence": "medium",
+  "reason": "The template deliberately demonstrates a layered DDD layout with repository and mapper as separate infra roles, a convention reasonable maintainers disagree about for two tiny classes."
+ },
+ {
+  "identifier": "wemake-services_wemake-django-template:{{cookiecutter.project_name}}/server/apps/main/infra",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "contested",
+  "confidence": "medium",
+  "reason": "A mapper and a repository are separate layered-architecture roles of the template's infra layer, each tiny, and the split is a deliberate convention rather than a necessity."
+ },
+ {
+  "identifier": "wemake-services_wemake-django-template:{{cookiecutter.project_name}}/server/apps/main/logic/usecases",
+  "rater": "a",
+  "model": "opus",
+  "label": "contested",
+  "confidence": "high",
+  "reason": "It is the one-use-case-per-module convention, two near-identical tiny use cases shown as a pattern for generated projects to follow."
+ },
+ {
+  "identifier": "wemake-services_wemake-django-template:{{cookiecutter.project_name}}/server/apps/main/logic/usecases",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "contested",
+  "confidence": "high",
+  "reason": "One use case per module is a recognised convention that the template's implemented.py and api views import by module name, though two small classes could share a file."
+ },
+ {
+  "identifier": "wger-project_wger:wger/mailer/models",
+  "rater": "a",
+  "model": "opus",
+  "label": "contested",
+  "confidence": "medium",
+  "reason": "Two small models split one-model-per-module, a layout sibling apps repeat, while every caller imports through wger.mailer.models so merging into models.py would break nothing."
+ },
+ {
+  "identifier": "wger-project_wger:wger/mailer/models",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "keep",
+  "confidence": "medium",
+  "reason": "Log and CronEntry are distinct Django models in a one-model-per-file models package re-exported via __init__, matching the project's repeated models layout."
+ },
+ {
+  "identifier": "zauberzeug_nicegui:nicegui/elements/echart",
+  "rater": "a",
+  "model": "opus",
+  "label": "keep",
+  "confidence": "high",
+  "reason": "The package is a per-element directory with its own JS bundle and build config, loaded lazily by setup_esm_package via __file__ and ui.py's '.elements.echart' path, a layout its siblings repeat."
+ },
+ {
+  "identifier": "zauberzeug_nicegui:nicegui/elements/echart",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "keep",
+  "confidence": "high",
+  "reason": "Element package using setup_esm_package with a lazy '.echart' mapping and bundled JS, loaded by path from ui.py, and repeated across sibling element packages."
+ },
+ {
+  "identifier": "zauberzeug_nicegui:nicegui/elements/joystick",
+  "rater": "a",
+  "model": "opus",
+  "label": "keep",
+  "confidence": "high",
+  "reason": "The package is a per-element directory with its own JS bundle and build config, loaded lazily by setup_esm_package via __file__ and ui.py's '.elements.joystick' path, a layout its siblings repeat."
+ },
+ {
+  "identifier": "zauberzeug_nicegui:nicegui/elements/joystick",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "keep",
+  "confidence": "high",
+  "reason": "Element package using setup_esm_package with a lazy '.joystick' mapping, loaded by path from ui.py, and the same layout as sibling element packages."
+ },
+ {
+  "identifier": "zauberzeug_nicegui:nicegui/elements/mermaid",
+  "rater": "a",
+  "model": "opus",
+  "label": "keep",
+  "confidence": "high",
+  "reason": "The package is a per-element directory with its own JS bundle and build config, loaded lazily by setup_esm_package via __file__ and ui.py's '.elements.mermaid' path, a layout its siblings repeat."
+ },
+ {
+  "identifier": "zauberzeug_nicegui:nicegui/elements/mermaid",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "keep",
+  "confidence": "high",
+  "reason": "Element package using setup_esm_package with a lazy '.mermaid' mapping and the per-element layout that siblings repeat."
+ },
+ {
+  "identifier": "zauberzeug_nicegui:nicegui/elements/plotly",
+  "rater": "a",
+  "model": "opus",
+  "label": "keep",
+  "confidence": "high",
+  "reason": "The package is a per-element directory with its own JS bundle and build config, loaded lazily by setup_esm_package via __file__ and ui.py's '.elements.plotly' path, a layout its siblings repeat."
+ },
+ {
+  "identifier": "zauberzeug_nicegui:nicegui/elements/plotly",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "keep",
+  "confidence": "high",
+  "reason": "Element package using setup_esm_package with a lazy '.plotly' mapping and the per-element layout that siblings repeat."
+ },
+ {
+  "identifier": "zauberzeug_nicegui:nicegui/elements/sortable",
+  "rater": "a",
+  "model": "opus",
+  "label": "keep",
+  "confidence": "high",
+  "reason": "The package is a per-element directory with its own JS bundle and build config, loaded by setup_esm_package via __file__ and imported as nicegui.elements.sortable.sortable, a layout its siblings repeat."
+ },
+ {
+  "identifier": "zauberzeug_nicegui:nicegui/elements/sortable",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "keep",
+  "confidence": "high",
+  "reason": "Element package using setup_esm_package with a lazy '.sortable' mapping and the per-element layout that siblings repeat."
+ },
+ {
+  "identifier": "zauberzeug_nicegui:website/documentation/content/doc",
+  "rater": "a",
+  "model": "opus",
+  "label": "merge",
+  "confidence": "medium",
+  "reason": "page.py and part.py are two tiny dataclasses used only by api.py and one internal website import, so folding them into the doc module would break no public path."
+ },
+ {
+  "identifier": "zauberzeug_nicegui:website/documentation/content/doc",
+  "rater": "b",
+  "model": "sonnet",
+  "label": "contested",
+  "confidence": "low",
+  "reason": "The two small dataclasses page and part could fold into api.py, but they are imported by name elsewhere (content/__init__ imports doc.page) and form a reasonable data-model versus API split."
+ }
+]
