@@ -208,6 +208,55 @@ name a client imports from the package, defined in the package's own
 `__init__.py`, was attributed to no member. `README.md` gives both the
 registered and the corrected figures; no verdict depends on which.
 
+## Co-location model
+
+Two rounds failed against raters who agree at a kappa near 0.3. The third
+changes the criterion to one nobody disputes: what authors did. A module is a
+set of top-level definitions (functions, classes, constants) its author kept
+together, and a boundary between sibling modules is one the author drew. For
+two definitions of one package, "same module or not" is known by
+construction. A module split mechanically, one definition per file, is a
+package whose every cross-module pair was a same-module pair, so a model
+that recognises same-module pairs recognises that over-split, at the unit
+(a pair) the raters' reasons pointed at.
+
+- **Features** of a pair, none depending on the file layout
+  (`harness/definition_pairs.py`): whether one names the other, the overlap
+  of the package definitions naming each, the overlap of the client scopes
+  naming each, vocabulary similarity, fan-out similarity, same kind, a
+  shared base class, shared name words, and whether either has a client.
+- **Model** (`harness/logistic.py`): a ridge-penalised logistic regression,
+  fitted with the standard library, nine weights and an intercept.
+- **Development data**: 58,932 pairs from the 40 repositories of the first
+  round, capped per module, per package and per repository. Leaving each
+  repository out of the fit in turn, the model's AUC on the left-out
+  repository has a median of 0.74 (quartiles 0.71 and 0.77), above 0.5 in 39
+  of 40; 0.76 on the pairs of packages of at most 200 lines. The best single
+  feature, vocabulary, has a median of 0.69.
+- **Frozen model**: `results/colocation_model.json`, fitted on all 40.
+- **Package score**: the mean probability the model gives a package's
+  cross-module pairs (`harness/score_packages.py`).
+
+Test, fixed before the frozen model has scored any of it: the 70
+repositories of the confirmation set, none used to fit or choose the model,
+and the 18 agent A/B snapshots.
+
+1. **Primary.** On the test repositories the frozen model tells same-module
+   pairs from sibling-module pairs with a median AUC of at least 0.65, and
+   above 0.5 in at least four of five repositories.
+2. The same holds on the pairs of packages of at most 200 lines.
+3. **Over-splits by construction.** In at least three of four test
+   repositories, the cohesion score of small modules (their boundary score if
+   split one definition per file) is above the boundary score of small
+   packages as their authors split them (AUC above 0.5).
+4. **Agent over-splits.** The snapshots of the A/B arm told to use LaNorme
+   have a higher boundary score than those of the control arm (AUC of the
+   arms at least 0.75).
+5. **Raters, secondary.** On the confirmation ratings the boundary score is
+   higher in packages rated merge than in the rest. The ratings are an
+   unreliable criterion (one rater predicts the other at 0.70), so this is
+   reported whichever way it falls and decides nothing alone.
+
 ## Further experiments
 
 - **Congruence at scale.** For every original tree, how well each pairwise
