@@ -27,7 +27,9 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import multiprocessing
 import random
+from dataclasses import dataclass
 from itertools import combinations
 from pathlib import Path
 
@@ -41,6 +43,7 @@ from lanorme.line_counts import count_effective_lines
 logger = logging.getLogger(__name__)
 MAX_PAIRS = 200
 MAX_PACKAGES = 150
+WORKERS = 2
 _SEED = 20261113
 
 
@@ -138,6 +141,22 @@ def score_tree(root: Path, *, model: Model, wanted: set[str] | None) -> list[dic
     return [{"tree": root.name, **scorer.score(package)} for package in packages]
 
 
+@dataclass(frozen=True)
+class ScoringJob:
+    """One tree to score, in a process of its own so its parsed modules are freed with it."""
+
+    root: Path
+    model: Model
+    wanted: set[str] | None
+
+
+def run_job(job: ScoringJob) -> list[dict[str, object]]:
+    """Score one tree and log how many of its packages were scored."""
+    found = score_tree(job.root, model=job.model, wanted=job.wanted)
+    logger.info("%-44s %4d packages scored", job.root.name, len(found))
+    return found
+
+
 def _read_wanted(paths: list[Path]) -> dict[str, set[str]] | None:
     """The packages to score per tree, from ``identifier`` fields of the given JSON files."""
     if not paths:
@@ -162,13 +181,13 @@ def main() -> None:
     model = read_model(arguments.model)
     wanted = _read_wanted(arguments.only)
     roots = sorted(root for base in arguments.trees for root in base.iterdir() if root.is_dir())
-    scores: list[dict[str, object]] = []
-    for root in roots:
-        if wanted is not None and root.name not in wanted:
-            continue
-        found = score_tree(root, model=model, wanted=None if wanted is None else wanted[root.name])
-        scores.extend(found)
-        logger.info("%-44s %4d packages scored", root.name, len(found))
+    jobs = [
+        ScoringJob(root=root, model=model, wanted=None if wanted is None else wanted[root.name])
+        for root in roots
+        if wanted is None or root.name in wanted
+    ]
+    with multiprocessing.Pool(processes=WORKERS, maxtasksperchild=1) as pool:
+        scores = [package for found in pool.imap(run_job, jobs) for package in found]
     arguments.out.parent.mkdir(parents=True, exist_ok=True)
     arguments.out.write_text(json.dumps(scores, indent=1) + "\n", encoding="utf-8")
 

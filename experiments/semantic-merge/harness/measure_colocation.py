@@ -19,6 +19,7 @@ import argparse
 import json
 import logging
 import math
+import multiprocessing
 import random
 from collections import Counter
 from itertools import combinations
@@ -45,6 +46,8 @@ from lanorme.sources import Module
 
 logger = logging.getLogger(__name__)
 MAX_PACKAGES = 60
+# Each tree is measured in a process of its own, so its parsed modules are freed with it.
+WORKERS = 2
 MAX_PAIRS_PER_MODULE = 10
 MAX_CROSS_PAIRS = 30
 _SEED = 20261113
@@ -178,7 +181,8 @@ def main() -> None:
     arguments = parser.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(message)s")
     roots = sorted(root for base in arguments.trees for root in base.iterdir() if root.is_dir())
-    rows = [row for root in roots for row in measure_tree(root)]
+    with multiprocessing.Pool(processes=WORKERS, maxtasksperchild=1) as pool:
+        rows = [row for found in pool.imap(measure_tree, roots) for row in found]
     arguments.out.parent.mkdir(parents=True, exist_ok=True)
     arguments.out.write_text(
         json.dumps({"features": list(FEATURES), "pairs": rows}) + "\n",
