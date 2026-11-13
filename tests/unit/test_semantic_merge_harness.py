@@ -34,6 +34,7 @@ import member_surfaces  # noqa: E402
 import modularization_quality  # noqa: E402
 import report_confirmation  # noqa: E402
 import report_exploration  # noqa: E402
+import report_package_scores  # noqa: E402
 import report_ratings  # noqa: E402
 import reuse_signals  # noqa: E402
 import separation  # noqa: E402
@@ -833,3 +834,57 @@ def test_solver_and_fit_recover_a_known_system_and_a_known_direction():
     assert model.weights[1] < -1.0
     assert model.score([2.0, -2.0]) > 0.95
     assert model.score([-2.0, 2.0]) < 0.05
+
+
+def build_score(*, tree: str, boundary: float, cohesion: float) -> dict[str, object]:
+    """One scored package of two small modules of three definitions each."""
+    module = {"lines": 40, "definitions": 3, "cohesion_score": cohesion}
+    return {
+        "tree": tree,
+        "package": "app/shop",
+        "lines": 80,
+        "members": 2,
+        "cross_pairs": 9,
+        "boundary_score": boundary,
+        "modules": [{"module": "a.py", **module}, {"module": "b.py", **module}],
+    }
+
+
+def test_construction_compares_fragmented_modules_with_authored_packages_per_tree():
+    # Arrange
+    scores = [
+        build_score(tree="one", boundary=0.3, cohesion=0.7),
+        build_score(tree="one", boundary=0.4, cohesion=0.6),
+        build_score(tree="two", boundary=0.8, cohesion=0.2),
+        build_score(tree="two", boundary=0.9, cohesion=0.1),
+        build_score(tree="lone", boundary=0.5, cohesion=0.5),
+    ]
+
+    # Act
+    found = report_package_scores.compare_construction(scores)
+
+    # Assert
+    assert found["per_tree"] == {"one": 1.0, "two": 0.0}
+    assert found["trees_above_half"] == 1
+    assert found["fragmented_modules"] == 10
+    assert found["authored_packages"] == 5
+
+
+def test_arms_pool_each_snapshot_and_set_the_authors_beside_them():
+    # Arrange
+    scores = [
+        build_score(tree="ab-control-1-stage1", boundary=0.5, cohesion=0.6),
+        build_score(tree="ab-lanorme-1-stage1", boundary=0.3, cohesion=0.6),
+        build_score(tree="ab-lanorme-2-stage1", boundary=0.4, cohesion=0.6),
+        build_score(tree="django", boundary=0.2, cohesion=0.7),
+    ]
+
+    # Act
+    found = report_package_scores.compare_arms(scores)
+
+    # Assert
+    assert found["auc_lanorme_above_control"] == 0.0
+    assert found["groups"]["authors"]["across_modules"] == 0.2
+    assert found["groups"]["lanorme"]["across_modules"] == pytest.approx(0.35)
+    assert found["groups"]["control"]["within_module"] == pytest.approx(0.6)
+    assert found["groups"]["lanorme"]["modules"] == 4

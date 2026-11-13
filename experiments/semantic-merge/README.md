@@ -7,46 +7,49 @@ more precise, with the standard library only? This is the spike behind issue
 
 ## Headline
 
-- **No signal, borrowed or invented, identifies the packages to merge on
-  fresh data.** Two rounds were run. The first measured the signals of the
-  literature (Common Reuse, internal coupling, vocabulary, sibling
-  similarity, co-change) on 135 packages from 34 projects. The second
-  invented signals that ask what a module boundary does, froze them with
-  their hypotheses, and tested them on 122 packages from 43 projects no
-  earlier step had read. Every hypothesis fixed in advance failed: the
+Three rounds were run. The first two tried to predict which packages raters
+would merge, and failed; the third changed the criterion and holds.
+
+- **Against raters, no signal identifies the packages to merge on fresh
+  data.** Round one measured the signals of the literature (Common Reuse,
+  internal coupling, vocabulary, sibling similarity, co-change) on 135
+  packages from 34 projects. Round two invented signals for what a module
+  boundary does, froze them with their hypotheses, and tested them on 122
+  packages from 43 projects not read before. Every hypothesis failed: the
   primary measure separates merge from the rest at an AUC of 0.49 (interval
   0.36 to 0.62; 0.51 once a gap in the measurement was closed) where it had
-  shown 0.71 on the data it was designed on.
-- **Each round's leads died in the next.** Vocabulary cohesion, strong on
-  the dev split (0.11), is at chance on the holdout (0.49). Co-change, the
-  one lead of the first round (0.80 on 17 packages), is at 0.51 on the 44
-  confirmation packages that have history. Size, which separated the
-  packages to keep when raters were shown line counts (0.18), does not once
-  they are not (0.45).
-- **The target is the limit.** Two blind raters agree on merge-or-not with
-  a kappa of 0.32 on the first set and 0.27 on the confirmation set. A
-  second rater who has read the code predicts the first rater's merge at an
-  AUC of 0.70 to 0.74: that is the ceiling for any mechanical signal, and
-  it is not far above chance.
-- **One signal keeps its direction in both rated sets.** The share of public
-  names that only sibling members import (a helper used by the module beside
-  it) separates merge from the rest at 0.57 and 0.66, 0.62 pooled (interval
-  0.55 to 0.71). It is the reason raters most often give. It was not a
-  hypothesis, so it is a lead and no more.
-- **The signals do track how authors group modules, which is another
-  question.** Across 20 projects every pairwise signal tells modules of one
-  package from modules of sibling packages better than chance (median AUC
-  0.59 to 0.72).
-- **Evidence in the message shows no effect on decisions.** Agents acting as
-  maintainers merged 8 of 72 times with the message as it is and 7 of 72
-  with a Common Reuse sentence added, in six sessions per arm.
-- **Clustering the import graph is not worth a tool.** A Bunch-style search
-  agrees with the authors' packages at an adjusted Rand index of 0.15 and
-  with itself, between random starts, at 0.57.
+  shown 0.71 on the data it was designed on. Each round's leads died in the
+  next: vocabulary cohesion (dev 0.11, holdout 0.49), co-change (0.80, then
+  0.51), and size once raters were not shown line counts (0.18, then 0.45).
+- **The raters were the limit.** Two blind raters agree on merge-or-not with
+  a kappa of 0.32 and 0.27, and one rater's rating predicts the other's
+  merge at an AUC of 0.70 to 0.74.
+- **What authors do is predictable, and that held on fresh data.** Round
+  three took as ground truth where authors put their code: two definitions
+  in one module, or in sibling modules. A logistic model of nine
+  layout-invariant features, fitted with the standard library on 40
+  projects, was frozen and then scored on 69 projects it had never seen. It
+  tells same-module pairs from sibling-module pairs at a median AUC of 0.77,
+  above chance in all 69, and tells a module split one definition per file
+  from a package its author split at a median of 0.86. Three of its five
+  hypotheses, fixed in advance, hold.
+- **By that standard the agent packages the rule was built on are not
+  over-split.** The hypothesis that the A/B arm told to use LaNorme draws
+  boundaries through more related code failed in reverse: its boundaries
+  separate less related pairs than the control arm's (0.42 against 0.46)
+  and look like ordinary author boundaries (0.40). With the blind judge of
+  the A/B experiment, the blind raters and the agent decisions below, that
+  is four independent readings that those packages are not clear over-splits.
+- **The model does not predict the raters either.** Its package score is at
+  0.49 against the confirmation ratings. It measures whether a boundary
+  cuts through code authors keep together, which is one kind of over-split
+  and not what raters mostly meant.
+- **Evidence in the message shows no effect on decisions,** and
+  **clustering the import graph is not worth a tool** (agreement with
+  authors' packages 0.15, with itself between starts 0.57).
 - **A merge precondition fails for 6 of the 63 packages the rule reports.**
   Two members define the same name, or a client uses a member as a
-  namespace, so the merge the finding suggests needs renames. This holds
-  whatever a rater thinks of the package.
+  namespace, so the suggested merge needs renames, whatever a rater thinks.
 
 The recommendation is at the end: leave `SHALLOW-001`'s conditions and message
 as they are, build no clustering tool, and take up the follow-ups listed
@@ -351,37 +354,101 @@ client imports as a module object (6 packages in all). For those the fix
 the finding suggests is not a move of code: it needs renames, at the
 definitions or at every reference [@opdyke1992refactoring].
 
+## Co-location model
+
+Rounds one and two failed against a criterion two readers agree on at a
+kappa near 0.3. Round three uses one nobody disputes: what authors did. A
+module is a set of top-level definitions (functions, classes, constants) its
+author kept together, and a boundary between sibling modules is one the
+author drew, so for two definitions of one package "same module or not" is
+known by construction. A module split mechanically, one definition per file,
+is a package whose every cross-module pair was a same-module pair: a model
+that recognises same-module pairs recognises that over-split, at the unit (a
+pair) the raters' reasons pointed at.
+
+The features of a pair do not depend on the file layout
+(`harness/definition_pairs.py`): whether one names the other, the overlap of
+the package's definitions naming each, the overlap of the client scopes
+naming each, vocabulary similarity, fan-out similarity, same kind, a shared
+base class, shared name words, and whether either has a client. The model
+(`harness/logistic.py`) is a ridge-penalised logistic regression fitted with
+the standard library: nine weights and an intercept, stored in
+`results/colocation_model.json`. The weights that carry it are a direct
+reference (0.64), shared referrers (0.45) and vocabulary (0.27).
+
+It was developed on 58,932 pairs from the 40 repositories of round one, each
+repository scored by a model fitted on the other 39. It was then frozen, its
+five hypotheses were committed (`SPEC.md`), and it was scored once on the 70
+repositories of the confirmation set (69 have pairs; 95,727 pairs) and on
+the 18 A/B snapshots.
+
+| Hypothesis, fixed in advance | Development (40 repositories) | Test (69 repositories) | Verdict |
+|---|---|---|---|
+| Same-module against sibling-module pairs: median AUC at least 0.65, above 0.5 in four of five repositories | 0.74, 39 of 40 | 0.77 (quartiles 0.74 and 0.79), 69 of 69 | holds |
+| The same on packages of at most 200 lines | 0.76 | 0.79, 52 of 52 | holds |
+| Small modules split one definition per file against small packages as authored: AUC above 0.5 in three of four repositories | median 0.80, 35 of 37 | median 0.86, 47 of 52 | holds |
+| The LaNorme arm's snapshots have a higher boundary score than the control arm's (AUC at least 0.75) | | 0.04 | fails, reversed |
+| Boundary score higher in packages rated merge than in the rest (secondary) | 0.55 [0.39, 0.72] | 0.49 [0.33, 0.66] | fails |
+
+The best single feature, vocabulary, has a median AUC of 0.70 on the test
+repositories; the model adds to it. The lowest test repository is at 0.55.
+
+**The agent arms.** The boundary score is the mean probability the model
+gives a package's cross-module pairs of being kept in one module; the
+cohesion score is the same over a module's own pairs.
+
+| Group | Modules | Median module lines | Pairs within a module | Pairs across modules |
+|---|---|---|---|---|
+| Authors, 40 repositories | 10,161 | 77 | 0.56 | 0.40 |
+| A/B control arm, 9 snapshots | 54 | 58 | 0.60 | 0.46 |
+| A/B LaNorme arm, 9 snapshots | 112 | 40 | 0.58 | 0.42 |
+
+The arm told to use LaNorme wrote twice the modules, and its boundaries
+separate pairs that look like the pairs authors separate, not like the pairs
+authors keep together. The control arm's fewer, larger modules are the more
+entangled. So the agent packages are not fragments of cohesive code. If they
+are over-split it is in granularity (a median module of 40 lines against the
+authors' 77), which is what `SHALLOW-001` already measures, and not in
+meaning, which is why two rounds of looking for evidence that their modules
+belong together found none.
+
+**What the model is and is not.** It answers "would authors keep these two
+definitions in one module" well enough to tell a mechanical over-split from
+an authored package. It does not answer "would a reviewer merge this
+package": against both sets of ratings its score is at chance. Those are
+different questions, and only the first has a reliable answer.
+
 ## Recommendation
 
-1. **Do not add a semantic condition or filter to `SHALLOW-001`.** No signal
-   of either round separates the packages to merge on data it was not
-   designed on.
-2. **Do not add evidence to the message.** The Common Reuse sentence does
-   not predict the label and shows no effect on decisions, and the invented
-   evidence did not survive its confirmation.
-3. **Do not build a clustering tool.** The search is weakly related to the
-   packages authors make and does not single out over-split ones.
-4. **Do not read co-change, and do not tighten the size condition.** Both
-   leads of the first round are at chance on the confirmation set.
-5. **Check the merge precondition in the fix, in its own change.** When two
+1. **Do not add a semantic condition, evidence sentence, co-change reading
+   or tighter size condition to `SHALLOW-001`.** Nothing of rounds one and
+   two separates the packages raters would merge on data it was not designed
+   on, and the co-location score does not either.
+2. **Do not build a clustering tool.**
+3. **Re-examine the rule's premise before investing more in it.** The A/B
+   packages it was built on are not over-split by four independent readings:
+   the A/B judge preferred that arm's design in all nine pairs, blind raters
+   call most of them contested or keep, agents acting as maintainers kept
+   all five in all 20 decisions, and their boundaries look like authors'.
+   The rule is advisory and off by default, which fits. Its dev labels, which
+   one blind rater reproduces for 3 of 13, should be rated blind by more
+   than one rater before its dev numbers are trusted.
+4. **Check the merge precondition in the fix, in its own change.** When two
    members define a name in use, or a client uses a member as a namespace,
-   the suggested merge needs renames. That is a property of the code, not of
-   a rating, it fails for 6 of 63 findings, and `docs/RULES.md` already
-   lists distinct names as a limit the rule does not check. The finding
-   should say so or not offer the merge.
-6. **Settle what merge means before measuring more signals.** Two readers
-   of the same code agree at a kappa near 0.3, and the reasons they give
-   differ by population. A label defined by what a rater can point at (a
-   helper only its neighbour imports, a package reached only through its
-   re-exports, declarations with no behaviour) could be rated reliably and
-   checked mechanically; "would a careful maintainer merge this" cannot.
-7. **If one signal is taken further, take `sibling_only_names`,** with its
-   own pre-registered confirmation: it is the only one that keeps its
-   direction in both rated sets, and it states a fact a reader can verify
-   ("checks.py is imported only by router.py").
-8. **Have the dev split's over-split labels rated blind by more than one
-   rater, in its own change.** One blind rater reproduces 3 of 13; the rule
-   was tuned to those labels.
+   the suggested merge needs renames. It fails for 6 of 63 findings, and
+   `docs/RULES.md` already lists distinct names as a limit the rule does not
+   check.
+5. **Consider the co-location model for a different check.** It is small
+   enough to ship (ten numbers, no dependency) and it holds on unseen
+   projects. What it can support is a finding about a boundary that cuts
+   through code authors keep together: a definition that sits apart from the
+   ones it is used with. That is a move suggestion, not a merge of a small
+   package, and it needs its own measurement of precision at the threshold
+   it would report at before it is a rule.
+6. **If merge is to be rated again, define it by what a rater can point
+   at** (a helper only its neighbour imports, a package reached only through
+   its re-exports). `sibling_only_names`, the one signal of round two above
+   chance in both rated sets, states such a fact.
 
 ## Reading it honestly
 
@@ -400,6 +467,12 @@ definitions or at every reference [@opdyke1992refactoring].
   as fitting one module of about 200 lines. The confirmation raters saw
   neither, and the size effect is gone there, so it was at least partly the
   raters' own input.
+- The co-location model's ground truth is where authors put code, which is
+  an observed decision and not a judgement of quality: an author's module
+  can be badly organised. Its test is on open-source repositories, mostly
+  human-written; the only agent-written code is three A/B runs.
+- The reading that the A/B packages are not over-split came after the
+  hypothesis about them failed, so it is an interpretation, on three runs.
 - The invented signals were confirmed on one fresh set and failed. The
   comparison across both rated sets, the rater ceiling and the
   `sibling_only_names` lead were looked at afterwards and are exploratory.
@@ -428,6 +501,12 @@ definitions or at every reference [@opdyke1992refactoring].
   `sibling_signals.py`, `cochange_signals.py`), the statistics
   (`separation.py`), the search (`modularization_quality.py`) and one script
   per experiment.
+- For round three: `definition_pairs.py`, `logistic.py`,
+  `measure_colocation.py`, `report_colocation.py`, `score_packages.py` and
+  `report_package_scores.py`, with `results/colocation_model.json`,
+  `colocation_dev.json`, `colocation_test.json`, `package_scores_dev.json`
+  and `package_scores_test.json`. The pair and score files themselves are
+  large and are rebuilt by the commands below.
 - `prompts/`: the blind labelling and decision prompts;
   `label_confirmation.md` is the labelling prompt without line counts.
 - `results/`: `packages_*.json` (one record per package),
@@ -463,6 +542,15 @@ uv run python $H/select_candidates.py --trees confirmation-trees --per-tree 6 --
 uv run python $H/measure_packages.py --repositories confirmation-trees --candidates $R/confirmation_candidates.json --out $R/packages_confirmation.json
 uv run python $H/report_confirmation.py --out $R/confirmation_report.json
 uv run python $H/report_exploration.py --out $R/exploration_report.json
+uv run python $H/measure_colocation.py --trees corpus-trees --trees extension-trees --out pairs_dev.json
+uv run python $H/report_colocation.py pairs_dev.json --fit $R/colocation_model.json --out $R/colocation_dev.json
+uv run python $H/measure_colocation.py --trees confirmation-trees --out pairs_test.json
+uv run python $H/report_colocation.py pairs_test.json --model $R/colocation_model.json --out $R/colocation_test.json
+uv run python $H/score_packages.py --trees corpus-trees --trees extension-trees --trees ab-trees --model $R/colocation_model.json --out scores_dev.json
+uv run python $H/report_package_scores.py --scores scores_dev.json --ratings $R/ratings.json --out $R/package_scores_dev.json
+uv run python $H/score_packages.py --trees confirmation-trees --model $R/colocation_model.json --out scores_test.json
+uv run python $H/score_packages.py --trees confirmation-trees --model $R/colocation_model.json --only $R/packages_confirmation.json --out scores_test_rated.json
+uv run python $H/report_package_scores.py --scores scores_test.json --scores scores_test_rated.json --ratings $R/ratings_confirmation.json --out $R/package_scores_test.json
 uv run python $H/measure_clustering.py --trees ab-trees --trees corpus-trees --records $R/packages_dev.json --records $R/packages_holdout.json --out $R/clustering.json
 ```
 

@@ -100,26 +100,57 @@ def compare_ratings(*, scores: Scores, ratings: list[dict[str, str]]) -> dict[st
     return report
 
 
+def _compute_pooled_mean(found: list[tuple[float | None, int]]) -> float | None:
+    """The mean of scores weighted by the pairs each was taken over."""
+    kept = [(score, pairs) for score, pairs in found if score is not None and pairs]
+    total = sum(pairs for _score, pairs in kept)
+    return sum(score * pairs for score, pairs in kept) / total if total else None
+
+
+def describe_group(scores: Scores) -> dict[str, object]:
+    """A group of packages: its pooled cohesion and boundary scores and its module sizes."""
+    modules = [module for package in scores for module in package["modules"]]
+    within = [
+        (module["cohesion_score"], module["definitions"] * (module["definitions"] - 1) // 2)
+        for module in modules
+    ]
+    return {
+        "modules": len(modules),
+        "median_module_lines": statistics.median(module["lines"] for module in modules),
+        "within_module": _compute_pooled_mean(within),
+        "across_modules": _compute_pooled_mean(
+            [(package["boundary_score"], package["cross_pairs"]) for package in scores],
+        ),
+    }
+
+
 def compare_arms(scores: Scores) -> dict[str, object]:
-    """Each A/B snapshot's boundary score pooled over its packages, by arm."""
-    pooled: dict[str, list[tuple[float, int]]] = {}
+    """Each A/B snapshot's boundary score pooled over its packages, by arm, beside the authors'."""
+    by_tree: dict[str, Scores] = {}
     for package in scores:
-        if _ARM.match(str(package["tree"])) and package["boundary_score"] is not None:
-            pooled.setdefault(str(package["tree"]), []).append(
-                (package["boundary_score"], package["cross_pairs"]),
-            )
+        by_tree.setdefault(str(package["tree"]), []).append(package)
     snapshots = {
-        tree: sum(score * pairs for score, pairs in found) / sum(pairs for _score, pairs in found)
-        for tree, found in pooled.items()
+        tree: describe_group(found)["across_modules"]
+        for tree, found in by_tree.items()
+        if _ARM.match(tree)
     }
     arms: dict[str, list[float]] = {"control": [], "lanorme": []}
     for tree, score in snapshots.items():
-        arms[_ARM.match(tree).group(1)].append(score)
+        if score is not None:
+            arms[_ARM.match(tree).group(1)].append(score)
+    groups = {
+        arm: [
+            package
+            for package in scores
+            if (_ARM.match(str(package["tree"])) or [None, None])[1] == arm
+        ]
+        for arm in arms
+    }
+    groups["authors"] = [package for package in scores if not _ARM.match(str(package["tree"]))]
     return {
         "snapshots": snapshots,
-        "control_mean": statistics.mean(arms["control"]) if arms["control"] else None,
-        "lanorme_mean": statistics.mean(arms["lanorme"]) if arms["lanorme"] else None,
         "auc_lanorme_above_control": compute_auc(first=arms["lanorme"], second=arms["control"]),
+        "groups": {name: describe_group(found) for name, found in groups.items() if found},
     }
 
 

@@ -1,0 +1,104 @@
+{
+ "construction": {
+  "trees": 52,
+  "median": 0.8569977080906043,
+  "lowest": 0.21428571428571427,
+  "trees_above_half": 47,
+  "fragmented_modules": 5879,
+  "authored_packages": 644,
+  "per_tree": {
+   "Aeternalis-Ingenium_FastAPI-Backend-Template": 0.8,
+   "BerriAI_litellm": 0.7517120560598821,
+   "Bogdanp_dramatiq": 0.46875,
+   "Buuntu_fastapi-react": 0.85,
+   "HackSoftware_Django-Styleguide-Example": 0.8319327731092437,
+   "Netflix_metaflow": 0.6820987654320988,
+   "OpenBB-finance_OpenBB": 0.9830757910228108,
+   "agronholm_apscheduler": 0.9615384615384616,
+   "authlib_authlib": 0.8354166666666667,
+   "beetbox_beets": 0.5540540540540541,
+   "chroma-core_chroma": 1.0,
+   "crewAIInc_crewAI": 0.8515181848515182,
+   "element-hq_synapse": 0.6675824175824175,
+   "esphome_esphome": 0.7917833800186741,
+   "ets-labs_python-dependency-injector": 0.7607142857142857,
+   "fastapi-practices_fastapi_best_architecture": 0.8336898395721926,
+   "freqtrade_freqtrade": 0.9490196078431372,
+   "geekan_MetaGPT": 0.6435185185185185,
+   "getredash_redash": 0.9655172413793104,
+   "gothinkster_django-realworld-example-app": 0.9047619047619048,
+   "gothinkster_flask-realworld-example-app": 0.9615384615384616,
+   "graphql-python_graphene": 0.9270833333333334,
+   "jowilf_starlette-admin": 1.0,
+   "jupyterhub_jupyterhub": 1.0,
+   "langgenius_dify": 0.8262968669748331,
+   "litestar-org_litestar": 0.9107672349888807,
+   "locustio_locust": 1.0,
+   "mage-ai_mage-ai": 0.654956608811749,
+   "mathesar-foundation_mathesar": 0.9473684210526315,
+   "meltano_meltano": 1.0,
+   "microsoft_autogen": 0.9791666666666666,
+   "miguelgrinberg_microblog": 1.0,
+   "mirumee_ariadne": 0.21428571428571427,
+   "mitmproxy_mitmproxy": 0.9097222222222222,
+   "nautobot_nautobot": 0.8333333333333334,
+   "octoprint_OctoPrint": 1.0,
+   "piccolo-orm_piccolo": 0.9586466165413534,
+   "pydantic_pydantic-ai": 0.8624772313296903,
+   "pyeventsourcing_eventsourcing": 0.5341055341055341,
+   "python-poetry_poetry": 0.6908212560386473,
+   "python-telegram-bot_python-telegram-bot": 1.0,
+   "rafsaf_minimal-fastapi-postgres-template": 1.0,
+   "reflex-dev_reflex": 0.70213996529786,
+   "strawberry-graphql_strawberry": 0.8357142857142857,
+   "taigaio_taiga-back": 0.8358167770419426,
+   "testdrivenio_fastapi-tdd-docker": 1.0,
+   "tortoise_tortoise-orm": 0.9740437158469946,
+   "tox-dev_tox": 0.2564102564102564,
+   "vitalik_django-ninja": 0.8840579710144928,
+   "wemake-services_wemake-django-template": 0.3148148148148148,
+   "wger-project_wger": 0.48794063079777367,
+   "zauberzeug_nicegui": 0.896
+  }
+ },
+ "ratings_confirmation": {
+  "rated": 122,
+  "scored": 97,
+  "merge_against_rest": {
+   "auc": 0.4931506849315068,
+   "interval": [
+    0.33194805194805194,
+    0.6568181818181819
+   ],
+   "first_count": 24,
+   "second_count": 73,
+   "first_median": 0.4777950687005189,
+   "second_median": 0.4903020956628721,
+   "lineages": 39
+  },
+  "merge_against_keep": {
+   "auc": 0.639367816091954,
+   "interval": [
+    0.45913461538461536,
+    0.816
+   ],
+   "first_count": 24,
+   "second_count": 29,
+   "first_median": 0.4777950687005189,
+   "second_median": 0.41773766298040454,
+   "lineages": 28
+  }
+ },
+ "arms": {
+  "snapshots": {},
+  "auc_lanorme_above_control": null,
+  "groups": {
+   "authors": {
+    "modules": 15387,
+    "median_module_lines": 88,
+    "within_module": 0.497793510344131,
+    "across_modules": 0.4069314481186117
+   }
+  }
+ }
+}

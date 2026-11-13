@@ -1,0 +1,508 @@
+{
+ "features": {
+  "reference": {
+   "trees": 69,
+   "median": 0.6192338256707435,
+   "lower_quartile": 0.5823234793638881,
+   "upper_quartile": 0.6473130693762299,
+   "lowest": 0.4868421052631579,
+   "trees_above_half": 67
+  },
+  "shared_referrers": {
+   "trees": 69,
+   "median": 0.5965412888807842,
+   "lower_quartile": 0.5661133471894304,
+   "upper_quartile": 0.6141835372493818,
+   "lowest": 0.4824561403508772,
+   "trees_above_half": 67
+  },
+  "client_co_use": {
+   "trees": 69,
+   "median": 0.5050085980069199,
+   "lower_quartile": 0.5,
+   "upper_quartile": 0.5148941060733627,
+   "lowest": 0.43567251461988304,
+   "trees_above_half": 43
+  },
+  "has_clients": {
+   "trees": 69,
+   "median": 0.47777221122164704,
+   "lower_quartile": 0.4401220313027935,
+   "upper_quartile": 0.5,
+   "lowest": 0.19005847953216373,
+   "trees_above_half": 16
+  },
+  "vocabulary": {
+   "trees": 69,
+   "median": 0.6970316568634907,
+   "lower_quartile": 0.6661874360188258,
+   "upper_quartile": 0.7328295998463275,
+   "lowest": 0.21506617420744845,
+   "trees_above_half": 68
+  },
+  "fan_out": {
+   "trees": 69,
+   "median": 0.5680493590549202,
+   "lower_quartile": 0.5375215403733449,
+   "upper_quartile": 0.6087309272596448,
+   "lowest": 0.45606545151178074,
+   "trees_above_half": 62
+  },
+  "same_kind": {
+   "trees": 69,
+   "median": 0.5623771589106693,
+   "lower_quartile": 0.5268134979245087,
+   "upper_quartile": 0.6010467047160895,
+   "lowest": 0.44298245614035087,
+   "trees_above_half": 62
+  },
+  "shared_base": {
+   "trees": 69,
+   "median": 0.5199567647368976,
+   "lower_quartile": 0.5036142888149404,
+   "upper_quartile": 0.5439311594202898,
+   "lowest": 0.43482003129890456,
+   "trees_above_half": 54
+  },
+  "name_overlap": {
+   "trees": 69,
+   "median": 0.5983570109658213,
+   "lower_quartile": 0.5696611350121737,
+   "upper_quartile": 0.6317578930749614,
+   "lowest": 0.32717759310557093,
+   "trees_above_half": 67
+  }
+ },
+ "trees": {
+  "Aeternalis-Ingenium_FastAPI-Backend-Template": {
+   "pairs": 173,
+   "auc": 0.7008469449485784,
+   "small_pairs": 173,
+   "small_auc": 0.7008469449485784
+  },
+  "BerriAI_litellm": {
+   "pairs": 3466,
+   "auc": 0.7474206807354934,
+   "small_pairs": 162,
+   "small_auc": 0.6446339173967459
+  },
+  "Bogdanp_dramatiq": {
+   "pairs": 330,
+   "auc": 0.790923733892718,
+   "small_pairs": 7,
+   "small_auc": null
+  },
+  "Buuntu_fastapi-react": {
+   "pairs": 170,
+   "auc": 0.6996727841798265,
+   "small_pairs": 170,
+   "small_auc": 0.6996727841798265
+  },
+  "HackSoftware_Django-Styleguide-Example": {
+   "pairs": 552,
+   "auc": 0.7853112599206349,
+   "small_pairs": 425,
+   "small_auc": 0.7859869138495092
+  },
+  "Netflix_metaflow": {
+   "pairs": 3213,
+   "auc": 0.7898442840265677,
+   "small_pairs": 118,
+   "small_auc": 0.817414004914005
+  },
+  "OpenBB-finance_OpenBB": {
+   "pairs": 7209,
+   "auc": 0.792394566278774,
+   "small_pairs": 47,
+   "small_auc": 0.875
+  },
+  "agronholm_apscheduler": {
+   "pairs": 319,
+   "auc": 0.8014103372202962,
+   "small_pairs": 18,
+   "small_auc": 0.9333333333333333
+  },
+  "authlib_authlib": {
+   "pairs": 1397,
+   "auc": 0.7565764797079343,
+   "small_pairs": 174,
+   "small_auc": 0.7959211986681465
+  },
+  "beetbox_beets": {
+   "pairs": 826,
+   "auc": 0.7418545910486817,
+   "small_pairs": 25,
+   "small_auc": 0.8733333333333333
+  },
+  "borgbackup_borg": {
+   "pairs": 818,
+   "auc": 0.7886460413761918,
+   "small_pairs": 23,
+   "small_auc": 0.7730769230769231
+  },
+  "certbot_certbot": {
+   "pairs": 1137,
+   "auc": 0.7799871820818998,
+   "small_pairs": 1,
+   "small_auc": null
+  },
+  "chainlit_chainlit": {
+   "pairs": 313,
+   "auc": 0.770771991166728,
+   "small_pairs": 43,
+   "small_auc": 0.8282051282051283
+  },
+  "chroma-core_chroma": {
+   "pairs": 620,
+   "auc": 0.8465569177620492,
+   "small_pairs": 25,
+   "small_auc": 0.9487179487179487
+  },
+  "crewAIInc_crewAI": {
+   "pairs": 2758,
+   "auc": 0.7302958492046452,
+   "small_pairs": 148,
+   "small_auc": 0.7054935035331662
+  },
+  "dbt-labs_dbt-core": {
+   "pairs": 63,
+   "auc": 0.7252525252525253,
+   "small_pairs": 0,
+   "small_auc": null
+  },
+  "element-hq_synapse": {
+   "pairs": 3919,
+   "auc": 0.7603547649250625,
+   "small_pairs": 32,
+   "small_auc": 0.6509803921568628
+  },
+  "encode_starlette": {
+   "pairs": 418,
+   "auc": 0.8108231707317073,
+   "small_pairs": 0,
+   "small_auc": null
+  },
+  "esphome_esphome": {
+   "pairs": 3541,
+   "auc": 0.6781168868091552,
+   "small_pairs": 1273,
+   "small_auc": 0.6142542285746281
+  },
+  "ets-labs_python-dependency-injector": {
+   "pairs": 604,
+   "auc": 0.7272667714884696,
+   "small_pairs": 454,
+   "small_auc": 0.7171282435129741
+  },
+  "fastapi-practices_fastapi_best_architecture": {
+   "pairs": 1477,
+   "auc": 0.794147638697845,
+   "small_pairs": 353,
+   "small_auc": 0.8102951039570758
+  },
+  "freqtrade_freqtrade": {
+   "pairs": 1953,
+   "auc": 0.7654351328472734,
+   "small_pairs": 193,
+   "small_auc": 0.8416666666666667
+  },
+  "geekan_MetaGPT": {
+   "pairs": 2273,
+   "auc": 0.7807057702586507,
+   "small_pairs": 152,
+   "small_auc": 0.7849326599326599
+  },
+  "getpelican_pelican": {
+   "pairs": 184,
+   "auc": 0.7433467741935483,
+   "small_pairs": 0,
+   "small_auc": null
+  },
+  "getredash_redash": {
+   "pairs": 1203,
+   "auc": 0.7847484245340147,
+   "small_pairs": 100,
+   "small_auc": 0.7183977455716586
+  },
+  "gothinkster_django-realworld-example-app": {
+   "pairs": 167,
+   "auc": 0.7984251968503937,
+   "small_pairs": 82,
+   "small_auc": 0.7139303482587065
+  },
+  "gothinkster_flask-realworld-example-app": {
+   "pairs": 219,
+   "auc": 0.802627189324437,
+   "small_pairs": 72,
+   "small_auc": 0.7968056787932565
+  },
+  "graphql-python_graphene": {
+   "pairs": 403,
+   "auc": 0.8003815469996531,
+   "small_pairs": 176,
+   "small_auc": 0.7859375
+  },
+  "hynek_structlog": {
+   "pairs": 167,
+   "auc": 0.735279805352798,
+   "small_pairs": 0,
+   "small_auc": null
+  },
+  "infiniflow_ragflow": {
+   "pairs": 161,
+   "auc": 0.8780125195618154,
+   "small_pairs": 0,
+   "small_auc": null
+  },
+  "jowilf_starlette-admin": {
+   "pairs": 1311,
+   "auc": 0.7720499902217338,
+   "small_pairs": 157,
+   "small_auc": 0.7873847167325428
+  },
+  "jupyterhub_jupyterhub": {
+   "pairs": 501,
+   "auc": 0.7671886533797322,
+   "small_pairs": 56,
+   "small_auc": 0.8692307692307693
+  },
+  "langgenius_dify": {
+   "pairs": 5168,
+   "auc": 0.7930853240178319,
+   "small_pairs": 243,
+   "small_auc": 0.7479169608812315
+  },
+  "litestar-org_litestar": {
+   "pairs": 3316,
+   "auc": 0.7794137656193288,
+   "small_pairs": 1261,
+   "small_auc": 0.833238716276691
+  },
+  "locustio_locust": {
+   "pairs": 361,
+   "auc": 0.8413191659983962,
+   "small_pairs": 15,
+   "small_auc": 0.9444444444444444
+  },
+  "mage-ai_mage-ai": {
+   "pairs": 2334,
+   "auc": 0.7698854848271641,
+   "small_pairs": 392,
+   "small_auc": 0.6949774515872315
+  },
+  "mathesar-foundation_mathesar": {
+   "pairs": 1244,
+   "auc": 0.738014763014763,
+   "small_pairs": 63,
+   "small_auc": 0.7147368421052631
+  },
+  "meltano_meltano": {
+   "pairs": 1287,
+   "auc": 0.828657839333996,
+   "small_pairs": 29,
+   "small_auc": 1.0
+  },
+  "microsoft_autogen": {
+   "pairs": 2208,
+   "auc": 0.7371404443888419,
+   "small_pairs": 170,
+   "small_auc": 0.7643694393447253
+  },
+  "miguelgrinberg_microblog": {
+   "pairs": 206,
+   "auc": 0.8122766347918478,
+   "small_pairs": 99,
+   "small_auc": 0.7563559322033898
+  },
+  "mirumee_ariadne": {
+   "pairs": 519,
+   "auc": 0.7821614661316404,
+   "small_pairs": 3,
+   "small_auc": 1.0
+  },
+  "mitmproxy_mitmproxy": {
+   "pairs": 1852,
+   "auc": 0.7863256320189976,
+   "small_pairs": 27,
+   "small_auc": 0.7716049382716049
+  },
+  "mkdocs_mkdocs": {
+   "pairs": 315,
+   "auc": 0.7951717171717172,
+   "small_pairs": 0,
+   "small_auc": null
+  },
+  "nautobot_nautobot": {
+   "pairs": 4166,
+   "auc": 0.7354825769463841,
+   "small_pairs": 519,
+   "small_auc": 0.8268007498002581
+  },
+  "octoprint_OctoPrint": {
+   "pairs": 1370,
+   "auc": 0.7605535978643896,
+   "small_pairs": 70,
+   "small_auc": 0.8375822368421053
+  },
+  "pallets_click": {
+   "pairs": 181,
+   "auc": 0.7043010752688172,
+   "small_pairs": 1,
+   "small_auc": null
+  },
+  "pdm-project_pdm": {
+   "pairs": 839,
+   "auc": 0.7739376117165427,
+   "small_pairs": 0,
+   "small_auc": null
+  },
+  "piccolo-orm_piccolo": {
+   "pairs": 771,
+   "auc": 0.829922998223036,
+   "small_pairs": 133,
+   "small_auc": 0.8295675413022352
+  },
+  "pydantic_pydantic-ai": {
+   "pairs": 5691,
+   "auc": 0.7548908130883537,
+   "small_pairs": 95,
+   "small_auc": 0.720734126984127
+  },
+  "pyeventsourcing_eventsourcing": {
+   "pairs": 899,
+   "auc": 0.6622026036211283,
+   "small_pairs": 365,
+   "small_auc": 0.642772776607291
+  },
+  "python-lsp_python-lsp-server": {
+   "pairs": 363,
+   "auc": 0.7635327635327636,
+   "small_pairs": 0,
+   "small_auc": null
+  },
+  "python-poetry_poetry": {
+   "pairs": 815,
+   "auc": 0.8052349833147943,
+   "small_pairs": 43,
+   "small_auc": 0.8300492610837439
+  },
+  "python-telegram-bot_python-telegram-bot": {
+   "pairs": 904,
+   "auc": 0.7996146435452793,
+   "small_pairs": 3,
+   "small_auc": null
+  },
+  "rafsaf_minimal-fastapi-postgres-template": {
+   "pairs": 57,
+   "auc": 0.8598765432098765,
+   "small_pairs": 57,
+   "small_auc": 0.8598765432098765
+  },
+  "reflex-dev_reflex": {
+   "pairs": 4907,
+   "auc": 0.7723797093383628,
+   "small_pairs": 242,
+   "small_auc": 0.8221295749704841
+  },
+  "rq_rq": {
+   "pairs": 347,
+   "auc": 0.7866191093817553,
+   "small_pairs": 0,
+   "small_auc": null
+  },
+  "runemalm_ddd-for-python": {
+   "pairs": 209,
+   "auc": 0.5527854724530625,
+   "small_pairs": 74,
+   "small_auc": 0.9863013698630136
+  },
+  "s3rius_FastAPI-template": {
+   "pairs": 53,
+   "auc": 0.6985507246376812,
+   "small_pairs": 0,
+   "small_auc": null
+  },
+  "scrapy_scrapy": {
+   "pairs": 1312,
+   "auc": 0.7411215491600687,
+   "small_pairs": 0,
+   "small_auc": null
+  },
+  "spotify_luigi": {
+   "pairs": 858,
+   "auc": 0.7790519501802687,
+   "small_pairs": 0,
+   "small_auc": null
+  },
+  "strawberry-graphql_strawberry": {
+   "pairs": 1421,
+   "auc": 0.7574018035465715,
+   "small_pairs": 41,
+   "small_auc": 0.5661764705882353
+  },
+  "taigaio_taiga-back": {
+   "pairs": 3016,
+   "auc": 0.7827194814280869,
+   "small_pairs": 565,
+   "small_auc": 0.7730421237530243
+  },
+  "testdrivenio_fastapi-tdd-docker": {
+   "pairs": 103,
+   "auc": 0.8718263718263718,
+   "small_pairs": 103,
+   "small_auc": 0.8718263718263718
+  },
+  "tortoise_tortoise-orm": {
+   "pairs": 1147,
+   "auc": 0.7716141121736882,
+   "small_pairs": 269,
+   "small_auc": 0.8569755771160923
+  },
+  "tox-dev_tox": {
+   "pairs": 1209,
+   "auc": 0.7373790901223614,
+   "small_pairs": 1,
+   "small_auc": null
+  },
+  "vitalik_django-ninja": {
+   "pairs": 438,
+   "auc": 0.8319117647058824,
+   "small_pairs": 78,
+   "small_auc": 0.865
+  },
+  "wemake-services_wemake-django-template": {
+   "pairs": 171,
+   "auc": 0.7031746031746032,
+   "small_pairs": 118,
+   "small_auc": 0.7849612403100775
+  },
+  "wger-project_wger": {
+   "pairs": 2158,
+   "auc": 0.6820666108355343,
+   "small_pairs": 79,
+   "small_auc": 0.6415254237288136
+  },
+  "zauberzeug_nicegui": {
+   "pairs": 1647,
+   "auc": 0.7929477328437692,
+   "small_pairs": 90,
+   "small_auc": 0.7494444444444445
+  }
+ },
+ "model": {
+  "trees": 69,
+  "median": 0.7739376117165427,
+  "lower_quartile": 0.7395681560874159,
+  "upper_quartile": 0.7946596779347811,
+  "lowest": 0.5527854724530625,
+  "trees_above_half": 69
+ },
+ "model_small": {
+  "trees": 52,
+  "median": 0.7866858152910261,
+  "lower_quartile": 0.7174456190276453,
+  "upper_quartile": 0.853148349503736,
+  "lowest": 0.5661764705882353,
+  "trees_above_half": 52
+ }
+}

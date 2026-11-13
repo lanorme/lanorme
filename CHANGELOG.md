@@ -26,9 +26,16 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
   hypotheses in advance and tested them on 122 packages from 43 projects not
   read before: none is confirmed, and the first round's co-change and size
   leads are at chance there too. Two blind raters agree on merge-or-not at
-  a kappa near 0.3, which bounds any signal. The rule is unchanged. The
-  results and the follow-ups, among them checking the merge precondition
-  the fix assumes, are in `experiments/semantic-merge/README.md`.
+  a kappa near 0.3, which bounds any signal. A third round took
+  where authors put their code as ground truth: a logistic model of nine
+  layout-invariant features of a pair of definitions, fitted with the
+  standard library on 40 projects and frozen, tells same-module pairs from
+  sibling-module pairs at a median AUC of 0.77 on 69 projects it had never
+  seen, and a module split one definition per file from an authored package
+  at 0.86. By that standard the agent A/B packages the rule was built on are
+  not over-split, and the model does not predict the raters. The rule is
+  unchanged. The results and the follow-ups, among them checking the merge
+  precondition the fix assumes, are in `experiments/semantic-merge/README.md`.
 - `docs/references.bib` gains the 23 works the spike relies on, each checked
   against a bibliographic record (Crossref for the 21 with a DOI).
 
