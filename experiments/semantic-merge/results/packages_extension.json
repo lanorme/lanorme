@@ -2440,7 +2440,7 @@
    "merge_evidence": 0.0,
    "has_qualified_use": 0.0,
    "has_collision": 0.0,
-   "interface_shrink": 0.19999999999999996,
+   "interface_shrink": 0.23809523809523814,
    "hops": 0.0,
    "signature_coupling": 0.0,
    "name_echo": 0.0

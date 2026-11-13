@@ -103,11 +103,13 @@ class Boundaries:
 
 @dataclass(frozen=True)
 class PackageNames:
-    """How a package can be named in an import: its members' stems and what it re-exports."""
+    """How a package can be named in an import: its members' stems, what it re-exports, and
+    the names its own ``__init__.py`` defines when that file is a member."""
 
     package: str
     stems: dict[str, str]
     exported: dict[str, str]
+    own: frozenset[str] = frozenset()
 
     def is_named_by(self, imported: ImportedModule) -> bool:
         """True when a ``from`` import names the package itself, absolutely or as ``from .``."""
@@ -142,6 +144,9 @@ class UseReader:
             source = self.names.exported[alias.name]
             self.use.record(member=source, name=alias.name, local=local)
             self.use.facade.add(source)
+        elif alias.name in self.names.own:
+            package_file = f"{self.names.package}/{PACKAGE_FILE}"
+            self.use.record(member=package_file, name=alias.name, local=local)
 
     def read(self, imported: ImportedModule) -> None:
         """Record what one ``from`` import takes from the package's members."""
@@ -187,6 +192,12 @@ def read_boundaries(*, view: PackageView, surfaces: list[MemberSurface]) -> Boun
             surface.stem: surface.relative for surface in surfaces if surface.stem != _PACKAGE_STEM
         },
         exported=collect_reexports(view=view),
+        own=frozenset(
+            name
+            for surface in surfaces
+            if surface.stem == _PACKAGE_STEM
+            for name in surface.defined
+        ),
     )
     package_file = f"{view.package}/{PACKAGE_FILE}"
     uses: dict[str, ClientUse] = {}

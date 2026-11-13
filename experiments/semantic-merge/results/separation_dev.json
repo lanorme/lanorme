@@ -217,34 +217,34 @@
    "lineages": 16
   },
   "qualified_use_share": {
-   "auc": 0.35784313725490197,
+   "auc": 0.3733031674208145,
    "interval": [
-    0.21052631578947367,
-    0.495
+    0.23214285714285715,
+    0.5031055900621118
    ],
    "first_count": 17,
-   "second_count": 24,
+   "second_count": 26,
    "first_median": 0.0,
    "second_median": 0.0,
-   "lineages": 14
+   "lineages": 15
   },
   "facade_use_share": {
-   "auc": 0.5441176470588235,
+   "auc": 0.5497737556561086,
    "interval": [
-    0.4697802197802198,
-    0.7142857142857143
+    0.47909199522102747,
+    0.7232905982905983
    ],
    "first_count": 17,
-   "second_count": 24,
+   "second_count": 26,
    "first_median": 0.0,
    "second_median": 0.0,
-   "lineages": 14
+   "lineages": 15
   },
   "sibling_only_names": {
-   "auc": 0.3083491461100569,
+   "auc": 0.3064516129032258,
    "interval": [
-    0.19852941176470587,
-    0.4772727272727273
+    0.19827586206896552,
+    0.4708333333333333
    ],
    "first_count": 17,
    "second_count": 31,
@@ -253,22 +253,22 @@
    "lineages": 16
   },
   "scope_co_use": {
-   "auc": 0.6624040920716112,
+   "auc": 0.6458823529411765,
    "interval": [
-    0.44021739130434784,
-    0.8007662835249042
+    0.4166666666666667,
+    0.8033333333333333
    ],
    "first_count": 17,
-   "second_count": 23,
+   "second_count": 25,
    "first_median": 0.1875,
    "second_median": 0.0,
-   "lineages": 14
+   "lineages": 15
   },
   "merge_saving": {
-   "auc": 0.6973434535104365,
+   "auc": 0.6954459203036053,
    "interval": [
-    0.4774305555555556,
-    0.8923647932131495
+    0.4750733137829912,
+    0.8893939393939394
    ],
    "first_count": 17,
    "second_count": 31,
@@ -289,10 +289,10 @@
    "lineages": 16
   },
   "merge_evidence": {
-   "auc": 0.7049335863377609,
+   "auc": 0.6793168880455408,
    "interval": [
-    0.5529411764705883,
-    0.8729096989966555
+    0.5483870967741935,
+    0.8223684210526315
    ],
    "first_count": 17,
    "second_count": 31,
@@ -313,16 +313,16 @@
    "lineages": 16
   },
   "hops": {
-   "auc": 0.6624040920716112,
+   "auc": 0.6458823529411765,
    "interval": [
-    0.4305555555555556,
-    0.8057692307692308
+    0.41333333333333333,
+    0.8076923076923077
    ],
    "first_count": 17,
-   "second_count": 23,
+   "second_count": 25,
    "first_median": 0.2,
    "second_median": 0.0,
-   "lineages": 14
+   "lineages": 15
   },
   "signature_coupling": {
    "auc": 0.4297912713472486,
@@ -567,25 +567,25 @@
    "lineages": 9
   },
   "qualified_use_share": {
-   "auc": 0.3888888888888889,
+   "auc": 0.4,
    "interval": [
-    0.25,
+    0.2777777777777778,
     0.5
    ],
    "first_count": 14,
-   "second_count": 9,
+   "second_count": 10,
    "first_median": 0.0,
    "second_median": 0.0,
    "lineages": 9
   },
   "facade_use_share": {
-   "auc": 0.5476190476190477,
+   "auc": 0.5535714285714286,
    "interval": [
-    0.4166666666666667,
-    0.75
+    0.44166666666666665,
+    0.7592592592592593
    ],
    "first_count": 14,
-   "second_count": 9,
+   "second_count": 10,
    "first_median": 0.0,
    "second_median": 0.0,
    "lineages": 9
@@ -603,15 +603,15 @@
    "lineages": 9
   },
   "scope_co_use": {
-   "auc": 0.48412698412698413,
+   "auc": 0.525,
    "interval": [
-    0.07692307692307693,
-    0.7333333333333333
+    0.171875,
+    0.7395833333333334
    ],
    "first_count": 14,
-   "second_count": 9,
+   "second_count": 10,
    "first_median": 0.19375,
-   "second_median": 0.14285714285714285,
+   "second_median": 0.11688311688311688,
    "lineages": 9
   },
   "merge_saving": {
@@ -663,15 +663,15 @@
    "lineages": 9
   },
   "hops": {
-   "auc": 0.46825396825396826,
+   "auc": 0.5107142857142857,
    "interval": [
-    0.0,
-    0.75
+    0.15384615384615385,
+    0.7569444444444444
    ],
    "first_count": 14,
-   "second_count": 9,
+   "second_count": 10,
    "first_median": 0.2111111111111111,
-   "second_median": 0.14285714285714285,
+   "second_median": 0.11688311688311688,
    "lineages": 9
   },
   "signature_coupling": {
@@ -923,19 +923,19 @@
     0.5
    ],
    "first_count": 13,
-   "second_count": 4,
+   "second_count": 5,
    "first_median": 0.0,
    "second_median": 0.0,
    "lineages": 8
   },
   "facade_use_share": {
-   "auc": 0.4807692307692308,
+   "auc": 0.5076923076923077,
    "interval": [
-    0.06818181818181818,
+    0.2426470588235294,
     0.75
    ],
    "first_count": 13,
-   "second_count": 4,
+   "second_count": 5,
    "first_median": 0.0,
    "second_median": 0.0,
    "lineages": 8
@@ -953,15 +953,15 @@
    "lineages": 8
   },
   "scope_co_use": {
-   "auc": 0.375,
+   "auc": 0.47692307692307695,
    "interval": [
-    0.0,
-    0.9166666666666666
+    0.08333333333333333,
+    0.9285714285714286
    ],
    "first_count": 13,
-   "second_count": 4,
+   "second_count": 5,
    "first_median": 0.1875,
-   "second_median": 0.5454545454545454,
+   "second_median": 0.09090909090909091,
    "lineages": 8
   },
   "merge_saving": {
@@ -1013,15 +1013,15 @@
    "lineages": 8
   },
   "hops": {
-   "auc": 0.3942307692307692,
+   "auc": 0.49230769230769234,
    "interval": [
-    0.0,
-    0.9411764705882353
+    0.08333333333333333,
+    0.9456521739130435
    ],
    "first_count": 13,
-   "second_count": 4,
+   "second_count": 5,
    "first_median": 0.2,
-   "second_median": 1.0454545454545454,
+   "second_median": 0.09090909090909091,
    "lineages": 8
   },
   "signature_coupling": {
@@ -1267,34 +1267,34 @@
    "lineages": 16
   },
   "qualified_use_share": {
-   "auc": 0.33076923076923076,
+   "auc": 0.3531468531468531,
    "interval": [
-    0.1590909090909091,
-    0.4965034965034965
+    0.19047619047619047,
+    0.508578431372549
    ],
    "first_count": 13,
-   "second_count": 20,
+   "second_count": 22,
    "first_median": 0.0,
    "second_median": 0.0,
-   "lineages": 14
+   "lineages": 15
   },
   "facade_use_share": {
-   "auc": 0.5615384615384615,
+   "auc": 0.5699300699300699,
    "interval": [
-    0.4649859943977591,
+    0.4813664596273292,
     0.75
    ],
    "first_count": 13,
-   "second_count": 20,
+   "second_count": 22,
    "first_median": 0.0,
    "second_median": 0.0,
-   "lineages": 14
+   "lineages": 15
   },
   "sibling_only_names": {
-   "auc": 0.3076923076923077,
+   "auc": 0.30484330484330485,
    "interval": [
-    0.15384615384615385,
-    0.49537037037037035
+    0.153125,
+    0.4880952380952381
    ],
    "first_count": 13,
    "second_count": 27,
@@ -1303,22 +1303,22 @@
    "lineages": 16
   },
   "scope_co_use": {
-   "auc": 0.6295546558704453,
+   "auc": 0.6117216117216118,
    "interval": [
-    0.4523809523809524,
-    0.761437908496732
+    0.43333333333333335,
+    0.7713675213675214
    ],
    "first_count": 13,
-   "second_count": 19,
+   "second_count": 21,
    "first_median": 0.17647058823529413,
    "second_median": 0.0,
-   "lineages": 14
+   "lineages": 15
   },
   "merge_saving": {
-   "auc": 0.7037037037037037,
+   "auc": 0.7008547008547008,
    "interval": [
-    0.48785425101214575,
-    0.9090909090909091
+    0.48380566801619435,
+    0.9078341013824884
    ],
    "first_count": 13,
    "second_count": 27,
@@ -1339,15 +1339,15 @@
    "lineages": 16
   },
   "merge_evidence": {
-   "auc": 0.7564102564102564,
+   "auc": 0.7293447293447294,
    "interval": [
-    0.6041666666666666,
-    0.8966165413533834
+    0.6018518518518519,
+    0.8444444444444444
    ],
    "first_count": 13,
    "second_count": 27,
    "first_median": 0.625,
-   "second_median": 0.32407407407407407,
+   "second_median": 0.3333333333333333,
    "lineages": 16
   },
   "interface_shrink": {
@@ -1363,16 +1363,16 @@
    "lineages": 16
   },
   "hops": {
-   "auc": 0.631578947368421,
+   "auc": 0.6135531135531136,
    "interval": [
-    0.44375,
-    0.7552083333333334
+    0.4256410256410256,
+    0.765625
    ],
    "first_count": 13,
-   "second_count": 19,
+   "second_count": 21,
    "first_median": 0.17647058823529413,
    "second_median": 0.0,
-   "lineages": 14
+   "lineages": 15
   },
   "signature_coupling": {
    "auc": 0.5113960113960114,

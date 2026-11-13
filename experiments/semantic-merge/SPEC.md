@@ -203,6 +203,11 @@ as its own change, is to state the evidence in the finding and to leave out a
 package whose merge precondition fails. If it does not, the boundary-work
 signals join the others as not confirmed.
 
+After the registered run a gap was found in the measurement and closed: a
+name a client imports from the package, defined in the package's own
+`__init__.py`, was attributed to no member. `README.md` gives both the
+registered and the corrected figures; no verdict depends on which.
+
 ## Further experiments
 
 - **Congruence at scale.** For every original tree, how well each pairwise

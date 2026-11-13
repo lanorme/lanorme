@@ -15,7 +15,8 @@ more precise, with the standard library only? This is the spike behind issue
   their hypotheses, and tested them on 122 packages from 43 projects no
   earlier step had read. Every hypothesis fixed in advance failed: the
   primary measure separates merge from the rest at an AUC of 0.49 (interval
-  0.36 to 0.62) where it had shown 0.71 on the data it was designed on.
+  0.36 to 0.62; 0.51 once a gap in the measurement was closed) where it had
+  shown 0.71 on the data it was designed on.
 - **Each round's leads died in the next.** Vocabulary cohesion, strong on
   the dev split (0.11), is at chance on the holdout (0.49). Co-change, the
   one lead of the first round (0.80 on 17 packages), is at 0.51 on the 44
@@ -29,7 +30,7 @@ more precise, with the standard library only? This is the spike behind issue
   it is not far above chance.
 - **One signal keeps its direction in both rated sets.** The share of public
   names that only sibling members import (a helper used by the module beside
-  it) separates merge from the rest at 0.57 and 0.67, 0.63 pooled (interval
+  it) separates merge from the rest at 0.57 and 0.66, 0.62 pooled (interval
   0.55 to 0.71). It is the reason raters most often give. It was not a
   hypothesis, so it is a lead and no more.
 - **The signals do track how authors group modules, which is another
@@ -292,9 +293,9 @@ not shown line counts: 30 merge, 47 contested, 45 keep.
 
 | Measure, merge against the rest | Designed on (88 packages) | Confirmation (122) | Fixed in advance |
 |---|---|---|---|
-| `merge_evidence` | 0.71 [0.55, 0.84] | 0.49 [0.36, 0.62] | primary, above 0.5: not confirmed |
+| `merge_evidence` | 0.71 [0.55, 0.84] | 0.49 [0.36, 0.62], corrected 0.51 [0.38, 0.65] | primary, above 0.5: not confirmed |
 | `idle_share`, merge against keep | 0.74 [0.57, 0.84] | 0.49 [0.35, 0.63] | above 0.5: not confirmed |
-| `scope_co_use`, merge against keep | 0.79 [0.62, 0.92] | 0.47 [0.31, 0.60] | above 0.5: not confirmed |
+| `scope_co_use`, merge against keep | 0.79 [0.62, 0.92] | 0.47 [0.31, 0.60], corrected 0.51 [0.35, 0.64] | above 0.5: not confirmed |
 | `cochange_similarity`, merge against keep | 0.80 [0.63, 1.00] | 0.51 [0.33, 0.67] | above 0.5: not confirmed |
 | lines per member, merge against keep | 0.18 [0.08, 0.38] | 0.45 [0.31, 0.60] | below 0.5: not confirmed |
 | `identifier_cohesion` | 0.57 [0.44, 0.71] | 0.42 [0.30, 0.57] | no separation: holds |
@@ -304,6 +305,13 @@ The namespace hypothesis fails too: 1 of the 8 packages with a member used
 as a namespace is rated merge, against 29 of the other 114, where the first
 round had 0 of 10 against 17 of 78. Counting a package as merge only when
 both raters say so leaves 6 and changes no verdict.
+
+The first figure of a cell is the registered run. After it, the name-level
+reading of imports was found to miss a name defined in a package's own
+`__init__.py`, so it saw no client for 14 of the 105 confirmation packages
+that have one (3 of 119 in the first round). With that closed (1 of 105)
+the corrected figures move by at most 0.04 and no verdict changes. The
+result files hold the corrected measurement.
 
 The confirmation set is not the first set's population. Two thirds of its
 packages have two members (43% in the first set), and they come mostly from
@@ -323,11 +331,11 @@ merge against the rest:
 
 | Signal | First set | Confirmation | Pooled (210 packages, 47 merge) |
 |---|---|---|---|
-| `sibling_only_names` | 0.57 [0.47, 0.71] | 0.67 [0.56, 0.78] | 0.63 [0.55, 0.71] |
+| `sibling_only_names` | 0.57 [0.47, 0.71] | 0.66 [0.56, 0.78] | 0.62 [0.55, 0.71] |
 | `internal_density` | 0.53 [0.37, 0.69] | 0.61 [0.51, 0.72] | 0.58 [0.49, 0.67] |
-| `idle_share` | 0.69 [0.55, 0.79] | 0.51 [0.39, 0.62] | 0.58 [0.48, 0.66] |
-| `merge_evidence` | 0.71 [0.55, 0.84] | 0.49 [0.36, 0.62] | 0.57 [0.45, 0.67] |
-| `scope_co_use` | 0.71 [0.58, 0.84] | 0.44 [0.31, 0.57] | 0.53 [0.41, 0.64] |
+| `idle_share` | 0.69 [0.55, 0.79] | 0.51 [0.40, 0.62] | 0.58 [0.49, 0.66] |
+| `merge_evidence` | 0.71 [0.55, 0.84] | 0.51 [0.38, 0.65] | 0.58 [0.47, 0.69] |
+| `scope_co_use` | 0.71 [0.59, 0.84] | 0.48 [0.35, 0.61] | 0.55 [0.44, 0.66] |
 | `role_similarity` | 0.42 [0.28, 0.56] | 0.64 [0.52, 0.75] | 0.54 [0.45, 0.63] |
 | `cochange_similarity` | 0.66 [0.47, 0.87] | 0.44 [0.29, 0.59] | 0.51 [0.39, 0.65] |
 | `identifier_cohesion` | 0.57 [0.44, 0.71] | 0.42 [0.30, 0.57] | 0.47 [0.38, 0.58] |

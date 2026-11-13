@@ -678,3 +678,29 @@ def test_ceiling_is_how_well_one_rater_orders_the_other_raters_merges():
     # Assert
     assert ceiling["rater_b_predicting_rater_a"] == {"auc": 0.875, "merge": 2, "rest": 2}
     assert ceiling["rater_a_predicting_rater_b"] == {"auc": 5 / 6, "merge": 1, "rest": 3}
+
+
+def test_a_name_the_package_file_defines_is_a_use_of_the_package_file(tmp_path: Path):
+    # Arrange
+    write_tree(
+        tmp_path,
+        {
+            "app/__init__.py": "",
+            "app/system/__init__.py": (
+                "from .logger import build_logger\n\n\n"
+                "def start_system():\n"
+                "    return build_logger()\n"
+            ),
+            "app/system/logger.py": "def build_logger():\n    return object()\n",
+            "app/main.py": "from app.system import start_system\n",
+        },
+    )
+    boundaries = read_package_boundaries(tmp_path, package="app/system")
+
+    # Act
+    outside = boundaries.outside
+
+    # Assert
+    assert set(outside) == {"app/main.py"}
+    assert outside["app/main.py"].names == {"app/system/__init__.py": {"start_system"}}
+    assert outside["app/main.py"].facade == set()
