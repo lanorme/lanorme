@@ -60,6 +60,7 @@ class ClientUse:
 
     names: dict[str, set[str]] = field(default_factory=dict)
     local_names: dict[str, str] = field(default_factory=dict)
+    origins: dict[str, str] = field(default_factory=dict)
     namespaces: set[str] = field(default_factory=set)
     facade: set[str] = field(default_factory=set)
     matched_aliases: int = 0
@@ -73,6 +74,7 @@ class ClientUse:
         """Note that the client imports *name* from *member* under *local*."""
         self.names.setdefault(member, set()).add(name)
         self.local_names[local] = member
+        self.origins[local] = name
         self.matched_aliases += 1
 
 
@@ -184,6 +186,20 @@ def resolve_use(*, view: PackageView, names: PackageNames, client: Module) -> Cl
     return reader.use
 
 
+def _list_possible_clients(*, view: PackageView, surfaces: list[MemberSurface]) -> set[str]:
+    """The modules that can use a member: its importers, the package's importers, the members.
+
+    A use is only ever read from a client whose imports reach the member or
+    the package file, so no other module of the tree needs reading.
+    """
+    targets = [surface.relative for surface in surfaces]
+    targets.append(f"{view.package}/{PACKAGE_FILE}")
+    clients = {surface.relative for surface in surfaces}
+    for target in targets:
+        clients |= view.graph.find_importers(target)
+    return clients
+
+
 def read_boundaries(*, view: PackageView, surfaces: list[MemberSurface]) -> Boundaries:
     """Resolve how every module of the tree uses the members of *view*'s package."""
     names = PackageNames(
@@ -201,10 +217,10 @@ def read_boundaries(*, view: PackageView, surfaces: list[MemberSurface]) -> Boun
     )
     package_file = f"{view.package}/{PACKAGE_FILE}"
     uses: dict[str, ClientUse] = {}
-    for relative, client in view.modules.items():
-        if relative == package_file:
+    for relative in sorted(_list_possible_clients(view=view, surfaces=surfaces)):
+        if relative == package_file or relative not in view.modules:
             continue
-        found = resolve_use(view=view, names=names, client=client)
+        found = resolve_use(view=view, names=names, client=view.modules[relative])
         if found.members:
             uses[relative] = found
     return Boundaries(view=view, surfaces=tuple(surfaces), uses=uses)

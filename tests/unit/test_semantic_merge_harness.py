@@ -23,8 +23,11 @@ sys.path.insert(0, str(_HARNESS))
 
 import boundary_signals  # noqa: E402 -- the harness directory is not a package
 import cochange_signals  # noqa: E402
+import definition_pairs  # noqa: E402
 import idle_boundaries  # noqa: E402
 import labelled_packages  # noqa: E402
+import logistic  # noqa: E402
+import measure_colocation  # noqa: E402
 import measure_clustering  # noqa: E402
 import measure_congruence  # noqa: E402
 import member_surfaces  # noqa: E402
@@ -704,3 +707,129 @@ def test_a_name_the_package_file_defines_is_a_use_of_the_package_file(tmp_path: 
     assert set(outside) == {"app/main.py"}
     assert outside["app/main.py"].names == {"app/system/__init__.py": {"start_system"}}
     assert outside["app/main.py"].facade == set()
+
+
+SHOP = {
+    "app/__init__.py": "",
+    "app/shop/__init__.py": "",
+    "app/shop/pricing.py": (
+        "from decimal import Decimal\n\n"
+        "RATE = Decimal('0.2')\n\n\n"
+        "def add_tax(amount):\n"
+        "    return amount * (1 + RATE)\n\n\n"
+        "def format_price(amount):\n"
+        "    return str(Decimal(amount))\n"
+    ),
+    "app/shop/errors.py": (
+        "class ShopError(Exception):\n    pass\n\n\nclass OutOfStock(ShopError):\n    pass\n"
+    ),
+    "app/shop/stock.py": (
+        "from app.shop.errors import OutOfStock\n\n\n"
+        "def reserve(count):\n"
+        "    if count < 1:\n"
+        "        raise OutOfStock\n"
+        "    return count\n"
+    ),
+    "app/checkout.py": (
+        "from app.shop.pricing import add_tax, format_price\n"
+        "from app.shop.stock import reserve\n\n\n"
+        "def show_total(amount):\n"
+        "    return format_price(add_tax(amount))\n\n\n"
+        "def take(count):\n"
+        "    return reserve(count)\n"
+    ),
+}
+
+
+def read_shop(root: Path) -> tuple[definition_pairs.PackageDefinitions, dict]:
+    """The definitions of the shop package and its tree's term rarity."""
+    write_tree(root, SHOP)
+    tree = measure_colocation.TreeDefinitions(labelled_packages.read_original_tree(root))
+    return tree.read_package("app/shop"), tree.rarity
+
+
+def test_references_are_read_within_a_module_and_across_sibling_modules(tmp_path: Path):
+    # Arrange
+    found, _rarity = read_shop(tmp_path)
+
+    # Act
+    references = found.references
+
+    # Assert
+    assert references == {
+        (("app/shop/pricing.py", "add_tax"), ("app/shop/pricing.py", "RATE")),
+        (("app/shop/errors.py", "OutOfStock"), ("app/shop/errors.py", "ShopError")),
+        (("app/shop/stock.py", "reserve"), ("app/shop/errors.py", "OutOfStock")),
+    }
+
+
+def test_client_scopes_name_the_definitions_each_client_function_uses(tmp_path: Path):
+    # Arrange
+    found, _rarity = read_shop(tmp_path)
+
+    # Act
+    scopes = found.scopes
+
+    # Assert
+    assert scopes[("app/shop/pricing.py", "add_tax")] == {"app/checkout.py:5", "app/checkout.py"}
+    assert scopes[("app/shop/stock.py", "reserve")] == {"app/checkout.py:9", "app/checkout.py"}
+    assert ("app/shop/errors.py", "OutOfStock") not in scopes
+
+
+def test_pair_features_do_not_depend_on_which_file_a_definition_sits_in(tmp_path: Path):
+    # Arrange
+    found, rarity = read_shop(tmp_path)
+    by_name = {definition.name: definition for definition in found.definitions}
+
+    # Act
+    together = definition_pairs.measure_pair(
+        found=found,
+        first=by_name["add_tax"],
+        second=by_name["format_price"],
+        rarity=rarity,
+    )
+    apart = definition_pairs.measure_pair(
+        found=found,
+        first=by_name["reserve"],
+        second=by_name["OutOfStock"],
+        rarity=rarity,
+    )
+
+    # Assert
+    assert together["client_co_use"] == 2 / 2
+    assert together["reference"] == 0.0
+    assert together["same_kind"] == 1.0
+    assert apart["reference"] == 1.0
+    assert apart["same_kind"] == 0.0
+    assert apart["has_clients"] == 1.0
+
+
+def test_sampled_pairs_cover_every_module_and_cap_the_cross_module_ones(tmp_path: Path):
+    # Arrange
+    found, _rarity = read_shop(tmp_path)
+
+    # Act
+    pairs = measure_colocation.sample_pairs(found=found, generator=random.Random(1))
+
+    # Assert
+    same = [pair for pair in pairs if pair[0].module == pair[1].module]
+    assert len(same) == 3 + 1
+    assert len(pairs) - len(same) == 3 * 2 + 3 * 1 + 2 * 1
+
+
+def test_solver_and_fit_recover_a_known_system_and_a_known_direction():
+    # Arrange
+    generator = random.Random(1)
+    rows = [[generator.gauss(0, 1), generator.gauss(0, 1)] for _index in range(600)]
+    labels = [row[0] - row[1] + generator.gauss(0, 0.5) > 0 for row in rows]
+
+    # Act
+    solution = logistic.solve(matrix=[[2.0, 1.0], [1.0, 3.0]], vector=[3.0, 5.0])
+    model = logistic.fit(rows=rows, labels=labels)
+
+    # Assert
+    assert solution == pytest.approx([0.8, 1.4])
+    assert model.weights[0] > 1.0
+    assert model.weights[1] < -1.0
+    assert model.score([2.0, -2.0]) > 0.95
+    assert model.score([-2.0, 2.0]) < 0.05

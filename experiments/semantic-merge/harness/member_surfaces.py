@@ -86,7 +86,7 @@ def _measure_statement(statement: ast.stmt) -> tuple[int, int]:
     return 0, 0
 
 
-def _list_defined_names(statement: ast.stmt) -> list[str]:
+def list_defined_names(statement: ast.stmt) -> list[str]:
     """The names one top-level statement binds, imports left out."""
     match statement:
         case ast.FunctionDef(name=name) | ast.AsyncFunctionDef(name=name) | ast.ClassDef(name=name):
@@ -98,7 +98,7 @@ def _list_defined_names(statement: ast.stmt) -> list[str]:
     return []
 
 
-def _is_dunder(name: str) -> bool:
+def is_dunder(name: str) -> bool:
     return name.startswith("__") and name.endswith("__")
 
 
@@ -108,8 +108,8 @@ def read_surface(module: Module) -> MemberSurface:
     names = [
         name
         for statement in module.tree.body
-        for name in _list_defined_names(statement)
-        if not _is_dunder(name)
+        for name in list_defined_names(statement)
+        if not is_dunder(name)
     ]
     return MemberSurface(
         relative=module.relative,
