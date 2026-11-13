@@ -29,6 +29,8 @@ import measure_clustering  # noqa: E402
 import measure_congruence  # noqa: E402
 import member_surfaces  # noqa: E402
 import modularization_quality  # noqa: E402
+import report_confirmation  # noqa: E402
+import report_exploration  # noqa: E402
 import report_ratings  # noqa: E402
 import reuse_signals  # noqa: E402
 import separation  # noqa: E402
@@ -638,3 +640,41 @@ def test_facade_use_and_sibling_only_names_are_read_from_imports(tmp_path: Path)
     assert addressing == {"qualified_use_share": 0.0, "facade_use_share": 1.0}
     assert sibling_only == 0.5
     assert shrink == 0.5
+
+
+@pytest.mark.parametrize(
+    ("labels", "level"),
+    [
+        ({"a": "merge", "b": "merge"}, "merge"),
+        ({"a": "merge", "b": "contested"}, "contested"),
+        ({"a": "merge", "b": "keep"}, "contested"),
+        ({"a": "keep", "b": "keep"}, "keep"),
+    ],
+)
+def test_strict_combination_needs_every_rater_for_merge(labels, level):
+    # Arrange
+    ratings = dict(labels)
+
+    # Act
+    combined = report_confirmation.combine_strictly(ratings)
+
+    # Assert
+    assert combined == level
+
+
+def test_ceiling_is_how_well_one_rater_orders_the_other_raters_merges():
+    # Arrange
+    labels = {
+        "one": {"a": "merge", "b": "merge"},
+        "two": {"a": "merge", "b": "contested"},
+        "three": {"a": "keep", "b": "contested"},
+        "four": {"a": "keep", "b": "keep"},
+        "single": {"a": "merge"},
+    }
+
+    # Act
+    ceiling = report_exploration.measure_ceiling(labels)
+
+    # Assert
+    assert ceiling["rater_b_predicting_rater_a"] == {"auc": 0.875, "merge": 2, "rest": 2}
+    assert ceiling["rater_a_predicting_rater_b"] == {"auc": 5 / 6, "merge": 1, "rest": 3}

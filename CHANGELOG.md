@@ -21,10 +21,15 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
   on the 17 rated packages that have history; a Bunch-style clustering of
   the import graph is weakly related to the authors' packages; a Common
   Reuse sentence in the message shows no effect on what an agent decides.
-  Lines per member, which the rule already reads, separates the packages to
-  keep. The rule is unchanged. The results and three follow-ups are in
-  `experiments/semantic-merge/README.md`.
-- `docs/references.bib` gains the 22 works the spike relies on, each checked
+  A second round invented signals for what a module boundary does (an idle
+  boundary hides nothing, names nothing and separates nothing), fixed their
+  hypotheses in advance and tested them on 122 packages from 43 projects not
+  read before: none is confirmed, and the first round's co-change and size
+  leads are at chance there too. Two blind raters agree on merge-or-not at
+  a kappa near 0.3, which bounds any signal. The rule is unchanged. The
+  results and the follow-ups, among them checking the merge precondition
+  the fix assumes, are in `experiments/semantic-merge/README.md`.
+- `docs/references.bib` gains the 23 works the spike relies on, each checked
   against a bibliographic record (Crossref for the 21 with a DOI).
 
 ## [0.21.1]

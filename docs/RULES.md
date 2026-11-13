@@ -557,13 +557,13 @@ defects: the size-defect evidence finds no size threshold
 [@elemam2002optimal] and disagrees on the shape of the curve
 [@syer2015relative]. Pass-through layers, single-implementation Protocols and
 small classes are not judged. Nor does it read meaning: whether the members
-share importers, vocabulary or history. Those signals were measured against
-the corpus labels and against blind ratings on 135 packages
-(`experiments/semantic-merge/README.md`): none separates the packages to
-merge on both corpus splits, and lines per member separates the ones to
-keep. They track how authors group modules into packages
-[@beck2011congruence], and a deliberate convention's parallel modules
-resemble each other as much as an over-split's do.
+share importers, vocabulary or history, or what each boundary hides. Those
+signals were measured against the corpus labels and against blind ratings
+on 257 packages (`experiments/semantic-merge/README.md`): none separates
+the packages to merge on data it was not designed on. They track how
+authors group modules into packages [@beck2011congruence], and a deliberate
+convention's parallel modules resemble each other as much as an
+over-split's do.
 
 **Conditions.** A package is reported when all of these hold, checked in this
 order:

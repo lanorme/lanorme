@@ -1,0 +1,560 @@
+{
+ "raters_three_levels": {
+  "pairs": 122,
+  "agreement": 0.6147540983606558,
+  "kappa": 0.3846318952564929
+ },
+ "raters_merge_or_not": {
+  "pairs": 122,
+  "agreement": 0.8032786885245902,
+  "kappa": 0.26542900150526855
+ },
+ "raters_keep_or_not": {
+  "pairs": 122,
+  "agreement": 0.7540983606557377,
+  "kappa": 0.5085929108485499
+ },
+ "any rater": {
+  "merge_against_keep": {
+   "merge_evidence": {
+    "auc": 0.5070370370370371,
+    "interval": [
+     0.3546470999301188,
+     0.6659776767259198
+    ],
+    "first_count": 30,
+    "second_count": 45,
+    "first_median": 0.0,
+    "second_median": 0.2,
+    "lineages": 32
+   },
+   "idle_share": {
+    "auc": 0.4918518518518519,
+    "interval": [
+     0.3474074074074074,
+     0.6251263902932255
+    ],
+    "first_count": 30,
+    "second_count": 45,
+    "first_median": 0.0,
+    "second_median": 0.0,
+    "lineages": 32
+   },
+   "scope_co_use": {
+    "auc": 0.4659090909090909,
+    "interval": [
+     0.3142857142857143,
+     0.6024242424242424
+    ],
+    "first_count": 22,
+    "second_count": 22,
+    "first_median": 0.0,
+    "second_median": 0.0,
+    "lineages": 23
+   },
+   "cochange_similarity": {
+    "auc": 0.5074786324786325,
+    "interval": [
+     0.3315508021390374,
+     0.6694444444444444
+    ],
+    "first_count": 18,
+    "second_count": 26,
+    "first_median": 0.0,
+    "second_median": 0.0,
+    "lineages": 22
+   },
+   "lines_per_member": {
+    "auc": 0.44925925925925925,
+    "interval": [
+     0.3055210918114144,
+     0.6029106029106029
+    ],
+    "first_count": 30,
+    "second_count": 45,
+    "first_median": 39.75,
+    "second_median": 44.5,
+    "lineages": 32
+   },
+   "identifier_cohesion": {
+    "auc": 0.5637037037037037,
+    "interval": [
+     0.41036184210526316,
+     0.7302431610942249
+    ],
+    "first_count": 30,
+    "second_count": 45,
+    "first_median": 0.22720053003690932,
+    "second_median": 0.1597597065336335,
+    "lineages": 32
+   },
+   "used_together": {
+    "auc": 0.475,
+    "interval": [
+     0.3099099099099099,
+     0.6220588235294118
+    ],
+    "first_count": 28,
+    "second_count": 35,
+    "first_median": 0.0,
+    "second_median": 0.0,
+    "lineages": 29
+   }
+  },
+  "merge_against_contested": {
+   "merge_evidence": {
+    "auc": 0.4645390070921986,
+    "interval": [
+     0.3326226012793177,
+     0.6013621794871795
+    ],
+    "first_count": 30,
+    "second_count": 47,
+    "first_median": 0.0,
+    "second_median": 0.25,
+    "lineages": 33
+   },
+   "idle_share": {
+    "auc": 0.5187943262411348,
+    "interval": [
+     0.3859416445623342,
+     0.646551724137931
+    ],
+    "first_count": 30,
+    "second_count": 47,
+    "first_median": 0.0,
+    "second_median": 0.0,
+    "lineages": 33
+   },
+   "scope_co_use": {
+    "auc": 0.4147727272727273,
+    "interval": [
+     0.2785862785862786,
+     0.5496794871794872
+    ],
+    "first_count": 22,
+    "second_count": 32,
+    "first_median": 0.0,
+    "second_median": 0.0,
+    "lineages": 23
+   },
+   "cochange_similarity": {
+    "auc": 0.37393162393162394,
+    "interval": [
+     0.2231237322515213,
+     0.5158730158730159
+    ],
+    "first_count": 18,
+    "second_count": 26,
+    "first_median": 0.0,
+    "second_median": 0.11464051754994788,
+    "lineages": 25
+   },
+   "lines_per_member": {
+    "auc": 0.5712765957446808,
+    "interval": [
+     0.4521276595744681,
+     0.7015
+    ],
+    "first_count": 30,
+    "second_count": 47,
+    "first_median": 39.75,
+    "second_median": 27.666666666666668,
+    "lineages": 33
+   },
+   "identifier_cohesion": {
+    "auc": 0.2900709219858156,
+    "interval": [
+     0.17753047164811872,
+     0.4198830409356725
+    ],
+    "first_count": 30,
+    "second_count": 47,
+    "first_median": 0.22720053003690932,
+    "second_median": 0.39141271854045245,
+    "lineages": 33
+   },
+   "used_together": {
+    "auc": 0.4383503401360544,
+    "interval": [
+     0.27823691460055094,
+     0.6052631578947368
+    ],
+    "first_count": 28,
+    "second_count": 42,
+    "first_median": 0.0,
+    "second_median": 0.0,
+    "lineages": 30
+   }
+  },
+  "merge_against_rest": {
+   "merge_evidence": {
+    "auc": 0.48532608695652174,
+    "interval": [
+     0.35650083612040134,
+     0.6233486943164362
+    ],
+    "first_count": 30,
+    "second_count": 92,
+    "first_median": 0.0,
+    "second_median": 0.225,
+    "lineages": 43
+   },
+   "idle_share": {
+    "auc": 0.5056159420289855,
+    "interval": [
+     0.39285714285714285,
+     0.6156670746634026
+    ],
+    "first_count": 30,
+    "second_count": 92,
+    "first_median": 0.0,
+    "second_median": 0.0,
+    "lineages": 43
+   },
+   "scope_co_use": {
+    "auc": 0.4356060606060606,
+    "interval": [
+     0.3112858464384829,
+     0.5673624288425048
+    ],
+    "first_count": 22,
+    "second_count": 54,
+    "first_median": 0.0,
+    "second_median": 0.0,
+    "lineages": 30
+   },
+   "cochange_similarity": {
+    "auc": 0.4407051282051282,
+    "interval": [
+     0.29111644657863145,
+     0.5867003367003367
+    ],
+    "first_count": 18,
+    "second_count": 52,
+    "first_median": 0.0,
+    "second_median": 0.027777777777777776,
+    "lineages": 32
+   },
+   "lines_per_member": {
+    "auc": 0.5115942028985507,
+    "interval": [
+     0.40103189493433394,
+     0.6286184210526315
+    ],
+    "first_count": 30,
+    "second_count": 92,
+    "first_median": 39.75,
+    "second_median": 34.875,
+    "lineages": 43
+   },
+   "identifier_cohesion": {
+    "auc": 0.42391304347826086,
+    "interval": [
+     0.2960573476702509,
+     0.567287784679089
+    ],
+    "first_count": 30,
+    "second_count": 92,
+    "first_median": 0.22720053003690932,
+    "second_median": 0.2966619709919905,
+    "lineages": 43
+   },
+   "used_together": {
+    "auc": 0.4550092764378479,
+    "interval": [
+     0.3118181818181818,
+     0.6137985725614592
+    ],
+    "first_count": 28,
+    "second_count": 77,
+    "first_median": 0.0,
+    "second_median": 0.0,
+    "lineages": 37
+   }
+  }
+ },
+ "any rater: namespace use": {
+  "with": {
+   "keep": 3,
+   "merge": 1,
+   "contested": 4
+  },
+  "without": {
+   "contested": 43,
+   "merge": 29,
+   "keep": 42
+  }
+ },
+ "both raters": {
+  "merge_against_keep": {
+   "merge_evidence": {
+    "auc": 0.29814814814814816,
+    "interval": [
+     0.1276595744680851,
+     0.5591397849462365
+    ],
+    "first_count": 6,
+    "second_count": 45,
+    "first_median": 0.0,
+    "second_median": 0.2,
+    "lineages": 28
+   },
+   "idle_share": {
+    "auc": 0.31666666666666665,
+    "interval": [
+     0.171875,
+     0.5288461538461539
+    ],
+    "first_count": 6,
+    "second_count": 45,
+    "first_median": 0.0,
+    "second_median": 0.0,
+    "lineages": 28
+   },
+   "scope_co_use": {
+    "auc": 0.44545454545454544,
+    "interval": [
+     0.2777777777777778,
+     0.7142857142857143
+    ],
+    "first_count": 5,
+    "second_count": 22,
+    "first_median": 0.0,
+    "second_median": 0.0,
+    "lineages": 19
+   },
+   "cochange_similarity": {
+    "auc": 0.4230769230769231,
+    "interval": [
+     0.2037037037037037,
+     0.7916666666666666
+    ],
+    "first_count": 3,
+    "second_count": 26,
+    "first_median": 0.0,
+    "second_median": 0.0,
+    "lineages": 19
+   },
+   "lines_per_member": {
+    "auc": 0.43148148148148147,
+    "interval": [
+     0.13170731707317074,
+     0.6752450980392157
+    ],
+    "first_count": 6,
+    "second_count": 45,
+    "first_median": 33.916666666666664,
+    "second_median": 44.5,
+    "lineages": 28
+   },
+   "identifier_cohesion": {
+    "auc": 0.4962962962962963,
+    "interval": [
+     0.24878048780487805,
+     0.8226950354609929
+    ],
+    "first_count": 6,
+    "second_count": 45,
+    "first_median": 0.1596074271622227,
+    "second_median": 0.1597597065336335,
+    "lineages": 28
+   },
+   "used_together": {
+    "auc": 0.36904761904761907,
+    "interval": [
+     0.203125,
+     0.6511627906976745
+    ],
+    "first_count": 6,
+    "second_count": 35,
+    "first_median": 0.0,
+    "second_median": 0.0,
+    "lineages": 24
+   }
+  },
+  "merge_against_contested": {
+   "merge_evidence": {
+    "auc": 0.29107981220657275,
+    "interval": [
+     0.19230769230769232,
+     0.4383561643835616
+    ],
+    "first_count": 6,
+    "second_count": 71,
+    "first_median": 0.0,
+    "second_median": 0.25,
+    "lineages": 33
+   },
+   "idle_share": {
+    "auc": 0.3626760563380282,
+    "interval": [
+     0.25833333333333336,
+     0.5391705069124424
+    ],
+    "first_count": 6,
+    "second_count": 71,
+    "first_median": 0.0,
+    "second_median": 0.0,
+    "lineages": 33
+   },
+   "scope_co_use": {
+    "auc": 0.42448979591836733,
+    "interval": [
+     0.3023255813953488,
+     0.6666666666666666
+    ],
+    "first_count": 5,
+    "second_count": 49,
+    "first_median": 0.0,
+    "second_median": 0.0,
+    "lineages": 23
+   },
+   "cochange_similarity": {
+    "auc": 0.3252032520325203,
+    "interval": [
+     0.15151515151515152,
+     0.5641025641025641
+    ],
+    "first_count": 3,
+    "second_count": 41,
+    "first_median": 0.0,
+    "second_median": 0.058823529411764705,
+    "lineages": 25
+   },
+   "lines_per_member": {
+    "auc": 0.5434272300469484,
+    "interval": [
+     0.3271604938271605,
+     0.7
+    ],
+    "first_count": 6,
+    "second_count": 71,
+    "first_median": 33.916666666666664,
+    "second_median": 31.5,
+    "lineages": 33
+   },
+   "identifier_cohesion": {
+    "auc": 0.2535211267605634,
+    "interval": [
+     0.05472636815920398,
+     0.5342465753424658
+    ],
+    "first_count": 6,
+    "second_count": 71,
+    "first_median": 0.1596074271622227,
+    "second_median": 0.36242328725718426,
+    "lineages": 33
+   },
+   "used_together": {
+    "auc": 0.3411458333333333,
+    "interval": [
+     0.22580645161290322,
+     0.5311475409836065
+    ],
+    "first_count": 6,
+    "second_count": 64,
+    "first_median": 0.0,
+    "second_median": 0.0,
+    "lineages": 30
+   }
+  },
+  "merge_against_rest": {
+   "merge_evidence": {
+    "auc": 0.2938218390804598,
+    "interval": [
+     0.1853932584269663,
+     0.4883177570093458
+    ],
+    "first_count": 6,
+    "second_count": 116,
+    "first_median": 0.0,
+    "second_median": 0.25,
+    "lineages": 43
+   },
+   "idle_share": {
+    "auc": 0.3448275862068966,
+    "interval": [
+     0.24324324324324326,
+     0.5328467153284672
+    ],
+    "first_count": 6,
+    "second_count": 116,
+    "first_median": 0.0,
+    "second_median": 0.0,
+    "lineages": 43
+   },
+   "scope_co_use": {
+    "auc": 0.4309859154929577,
+    "interval": [
+     0.3125,
+     0.7058823529411765
+    ],
+    "first_count": 5,
+    "second_count": 71,
+    "first_median": 0.0,
+    "second_median": 0.0,
+    "lineages": 30
+   },
+   "cochange_similarity": {
+    "auc": 0.36318407960199006,
+    "interval": [
+     0.1885245901639344,
+     0.6666666666666666
+    ],
+    "first_count": 3,
+    "second_count": 67,
+    "first_median": 0.0,
+    "second_median": 0.016666666666666666,
+    "lineages": 32
+   },
+   "lines_per_member": {
+    "auc": 0.5,
+    "interval": [
+     0.26608695652173914,
+     0.6826446280991736
+    ],
+    "first_count": 6,
+    "second_count": 116,
+    "first_median": 33.916666666666664,
+    "second_median": 35.1,
+    "lineages": 43
+   },
+   "identifier_cohesion": {
+    "auc": 0.34770114942528735,
+    "interval": [
+     0.14414414414414414,
+     0.6460317460317461
+    ],
+    "first_count": 6,
+    "second_count": 116,
+    "first_median": 0.1596074271622227,
+    "second_median": 0.2966619709919905,
+    "lineages": 43
+   },
+   "used_together": {
+    "auc": 0.351010101010101,
+    "interval": [
+     0.23170731707317074,
+     0.5517857142857143
+    ],
+    "first_count": 6,
+    "second_count": 99,
+    "first_median": 0.0,
+    "second_median": 0.0,
+    "lineages": 37
+   }
+  }
+ },
+ "both raters: namespace use": {
+  "with": {
+   "keep": 3,
+   "contested": 5
+  },
+  "without": {
+   "contested": 66,
+   "merge": 6,
+   "keep": 42
+  }
+ }
+}

@@ -1,0 +1,1144 @@
+{
+ "ceiling_first": {
+  "rater_b_predicting_rater_a": {
+   "auc": 0.7419753086419754,
+   "merge": 9,
+   "rest": 45
+  },
+  "rater_a_predicting_rater_b": {
+   "auc": 0.9326923076923077,
+   "merge": 2,
+   "rest": 52
+  }
+ },
+ "ceiling_confirmation": {
+  "rater_b_predicting_rater_a": {
+   "auc": 0.6961438635520949,
+   "merge": 29,
+   "rest": 93
+  },
+  "rater_a_predicting_rater_b": {
+   "auc": 0.867080745341615,
+   "merge": 7,
+   "rest": 115
+  }
+ },
+ "signals": {
+  "internal_density": {
+   "first": {
+    "auc": 0.5256835128417564,
+    "interval": [
+     0.37210884353741497,
+     0.688973063973064
+    ],
+    "first_count": 17,
+    "second_count": 71,
+    "first_median": 0.3333333333333333,
+    "second_median": 0.047619047619047616,
+    "lineages": 27
+   },
+   "confirmation": {
+    "auc": 0.6085144927536232,
+    "interval": [
+     0.5053353658536586,
+     0.7176375404530745
+    ],
+    "first_count": 30,
+    "second_count": 92,
+    "first_median": 1.0,
+    "second_median": 0.3666666666666667,
+    "lineages": 43
+   },
+   "pooled": {
+    "auc": 0.5831484140451638,
+    "interval": [
+     0.49433741213225724,
+     0.6682974559686888
+    ],
+    "first_count": 47,
+    "second_count": 163,
+    "first_median": 0.6666666666666666,
+    "second_median": 0.3333333333333333,
+    "lineages": 70
+   }
+  },
+  "connected_share": {
+   "first": {
+    "auc": 0.5157415078707539,
+    "interval": [
+     0.37155555555555553,
+     0.6869047619047619
+    ],
+    "first_count": 17,
+    "second_count": 71,
+    "first_median": 0.6666666666666666,
+    "second_median": 0.5,
+    "lineages": 27
+   },
+   "confirmation": {
+    "auc": 0.5844202898550724,
+    "interval": [
+     0.4907294832826748,
+     0.6847727272727273
+    ],
+    "first_count": 30,
+    "second_count": 92,
+    "first_median": 1.0,
+    "second_median": 0.775,
+    "lineages": 43
+   },
+   "pooled": {
+    "auc": 0.5613496932515337,
+    "interval": [
+     0.47968631897203323,
+     0.6505497251374313
+    ],
+    "first_count": 47,
+    "second_count": 163,
+    "first_median": 1.0,
+    "second_median": 0.6666666666666666,
+    "lineages": 70
+   }
+  },
+  "importer_similarity": {
+   "first": {
+    "auc": 0.5223214285714286,
+    "interval": [
+     0.3856534090909091,
+     0.6417233560090703
+    ],
+    "first_count": 16,
+    "second_count": 63,
+    "first_median": 0.31666666666666665,
+    "second_median": 0.3055555555555555,
+    "lineages": 26
+   },
+   "confirmation": {
+    "auc": 0.43738404452690166,
+    "interval": [
+     0.3004954268292683,
+     0.594789356984479
+    ],
+    "first_count": 28,
+    "second_count": 77,
+    "first_median": 0.0,
+    "second_median": 0.0,
+    "lineages": 37
+   },
+   "pooled": {
+    "auc": 0.44821428571428573,
+    "interval": [
+     0.34074605451936874,
+     0.5559701492537313
+    ],
+    "first_count": 44,
+    "second_count": 140,
+    "first_median": 0.059027777777777776,
+    "second_median": 0.1066919191919192,
+    "lineages": 63
+   }
+  },
+  "used_together": {
+   "first": {
+    "auc": 0.6071428571428571,
+    "interval": [
+     0.4662977867203219,
+     0.7304804804804805
+    ],
+    "first_count": 16,
+    "second_count": 63,
+    "first_median": 0.6,
+    "second_median": 0.3333333333333333,
+    "lineages": 26
+   },
+   "confirmation": {
+    "auc": 0.4550092764378479,
+    "interval": [
+     0.3118181818181818,
+     0.6137985725614592
+    ],
+    "first_count": 28,
+    "second_count": 77,
+    "first_median": 0.0,
+    "second_median": 0.0,
+    "lineages": 37
+   },
+   "pooled": {
+    "auc": 0.4888798701298701,
+    "interval": [
+     0.37799447174447176,
+     0.6054873054873054
+    ],
+    "first_count": 44,
+    "second_count": 140,
+    "first_median": 0.06971153846153846,
+    "second_median": 0.2153846153846154,
+    "lineages": 63
+   }
+  },
+  "mean_share_used": {
+   "first": {
+    "auc": 0.595734126984127,
+    "interval": [
+     0.45,
+     0.7227891156462585
+    ],
+    "first_count": 16,
+    "second_count": 63,
+    "first_median": 0.5692307692307692,
+    "second_median": 0.5,
+    "lineages": 26
+   },
+   "confirmation": {
+    "auc": 0.48214285714285715,
+    "interval": [
+     0.34667487684729065,
+     0.6151351351351352
+    ],
+    "first_count": 28,
+    "second_count": 77,
+    "first_median": 0.5,
+    "second_median": 0.5,
+    "lineages": 37
+   },
+   "pooled": {
+    "auc": 0.5247564935064936,
+    "interval": [
+     0.423828125,
+     0.6257070135746606
+    ],
+    "first_count": 44,
+    "second_count": 140,
+    "first_median": 0.5,
+    "second_median": 0.5,
+    "lineages": 63
+   }
+  },
+  "private_share": {
+   "first": {
+    "auc": 0.48094449047224525,
+    "interval": [
+     0.3564294631710362,
+     0.6388888888888888
+    ],
+    "first_count": 17,
+    "second_count": 71,
+    "first_median": 0.0,
+    "second_median": 0.0,
+    "lineages": 27
+   },
+   "confirmation": {
+    "auc": 0.5054347826086957,
+    "interval": [
+     0.3825242718446602,
+     0.6253561253561254
+    ],
+    "first_count": 30,
+    "second_count": 92,
+    "first_median": 0.5,
+    "second_median": 0.22499999999999998,
+    "lineages": 43
+   },
+   "pooled": {
+    "auc": 0.5041117347604751,
+    "interval": [
+     0.4111904053920111,
+     0.6001984126984127
+    ],
+    "first_count": 47,
+    "second_count": 163,
+    "first_median": 0.33333333333333337,
+    "second_median": 0.0,
+    "lineages": 70
+   }
+  },
+  "fan_out_similarity": {
+   "first": {
+    "auc": 0.5419642857142857,
+    "interval": [
+     0.3870192307692308,
+     0.7004694835680751
+    ],
+    "first_count": 16,
+    "second_count": 70,
+    "first_median": 0.35277777777777775,
+    "second_median": 0.2974230795659367,
+    "lineages": 27
+   },
+   "confirmation": {
+    "auc": 0.5390139751552795,
+    "interval": [
+     0.4203125,
+     0.6609299516908212
+    ],
+    "first_count": 28,
+    "second_count": 92,
+    "first_median": 0.22638888888888886,
+    "second_median": 0.1846590909090909,
+    "lineages": 43
+   },
+   "pooled": {
+    "auc": 0.5274270482603816,
+    "interval": [
+     0.4359180035650624,
+     0.6224180911680912
+    ],
+    "first_count": 44,
+    "second_count": 162,
+    "first_median": 0.26021825396825393,
+    "second_median": 0.24305555555555555,
+    "lineages": 70
+   }
+  },
+  "role_similarity": {
+   "first": {
+    "auc": 0.4175642087821044,
+    "interval": [
+     0.27656078860898137,
+     0.5632133450395084
+    ],
+    "first_count": 17,
+    "second_count": 71,
+    "first_median": 0.3333333333333333,
+    "second_median": 0.5,
+    "lineages": 27
+   },
+   "confirmation": {
+    "auc": 0.6358695652173914,
+    "interval": [
+     0.5225095785440613,
+     0.7458333333333333
+    ],
+    "first_count": 30,
+    "second_count": 92,
+    "first_median": 0.3333333333333333,
+    "second_median": 0.16249999999999998,
+    "lineages": 43
+   },
+   "pooled": {
+    "auc": 0.5358308314841405,
+    "interval": [
+     0.44760420724581224,
+     0.6266622340425532
+    ],
+    "first_count": 47,
+    "second_count": 163,
+    "first_median": 0.3333333333333333,
+    "second_median": 0.3277777777777777,
+    "lineages": 70
+   }
+  },
+  "identifier_cohesion": {
+   "first": {
+    "auc": 0.5650372825186413,
+    "interval": [
+     0.43670886075949367,
+     0.7096171802054155
+    ],
+    "first_count": 17,
+    "second_count": 71,
+    "first_median": 0.33773069050405463,
+    "second_median": 0.23674536241044378,
+    "lineages": 27
+   },
+   "confirmation": {
+    "auc": 0.42391304347826086,
+    "interval": [
+     0.2960573476702509,
+     0.567287784679089
+    ],
+    "first_count": 30,
+    "second_count": 92,
+    "first_median": 0.22720053003690932,
+    "second_median": 0.2966619709919905,
+    "lineages": 43
+   },
+   "pooled": {
+    "auc": 0.47474220075708135,
+    "interval": [
+     0.38324175824175827,
+     0.5764814814814815
+    ],
+    "first_count": 47,
+    "second_count": 163,
+    "first_median": 0.2892111308406996,
+    "second_median": 0.268825351703117,
+    "lineages": 70
+   }
+  },
+  "identifier_lift": {
+   "first": {
+    "auc": 0.5816072908036454,
+    "interval": [
+     0.4541577825159915,
+     0.7230273752012882
+    ],
+    "first_count": 17,
+    "second_count": 71,
+    "first_median": 0.3080408615106769,
+    "second_median": 0.19147781623738092,
+    "lineages": 27
+   },
+   "confirmation": {
+    "auc": 0.4438405797101449,
+    "interval": [
+     0.3158974358974359,
+     0.5843609022556391
+    ],
+    "first_count": 30,
+    "second_count": 92,
+    "first_median": 0.20515318614249162,
+    "second_median": 0.2651236377722745,
+    "lineages": 43
+   },
+   "pooled": {
+    "auc": 0.4941913588304399,
+    "interval": [
+     0.40607734806629836,
+     0.5910798122065728
+    ],
+    "first_count": 47,
+    "second_count": 163,
+    "first_median": 0.23765702022568774,
+    "second_median": 0.23933609963785557,
+    "lineages": 70
+   }
+  },
+  "identifier_overlap": {
+   "first": {
+    "auc": 0.463960231980116,
+    "interval": [
+     0.32727272727272727,
+     0.5949367088607594
+    ],
+    "first_count": 17,
+    "second_count": 71,
+    "first_median": 0.18181818181818182,
+    "second_median": 0.21052631578947367,
+    "lineages": 27
+   },
+   "confirmation": {
+    "auc": 0.4036231884057971,
+    "interval": [
+     0.2843803056027165,
+     0.5290464743589743
+    ],
+    "first_count": 30,
+    "second_count": 92,
+    "first_median": 0.14955357142857142,
+    "second_median": 0.18293461726898258,
+    "lineages": 43
+   },
+   "pooled": {
+    "auc": 0.4250097898446678,
+    "interval": [
+     0.3424015009380863,
+     0.5242673992673993
+    ],
+    "first_count": 47,
+    "second_count": 163,
+    "first_median": 0.15970167087814147,
+    "second_median": 0.1987012987012987,
+    "lineages": 70
+   }
+  },
+  "prose_cohesion": {
+   "first": {
+    "auc": 0.5965202982601492,
+    "interval": [
+     0.4678649237472767,
+     0.7317460317460317
+    ],
+    "first_count": 17,
+    "second_count": 71,
+    "first_median": 0.28910836090122105,
+    "second_median": 0.22526023273816176,
+    "lineages": 27
+   },
+   "confirmation": {
+    "auc": 0.40217391304347827,
+    "interval": [
+     0.2779503105590062,
+     0.5445544554455446
+    ],
+    "first_count": 30,
+    "second_count": 92,
+    "first_median": 0.22940051221417518,
+    "second_median": 0.27791321894880383,
+    "lineages": 43
+   },
+   "pooled": {
+    "auc": 0.47330635687247097,
+    "interval": [
+     0.3806706114398422,
+     0.5771819485821472
+    ],
+    "first_count": 47,
+    "second_count": 163,
+    "first_median": 0.23939082808424766,
+    "second_median": 0.2500578523805386,
+    "lineages": 70
+   }
+  },
+  "prose_lift": {
+   "first": {
+    "auc": 0.6122618061309031,
+    "interval": [
+     0.4831081081081081,
+     0.7513736263736264
+    ],
+    "first_count": 17,
+    "second_count": 71,
+    "first_median": 0.23612829915850786,
+    "second_median": 0.17057785561760552,
+    "lineages": 27
+   },
+   "confirmation": {
+    "auc": 0.425,
+    "interval": [
+     0.2992831541218638,
+     0.5626262626262626
+    ],
+    "first_count": 30,
+    "second_count": 92,
+    "first_median": 0.193670310686201,
+    "second_median": 0.24215858474182367,
+    "lineages": 43
+   },
+   "pooled": {
+    "auc": 0.4919723273724057,
+    "interval": [
+     0.4004687761593839,
+     0.592564870259481
+    ],
+    "first_count": 47,
+    "second_count": 163,
+    "first_median": 0.2124547461514434,
+    "second_median": 0.21893872250667973,
+    "lineages": 70
+   }
+  },
+  "changed_together": {
+   "first": {
+    "auc": 0.621031746031746,
+    "interval": [
+     0.42291666666666666,
+     0.8541666666666666
+    ],
+    "first_count": 9,
+    "second_count": 28,
+    "first_median": 0.25,
+    "second_median": 0.17424242424242425,
+    "lineages": 18
+   },
+   "confirmation": {
+    "auc": 0.45405982905982906,
+    "interval": [
+     0.31043388429752067,
+     0.5994535519125683
+    ],
+    "first_count": 18,
+    "second_count": 52,
+    "first_median": 0.0,
+    "second_median": 0.04177433247200689,
+    "lineages": 32
+   },
+   "pooled": {
+    "auc": 0.5087962962962963,
+    "interval": [
+     0.38756127450980393,
+     0.6426190476190476
+    ],
+    "first_count": 27,
+    "second_count": 80,
+    "first_median": 0.09090909090909091,
+    "second_median": 0.06274509803921569,
+    "lineages": 50
+   }
+  },
+  "cochange_similarity": {
+   "first": {
+    "auc": 0.6567460317460317,
+    "interval": [
+     0.4735576923076923,
+     0.87
+    ],
+    "first_count": 9,
+    "second_count": 28,
+    "first_median": 0.2222222222222222,
+    "second_median": 0.07757145732689211,
+    "lineages": 18
+   },
+   "confirmation": {
+    "auc": 0.4407051282051282,
+    "interval": [
+     0.29111644657863145,
+     0.5867003367003367
+    ],
+    "first_count": 18,
+    "second_count": 52,
+    "first_median": 0.0,
+    "second_median": 0.027777777777777776,
+    "lineages": 32
+   },
+   "pooled": {
+    "auc": 0.5087962962962963,
+    "interval": [
+     0.38682432432432434,
+     0.645436507936508
+    ],
+    "first_count": 27,
+    "second_count": 80,
+    "first_median": 0.07317073170731707,
+    "second_median": 0.054093567251461985,
+    "lineages": 50
+   }
+  },
+  "depth": {
+   "first": {
+    "auc": 0.3487986743993372,
+    "interval": [
+     0.19138755980861244,
+     0.536046511627907
+    ],
+    "first_count": 17,
+    "second_count": 71,
+    "first_median": 0.23529411764705882,
+    "second_median": 0.43333333333333335,
+    "lineages": 27
+   },
+   "confirmation": {
+    "auc": 0.5242753623188405,
+    "interval": [
+     0.3810483870967742,
+     0.6830262225372077
+    ],
+    "first_count": 30,
+    "second_count": 92,
+    "first_median": 0.4847902097902098,
+    "second_median": 0.4296984572230014,
+    "lineages": 43
+   },
+   "pooled": {
+    "auc": 0.45881738676413003,
+    "interval": [
+     0.34024966261808365,
+     0.5909961685823755
+    ],
+    "first_count": 47,
+    "second_count": 163,
+    "first_median": 0.3695652173913043,
+    "second_median": 0.43333333333333335,
+    "lineages": 70
+   }
+  },
+  "declaration_only_share": {
+   "first": {
+    "auc": 0.6859983429991715,
+    "interval": [
+     0.5512987012987013,
+     0.788244766505636
+    ],
+    "first_count": 17,
+    "second_count": 71,
+    "first_median": 0.3333333333333333,
+    "second_median": 0.0,
+    "lineages": 27
+   },
+   "confirmation": {
+    "auc": 0.5005434782608695,
+    "interval": [
+     0.3878826530612245,
+     0.6102788181439867
+    ],
+    "first_count": 30,
+    "second_count": 92,
+    "first_median": 0.0,
+    "second_median": 0.0,
+    "lineages": 43
+   },
+   "pooled": {
+    "auc": 0.5741417569507897,
+    "interval": [
+     0.48095238095238096,
+     0.6573033707865169
+    ],
+    "first_count": 47,
+    "second_count": 163,
+    "first_median": 0.0,
+    "second_median": 0.0,
+    "lineages": 70
+   }
+  },
+  "collision_share": {
+   "first": {
+    "auc": 0.4788732394366197,
+    "interval": [
+     0.453125,
+     0.5
+    ],
+    "first_count": 17,
+    "second_count": 71,
+    "first_median": 0.0,
+    "second_median": 0.0,
+    "lineages": 27
+   },
+   "confirmation": {
+    "auc": 0.47282608695652173,
+    "interval": [
+     0.4451219512195122,
+     0.4942528735632184
+    ],
+    "first_count": 30,
+    "second_count": 92,
+    "first_median": 0.0,
+    "second_median": 0.0,
+    "lineages": 43
+   },
+   "pooled": {
+    "auc": 0.4754601226993865,
+    "interval": [
+     0.458041958041958,
+     0.49029126213592233
+    ],
+    "first_count": 47,
+    "second_count": 163,
+    "first_median": 0.0,
+    "second_median": 0.0,
+    "lineages": 70
+   }
+  },
+  "qualified_use_share": {
+   "first": {
+    "auc": 0.4180327868852459,
+    "interval": [
+     0.36507936507936506,
+     0.4647887323943662
+    ],
+    "first_count": 16,
+    "second_count": 61,
+    "first_median": 0.0,
+    "second_median": 0.0,
+    "lineages": 26
+   },
+   "confirmation": {
+    "auc": 0.4679726368159204,
+    "interval": [
+     0.4056603773584906,
+     0.5237771739130435
+    ],
+    "first_count": 24,
+    "second_count": 67,
+    "first_median": 0.0,
+    "second_median": 0.0,
+    "lineages": 34
+   },
+   "pooled": {
+    "auc": 0.444921875,
+    "interval": [
+     0.4051266339869281,
+     0.4849838287386416
+    ],
+    "first_count": 40,
+    "second_count": 128,
+    "first_median": 0.0,
+    "second_median": 0.0,
+    "lineages": 60
+   }
+  },
+  "facade_use_share": {
+   "first": {
+    "auc": 0.6029713114754098,
+    "interval": [
+     0.48826597131681876,
+     0.7661157024793388
+    ],
+    "first_count": 16,
+    "second_count": 61,
+    "first_median": 0.0,
+    "second_median": 0.0,
+    "lineages": 26
+   },
+   "confirmation": {
+    "auc": 0.5286069651741293,
+    "interval": [
+     0.3848028356225078,
+     0.6797945205479452
+    ],
+    "first_count": 24,
+    "second_count": 67,
+    "first_median": 0.0,
+    "second_median": 0.0,
+    "lineages": 34
+   },
+   "pooled": {
+    "auc": 0.56181640625,
+    "interval": [
+     0.46498771498771496,
+     0.6721583370190182
+    ],
+    "first_count": 40,
+    "second_count": 128,
+    "first_median": 0.0,
+    "second_median": 0.0,
+    "lineages": 60
+   }
+  },
+  "sibling_only_names": {
+   "first": {
+    "auc": 0.5695940347970174,
+    "interval": [
+     0.4653253424657534,
+     0.7110423116615067
+    ],
+    "first_count": 17,
+    "second_count": 71,
+    "first_median": 0.0,
+    "second_median": 0.0,
+    "lineages": 27
+   },
+   "confirmation": {
+    "auc": 0.6663043478260869,
+    "interval": [
+     0.5619565217391305,
+     0.7827417380660955
+    ],
+    "first_count": 30,
+    "second_count": 92,
+    "first_median": 0.02,
+    "second_median": 0.0,
+    "lineages": 43
+   },
+   "pooled": {
+    "auc": 0.6258321367967629,
+    "interval": [
+     0.5475408098367607,
+     0.7137305699481865
+    ],
+    "first_count": 47,
+    "second_count": 163,
+    "first_median": 0.0,
+    "second_median": 0.0,
+    "lineages": 70
+   }
+  },
+  "scope_co_use": {
+   "first": {
+    "auc": 0.7071428571428572,
+    "interval": [
+     0.583,
+     0.8359375
+    ],
+    "first_count": 14,
+    "second_count": 55,
+    "first_median": 0.42000000000000004,
+    "second_median": 0.0,
+    "lineages": 26
+   },
+   "confirmation": {
+    "auc": 0.4356060606060606,
+    "interval": [
+     0.3112858464384829,
+     0.5673624288425048
+    ],
+    "first_count": 22,
+    "second_count": 54,
+    "first_median": 0.0,
+    "second_median": 0.0,
+    "lineages": 30
+   },
+   "pooled": {
+    "auc": 0.5273955147808359,
+    "interval": [
+     0.4138558201058201,
+     0.6445266272189349
+    ],
+    "first_count": 36,
+    "second_count": 109,
+    "first_median": 0.0,
+    "second_median": 0.0,
+    "lineages": 56
+   }
+  },
+  "merge_saving": {
+   "first": {
+    "auc": 0.5995798319327731,
+    "interval": [
+     0.44448529411764703,
+     0.7353219696969697
+    ],
+    "first_count": 17,
+    "second_count": 70,
+    "first_median": 0.34782608695652173,
+    "second_median": 0.3060200668896321,
+    "lineages": 27
+   },
+   "confirmation": {
+    "auc": 0.5414167916041979,
+    "interval": [
+     0.410625,
+     0.6809375
+    ],
+    "first_count": 29,
+    "second_count": 92,
+    "first_median": 0.18181818181818177,
+    "second_median": 0.1742424242424242,
+    "lineages": 43
+   },
+   "pooled": {
+    "auc": 0.5442834138486312,
+    "interval": [
+     0.4439571150097466,
+     0.649421171977563
+    ],
+    "first_count": 46,
+    "second_count": 162,
+    "first_median": 0.25,
+    "second_median": 0.23128342245989308,
+    "lineages": 70
+   }
+  },
+  "idle_share": {
+   "first": {
+    "auc": 0.6859983429991715,
+    "interval": [
+     0.5512987012987013,
+     0.788244766505636
+    ],
+    "first_count": 17,
+    "second_count": 71,
+    "first_median": 0.3333333333333333,
+    "second_median": 0.0,
+    "lineages": 27
+   },
+   "confirmation": {
+    "auc": 0.5056159420289855,
+    "interval": [
+     0.39285714285714285,
+     0.6156670746634026
+    ],
+    "first_count": 30,
+    "second_count": 92,
+    "first_median": 0.0,
+    "second_median": 0.0,
+    "lineages": 43
+   },
+   "pooled": {
+    "auc": 0.5769481790888918,
+    "interval": [
+     0.4840816326530612,
+     0.6608337981037368
+    ],
+    "first_count": 47,
+    "second_count": 163,
+    "first_median": 0.0,
+    "second_median": 0.0,
+    "lineages": 70
+   }
+  },
+  "merge_evidence": {
+   "first": {
+    "auc": 0.7125103562551781,
+    "interval": [
+     0.547945205479452,
+     0.8408536585365853
+    ],
+    "first_count": 17,
+    "second_count": 71,
+    "first_median": 0.8888888888888888,
+    "second_median": 0.07692307692307693,
+    "lineages": 27
+   },
+   "confirmation": {
+    "auc": 0.48532608695652174,
+    "interval": [
+     0.35650083612040134,
+     0.6233486943164362
+    ],
+    "first_count": 30,
+    "second_count": 92,
+    "first_median": 0.0,
+    "second_median": 0.225,
+    "lineages": 43
+   },
+   "pooled": {
+    "auc": 0.569573162772484,
+    "interval": [
+     0.45379639611889727,
+     0.6748721227621484
+    ],
+    "first_count": 47,
+    "second_count": 163,
+    "first_median": 0.4,
+    "second_median": 0.2,
+    "lineages": 70
+   }
+  },
+  "interface_shrink": {
+   "first": {
+    "auc": 0.4544324772162386,
+    "interval": [
+     0.32469635627530363,
+     0.6203473945409429
+    ],
+    "first_count": 17,
+    "second_count": 71,
+    "first_median": 0.33333333333333337,
+    "second_median": 0.375,
+    "lineages": 27
+   },
+   "confirmation": {
+    "auc": 0.553623188405797,
+    "interval": [
+     0.4257518796992481,
+     0.6807065217391305
+    ],
+    "first_count": 30,
+    "second_count": 92,
+    "first_median": 0.4642857142857143,
+    "second_median": 0.33333333333333337,
+    "lineages": 43
+   },
+   "pooled": {
+    "auc": 0.5183396423443415,
+    "interval": [
+     0.41754385964912283,
+     0.6218085865069177
+    ],
+    "first_count": 47,
+    "second_count": 163,
+    "first_median": 0.4,
+    "second_median": 0.3529411764705882,
+    "lineages": 70
+   }
+  },
+  "hops": {
+   "first": {
+    "auc": 0.7045454545454546,
+    "interval": [
+     0.578,
+     0.824468085106383
+    ],
+    "first_count": 14,
+    "second_count": 55,
+    "first_median": 0.5214285714285715,
+    "second_median": 0.0,
+    "lineages": 26
+   },
+   "confirmation": {
+    "auc": 0.43434343434343436,
+    "interval": [
+     0.31,
+     0.5595238095238095
+    ],
+    "first_count": 22,
+    "second_count": 54,
+    "first_median": 0.0,
+    "second_median": 0.0,
+    "lineages": 30
+   },
+   "pooled": {
+    "auc": 0.5266309887869521,
+    "interval": [
+     0.41222192441704636,
+     0.6422680412371135
+    ],
+    "first_count": 36,
+    "second_count": 109,
+    "first_median": 0.0,
+    "second_median": 0.0,
+    "lineages": 56
+   }
+  },
+  "signature_coupling": {
+   "first": {
+    "auc": 0.5488815244407622,
+    "interval": [
+     0.41647727272727275,
+     0.6898238747553816
+    ],
+    "first_count": 17,
+    "second_count": 71,
+    "first_median": 0.0,
+    "second_median": 0.0,
+    "lineages": 27
+   },
+   "confirmation": {
+    "auc": 0.5391304347826087,
+    "interval": [
+     0.4295955882352941,
+     0.6590909090909091
+    ],
+    "first_count": 30,
+    "second_count": 92,
+    "first_median": 0.0,
+    "second_median": 0.0,
+    "lineages": 43
+   },
+   "pooled": {
+    "auc": 0.5419658008092938,
+    "interval": [
+     0.4557096451774113,
+     0.6341661258922777
+    ],
+    "first_count": 47,
+    "second_count": 163,
+    "first_median": 0.0,
+    "second_median": 0.0,
+    "lineages": 70
+   }
+  },
+  "name_echo": {
+   "first": {
+    "auc": 0.44449047224523613,
+    "interval": [
+     0.3333333333333333,
+     0.5414312617702448
+    ],
+    "first_count": 17,
+    "second_count": 71,
+    "first_median": 0.0,
+    "second_median": 0.0,
+    "lineages": 27
+   },
+   "confirmation": {
+    "auc": 0.5067028985507246,
+    "interval": [
+     0.3964,
+     0.6136528685548294
+    ],
+    "first_count": 30,
+    "second_count": 92,
+    "first_median": 0.0,
+    "second_median": 0.0,
+    "lineages": 43
+   },
+   "pooled": {
+    "auc": 0.4823782795979637,
+    "interval": [
+     0.39996102377549697,
+     0.5584810126582278
+    ],
+    "first_count": 47,
+    "second_count": 163,
+    "first_median": 0.0,
+    "second_median": 0.0,
+    "lineages": 70
+   }
+  }
+ },
+ "preconditions": {
+  "measured": 257,
+  "reported": 63,
+  "with_collision": 2,
+  "with_namespace_use": 5,
+  "with_either": [
+   "Buuntu_fastapi-react:{{cookiecutter.project_slug}}/backend/app/db",
+   "element-hq_synapse:synmark/suites",
+   "freqtrade_freqtrade:freqtrade/system",
+   "pretix:src/pretix/plugins/banktransfer/templatetags",
+   "python-fastapi-hex-todo:todolist/core/accounts/services",
+   "qu3vipon-python-ddd:src/display/presentation/rest"
+  ]
+ }
+}

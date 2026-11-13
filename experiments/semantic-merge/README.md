@@ -7,40 +7,49 @@ more precise, with the standard library only? This is the spike behind issue
 
 ## Headline
 
-- **No evidence signal reliably identifies the packages to merge.** Common
-  Reuse, internal coupling, vocabulary, sibling similarity and co-change were
-  measured on 135 packages from 34 projects. A pattern that looked strong on
-  the dev split (over-split packages have the lower vocabulary cohesion, AUC
-  0.11) is absent on the holdout (0.49), and the guard fixed on dev fails
-  there.
-- **Co-change is the one lead.** Against independent blind ratings it is the
-  only evidence signal whose interval clears no separation: packages rated
-  merge co-change more than packages rated keep (AUC 0.80, interval 0.63 to
-  1.00). That rests on 17 packages, and the corpus labels do not confirm it
-  on the seven and six packages where they can.
+- **No signal, borrowed or invented, identifies the packages to merge on
+  fresh data.** Two rounds were run. The first measured the signals of the
+  literature (Common Reuse, internal coupling, vocabulary, sibling
+  similarity, co-change) on 135 packages from 34 projects. The second
+  invented signals that ask what a module boundary does, froze them with
+  their hypotheses, and tested them on 122 packages from 43 projects no
+  earlier step had read. Every hypothesis fixed in advance failed: the
+  primary measure separates merge from the rest at an AUC of 0.49 (interval
+  0.36 to 0.62) where it had shown 0.71 on the data it was designed on.
+- **Each round's leads died in the next.** Vocabulary cohesion, strong on
+  the dev split (0.11), is at chance on the holdout (0.49). Co-change, the
+  one lead of the first round (0.80 on 17 packages), is at 0.51 on the 44
+  confirmation packages that have history. Size, which separated the
+  packages to keep when raters were shown line counts (0.18), does not once
+  they are not (0.45).
+- **The target is the limit.** Two blind raters agree on merge-or-not with
+  a kappa of 0.32 on the first set and 0.27 on the confirmation set. A
+  second rater who has read the code predicts the first rater's merge at an
+  AUC of 0.70 to 0.74: that is the ceiling for any mechanical signal, and
+  it is not far above chance.
+- **One signal keeps its direction in both rated sets.** The share of public
+  names that only sibling members import (a helper used by the module beside
+  it) separates merge from the rest at 0.57 and 0.67, 0.63 pooled (interval
+  0.55 to 0.71). It is the reason raters most often give. It was not a
+  hypothesis, so it is a lead and no more.
 - **The signals do track how authors group modules, which is another
   question.** Across 20 projects every pairwise signal tells modules of one
   package from modules of sibling packages better than chance (median AUC
-  0.59 to 0.72). A package of parallel siblings (one router per resource, one
-  port per file) scores high on similarity whether raters call it an
-  over-split or a convention.
-- **The label itself is only moderately reliable.** Two blind raters agree on
-  merge-or-not with a kappa of 0.32. One blind rater reproduces the
-  holdout's over-split labels (7 of 9) but few of the dev split's (3 of 13).
-- **Size separates what to keep from the rest, and the rule already reads
-  it.** Packages rated keep have 59 lines per member at the median, those
-  rated merge 20 (AUC 0.18, interval 0.08 to 0.38). The raters were shown the
-  line counts, so this is not independent of them.
+  0.59 to 0.72).
 - **Evidence in the message shows no effect on decisions.** Agents acting as
   maintainers merged 8 of 72 times with the message as it is and 7 of 72
   with a Common Reuse sentence added, in six sessions per arm.
 - **Clustering the import graph is not worth a tool.** A Bunch-style search
   agrees with the authors' packages at an adjusted Rand index of 0.15 and
   with itself, between random starts, at 0.57.
+- **A merge precondition fails for 6 of the 63 packages the rule reports.**
+  Two members define the same name, or a client uses a member as a
+  namespace, so the merge the finding suggests needs renames. This holds
+  whatever a rater thinks of the package.
 
 The recommendation is at the end: leave `SHALLOW-001`'s conditions and message
-as they are, build no clustering tool, and take up three follow-ups in
-separate changes.
+as they are, build no clustering tool, and take up the follow-ups listed
+there in separate changes.
 
 ## What was measured
 
@@ -71,10 +80,10 @@ dropped.
 
 | Direction | Result |
 |---|---|
-| Package design principles: Common Reuse, Common Closure [@martin2002agile, ch. 20] | Measured as the reuse and co-change signals below. Reuse does not replicate; co-change is the one lead. |
+| Package design principles: Common Reuse, Common Closure [@martin2002agile, ch. 20] | Measured as the reuse and co-change signals below. Neither replicates. |
 | Design criteria: shared information, used together [@ousterhout2018philosophy, ch. 9] | Measured as internal coupling and reuse. Neither replicates. |
 | Semantic clustering [@kuhn2007semantic; @marcus2005conceptual] | Measured as vocabulary cohesion. Reversed on dev, absent on the holdout and against blind ratings. |
-| Co-change [@gall1998logical; @zimmermann2005mining] | Measured. Defined for 65 of the 120 packages in a git checkout; separates merge from keep on 17 rated packages. |
+| Co-change [@gall1998logical; @zimmermann2005mining] | Measured. Defined for 65 of the 120 first-round packages in a git checkout; separated merge from keep on 17 of them and is at chance on the 44 of the confirmation set. |
 | Search-based clustering [@mancoridis1998clustering; @mitchell2006bunch] | Measured. Weakly related to the authors' packages and only moderately stable. |
 | Multi-objective clustering [@praditwong2011clustering] | Dropped. It optimises the same cohesion and coupling objectives, and the single-objective search already scores above the authors' own partition on them in all 20 repositories while agreeing with it at 0.15: a better optimiser of those objectives moves away from the packages, not towards them. |
 | Pattern-based clustering, ACDC [@tzerpos2000acdc] | Dropped, not measured. Its patterns are defined over a system's whole dependency graph, the granularity of the clustering experiment and not of a package of two to ten modules; it would be a second clustering experiment under the same evaluation, and the first gave no reason for one. |
@@ -164,9 +173,11 @@ rater says so, keep if all do):
 | `role_similarity` | 0.45 [0.29, 0.59] | 0.40 [0.25, 0.57] | 0.56 [0.39, 0.73] |
 | `cochange_similarity` | 0.80 [0.63, 1.00], 17 packages | 0.60 [0.38, 0.85], 29 packages | 0.67 [0.43, 0.87], 28 packages |
 
-Size separates keep from both other levels and does not separate merge from
-contested. Co-change is the only evidence signal with an interval clear of
-0.5, merge against keep, on the 17 packages that have it. `used_together` and
+In this first round size separates keep from both other levels and does not
+separate merge from contested, and co-change is the only evidence signal
+with an interval clear of 0.5, merge against keep, on the 17 packages that
+have it. Neither survives the second round (see the invented signals,
+below). `used_together` and
 `role_similarity` keep one direction across both splits and both merge
 comparisons, without an interval that clears 0.5 in more than one of them.
 
@@ -257,48 +268,136 @@ measure whether the rule changes how an agent writes new code, which needs
 the full A/B harness. Its raw runs live in a repository this spike could not
 reach, and a re-run is 18 agent builds.
 
+## Invented signals: boundary work
+
+The signals above ask whether the members of a package resemble each other.
+A second family asks what each module boundary does, by simulating the merge
+on the names the members define and the names their clients import
+(`harness/member_surfaces.py`, `boundary_signals.py`, `idle_boundaries.py`):
+
+- `idle_share`: the share of members whose boundary does no work. A member
+  is idle when no function body in it holds a statement (it hides nothing
+  [@parnas1972criteria; @ousterhout2018philosophy, ch. 4]), no client imports
+  it as a module object, and it defines no name another member defines. It
+  has no threshold.
+- `scope_co_use`: of the client functions that reference any member's
+  names, the share referencing two or more.
+- `merge_evidence`: the sum of the two.
+
+They were designed with all 135 packages of the first round in view, then
+committed with six hypotheses and the analysis script before the
+confirmation set was rated (`SPEC.md`). That set is 122 packages from 43
+repositories nothing earlier had read, rated by two blind raters who were
+not shown line counts: 30 merge, 47 contested, 45 keep.
+
+| Measure, merge against the rest | Designed on (88 packages) | Confirmation (122) | Fixed in advance |
+|---|---|---|---|
+| `merge_evidence` | 0.71 [0.55, 0.84] | 0.49 [0.36, 0.62] | primary, above 0.5: not confirmed |
+| `idle_share`, merge against keep | 0.74 [0.57, 0.84] | 0.49 [0.35, 0.63] | above 0.5: not confirmed |
+| `scope_co_use`, merge against keep | 0.79 [0.62, 0.92] | 0.47 [0.31, 0.60] | above 0.5: not confirmed |
+| `cochange_similarity`, merge against keep | 0.80 [0.63, 1.00] | 0.51 [0.33, 0.67] | above 0.5: not confirmed |
+| lines per member, merge against keep | 0.18 [0.08, 0.38] | 0.45 [0.31, 0.60] | below 0.5: not confirmed |
+| `identifier_cohesion` | 0.57 [0.44, 0.71] | 0.42 [0.30, 0.57] | no separation: holds |
+| `used_together` | 0.61 [0.47, 0.73] | 0.46 [0.31, 0.61] | no separation: holds |
+
+The namespace hypothesis fails too: 1 of the 8 packages with a member used
+as a namespace is rated merge, against 29 of the other 114, where the first
+round had 0 of 10 against 17 of 78. Counting a package as merge only when
+both raters say so leaves 6 and changes no verdict.
+
+The confirmation set is not the first set's population. Two thirds of its
+packages have two members (43% in the first set), and they come mostly from
+libraries and large applications where the first set leaned on small layered
+examples. On it the first rater's reasons for merge are most often a helper
+used only by the module beside it, or a package every client reaches
+through its re-exports: not what `idle_share` measures.
+
+**What a second reader can do.** Between the two raters, kappa is 0.27 for
+merge-or-not, 0.38 on three levels and 0.51 for keep-or-not. One rater's
+three-level rating predicts the other's merge at an AUC of 0.70 on the
+confirmation set (0.74 on the first). No signal that reads the code
+mechanically should be expected to beat a second reader of it.
+
+**Across both rated sets**, exploratory (`harness/report_exploration.py`),
+merge against the rest:
+
+| Signal | First set | Confirmation | Pooled (210 packages, 47 merge) |
+|---|---|---|---|
+| `sibling_only_names` | 0.57 [0.47, 0.71] | 0.67 [0.56, 0.78] | 0.63 [0.55, 0.71] |
+| `internal_density` | 0.53 [0.37, 0.69] | 0.61 [0.51, 0.72] | 0.58 [0.49, 0.67] |
+| `idle_share` | 0.69 [0.55, 0.79] | 0.51 [0.39, 0.62] | 0.58 [0.48, 0.66] |
+| `merge_evidence` | 0.71 [0.55, 0.84] | 0.49 [0.36, 0.62] | 0.57 [0.45, 0.67] |
+| `scope_co_use` | 0.71 [0.58, 0.84] | 0.44 [0.31, 0.57] | 0.53 [0.41, 0.64] |
+| `role_similarity` | 0.42 [0.28, 0.56] | 0.64 [0.52, 0.75] | 0.54 [0.45, 0.63] |
+| `cochange_similarity` | 0.66 [0.47, 0.87] | 0.44 [0.29, 0.59] | 0.51 [0.39, 0.65] |
+| `identifier_cohesion` | 0.57 [0.44, 0.71] | 0.42 [0.30, 0.57] | 0.47 [0.38, 0.58] |
+
+`sibling_only_names`, the share of public names only sibling members import,
+is the one signal above 0.5 in both sets with a pooled interval clear of it.
+It was a secondary measure, not a hypothesis, and it was picked out after
+seeing both sets.
+
+**Merge preconditions.** Of the 63 packages `SHALLOW-001` reports across
+all four sets, 2 have a name two members define and 5 have a member some
+client imports as a module object (6 packages in all). For those the fix
+the finding suggests is not a move of code: it needs renames, at the
+definitions or at every reference [@opdyke1992refactoring].
+
 ## Recommendation
 
 1. **Do not add a semantic condition or filter to `SHALLOW-001`.** No signal
-   separates the packages to merge on both the dev split and the holdout, and
-   the one guard fixed in advance fails on the holdout.
-2. **Do not add evidence to the message.** The Common Reuse sentence is true
-   of the package but does not predict the label, and it shows no effect on
-   decisions; it would lengthen every finding for nothing measured.
+   of either round separates the packages to merge on data it was not
+   designed on.
+2. **Do not add evidence to the message.** The Common Reuse sentence does
+   not predict the label and shows no effect on decisions, and the invented
+   evidence did not survive its confirmation.
 3. **Do not build a clustering tool.** The search is weakly related to the
    packages authors make and does not single out over-split ones.
-4. **Follow up co-change on its own, on repositories with history.** It is
-   the only evidence signal that separates merge from keep, on 17 packages.
-   That is enough to justify a dedicated measurement on a larger rated
-   sample and not enough to act on. It can never speak about code with no
-   history, which is where the rule is aimed, so at most it would be an
-   optional line in the message.
-5. **Have the dev split's over-split labels rated blind by more than one
-   rater, in its own change.** One blind rater reproduces 3 of 13; if others
-   agree, re-label dev (the corpus discipline allows it there; the holdout
-   stays sealed), since the rule was tuned to those labels.
-6. **Consider a tighter size condition, measured on its own.** Lines per
-   member separates keep from the rest. A lower tiny threshold or merge
-   budget would mostly remove findings rated keep (5 of the 36 reported), not
-   the contested ones (22). Whether that is worth its recall is a change to
-   the rule, to be chosen on dev and confirmed on the holdout, with raters
-   who are not shown line counts.
+4. **Do not read co-change, and do not tighten the size condition.** Both
+   leads of the first round are at chance on the confirmation set.
+5. **Check the merge precondition in the fix, in its own change.** When two
+   members define a name in use, or a client uses a member as a namespace,
+   the suggested merge needs renames. That is a property of the code, not of
+   a rating, it fails for 6 of 63 findings, and `docs/RULES.md` already
+   lists distinct names as a limit the rule does not check. The finding
+   should say so or not offer the merge.
+6. **Settle what merge means before measuring more signals.** Two readers
+   of the same code agree at a kappa near 0.3, and the reasons they give
+   differ by population. A label defined by what a rater can point at (a
+   helper only its neighbour imports, a package reached only through its
+   re-exports, declarations with no behaviour) could be rated reliably and
+   checked mechanically; "would a careful maintainer merge this" cannot.
+7. **If one signal is taken further, take `sibling_only_names`,** with its
+   own pre-registered confirmation: it is the only one that keeps its
+   direction in both rated sets, and it states a fact a reader can verify
+   ("checks.py is imported only by router.py").
+8. **Have the dev split's over-split labels rated blind by more than one
+   rater, in its own change.** One blind rater reproduces 3 of 13; the rule
+   was tuned to those labels.
 
 ## Reading it honestly
 
 - Every rater and every deciding agent is a Claude model, as the corpus's
   labellers were. Agreement between them is agreement within one family of
   judges, not with maintainers of these projects.
-- The samples are small and clustered: 135 packages, 34 projects, and five of
-  the holdout's seven structural over-split packages from one repository.
+- The samples are small and clustered: 257 packages from 77 projects over
+  both rounds, and five of the holdout's seven structural over-split
+  packages from one repository.
 - The holdout's labels and notes were read while mapping the corpus onto the
   original trees, before any holdout signal was computed. The extension set,
   the blind ratings, the size measures and the decision experiment were
   added after the holdout result, so they are exploratory; `SPEC.md` lists
   them and the measurement corrections made after an adversarial review.
-- The raters saw line counts and the prompt framed each package as fitting
-  one module of about 200 lines, so the size result is partly the raters'
-  own input.
+- The first round's raters saw line counts and a prompt framing each package
+  as fitting one module of about 200 lines. The confirmation raters saw
+  neither, and the size effect is gone there, so it was at least partly the
+  raters' own input.
+- The invented signals were confirmed on one fresh set and failed. The
+  comparison across both rated sets, the rater ceiling and the
+  `sibling_only_names` lead were looked at afterwards and are exploratory.
+- The confirmation set is a different population from the first set, so its
+  failure says the signals do not generalise, not that they are noise on
+  the kind of package they were designed on.
 - Vocabulary uses a weighted vector space, not latent semantic indexing,
   which needs a decomposition the standard library lacks. Against Java
   package structure the indexed variant did worse than the plain one
@@ -321,18 +420,23 @@ reach, and a re-run is 18 agent builds.
   `sibling_signals.py`, `cochange_signals.py`), the statistics
   (`separation.py`), the search (`modularization_quality.py`) and one script
   per experiment.
-- `prompts/`: the blind labelling and decision prompts.
+- `prompts/`: the blind labelling and decision prompts;
+  `label_confirmation.md` is the labelling prompt without line counts.
 - `results/`: `packages_*.json` (one record per package),
   `separation_*.json`, `ratings.json` and `ratings_report.json`,
   `congruence.json`, `clustering.json`, `decisions.json` and
-  `decisions_report.json`.
+  `decisions_report.json`; for the second round
+  `confirmation_candidates.json`, `ratings_confirmation.json`,
+  `confirmation_report.json` and `exploration_report.json`.
 
 ## Reproducing it
 
 Clone each repository the corpus names (the `source` of its labels) at its
 pinned commit into one directory, with history, and the extension
 repositories at the commits in `results/extension_candidates.json` into
-another. Then, from the repository root:
+another, and the confirmation repositories at the commits in
+`results/confirmation_candidates.json` into a third. Then, from the
+repository root:
 
 ```console
 H=experiments/semantic-merge/harness; R=experiments/semantic-merge/results
@@ -347,6 +451,10 @@ uv run python $H/measure_packages.py --repositories extension-trees --candidates
 uv run python $H/report_ratings.py --out $R/ratings_report.json
 uv run python $H/report_decisions.py --out $R/decisions_report.json
 uv run python $H/measure_congruence.py --trees corpus-trees --out $R/congruence.json
+uv run python $H/select_candidates.py --trees confirmation-trees --per-tree 6 --out $R/confirmation_candidates.json
+uv run python $H/measure_packages.py --repositories confirmation-trees --candidates $R/confirmation_candidates.json --out $R/packages_confirmation.json
+uv run python $H/report_confirmation.py --out $R/confirmation_report.json
+uv run python $H/report_exploration.py --out $R/exploration_report.json
 uv run python $H/measure_clustering.py --trees ab-trees --trees corpus-trees --records $R/packages_dev.json --records $R/packages_holdout.json --out $R/clustering.json
 ```
 
