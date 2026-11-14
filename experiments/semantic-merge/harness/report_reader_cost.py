@@ -47,7 +47,9 @@ def compute_interval(ratios: list[float]) -> tuple[float, float]:
 
 
 def compare_measure(
-    *, paired: dict[str, dict[str, dict[str, object]]], measure: str
+    *,
+    paired: dict[str, dict[str, dict[str, object]]],
+    measure: str,
 ) -> dict[str, object]:
     """The split-to-flat ratio of one effort measure over the paired bugs."""
     ratios = {
