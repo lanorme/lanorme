@@ -1,0 +1,86 @@
+[
+ {
+  "id": "r1-case",
+  "run": 1,
+  "old": "re.compile(rf\"\\b(?:{'|'.join(map(re.escape, words))})\\b\", re.IGNORECASE)",
+  "new": "re.compile(rf\"\\b(?:{'|'.join(map(re.escape, words))})\\b\")",
+  "report": "Blocked topics are only matched when the message uses the same letter case as the configured topic. With the topic `weapons` blocked, `POST /chat` with the message \"Where can I buy WEAPONS?\" returns 200 and reaches the model; it should return the 403 blocked response, as the lower-case message does."
+ },
+ {
+  "id": "r1-phone",
+  "run": 1,
+  "old": "_MIN_DIGITS = 7",
+  "new": "_MIN_DIGITS = 11",
+  "report": "Ten-digit phone numbers are no longer redacted. With PII redaction on, a message containing \"(555) 123-4567\" or \"555-123-4567\" reaches the model as written, and the same numbers in a reply come back unredacted. \"+44 20 7946 0958\" is still redacted."
+ },
+ {
+  "id": "r1-email",
+  "run": 1,
+  "old": "redacted = _PHONE.sub(lambda match: _phone_replacement(match=match), redacted)",
+  "new": "redacted = _PHONE.sub(lambda match: _phone_replacement(match=match), text)",
+  "report": "Email addresses are no longer redacted. With PII redaction on, a message containing \"ada@example.com\" reaches the model as written, and a reply containing an email address comes back with the address intact. Phone numbers are still redacted."
+ },
+ {
+  "id": "r1-flag",
+  "run": 1,
+  "old": "self.changed = self.changed or redaction.changed",
+  "new": "self.changed = redaction.changed",
+  "report": "When a reply contains an email address or a phone number, the reply text is redacted correctly, but the `guardrails` list of the response no longer reports the PII redaction: it comes back without the PII entry, on `POST /chat` and on the final event of `POST /chat/stream`. A redacted incoming message is still reported."
+ },
+ {
+  "id": "r2-case",
+  "run": 2,
+  "old": "return re.compile(rf\"(?<!\\w)(?:{'|'.join(alternatives)})(?!\\w)\", re.IGNORECASE)",
+  "new": "return re.compile(rf\"(?<!\\w)(?:{'|'.join(alternatives)})(?!\\w)\")",
+  "report": "Blocked topics are only matched when the message uses the same letter case as the configured topic. With the topic `weapons` blocked, `POST /chat` with the message \"Where can I buy WEAPONS?\" returns 200 and reaches the model; it should return the 403 blocked response, as the lower-case message does."
+ },
+ {
+  "id": "r2-phone",
+  "run": 2,
+  "old": "_MIN_PHONE_DIGITS = 10",
+  "new": "_MIN_PHONE_DIGITS = 12",
+  "report": "Ten-digit phone numbers are no longer redacted. With PII redaction on, a message containing \"(555) 123-4567\" or \"555-123-4567\" reaches the model as written, and the same numbers in a reply come back unredacted. \"+44 20 7946 0958\" is still redacted."
+ },
+ {
+  "id": "r2-forget",
+  "run": 2,
+  "old": "return len(self._conversations.pop(key, []))",
+  "new": "return len(self._conversations.get(key, []))",
+  "report": "`DELETE /sessions/{session_id}` returns 204 but the conversation is not forgotten: `GET /sessions/{session_id}/messages` still returns its messages afterwards, and the next turn in that session still sees the earlier turns. After a delete the session should be unknown (404) and a new turn should start a fresh conversation."
+ },
+ {
+  "id": "r2-policy",
+  "run": 2,
+  "old": "return stored if stored is not None else self._default",
+  "new": "return self._default",
+  "report": "Tenant policies are ignored. `PUT /tenants/{tenant_id}/policy` returns 200, but `GET /tenants/{tenant_id}/policy` then returns the default policy, and chat for that tenant runs under the default policy (its own blocked topics and tool-call limit have no effect)."
+ },
+ {
+  "id": "r3-tenant",
+  "run": 3,
+  "old": "return ConversationKey(tenant_id=tenant_id, session_id=session_id)",
+  "new": "return ConversationKey(tenant_id=session_id, session_id=session_id)",
+  "report": "Sessions are not scoped to the tenant. Two tenants using the same `session_id` share one conversation: each sees the other's turns in `GET /sessions/{session_id}/messages`, and a delete by one removes it for the other. The same `session_id` under two tenants should be two separate conversations."
+ },
+ {
+  "id": "r3-admin",
+  "run": 3,
+  "old": "return hmac.compare_digest(presented.encode(), expected.encode())",
+  "new": "return hmac.compare_digest(presented.encode(), presented.encode())",
+  "report": "The tenant policy endpoints accept any admin key. A request to `GET`, `PUT` or `DELETE /tenants/{tenant_id}/policy` with a wrong `X-Admin-Key` succeeds; it should return 401, as a request with no key still does."
+ },
+ {
+  "id": "r3-token",
+  "run": 3,
+  "old": "yield format_sse(TokenEvent(content=text))",
+  "new": "yield format_sse(TokenEvent(content=text.strip()))",
+  "report": "The tokens of `POST /chat/stream` lose their surrounding whitespace, so the concatenated token contents no longer equal the reply `POST /chat` returns for the same turn (words run together)."
+ },
+ {
+  "id": "r3-frame",
+  "run": 3,
+  "old": "return f\"data: {event.model_dump_json()}\\n\\n\"",
+  "new": "return f\"data: {event.model_dump_json()}\\n\"",
+  "report": "The events of `POST /chat/stream` are not separated by a blank line: each `data: <json>` line is followed by a single newline, so clients read the whole stream as one event. Each event should be one `data:` line followed by a blank line."
+ }
+]

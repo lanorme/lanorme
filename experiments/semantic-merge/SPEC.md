@@ -257,6 +257,43 @@ and the 18 agent A/B snapshots.
    unreliable criterion (one rater predicts the other at 0.70), so this is
    reported whichever way it falls and decides nothing alone.
 
+## Reader cost
+
+Three rounds asked whether the modules of a small package belong together.
+None asked the question the rule exists for: does a finely split layout cost
+whoever makes the next change? This measures it directly.
+
+- **Layouts.** The three stage-3 codebases of the A/B arm told to use
+  LaNorme, as written (`split`), and each with every merge candidate
+  collapsed into one module by `prompts/collapse.md`, the code moved verbatim
+  (`flat`): 16 modules against 13, 22 against 12, 13 against 9.
+  `harness/reader_cost_tasks.py verify` checks that the two layouts of a run
+  hold the same definitions with identical bodies, and both pass the 82
+  hidden acceptance tests of the A/B experiment.
+- **Tasks.** Twelve one-line bugs (`reader-cost/bugs.json`), four per
+  codebase, each inside a collapsed package, each planted identically in
+  both layouts and failing the same hidden tests in both. An agent gets the
+  report in user terms (`prompts/fix_bug.md`) and a task directory whose name
+  does not give the layout away. One agent per bug and layout, 24 in all.
+- **Outcomes.** Whether the hidden suite passes after the fix, and the
+  tokens, tool calls and time the agent spent.
+
+Fixed before any agent ran:
+
+1. **Primary, the rule's premise.** The same fix costs more tokens in the
+   split layout than in the flat one: in at least 10 of the 12 pairs (under
+   no difference that happens about one time in fifty).
+2. The same for tool calls.
+3. The two layouts are fixed equally often; no direction is predicted.
+
+If the interval of the median token ratio lies between 0.8 and 1.25, no cost
+worth a rule shows at this size. Time is reported and not tested: the agents
+run concurrently.
+
+Limits known in advance: twelve bugs in three codebases, one agent per cell,
+every bug a local one-line fault inside the code that was moved. A task that
+needs a change across several modules could differ.
+
 ## Further experiments
 
 - **Congruence at scale.** For every original tree, how well each pairwise
