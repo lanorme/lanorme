@@ -33,8 +33,11 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
   sibling-module pairs at a median AUC of 0.77 on 69 projects it had never
   seen, and a module split one definition per file from an authored package
   at 0.86. By that standard the agent A/B packages the rule was built on are
-  not over-split, and the model does not predict the raters. The rule is
-  unchanged. The results and the follow-ups, among them checking the merge
+  not over-split, and the model does not predict the raters. A last
+  experiment planted twelve bugs in three agent-written codebases as split
+  and with every merge candidate collapsed: agents fixed all 24 at the same
+  cost (median token ratio 1.00), so a flat layout did not make a local fix
+  cheaper. The rule is unchanged. The results and the follow-ups, among them checking the merge
   precondition the fix assumes, are in `experiments/semantic-merge/README.md`.
 - `docs/references.bib` gains the 23 works the spike relies on, each checked
   against a bibliographic record (Crossref for the 21 with a DOI).

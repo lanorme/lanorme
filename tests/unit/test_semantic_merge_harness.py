@@ -35,6 +35,7 @@ import modularization_quality  # noqa: E402
 import report_confirmation  # noqa: E402
 import report_exploration  # noqa: E402
 import report_package_scores  # noqa: E402
+import report_reader_cost  # noqa: E402
 import report_ratings  # noqa: E402
 import reuse_signals  # noqa: E402
 import separation  # noqa: E402
@@ -888,3 +889,26 @@ def test_arms_pool_each_snapshot_and_set_the_authors_beside_them():
     assert found["groups"]["lanorme"]["across_modules"] == pytest.approx(0.35)
     assert found["groups"]["control"]["within_module"] == pytest.approx(0.6)
     assert found["groups"]["lanorme"]["modules"] == 4
+
+
+def test_reader_cost_pairs_each_bug_and_counts_where_split_costs_more():
+    # Arrange
+    rows = [
+        {"bug": "one", "layout": "split", "tokens": 120, "tool_uses": 6, "failed": 0},
+        {"bug": "one", "layout": "flat", "tokens": 100, "tool_uses": 6, "failed": 0},
+        {"bug": "two", "layout": "split", "tokens": 90, "tool_uses": 4, "failed": 0},
+        {"bug": "two", "layout": "flat", "tokens": 100, "tool_uses": 8, "failed": 1},
+        {"bug": "lone", "layout": "split", "tokens": 50, "tool_uses": 1, "failed": 0},
+    ]
+
+    # Act
+    paired = report_reader_cost.pair_rows(rows)
+    tokens = report_reader_cost.compare_measure(paired=paired, measure="tokens")
+    fixed = report_reader_cost.count_fixed(rows)
+
+    # Assert
+    assert sorted(paired) == ["one", "two"]
+    assert tokens["ratios"] == {"one": 1.2, "two": 0.9}
+    assert tokens["split_costs_more"] == 1
+    assert tokens["median_ratio"] == pytest.approx(1.05)
+    assert fixed == {"flat": "1 of 2", "split": "3 of 3"}

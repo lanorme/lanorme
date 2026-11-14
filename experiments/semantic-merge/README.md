@@ -40,6 +40,12 @@ would merge, and failed; the third changed the criterion and holds.
   and look like ordinary author boundaries (0.40). With the blind judge of
   the A/B experiment, the blind raters and the agent decisions below, that
   is four independent readings that those packages are not clear over-splits.
+- **A flat layout did not make the next fix cheaper.** The same twelve bugs
+  were planted in three agent-written codebases as split and with every
+  merge candidate collapsed into one module. Agents fixed all 24, and the
+  split layout cost the same: a median token ratio of 1.00 (interval 0.99 to
+  1.01) and the same six tool calls. The hypothesis that splitting costs the
+  next change, fixed in advance, did not hold for local one-line faults.
 - **The model does not predict the raters either.** Its package score is at
   0.49 against the confirmation ratings. It measures whether a boundary
   cuts through code authors keep together, which is one kind of over-split
@@ -418,6 +424,52 @@ an authored package. It does not answer "would a reviewer merge this
 package": against both sets of ratings its score is at chance. Those are
 different questions, and only the first has a reliable answer.
 
+## Reader cost
+
+None of the above asks what the rule is for: does a finely split layout cost
+whoever makes the next change? This measures it.
+
+The three stage-3 codebases of the A/B arm told to use LaNorme were prepared
+in two layouts: as written (`split`), and with every merge candidate
+collapsed into one module by an agent following `prompts/collapse.md`, the
+code moved verbatim (`flat`). The two layouts of a run hold the same
+definitions with identical bodies, checked on the syntax trees, and both pass
+all 82 hidden acceptance tests of the A/B experiment.
+
+| Codebase | Modules, split | Modules, flat |
+|---|---|---|
+| run 1 | 16 | 13 |
+| run 2 | 22 | 12 |
+| run 3 | 13 | 9 |
+
+Twelve one-line bugs (`reader-cost/bugs.json`), four per codebase, each
+inside a collapsed package, were planted identically in both layouts; each
+fails the same hidden tests in both. One agent per bug and layout was given
+the report in user terms (`prompts/fix_bug.md`) and a directory whose name
+does not give the layout away. The hypotheses were committed first
+(`SPEC.md`).
+
+| Outcome | Split | Flat | Split over flat, median of 12 pairs | Split costs more in |
+|---|---|---|---|---|
+| Hidden suite passes after the fix | 12 of 12 | 12 of 12 | | |
+| Tokens, median | 74,675 | 75,132 | 1.00 [0.99, 1.01] | 7 of 12 |
+| Tool calls, median | 6 | 6 | 1.00 [0.82, 1.18] | 4 of 12 |
+| Seconds, median | 18.8 | 19.5 | 0.99 [0.82, 1.05] | 6 of 12 |
+
+The primary hypothesis, that the split layout costs more tokens in at least
+10 of 12 pairs, does not hold, and neither does the same for tool calls. The
+interval of the token ratio lies well inside the 0.8 to 1.25 band fixed in
+advance as showing no cost worth a rule.
+
+What this covers is narrow, and was stated before the run: local one-line
+faults that an agent finds by searching for a word from the report, in
+codebases of nine to 22 modules. About 70,000 of each run's tokens are the
+agent's fixed overhead, so the token ratio is insensitive; the tool calls,
+four to nine a run, are the more telling measure and they do not differ
+either. A change that has to be made across several modules, or reading a
+codebase without a pointer into it, could behave differently and was not
+tested.
+
 ## Recommendation
 
 1. **Do not add a semantic condition, evidence sentence, co-change reading
@@ -425,8 +477,10 @@ different questions, and only the first has a reliable answer.
    two separates the packages raters would merge on data it was not designed
    on, and the co-location score does not either.
 2. **Do not build a clustering tool.**
-3. **Re-examine the rule's premise before investing more in it.** The A/B
-   packages it was built on are not over-split by four independent readings:
+3. **Re-examine the rule's premise before investing more in it.** Collapsing
+   every package the rule could ask about made twelve bug fixes no cheaper
+   and no more successful. And the A/B packages the rule was built on are
+   not over-split by four independent readings:
    the A/B judge preferred that arm's design in all nine pairs, blind raters
    call most of them contested or keep, agents acting as maintainers kept
    all five in all 20 decisions, and their boundaries look like authors'.
@@ -467,6 +521,9 @@ different questions, and only the first has a reliable answer.
   as fitting one module of about 200 lines. The confirmation raters saw
   neither, and the size effect is gone there, so it was at least partly the
   raters' own input.
+- The reader-cost experiment is twelve bugs in three codebases, one agent
+  per cell, all local faults. It shows no cost for that kind of change and
+  says nothing about changes that span modules.
 - The co-location model's ground truth is where authors put code, which is
   an observed decision and not a judgement of quality: an author's module
   can be badly organised. Its test is on open-source repositories, mostly
@@ -507,6 +564,10 @@ different questions, and only the first has a reliable answer.
   `colocation_dev.json`, `colocation_test.json`, `package_scores_dev.json`
   and `package_scores_test.json`. The pair and score files themselves are
   large and are rebuilt by the commands below.
+- For the reader-cost experiment: `reader_cost_tasks.py`,
+  `report_reader_cost.py`, `reader-cost/bugs.json`, `prompts/collapse.md`,
+  `prompts/fix_bug.md`, `results/reader_cost.json` and
+  `results/reader_cost_report.json`.
 - `prompts/`: the blind labelling and decision prompts;
   `label_confirmation.md` is the labelling prompt without line counts.
 - `results/`: `packages_*.json` (one record per package),
@@ -551,10 +612,17 @@ uv run python $H/report_package_scores.py --scores scores_dev.json --ratings $R/
 uv run python $H/score_packages.py --trees confirmation-trees --model $R/colocation_model.json --out scores_test.json
 uv run python $H/score_packages.py --trees confirmation-trees --model $R/colocation_model.json --only $R/packages_confirmation.json --out scores_test_rated.json
 uv run python $H/report_package_scores.py --scores scores_test.json --scores scores_test_rated.json --ratings $R/ratings_confirmation.json --out $R/package_scores_test.json
+uv run python $H/reader_cost_tasks.py build --layouts layouts --tasks tasks --python path/to/python
+uv run python $H/reader_cost_tasks.py check --tasks tasks --usage usage.json --out $R/reader_cost.json
+uv run python $H/report_reader_cost.py --out $R/reader_cost_report.json
 uv run python $H/measure_clustering.py --trees ab-trees --trees corpus-trees --records $R/packages_dev.json --records $R/packages_holdout.json --out $R/clustering.json
 ```
 
-The ratings and decisions are agent
+For the reader-cost experiment, `layouts` holds `run1-split` to `run3-split`
+(each A/B LaNorme stage-3 case with a `pyproject.toml` naming the service's
+dependencies) and `run1-flat` to `run3-flat` (the same after an agent has
+followed `prompts/collapse.md`); `usage.json` holds the tokens, tool calls
+and milliseconds each task's agent reported. The ratings and decisions are agent
 output and are kept as recorded; a new labelling or decision run fills
 `prompts/label.md` or `prompts/decide.md` with a batch path and an output
 path.
