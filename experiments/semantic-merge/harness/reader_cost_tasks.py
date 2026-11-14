@@ -78,7 +78,7 @@ def run_suite(project: Path) -> dict[str, object]:
     }
 
 
-def plant_bug(*, layout: Path, bug: dict[str, object], destination: Path) -> str:
+def write_task_copy(*, layout: Path, bug: dict[str, object], destination: Path) -> str:
     """Copy *layout* to *destination* with *bug* planted; the file it was planted in."""
     shutil.copytree(layout, destination, ignore=_IGNORED)
     old, new = str(bug["old"]), str(bug["new"])
@@ -116,7 +116,7 @@ def build_tasks(*, layouts: Path, tasks: Path, python: Path) -> None:
         for layout in LAYOUTS:
             name = "t" + hashlib.sha256(f"{bug['id']}:{layout}".encode()).hexdigest()[:8]
             project = tasks / name
-            planted = plant_bug(
+            planted = write_task_copy(
                 layout=layouts / f"run{bug['run']}-{layout}",
                 bug=bug,
                 destination=project,
